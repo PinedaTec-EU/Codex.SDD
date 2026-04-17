@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SpecForge.Domain/SpecForge.Domain.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SpecForge.Domain.Tests/SpecForge.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

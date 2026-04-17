@@ -44,10 +44,10 @@ Entregables:
 
 Entregables:
 
-- [ ] modelo de dominio
-- [ ] validación de transiciones
+- ✅ modelo de dominio
+- ✅ validación de transiciones
 - [ ] persistencia local
-- [ ] tests del dominio
+- ✅ tests del dominio
 
 ### [ ] Paso 5. Añadir una extensión VS Code mínima
 
