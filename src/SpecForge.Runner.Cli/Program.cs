@@ -30,6 +30,9 @@ try
         case "get-user-story-summary":
             await HandleGetUserStorySummaryAsync(applicationService, args);
             return 0;
+        case "approve-phase":
+            await HandleApprovePhaseAsync(runner, applicationService, args);
+            return 0;
         default:
             return ExitWithError($"Unknown command '{command}'.");
     }
@@ -108,6 +111,22 @@ static async Task HandleGetUserStorySummaryAsync(SpecForgeApplicationService app
 
     var workspaceRoot = args[1];
     var usId = args[2];
+    var summary = await applicationService.GetUserStorySummaryAsync(workspaceRoot, usId);
+    WriteJson(summary);
+}
+
+static async Task HandleApprovePhaseAsync(
+    WorkflowRunner runner,
+    SpecForgeApplicationService applicationService,
+    IReadOnlyList<string> args)
+{
+    EnsureArgumentCount(args, expectedCount: 4);
+
+    var workspaceRoot = args[1];
+    var usId = args[2];
+    var baseBranch = args[3];
+    var normalizedBaseBranch = string.Equals(baseBranch, "-", StringComparison.Ordinal) ? null : baseBranch;
+    await runner.ApproveCurrentPhaseAsync(workspaceRoot, usId, normalizedBaseBranch);
     var summary = await applicationService.GetUserStorySummaryAsync(workspaceRoot, usId);
     WriteJson(summary);
 }

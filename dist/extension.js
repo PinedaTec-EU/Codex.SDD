@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
+const detailsPanel_1 = require("./detailsPanel");
 const specsExplorer_1 = require("./specsExplorer");
 function activate(context) {
     const explorerProvider = new specsExplorer_1.SpecsExplorerProvider();
@@ -49,6 +50,11 @@ function activate(context) {
         explorerProvider.refresh();
     }), vscode.commands.registerCommand("specForge.openMainArtifact", async (summary) => {
         await (0, specsExplorer_1.openMainArtifact)(summary);
+    }), vscode.commands.registerCommand("specForge.showUserStoryDetails", async (summary) => {
+        await (0, detailsPanel_1.showUserStoryDetails)(summary);
+    }), vscode.commands.registerCommand("specForge.approveCurrentPhase", async (summary) => {
+        await (0, specsExplorer_1.approveCurrentPhase)(summary);
+        explorerProvider.refresh();
     }), vscode.commands.registerCommand("specForge.continuePhase", async (summary) => {
         await (0, specsExplorer_1.continuePhase)(summary);
         explorerProvider.refresh();

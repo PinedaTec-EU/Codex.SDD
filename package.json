@@ -17,7 +17,9 @@
     "onCommand:specForge.createUserStory",
     "onCommand:specForge.importUserStory",
     "onCommand:specForge.openMainArtifact",
-    "onCommand:specForge.continuePhase"
+    "onCommand:specForge.continuePhase",
+    "onCommand:specForge.approveCurrentPhase",
+    "onCommand:specForge.showUserStoryDetails"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -58,6 +60,14 @@
       {
         "command": "specForge.continuePhase",
         "title": "Continue Phase"
+      },
+      {
+        "command": "specForge.approveCurrentPhase",
+        "title": "Approve Current Phase"
+      },
+      {
+        "command": "specForge.showUserStoryDetails",
+        "title": "Show User Story Details"
       }
     ],
     "menus": {
@@ -88,6 +98,16 @@
           "command": "specForge.continuePhase",
           "when": "view == specForge.userStories && viewItem == specForge.userStory",
           "group": "inline"
+        },
+        {
+          "command": "specForge.approveCurrentPhase",
+          "when": "view == specForge.userStories && viewItem == specForge.userStory",
+          "group": "inline"
+        },
+        {
+          "command": "specForge.showUserStoryDetails",
+          "when": "view == specForge.userStories && viewItem == specForge.userStory",
+          "group": "navigation"
         }
       ]
     }

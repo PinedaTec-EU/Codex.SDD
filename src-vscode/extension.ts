@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
+import { showUserStoryDetails } from "./detailsPanel";
 import {
   SpecsExplorerProvider,
+  approveCurrentPhase,
   continuePhase,
   createUserStoryFromInput,
   importUserStoryFromMarkdown,
@@ -25,6 +27,13 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("specForge.openMainArtifact", async (summary) => {
       await openMainArtifact(summary);
+    }),
+    vscode.commands.registerCommand("specForge.showUserStoryDetails", async (summary) => {
+      await showUserStoryDetails(summary);
+    }),
+    vscode.commands.registerCommand("specForge.approveCurrentPhase", async (summary) => {
+      await approveCurrentPhase(summary);
+      explorerProvider.refresh();
     }),
     vscode.commands.registerCommand("specForge.continuePhase", async (summary) => {
       await continuePhase(summary);

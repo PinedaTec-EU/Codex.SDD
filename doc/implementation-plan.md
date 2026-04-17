@@ -49,7 +49,7 @@ Entregables:
 - ✅ persistencia local
 - ✅ tests del dominio
 
-### [ ] Paso 5. Añadir una extensión VS Code mínima
+### ✅ Paso 5. Añadir una extensión VS Code mínima
 
 Entregables:
 
@@ -91,14 +91,14 @@ Entregables:
 - ✅ registrar fallos, bloqueos y regresiones en timeline y estado
 - ✅ mantener trazabilidad entre artefactos y decisiones
 
-### [ ] Paso 5.4. Enriquecer la UX mínima
+### ✅ Paso 5.4. Enriquecer la UX mínima
 
 Entregables:
 
-- [ ] detalle de fase seleccionada
-- [ ] acciones contextuales por fase
-- [ ] feedback claro de errores y bloqueos
-- [ ] base para futura graph view del workflow
+- ✅ detalle de fase seleccionada
+- ✅ acciones contextuales por fase
+- ✅ feedback claro de errores y bloqueos
+- ✅ base para futura graph view del workflow
 
 ## Orden recomendado después de esta US
 
@@ -107,9 +107,9 @@ Entregables:
 3. ✅ concretar el contrato MCP mínimo
 4. ✅ arrancar implementación del dominio y persistencia
 5. [ ] fijar la estrategia de branch naming y reinicio seguro de una US
-6. [ ] cablear la extensión al runner local
-7. [ ] introducir boundary MCP estable
-8. [ ] sustituir placeholders por ejecución real de fases
+6. [ ] introducir backend MCP real detrás del boundary actual
+7. [ ] enriquecer ejecución de fases con providers/agents reales
+8. [ ] ampliar UX con graph view y detalle de fase más rico
 
 ## Riesgos a vigilar
 
@@ -128,12 +128,14 @@ Entregables:
 
 ## Estado actual
 
-El siguiente paso útil ya no es “hacer el wire” como bloque único. Ahora queda dividido en:
+La fase 5 queda resuelta en su alcance mínimo:
 
-1. cablear la extensión al runner local
-2. introducir boundary MCP estable
-3. sustituir placeholders por ejecución real
-4. enriquecer la UX mínima
+1. la extensión ya invoca el backend local
+2. existe un boundary estable entre UI y backend
+3. la ejecución de fases ya genera artefactos reales derivados del estado
+4. la UX mínima ya ofrece detalle, acciones contextuales y feedback básico
+
+El siguiente salto ya no es cerrar la fase 5, sino evolucionar el backend local hacia MCP real y providers de ejecución más potentes.
 
 Artefactos de persistencia ya concretados o en concreción:
 

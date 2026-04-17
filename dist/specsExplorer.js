@@ -38,6 +38,7 @@ exports.createUserStoryFromInput = createUserStoryFromInput;
 exports.importUserStoryFromMarkdown = importUserStoryFromMarkdown;
 exports.openMainArtifact = openMainArtifact;
 exports.continuePhase = continuePhase;
+exports.approveCurrentPhase = approveCurrentPhase;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const vscode = __importStar(require("vscode"));
@@ -152,7 +153,37 @@ async function continuePhase(summary) {
         if (result.generatedArtifactPath) {
             await openTextDocument(result.generatedArtifactPath);
         }
-        void vscode.window.showInformationMessage(`${summary.usId} advanced to ${result.currentPhase}.`);
+        void vscode.window.showInformationMessage(`${summary.usId} advanced to ${result.currentPhase} with status ${result.status}.`);
+    }
+    catch (error) {
+        void vscode.window.showErrorMessage(asErrorMessage(error));
+    }
+}
+async function approveCurrentPhase(summary) {
+    if (!summary) {
+        void vscode.window.showInformationMessage("Select a user story first.");
+        return;
+    }
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+        void vscode.window.showWarningMessage("Open a workspace folder before approving a phase.");
+        return;
+    }
+    let baseBranch;
+    if (summary.currentPhase === "refinement") {
+        baseBranch = await vscode.window.showInputBox({
+            prompt: "Base branch used to create the work branch",
+            value: "main",
+            ignoreFocusOut: true,
+            validateInput: (value) => value.trim().length > 0 ? undefined : "Base branch is required."
+        });
+        if (!baseBranch) {
+            return;
+        }
+    }
+    try {
+        const updatedSummary = await getBackendClient(workspaceRoot).approveCurrentPhase(summary.usId, baseBranch);
+        void vscode.window.showInformationMessage(`${updatedSummary.usId} approved. Current phase remains ${updatedSummary.currentPhase} until you continue the workflow.`);
     }
     catch (error) {
         void vscode.window.showErrorMessage(asErrorMessage(error));

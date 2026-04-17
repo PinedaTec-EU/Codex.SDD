@@ -33,6 +33,7 @@ export interface SpecForgeBackendClient {
   createUserStory(usId: string, title: string, sourceText: string): Promise<CreateOrImportUserStoryResult>;
   importUserStory(usId: string, sourcePath: string, title: string): Promise<CreateOrImportUserStoryResult>;
   continuePhase(usId: string): Promise<ContinuePhaseResult>;
+  approveCurrentPhase(usId: string, baseBranch?: string): Promise<UserStorySummary>;
 }
 
 export function createLocalCliBackendClient(workspaceRoot: string): SpecForgeBackendClient {
@@ -74,6 +75,14 @@ export function createLocalCliBackendClient(workspaceRoot: string): SpecForgeBac
         "continue-phase",
         workspaceRoot,
         usId
+      ]);
+    },
+    approveCurrentPhase: async (usId, baseBranch) => {
+      return invokeRunner<UserStorySummary>(workspaceRoot, [
+        "approve-phase",
+        workspaceRoot,
+        usId,
+        baseBranch ?? "-"
       ]);
     }
   };

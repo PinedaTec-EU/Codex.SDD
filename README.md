@@ -186,9 +186,13 @@ Typical contents:
 
 ### Next
 
-- [ ] wire the VS Code extension to the workflow runner
-- [ ] introduce an MCP application/backend layer
-- [ ] replace placeholder artifact generation with real phase execution
+- [x] wire the VS Code extension to the local workflow runner
+- [x] introduce a stable application/MCP boundary between UI and backend
+- [x] replace placeholder artifact generation with real phase execution
+- [x] refresh the explorer and open generated artifacts after workflow actions
+- [x] add approval and user-story detail actions to the extension
+- [ ] introduce a real MCP backend behind the current boundary
+- [ ] plug real providers/agents into phase execution
 - [ ] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration
 - [ ] support customizable workflows and agent profiles

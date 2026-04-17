@@ -145,7 +145,43 @@ export async function continuePhase(summary?: UserStorySummary): Promise<void> {
     }
 
     void vscode.window.showInformationMessage(
-      `${summary.usId} advanced to ${result.currentPhase}.`
+      `${summary.usId} advanced to ${result.currentPhase} with status ${result.status}.`
+    );
+  } catch (error) {
+    void vscode.window.showErrorMessage(asErrorMessage(error));
+  }
+}
+
+export async function approveCurrentPhase(summary?: UserStorySummary): Promise<void> {
+  if (!summary) {
+    void vscode.window.showInformationMessage("Select a user story first.");
+    return;
+  }
+
+  const workspaceRoot = getWorkspaceRoot();
+  if (!workspaceRoot) {
+    void vscode.window.showWarningMessage("Open a workspace folder before approving a phase.");
+    return;
+  }
+
+  let baseBranch: string | undefined;
+  if (summary.currentPhase === "refinement") {
+    baseBranch = await vscode.window.showInputBox({
+      prompt: "Base branch used to create the work branch",
+      value: "main",
+      ignoreFocusOut: true,
+      validateInput: (value) => value.trim().length > 0 ? undefined : "Base branch is required."
+    });
+
+    if (!baseBranch) {
+      return;
+    }
+  }
+
+  try {
+    const updatedSummary = await getBackendClient(workspaceRoot).approveCurrentPhase(summary.usId, baseBranch);
+    void vscode.window.showInformationMessage(
+      `${updatedSummary.usId} approved. Current phase remains ${updatedSummary.currentPhase} until you continue the workflow.`
     );
   } catch (error) {
     void vscode.window.showErrorMessage(asErrorMessage(error));
