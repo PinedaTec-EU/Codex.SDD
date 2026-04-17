@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using SpecForge.Domain.Application;
+using SpecForge.Domain.Persistence;
 
 namespace SpecForge.OpenAICompatible;
 
@@ -49,7 +50,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     {
         promptCatalog.EnsureRepositoryIsInitialized(context.WorkspaceRoot);
 
-        var request = BuildRequest(context);
+        var prompt = await BuildEffectivePromptAsync(context, cancellationToken);
+        var request = BuildRequest(prompt.SystemPrompt, prompt.UserPrompt);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         var payload = await response.Content.ReadAsStringAsync(cancellationToken);
 
@@ -74,26 +76,24 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return new PhaseExecutionResult(content.Trim(), ExecutionKind: "openai-compatible");
     }
 
-    private HttpRequestMessage BuildRequest(PhaseExecutionContext context)
+    private HttpRequestMessage BuildRequest(string systemPrompt, string userPrompt)
     {
         var endpoint = $"{options.BaseUrl.TrimEnd('/')}/chat/completions";
-        var promptPath = promptCatalog.GetExecutePromptPath(context.WorkspaceRoot, context.PhaseId);
-        var userPrompt = BuildUserPrompt(context);
         var messages = new List<object>();
 
-        if (!string.IsNullOrWhiteSpace(options.SystemPrompt))
+        if (!string.IsNullOrWhiteSpace(systemPrompt))
         {
             messages.Add(new
             {
                 role = "system",
-                content = options.SystemPrompt
+                content = systemPrompt
             });
         }
 
         messages.Add(new
         {
             role = "user",
-            content = $"{userPrompt}{Environment.NewLine}{Environment.NewLine}Prompt template: {promptPath}"
+            content = userPrompt
         });
 
         var requestBody = JsonSerializer.Serialize(new
@@ -112,31 +112,73 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return request;
     }
 
-    private static string BuildUserPrompt(PhaseExecutionContext context)
+    private async Task<EffectivePrompt> BuildEffectivePromptAsync(
+        PhaseExecutionContext context,
+        CancellationToken cancellationToken)
     {
+        var paths = new PromptFilePaths(context.WorkspaceRoot);
+        var phasePromptPath = promptCatalog.GetExecutePromptPath(context.WorkspaceRoot, context.PhaseId);
+        var sharedSystemPrompt = await File.ReadAllTextAsync(paths.SharedSystemPromptPath, cancellationToken);
+        var sharedStylePrompt = await File.ReadAllTextAsync(paths.SharedStylePromptPath, cancellationToken);
+        var sharedOutputRulesPrompt = await File.ReadAllTextAsync(paths.SharedOutputRulesPromptPath, cancellationToken);
+        var phasePrompt = await File.ReadAllTextAsync(phasePromptPath, cancellationToken);
+        var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
+        var systemPrompt = string.Join(
+            $"{Environment.NewLine}{Environment.NewLine}",
+            new[]
+            {
+                options.SystemPrompt,
+                sharedSystemPrompt.Trim(),
+                sharedStylePrompt.Trim(),
+                sharedOutputRulesPrompt.Trim()
+            }.Where(static part => !string.IsNullOrWhiteSpace(part)));
+
         var builder = new StringBuilder()
-            .AppendLine("Generate the markdown artifact for the requested SpecForge phase.")
-            .AppendLine("Return only markdown.")
+            .AppendLine(phasePrompt.Trim())
             .AppendLine()
-            .AppendLine($"US ID: {context.UsId}")
-            .AppendLine($"Phase: {context.PhaseId}")
-            .AppendLine($"User story path: {context.UserStoryPath}")
+            .AppendLine("## Runtime Context")
+            .AppendLine();
+
+        builder
+            .AppendLine($"- Workspace root: `{context.WorkspaceRoot}`")
+            .AppendLine($"- US ID: `{context.UsId}`")
+            .AppendLine($"- Phase: `{context.PhaseId}`")
+            .AppendLine($"- User story path: `{context.UserStoryPath}`")
+            .AppendLine();
+
+        builder
+            .AppendLine("## User Story")
+            .AppendLine()
+            .AppendLine(userStory.Trim())
             .AppendLine();
 
         if (context.PreviousArtifactPaths.Count > 0)
         {
-            builder.AppendLine("Previous artifacts:");
+            builder.AppendLine("## Previous Artifacts");
+            builder.AppendLine();
 
             foreach (var previousArtifact in context.PreviousArtifactPaths.OrderBy(static item => item.Key))
             {
+                var artifactContent = await File.ReadAllTextAsync(previousArtifact.Value, cancellationToken);
                 builder
-                    .AppendLine($"- {previousArtifact.Key}: {previousArtifact.Value}");
+                    .AppendLine($"### {previousArtifact.Key}")
+                    .AppendLine()
+                    .AppendLine($"Path: `{previousArtifact.Value}`")
+                    .AppendLine()
+                    .AppendLine(artifactContent.Trim())
+                    .AppendLine();
             }
-
-            builder.AppendLine();
         }
 
-        builder.AppendLine("Use the available workspace artifacts as the source of truth and keep the result aligned with the current phase contract.");
-        return builder.ToString();
+        builder
+            .AppendLine("## Execution Rules")
+            .AppendLine()
+            .AppendLine("- Use the repository artifacts as the source of truth.")
+            .AppendLine("- Stay strictly inside the requested phase contract.")
+            .AppendLine("- Return only the markdown artifact for the current phase.");
+
+        return new EffectivePrompt(systemPrompt, builder.ToString().Trim());
     }
+
+    private sealed record EffectivePrompt(string SystemPrompt, string UserPrompt);
 }

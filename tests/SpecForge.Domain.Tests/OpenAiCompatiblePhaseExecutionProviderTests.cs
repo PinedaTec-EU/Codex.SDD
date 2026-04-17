@@ -41,6 +41,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("Bearer", handler.LastRequest.Headers.Authorization?.Scheme);
         Assert.Equal("ollama-local", handler.LastRequest.Headers.Authorization?.Parameter);
         Assert.Contains("\"model\":\"llama3.1\"", handler.LastBody);
+        Assert.Contains("Role: refinement analyst.", handler.LastBody);
+        Assert.Contains("Texto inicial", handler.LastBody);
     }
 
     [Fact]
