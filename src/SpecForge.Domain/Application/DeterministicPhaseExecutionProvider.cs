@@ -3,7 +3,7 @@ using SpecForge.Domain.Workflow;
 
 namespace SpecForge.Domain.Application;
 
-internal sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvider
+public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvider
 {
     public async Task<PhaseExecutionResult> ExecuteAsync(
         PhaseExecutionContext context,

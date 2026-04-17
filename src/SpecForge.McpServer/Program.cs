@@ -2,8 +2,12 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using SpecForge.Domain.Application;
+using SpecForge.Domain.Persistence;
+using SpecForge.McpServer;
 
-var applicationService = new SpecForgeApplicationService();
+var phaseExecutionProvider = PhaseExecutionProviderFactory.Create();
+var workflowRunner = new WorkflowRunner(phaseExecutionProvider);
+var applicationService = new SpecForgeApplicationService(new UserStoryFileStore(), workflowRunner);
 var serializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 var stdin = Console.OpenStandardInput();
 var stdout = Console.OpenStandardOutput();

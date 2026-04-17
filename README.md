@@ -17,6 +17,7 @@ Implemented today:
 - minimal VS Code extension scaffold
 - user story explorer over `.specs/us/`
 - minimal MCP server over `stdio`
+- OpenAI-compatible phase provider infrastructure
 
 Not implemented yet:
 
@@ -116,6 +117,30 @@ npm run compile
 dotnet test SpecForge.AI.slnx
 ```
 
+## Provider Configuration
+
+By default, phase execution uses a deterministic local provider.
+
+To enable an OpenAI-compatible provider:
+
+```bash
+export SPECFORGE_PHASE_PROVIDER=openai-compatible
+export SPECFORGE_OPENAI_BASE_URL=https://api.openai.com/v1
+export SPECFORGE_OPENAI_API_KEY=<your-api-key>
+export SPECFORGE_OPENAI_MODEL=gpt-4.1-mini
+```
+
+For local testing with Ollama:
+
+```bash
+export SPECFORGE_PHASE_PROVIDER=openai-compatible
+export SPECFORGE_OPENAI_BASE_URL=http://localhost:11434/v1
+export SPECFORGE_OPENAI_API_KEY=ollama-local
+export SPECFORGE_OPENAI_MODEL=llama3.1
+```
+
+The provider targets the OpenAI-compatible chat completions shape, so OpenAI and Ollama can share the same backend integration path.
+
 ## Usage
 
 ### Domain core
@@ -191,6 +216,7 @@ Typical contents:
 - [x] replace placeholder artifact generation with real phase execution
 - [x] refresh the explorer and open generated artifacts after workflow actions
 - [x] add approval and user-story detail actions to the extension
+- [x] add an OpenAI-compatible provider layer usable with OpenAI or Ollama
 - [ ] plug real providers/agents into phase execution
 - [ ] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration

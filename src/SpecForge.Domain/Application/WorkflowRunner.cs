@@ -15,6 +15,11 @@ public sealed class WorkflowRunner
     {
     }
 
+    public WorkflowRunner(IPhaseExecutionProvider phaseExecutionProvider)
+        : this(new UserStoryFileStore(), phaseExecutionProvider)
+    {
+    }
+
     internal WorkflowRunner(UserStoryFileStore fileStore, IPhaseExecutionProvider phaseExecutionProvider)
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
