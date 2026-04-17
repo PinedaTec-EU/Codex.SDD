@@ -21,8 +21,8 @@ Entregables:
 - [ ] estructura de carpetas de `doc/` y del estado runtime persistido en repo
 - ✅ formato de `state.yaml`
 - ✅ formato de `branch.yaml`
-- [ ] formato de timeline o eventos
-- [ ] plantillas markdown esenciales
+- ✅ formato de timeline o eventos
+- ✅ plantillas markdown esenciales
 - ✅ regla de inferencia de entradas entre fases para evitar `input.md` redundantes
 
 ### ✅ Paso 3. Diseñar el contrato MCP inicial
@@ -89,3 +89,5 @@ Artefactos de persistencia ya concretados o en concreción:
 
 - ✅ `state.yaml`
 - ✅ `branch.yaml`
+- ✅ `timeline.md`
+- ✅ plantillas markdown esenciales
