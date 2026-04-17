@@ -5,6 +5,7 @@ import {
   approveCurrentPhase,
   continuePhase,
   createUserStoryFromInput,
+  disposeBackendClients,
   importUserStoryFromMarkdown,
   openMainArtifact
 } from "./specsExplorer";
@@ -43,5 +44,5 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
-  // No-op.
+  disposeBackendClients();
 }

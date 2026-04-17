@@ -107,7 +107,7 @@ Entregables:
 3. ✅ concretar el contrato MCP mínimo
 4. ✅ arrancar implementación del dominio y persistencia
 5. [ ] fijar la estrategia de branch naming y reinicio seguro de una US
-6. [ ] introducir backend MCP real detrás del boundary actual
+6. ✅ introducir backend MCP real detrás del boundary actual
 7. [ ] enriquecer ejecución de fases con providers/agents reales
 8. [ ] ampliar UX con graph view y detalle de fase más rico
 
@@ -135,7 +135,7 @@ La fase 5 queda resuelta en su alcance mínimo:
 3. la ejecución de fases ya genera artefactos reales derivados del estado
 4. la UX mínima ya ofrece detalle, acciones contextuales y feedback básico
 
-El siguiente salto ya no es cerrar la fase 5, sino evolucionar el backend local hacia MCP real y providers de ejecución más potentes.
+El siguiente salto ya no es introducir MCP, porque ya existe un servidor MCP real mínimo. Lo siguiente es enriquecer la ejecución de fases con providers/agents reales y ampliar la UX.
 
 Artefactos de persistencia ya concretados o en concreción:
 

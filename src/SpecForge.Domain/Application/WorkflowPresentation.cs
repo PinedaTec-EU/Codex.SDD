@@ -2,7 +2,7 @@ using SpecForge.Domain.Workflow;
 
 namespace SpecForge.Domain.Application;
 
-internal static class WorkflowPresentation
+public static class WorkflowPresentation
 {
     public static string ToPhaseSlug(PhaseId phaseId) => phaseId switch
     {

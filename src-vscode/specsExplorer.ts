@@ -1,17 +1,13 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
 import * as vscode from "vscode";
 import {
-  createLocalCliBackendClient,
-  type ContinuePhaseResult,
-  type CreateOrImportUserStoryResult,
+  createMcpBackendClient,
   type SpecForgeBackendClient,
   type UserStorySummary
 } from "./backendClient";
 
-const SPECS_RELATIVE_DIR = path.join(".specs", "us");
-
 export type UserStoryTreeItemKind = "userStory";
+const backendClients = new Map<string, SpecForgeBackendClient>();
 
 export class UserStoryTreeItem extends vscode.TreeItem {
   public readonly contextValue: UserStoryTreeItemKind = "userStory";
@@ -192,54 +188,8 @@ function getWorkspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
-async function loadUserStories(workspaceRoot: string): Promise<UserStorySummary[]> {
-  const specsRoot = path.join(workspaceRoot, SPECS_RELATIVE_DIR);
-
-  try {
-    const entries = await fs.promises.readdir(specsRoot, { withFileTypes: true });
-    const summaries = await Promise.all(
-      entries
-        .filter((entry) => entry.isDirectory() && entry.name.startsWith("us."))
-        .map(async (entry) => loadUserStorySummary(path.join(specsRoot, entry.name)))
-    );
-
-    return summaries.sort((left, right) => left.usId.localeCompare(right.usId));
-  } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") {
-      return [];
-    }
-
-    throw error;
-  }
-}
-
-async function loadUserStorySummary(userStoryDir: string): Promise<UserStorySummary> {
-  const mainArtifactPath = path.join(userStoryDir, "us.md");
-  const statePath = path.join(userStoryDir, "state.yaml");
-  const [mainArtifactContent, stateContent] = await Promise.all([
-    fs.promises.readFile(mainArtifactPath, "utf8"),
-    readIfExists(statePath)
-  ]);
-
-  const title = mainArtifactContent.split(/\r?\n/).find((line) => line.startsWith("# "))?.replace(/^#\s+/, "").trim()
-    ?? path.basename(userStoryDir);
-  const usId = parseScalar(stateContent, "usId") ?? path.basename(userStoryDir).replace(/^us\./, "");
-  const currentPhase = parseScalar(stateContent, "currentPhase") ?? "capture";
-  const status = parseScalar(stateContent, "status") ?? "draft";
-
-  return {
-    usId,
-    title,
-    directoryPath: userStoryDir,
-    mainArtifactPath,
-    currentPhase,
-    status,
-    workBranch: null
-  };
-}
-
 async function nextUserStoryId(workspaceRoot: string): Promise<string> {
-  const summaries = await loadUserStories(workspaceRoot);
+  const summaries = await getBackendClient(workspaceRoot).listUserStories();
   const maxValue = summaries
     .map((summary) => /^US-(\d+)$/.exec(summary.usId))
     .filter((match): match is RegExpExecArray => match !== null)
@@ -248,40 +198,27 @@ async function nextUserStoryId(workspaceRoot: string): Promise<string> {
 
   return `US-${String(maxValue + 1).padStart(4, "0")}`;
 }
-
-async function readIfExists(filePath: string): Promise<string> {
-  try {
-    return await fs.promises.readFile(filePath, "utf8");
-  } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") {
-      return "";
-    }
-
-    throw error;
-  }
-}
-
-function parseScalar(yaml: string, key: string): string | undefined {
-  const pattern = new RegExp(`^${escapeRegExp(key)}:\\s*(.+)$`, "m");
-  const match = pattern.exec(yaml);
-  return match?.[1]?.trim();
-}
-
 async function openTextDocument(filePath: string): Promise<void> {
   const document = await vscode.workspace.openTextDocument(filePath);
   await vscode.window.showTextDocument(document, { preview: false });
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return typeof error === "object" && error !== null && "code" in error;
-}
-
 function getBackendClient(workspaceRoot: string): SpecForgeBackendClient {
-  return createLocalCliBackendClient(workspaceRoot);
+  let client = backendClients.get(workspaceRoot);
+  if (!client) {
+    client = createMcpBackendClient(workspaceRoot);
+    backendClients.set(workspaceRoot, client);
+  }
+
+  return client;
+}
+
+export function disposeBackendClients(): void {
+  for (const client of backendClients.values()) {
+    client.dispose();
+  }
+
+  backendClients.clear();
 }
 
 function asErrorMessage(error: unknown): string {

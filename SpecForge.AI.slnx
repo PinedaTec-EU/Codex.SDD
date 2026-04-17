@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/SpecForge.Domain/SpecForge.Domain.csproj" />
+    <Project Path="src/SpecForge.McpServer/SpecForge.McpServer.csproj" />
     <Project Path="src/SpecForge.Runner.Cli/SpecForge.Runner.Cli.csproj" />
   </Folder>
   <Folder Name="/tests/">

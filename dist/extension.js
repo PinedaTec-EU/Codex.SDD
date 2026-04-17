@@ -61,6 +61,6 @@ function activate(context) {
     }));
 }
 function deactivate() {
-    // No-op.
+    (0, specsExplorer_1.disposeBackendClients)();
 }
 //# sourceMappingURL=extension.js.map

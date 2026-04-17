@@ -16,10 +16,10 @@ Implemented today:
 - local timeline and artifact generation via a workflow runner
 - minimal VS Code extension scaffold
 - user story explorer over `.specs/us/`
+- minimal MCP server over `stdio`
 
 Not implemented yet:
 
-- full MCP backend wiring
 - real LLM-driven phase execution
 - full PR integration
 - rich VS Code phase details and graph UI
@@ -69,10 +69,10 @@ The current design is intentionally split into layers:
   - regression validation
   - local artifact and YAML persistence
   - minimal workflow runner
-- Future MCP layer:
+- MCP layer:
+  - `stdio` MCP server with `initialize`, `tools/list`, and `tools/call`
   - orchestration boundary between extension and backend execution
-  - provider abstraction
-  - future integration with LLMs, PRs, and issues
+  - base for future provider abstraction and richer backend execution
 
 See the detailed design documents in:
 
@@ -142,7 +142,7 @@ The extension currently provides:
 
 Current limitation:
 
-- `Continue Phase` is present in the extension surface, but the extension is not yet wired to the backend runner or a future MCP service
+- the extension already talks to the MCP server, but phase execution still uses deterministic local generation rather than real providers/agents
 
 ### Running the extension locally
 
@@ -191,7 +191,6 @@ Typical contents:
 - [x] replace placeholder artifact generation with real phase execution
 - [x] refresh the explorer and open generated artifacts after workflow actions
 - [x] add approval and user-story detail actions to the extension
-- [ ] introduce a real MCP backend behind the current boundary
 - [ ] plug real providers/agents into phase execution
 - [ ] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration
