@@ -20,6 +20,7 @@ Entregables:
 
 - estructura de carpetas de `doc/` y del estado runtime persistido en repo
 - formato de `state.yaml`
+- formato de `branch.yaml`
 - formato de timeline o eventos
 - plantillas markdown esenciales
 - regla de inferencia de entradas entre fases para evitar `input.md` redundantes
@@ -83,3 +84,8 @@ Entregables:
 ## Estado actual
 
 El siguiente artefacto SDD de fase 1 es `workflow-canonico-fase-1.md`, porque convierte esta US en trabajo implementable y permite fijar persistencia y contrato MCP sobre un flujo estable.
+
+Artefactos de persistencia ya concretados o en concreción:
+
+- `state.yaml`
+- `branch.yaml`
