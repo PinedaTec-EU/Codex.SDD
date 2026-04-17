@@ -8,17 +8,17 @@ namespace SpecForge.Domain.Application;
 public sealed class WorkflowRunner
 {
     private readonly UserStoryFileStore fileStore;
-    private readonly PhaseArtifactComposer phaseArtifactComposer;
+    private readonly IPhaseExecutionProvider phaseExecutionProvider;
 
     public WorkflowRunner()
-        : this(new UserStoryFileStore(), new PhaseArtifactComposer())
+        : this(new UserStoryFileStore(), new DeterministicPhaseExecutionProvider())
     {
     }
 
-    internal WorkflowRunner(UserStoryFileStore fileStore, PhaseArtifactComposer phaseArtifactComposer)
+    internal WorkflowRunner(UserStoryFileStore fileStore, IPhaseExecutionProvider phaseExecutionProvider)
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
-        this.phaseArtifactComposer = phaseArtifactComposer ?? throw new ArgumentNullException(nameof(phaseArtifactComposer));
+        this.phaseExecutionProvider = phaseExecutionProvider ?? throw new ArgumentNullException(nameof(phaseExecutionProvider));
     }
 
     public async Task<string> CreateUserStoryAsync(
@@ -120,10 +120,35 @@ public sealed class WorkflowRunner
     {
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
         var artifactPath = NextAvailableArtifactPath(paths, workflowRun.CurrentPhase);
-        var content = await phaseArtifactComposer.ComposeAsync(paths, workflowRun, cancellationToken);
+        var executionContext = new PhaseExecutionContext(
+            workflowRun.UsId,
+            workflowRun.CurrentPhase,
+            paths.MainArtifactPath,
+            BuildPreviousArtifactMap(paths, workflowRun.CurrentPhase));
+        var result = await phaseExecutionProvider.ExecuteAsync(executionContext, cancellationToken);
 
-        await File.WriteAllTextAsync(artifactPath, content, cancellationToken);
+        await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
         return artifactPath;
+    }
+
+    private static IReadOnlyDictionary<PhaseId, string> BuildPreviousArtifactMap(UserStoryFilePaths paths, PhaseId currentPhase)
+    {
+        var result = new Dictionary<PhaseId, string>();
+        foreach (var phaseId in new[] { PhaseId.Refinement, PhaseId.TechnicalDesign, PhaseId.Implementation, PhaseId.Review })
+        {
+            if (phaseId == currentPhase)
+            {
+                continue;
+            }
+
+            var candidate = paths.GetPhaseArtifactPath(phaseId);
+            if (File.Exists(candidate))
+            {
+                result[phaseId] = candidate;
+            }
+        }
+
+        return result;
     }
 
     private static string NextAvailableArtifactPath(UserStoryFilePaths paths, PhaseId phaseId)

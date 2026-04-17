@@ -1,33 +1,32 @@
 using System.Text;
-using SpecForge.Domain.Persistence;
 using SpecForge.Domain.Workflow;
 
 namespace SpecForge.Domain.Application;
 
-internal sealed class PhaseArtifactComposer
+internal sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvider
 {
-    public async Task<string> ComposeAsync(
-        UserStoryFilePaths paths,
-        WorkflowRun workflowRun,
-        CancellationToken cancellationToken)
+    public async Task<PhaseExecutionResult> ExecuteAsync(
+        PhaseExecutionContext context,
+        CancellationToken cancellationToken = default)
     {
-        return workflowRun.CurrentPhase switch
+        var content = context.PhaseId switch
         {
-            PhaseId.Refinement => await ComposeRefinementAsync(paths, workflowRun, cancellationToken),
-            PhaseId.TechnicalDesign => await ComposeTechnicalDesignAsync(paths, workflowRun, cancellationToken),
-            PhaseId.Implementation => await ComposeImplementationAsync(paths, workflowRun, cancellationToken),
-            PhaseId.Review => await ComposeReviewAsync(paths, workflowRun, cancellationToken),
-            _ => throw new WorkflowDomainException($"Phase '{workflowRun.CurrentPhase}' has no materialized artifact.")
+            PhaseId.Refinement => await ComposeRefinementAsync(context, cancellationToken),
+            PhaseId.TechnicalDesign => await ComposeTechnicalDesignAsync(context, cancellationToken),
+            PhaseId.Implementation => await ComposeImplementationAsync(context, cancellationToken),
+            PhaseId.Review => await ComposeReviewAsync(context, cancellationToken),
+            _ => throw new WorkflowDomainException($"Phase '{context.PhaseId}' has no materialized artifact.")
         };
+
+        return new PhaseExecutionResult(content, ExecutionKind: "deterministic");
     }
 
     private static async Task<string> ComposeRefinementAsync(
-        UserStoryFilePaths paths,
-        WorkflowRun workflowRun,
+        PhaseExecutionContext context,
         CancellationToken cancellationToken)
     {
-        var userStory = await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken);
-        var title = ReadHeading(userStory, fallback: workflowRun.UsId);
+        var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
+        var title = ReadHeading(userStory, fallback: context.UsId);
         var objective = ReadSection(userStory, "## Objetivo", "## Objective");
         var initialScope = ReadSection(userStory, "## Alcance inicial", "## Initial Scope");
         var ambiguity = string.IsNullOrWhiteSpace(initialScope)
@@ -38,7 +37,7 @@ internal sealed class PhaseArtifactComposer
                    Environment.NewLine,
                    new[]
                    {
-                       $"# Refinement · {workflowRun.UsId} · v01",
+                       $"# Refinement · {context.UsId} · v01",
                        string.Empty,
                        "## History Log",
                        $"- `{DateTimeOffset.UtcNow:O}` · Initial refinement generated from `us.md`.",
@@ -83,12 +82,12 @@ internal sealed class PhaseArtifactComposer
     }
 
     private static async Task<string> ComposeTechnicalDesignAsync(
-        UserStoryFilePaths paths,
-        WorkflowRun workflowRun,
+        PhaseExecutionContext context,
         CancellationToken cancellationToken)
     {
-        var refinementPath = paths.GetPhaseArtifactPath(PhaseId.Refinement);
-        var refinement = await File.ReadAllTextAsync(refinementPath, cancellationToken);
+        var refinement = await File.ReadAllTextAsync(
+            GetRequiredPath(context, PhaseId.Refinement),
+            cancellationToken);
         var executiveSummary = ReadSection(refinement, "## Resumen ejecutivo");
         var refinedObjective = ReadSection(refinement, "## Objetivo refinado");
 
@@ -96,7 +95,7 @@ internal sealed class PhaseArtifactComposer
                    Environment.NewLine,
                    new[]
                    {
-                       $"# Technical Design · {workflowRun.UsId} · v01",
+                       $"# Technical Design · {context.UsId} · v01",
                        string.Empty,
                        "## Estado",
                        "- Estado: `pending_approval`",
@@ -132,12 +131,11 @@ internal sealed class PhaseArtifactComposer
     }
 
     private static async Task<string> ComposeImplementationAsync(
-        UserStoryFilePaths paths,
-        WorkflowRun workflowRun,
+        PhaseExecutionContext context,
         CancellationToken cancellationToken)
     {
         var technicalDesign = await File.ReadAllTextAsync(
-            paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign),
+            GetRequiredPath(context, PhaseId.TechnicalDesign),
             cancellationToken);
         var objective = ReadSection(technicalDesign, "## Objetivo técnico");
 
@@ -145,7 +143,7 @@ internal sealed class PhaseArtifactComposer
                    Environment.NewLine,
                    new[]
                    {
-                       $"# Implementation · {workflowRun.UsId} · v01",
+                       $"# Implementation · {context.UsId} · v01",
                        string.Empty,
                        "## Estado",
                        "- Estado: `generated`",
@@ -167,13 +165,12 @@ internal sealed class PhaseArtifactComposer
     }
 
     private static async Task<string> ComposeReviewAsync(
-        UserStoryFilePaths paths,
-        WorkflowRun workflowRun,
+        PhaseExecutionContext context,
         CancellationToken cancellationToken)
     {
-        var refinementExists = File.Exists(paths.GetPhaseArtifactPath(PhaseId.Refinement));
-        var technicalDesignExists = File.Exists(paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign));
-        var implementationExists = File.Exists(paths.GetPhaseArtifactPath(PhaseId.Implementation));
+        var refinementExists = context.PreviousArtifactPaths.ContainsKey(PhaseId.Refinement);
+        var technicalDesignExists = context.PreviousArtifactPaths.ContainsKey(PhaseId.TechnicalDesign);
+        var implementationExists = context.PreviousArtifactPaths.ContainsKey(PhaseId.Implementation);
         var result = refinementExists && technicalDesignExists && implementationExists ? "pass" : "fail";
         var recommendation = result == "pass"
             ? "Advance to `release_approval`."
@@ -185,7 +182,7 @@ internal sealed class PhaseArtifactComposer
                    Environment.NewLine,
                    new[]
                    {
-                       $"# Review · {workflowRun.UsId} · v01",
+                       $"# Review · {context.UsId} · v01",
                        string.Empty,
                        "## Estado",
                        $"- Resultado: `{result}`",
@@ -249,5 +246,15 @@ internal sealed class PhaseArtifactComposer
         }
 
         return "...";
+    }
+
+    private static string GetRequiredPath(PhaseExecutionContext context, PhaseId phaseId)
+    {
+        if (!context.PreviousArtifactPaths.TryGetValue(phaseId, out var path))
+        {
+            throw new WorkflowDomainException($"Previous artifact for phase '{phaseId}' was not found.");
+        }
+
+        return path;
     }
 }
