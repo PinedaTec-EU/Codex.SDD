@@ -218,6 +218,9 @@ Typical contents:
 - [x] add approval and user-story detail actions to the extension
 - [x] add an OpenAI-compatible provider layer usable with OpenAI or Ollama
 - [ ] plug real providers/agents into phase execution
+- [ ] export versioned prompts per phase into `.specs/prompts/`
+- [ ] require repo prompt initialization before executing real providers
+- [ ] compose effective per-phase prompts from repo templates plus runtime context
 - [ ] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration
 - [ ] support customizable workflows and agent profiles
