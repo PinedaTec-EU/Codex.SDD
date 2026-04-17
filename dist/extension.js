@@ -51,6 +51,7 @@ function activate(context) {
         await (0, specsExplorer_1.openMainArtifact)(summary);
     }), vscode.commands.registerCommand("specForge.continuePhase", async (summary) => {
         await (0, specsExplorer_1.continuePhase)(summary);
+        explorerProvider.refresh();
     }));
 }
 function deactivate() {

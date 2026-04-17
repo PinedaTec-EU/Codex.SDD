@@ -1,22 +1,17 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import * as vscode from "vscode";
+import {
+  createLocalCliBackendClient,
+  type ContinuePhaseResult,
+  type CreateOrImportUserStoryResult,
+  type SpecForgeBackendClient,
+  type UserStorySummary
+} from "./backendClient";
 
 const SPECS_RELATIVE_DIR = path.join(".specs", "us");
-const execFileAsync = promisify(execFile);
 
 export type UserStoryTreeItemKind = "userStory";
-
-export interface UserStorySummary {
-  readonly usId: string;
-  readonly title: string;
-  readonly directoryPath: string;
-  readonly mainArtifactPath: string;
-  readonly currentPhase: string;
-  readonly status: string;
-}
 
 export class UserStoryTreeItem extends vscode.TreeItem {
   public readonly contextValue: UserStoryTreeItemKind = "userStory";
@@ -52,7 +47,7 @@ export class SpecsExplorerProvider implements vscode.TreeDataProvider<UserStoryT
       return [];
     }
 
-    const summaries = await loadUserStories(workspaceRoot);
+    const summaries = await getBackendClient(workspaceRoot).listUserStories();
     return summaries.map((summary) => new UserStoryTreeItem(summary));
   }
 }
@@ -85,13 +80,7 @@ export async function createUserStoryFromInput(): Promise<void> {
   }
 
   const usId = await nextUserStoryId(workspaceRoot);
-  const result = await invokeRunner<CreateOrImportUserStoryResult>(workspaceRoot, [
-    "create-us",
-    workspaceRoot,
-    usId,
-    title,
-    sourceText
-  ]);
+  const result = await getBackendClient(workspaceRoot).createUserStory(usId, title, sourceText);
 
   await openTextDocument(result.mainArtifactPath);
 }
@@ -122,13 +111,7 @@ export async function importUserStoryFromMarkdown(): Promise<void> {
   const firstHeading = sourceText.split(/\r?\n/).find((line) => line.startsWith("# ")) ?? "# Imported user story";
   const title = firstHeading.replace(/^#\s+/, "").trim();
   const usId = await nextUserStoryId(workspaceRoot);
-  const result = await invokeRunner<CreateOrImportUserStoryResult>(workspaceRoot, [
-    "import-us",
-    workspaceRoot,
-    usId,
-    sourceUri.fsPath,
-    title
-  ]);
+  const result = await getBackendClient(workspaceRoot).importUserStory(usId, sourceUri.fsPath, title);
 
   await openTextDocument(result.mainArtifactPath);
 }
@@ -155,11 +138,7 @@ export async function continuePhase(summary?: UserStorySummary): Promise<void> {
   }
 
   try {
-    const result = await invokeRunner<ContinuePhaseResult>(workspaceRoot, [
-      "continue-phase",
-      workspaceRoot,
-      summary.usId
-    ]);
+    const result = await getBackendClient(workspaceRoot).continuePhase(summary.usId);
 
     if (result.generatedArtifactPath) {
       await openTextDocument(result.generatedArtifactPath);
@@ -218,7 +197,8 @@ async function loadUserStorySummary(userStoryDir: string): Promise<UserStorySumm
     directoryPath: userStoryDir,
     mainArtifactPath,
     currentPhase,
-    status
+    status,
+    workBranch: null
   };
 }
 
@@ -264,22 +244,8 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return typeof error === "object" && error !== null && "code" in error;
 }
 
-async function invokeRunner<T>(workspaceRoot: string, args: string[]): Promise<T> {
-  const cliProjectPath = path.join(workspaceRoot, "src", "SpecForge.Runner.Cli", "SpecForge.Runner.Cli.csproj");
-  const { stdout, stderr } = await execFileAsync(
-    "dotnet",
-    ["run", "--project", cliProjectPath, "--", ...args],
-    {
-      cwd: workspaceRoot,
-      maxBuffer: 1024 * 1024
-    }
-  );
-
-  if (stderr.trim().length > 0) {
-    throw new Error(stderr.trim());
-  }
-
-  return JSON.parse(stdout) as T;
+function getBackendClient(workspaceRoot: string): SpecForgeBackendClient {
+  return createLocalCliBackendClient(workspaceRoot);
 }
 
 function asErrorMessage(error: unknown): string {
@@ -288,17 +254,4 @@ function asErrorMessage(error: unknown): string {
   }
 
   return "Unknown extension error.";
-}
-
-interface CreateOrImportUserStoryResult {
-  readonly usId: string;
-  readonly rootDirectory: string;
-  readonly mainArtifactPath: string;
-}
-
-interface ContinuePhaseResult {
-  readonly usId: string;
-  readonly currentPhase: string;
-  readonly status: string;
-  readonly generatedArtifactPath: string | null;
 }

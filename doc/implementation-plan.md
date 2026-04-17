@@ -73,14 +73,14 @@ Entregables:
 - ✅ refrescar el árbol tras cambios de estado y artefactos
 - ✅ abrir el artefacto generado cuando aplique
 
-### [ ] Paso 5.2. Introducir una capa de aplicación/MCP estable
+### ✅ Paso 5.2. Introducir una capa de aplicación/MCP estable
 
 Entregables:
 
-- [ ] definir boundary estable entre extensión y backend
-- [ ] encapsular `WorkflowRunner` detrás de servicios de aplicación
-- [ ] alinear operaciones reales con `mcp-contract-fase-1.md`
-- [ ] preparar sustitución del runner local por backend MCP sin romper la UI
+- ✅ definir boundary estable entre extensión y backend
+- ✅ encapsular `WorkflowRunner` detrás de servicios de aplicación
+- ✅ alinear operaciones reales con `mcp-contract-fase-1.md`
+- ✅ preparar sustitución del runner local por backend MCP sin romper la UI
 
 ### [ ] Paso 5.3. Sustituir generación placeholder por ejecución de fases real
 

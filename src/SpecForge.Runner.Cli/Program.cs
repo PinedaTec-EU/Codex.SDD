@@ -2,6 +2,7 @@ using System.Text.Json;
 using SpecForge.Domain.Application;
 
 var runner = new WorkflowRunner();
+var applicationService = new SpecForgeApplicationService();
 
 if (args.Length == 0)
 {
@@ -22,6 +23,12 @@ try
             return 0;
         case "continue-phase":
             await HandleContinuePhaseAsync(runner, args);
+            return 0;
+        case "list-user-stories":
+            await HandleListUserStoriesAsync(applicationService, args);
+            return 0;
+        case "get-user-story-summary":
+            await HandleGetUserStorySummaryAsync(applicationService, args);
             return 0;
         default:
             return ExitWithError($"Unknown command '{command}'.");
@@ -80,10 +87,29 @@ static async Task HandleContinuePhaseAsync(WorkflowRunner runner, IReadOnlyList<
     WriteJson(new
     {
         result.UsId,
-        currentPhase = result.CurrentPhase.ToString(),
-        status = result.Status.ToString(),
+        currentPhase = WorkflowPresentation.ToPhaseSlug(result.CurrentPhase),
+        status = WorkflowPresentation.ToStatusSlug(result.Status),
         result.GeneratedArtifactPath
     });
+}
+
+static async Task HandleListUserStoriesAsync(SpecForgeApplicationService applicationService, IReadOnlyList<string> args)
+{
+    EnsureArgumentCount(args, expectedCount: 2);
+
+    var workspaceRoot = args[1];
+    var items = await applicationService.ListUserStoriesAsync(workspaceRoot);
+    WriteJson(new { items });
+}
+
+static async Task HandleGetUserStorySummaryAsync(SpecForgeApplicationService applicationService, IReadOnlyList<string> args)
+{
+    EnsureArgumentCount(args, expectedCount: 3);
+
+    var workspaceRoot = args[1];
+    var usId = args[2];
+    var summary = await applicationService.GetUserStorySummaryAsync(workspaceRoot, usId);
+    WriteJson(summary);
 }
 
 static void EnsureArgumentCount(IReadOnlyList<string> args, int expectedCount)

@@ -41,6 +41,7 @@ exports.continuePhase = continuePhase;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const vscode = __importStar(require("vscode"));
+const backendClient_1 = require("./backendClient");
 const SPECS_RELATIVE_DIR = path.join(".specs", "us");
 class UserStoryTreeItem extends vscode.TreeItem {
     summary;
@@ -72,7 +73,7 @@ class SpecsExplorerProvider {
         if (!workspaceRoot) {
             return [];
         }
-        const summaries = await loadUserStories(workspaceRoot);
+        const summaries = await getBackendClient(workspaceRoot).listUserStories();
         return summaries.map((summary) => new UserStoryTreeItem(summary));
     }
 }
@@ -100,13 +101,8 @@ async function createUserStoryFromInput() {
         return;
     }
     const usId = await nextUserStoryId(workspaceRoot);
-    const userStoryDir = path.join(workspaceRoot, SPECS_RELATIVE_DIR, `us.${usId}`);
-    const phasesDir = path.join(userStoryDir, "phases");
-    await fs.promises.mkdir(phasesDir, { recursive: true });
-    await fs.promises.writeFile(path.join(userStoryDir, "us.md"), buildUserStoryMarkdown(usId, title, sourceText), "utf8");
-    await fs.promises.writeFile(path.join(userStoryDir, "state.yaml"), buildInitialStateYaml(usId, sourceText), "utf8");
-    await fs.promises.writeFile(path.join(userStoryDir, "timeline.md"), buildInitialTimelineMarkdown(usId, title), "utf8");
-    await openTextDocument(path.join(userStoryDir, "us.md"));
+    const result = await getBackendClient(workspaceRoot).createUserStory(usId, title, sourceText);
+    await openTextDocument(result.mainArtifactPath);
 }
 async function importUserStoryFromMarkdown() {
     const workspaceRoot = getWorkspaceRoot();
@@ -131,13 +127,8 @@ async function importUserStoryFromMarkdown() {
     const firstHeading = sourceText.split(/\r?\n/).find((line) => line.startsWith("# ")) ?? "# Imported user story";
     const title = firstHeading.replace(/^#\s+/, "").trim();
     const usId = await nextUserStoryId(workspaceRoot);
-    const userStoryDir = path.join(workspaceRoot, SPECS_RELATIVE_DIR, `us.${usId}`);
-    const phasesDir = path.join(userStoryDir, "phases");
-    await fs.promises.mkdir(phasesDir, { recursive: true });
-    await fs.promises.writeFile(path.join(userStoryDir, "us.md"), sourceText, "utf8");
-    await fs.promises.writeFile(path.join(userStoryDir, "state.yaml"), buildInitialStateYaml(usId, sourceText), "utf8");
-    await fs.promises.writeFile(path.join(userStoryDir, "timeline.md"), buildInitialTimelineMarkdown(usId, title), "utf8");
-    await openTextDocument(path.join(userStoryDir, "us.md"));
+    const result = await getBackendClient(workspaceRoot).importUserStory(usId, sourceUri.fsPath, title);
+    await openTextDocument(result.mainArtifactPath);
 }
 async function openMainArtifact(summary) {
     if (!summary) {
@@ -151,7 +142,21 @@ async function continuePhase(summary) {
         void vscode.window.showInformationMessage("Select a user story first.");
         return;
     }
-    void vscode.window.showWarningMessage(`Continue phase is registered for ${summary.usId}, but execution still requires MCP backend wiring.`);
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+        void vscode.window.showWarningMessage("Open a workspace folder before continuing a phase.");
+        return;
+    }
+    try {
+        const result = await getBackendClient(workspaceRoot).continuePhase(summary.usId);
+        if (result.generatedArtifactPath) {
+            await openTextDocument(result.generatedArtifactPath);
+        }
+        void vscode.window.showInformationMessage(`${summary.usId} advanced to ${result.currentPhase}.`);
+    }
+    catch (error) {
+        void vscode.window.showErrorMessage(asErrorMessage(error));
+    }
 }
 function getWorkspaceRoot() {
     return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -190,7 +195,8 @@ async function loadUserStorySummary(userStoryDir) {
         directoryPath: userStoryDir,
         mainArtifactPath,
         currentPhase,
-        status
+        status,
+        workBranch: null
     };
 }
 async function nextUserStoryId(workspaceRoot) {
@@ -218,52 +224,6 @@ function parseScalar(yaml, key) {
     const match = pattern.exec(yaml);
     return match?.[1]?.trim();
 }
-function buildUserStoryMarkdown(usId, title, sourceText) {
-    return [
-        `# ${usId} · ${title}`,
-        "",
-        "## Objective",
-        sourceText,
-        "",
-        "## Initial Scope",
-        "- Includes:",
-        "  - ...",
-        "- Excludes:",
-        "  - ..."
-    ].join("\n");
-}
-function buildInitialStateYaml(usId, sourceText) {
-    return [
-        `usId: ${usId}`,
-        "workflowId: canonical-v1",
-        "status: draft",
-        "currentPhase: capture",
-        `sourceHash: local:${Buffer.from(sourceText, "utf8").toString("base64url")}`,
-        "approvedPhases:",
-        "  []"
-    ].join("\n") + "\n";
-}
-function buildInitialTimelineMarkdown(usId, title) {
-    const timestamp = new Date().toISOString();
-    return [
-        `# Timeline · ${usId} · ${title}`,
-        "",
-        "## Resumen",
-        "",
-        "- Estado actual: `draft`",
-        "- Fase actual: `capture`",
-        "- Rama activa: `sin crear`",
-        `- Última actualización: \`${timestamp}\``,
-        "",
-        "## Eventos",
-        "",
-        `### ${timestamp} · \`us_created\``,
-        "",
-        "- Actor: `user`",
-        "- Fase: `capture`",
-        "- Resumen: Se creó la US inicial y se persistieron `us.md`, `state.yaml` y `timeline.md`."
-    ].join("\n");
-}
 async function openTextDocument(filePath) {
     const document = await vscode.workspace.openTextDocument(filePath);
     await vscode.window.showTextDocument(document, { preview: false });
@@ -273,5 +233,14 @@ function escapeRegExp(value) {
 }
 function isNodeError(error) {
     return typeof error === "object" && error !== null && "code" in error;
+}
+function getBackendClient(workspaceRoot) {
+    return (0, backendClient_1.createLocalCliBackendClient)(workspaceRoot);
+}
+function asErrorMessage(error) {
+    if (error instanceof Error) {
+        return error.message;
+    }
+    return "Unknown extension error.";
 }
 //# sourceMappingURL=specsExplorer.js.map

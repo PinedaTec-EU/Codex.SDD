@@ -58,7 +58,7 @@ public sealed class WorkflowRunner
             "phase_approved",
             "user",
             workflowRun.CurrentPhase,
-            $"Phase `{ToPhaseSlug(workflowRun.CurrentPhase)}` approved.",
+            $"Phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}` approved.",
             cancellationToken);
 
         if (workflowRun.Branch is not null && workflowRun.CurrentPhase == PhaseId.Refinement)
@@ -92,7 +92,7 @@ public sealed class WorkflowRunner
                 "phase_completed",
                 "system",
                 workflowRun.CurrentPhase,
-                $"Generated artifact for phase `{ToPhaseSlug(workflowRun.CurrentPhase)}`.",
+                $"Generated artifact for phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}`.",
                 cancellationToken,
                 artifactPath);
         }
@@ -103,7 +103,7 @@ public sealed class WorkflowRunner
                 "phase_started",
                 "system",
                 workflowRun.CurrentPhase,
-                $"Transitioned to phase `{ToPhaseSlug(workflowRun.CurrentPhase)}`.",
+                $"Transitioned to phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}`.",
                 cancellationToken);
         }
 
@@ -163,7 +163,7 @@ public sealed class WorkflowRunner
             .AppendLine($"### {timestamp} · `{eventCode}`")
             .AppendLine()
             .AppendLine($"- Actor: `{actor}`")
-            .AppendLine($"- Fase: `{ToPhaseSlug(phaseId)}`")
+            .AppendLine($"- Fase: `{WorkflowPresentation.ToPhaseSlug(phaseId)}`")
             .AppendLine($"- Resumen: {summary}");
 
         if (!string.IsNullOrWhiteSpace(artifactPath))
@@ -308,18 +308,6 @@ public sealed class WorkflowRunner
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(sourceText));
         return $"sha256:{Convert.ToHexStringLower(bytes)}";
     }
-
-    private static string ToPhaseSlug(PhaseId phaseId) => phaseId switch
-    {
-        PhaseId.Capture => "capture",
-        PhaseId.Refinement => "refinement",
-        PhaseId.TechnicalDesign => "technical-design",
-        PhaseId.Implementation => "implementation",
-        PhaseId.Review => "review",
-        PhaseId.ReleaseApproval => "release-approval",
-        PhaseId.PrPreparation => "pr-preparation",
-        _ => throw new ArgumentOutOfRangeException(nameof(phaseId), phaseId, null)
-    };
 
     private static void ValidateRequired(string value, string paramName)
     {
