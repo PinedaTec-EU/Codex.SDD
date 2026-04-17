@@ -1,0 +1,32 @@
+{
+    "files.exclude": {
+        "**/.store": true,
+        "**/.vs": true,
+        "**/bin": true,
+        "**/obj": true,
+        "**.DS_Store": true
+    },
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.expand": false,
+    "explorer.fileNesting.patterns": {
+        "*.razor": "${capture}.razor.cs, ${capture}.razor.css"
+    },
+    "chatgpt.openOnStartup": true,
+    "editor.formatOnSave": true,
+    "dotnet.formatting.organizeImportsOnFormat": true,
+    "csharpOrganizeUsings.removeUnnecessaryUsings": true,
+    "[csharp]": {
+        "editor.codeActionsOnSave": [
+            "source.organizeImports"
+        ]
+    },
+    "chat.mcp.serverSampling": {
+        "TravelAgent/.vscode/mcp.json: io.github.mongodb-js/mongodb-mcp-server": {}
+    },
+    "editor.rulers": [
+        {
+            "column": 170,
+            "color": "#91919199"
+        }
+    ]
+}
