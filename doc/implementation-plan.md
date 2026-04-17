@@ -53,17 +53,23 @@ Entregables:
 
 Entregables:
 
-- [ ] vista de USs
-- [ ] comando crear/importar
-- [ ] comando continuar fase
-- [ ] apertura de artefacto principal
+- ✅ vista de USs
+- ✅ comando crear/importar
+- ✅ comando continuar fase
+- ✅ apertura de artefacto principal
+
+Notas:
+
+- la extensión mínima ya está creada y compilando
+- el core de automatización ya existe mediante un workflow runner
+- `continue phase` en la extensión sigue pendiente de cableado con ese runner o con el backend MCP definitivo
 
 ## Orden recomendado después de esta US
 
 1. ✅ concretar el workflow canónico de fase 1
 2. ✅ concretar la estructura real de `doc/` y de los artefactos runtime
 3. ✅ concretar el contrato MCP mínimo
-4. [ ] arrancar implementación del dominio y persistencia
+4. ✅ arrancar implementación del dominio y persistencia
 5. [ ] fijar la estrategia de branch naming y reinicio seguro de una US
 
 ## Riesgos a vigilar
@@ -83,7 +89,7 @@ Entregables:
 
 ## Estado actual
 
-El siguiente paso útil ya no es otro documento de diseño del contrato. El siguiente paso es cerrar la persistencia mínima restante o empezar implementación del núcleo del workflow engine.
+El siguiente paso útil es integrar la extensión con el workflow runner actual o introducir el backend MCP definitivo como capa de orquestación entre UI y core.
 
 Artefactos de persistencia ya concretados o en concreción:
 

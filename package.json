@@ -1,0 +1,104 @@
+{
+  "name": "specforge-ai",
+  "displayName": "SpecForge AI",
+  "description": "Minimal VS Code extension for exploring SpecForge user stories.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:specForge.userStories",
+    "onCommand:specForge.refreshUserStories",
+    "onCommand:specForge.createUserStory",
+    "onCommand:specForge.importUserStory",
+    "onCommand:specForge.openMainArtifact",
+    "onCommand:specForge.continuePhase"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "specForge",
+          "title": "SpecForge",
+          "icon": "media/specforge.svg"
+        }
+      ]
+    },
+    "views": {
+      "specForge": [
+        {
+          "id": "specForge.userStories",
+          "name": "User Stories"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "specForge.refreshUserStories",
+        "title": "Refresh User Stories"
+      },
+      {
+        "command": "specForge.createUserStory",
+        "title": "Create User Story"
+      },
+      {
+        "command": "specForge.importUserStory",
+        "title": "Import User Story"
+      },
+      {
+        "command": "specForge.openMainArtifact",
+        "title": "Open Main Artifact"
+      },
+      {
+        "command": "specForge.continuePhase",
+        "title": "Continue Phase"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "specForge.refreshUserStories",
+          "when": "view == specForge.userStories",
+          "group": "navigation"
+        },
+        {
+          "command": "specForge.createUserStory",
+          "when": "view == specForge.userStories",
+          "group": "navigation"
+        },
+        {
+          "command": "specForge.importUserStory",
+          "when": "view == specForge.userStories",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "specForge.openMainArtifact",
+          "when": "view == specForge.userStories && viewItem == specForge.userStory",
+          "group": "inline"
+        },
+        {
+          "command": "specForge.continuePhase",
+          "when": "view == specForge.userStories && viewItem == specForge.userStory",
+          "group": "inline"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/vscode": "^1.100.0",
+    "typescript": "^5.8.3"
+  }
+}
