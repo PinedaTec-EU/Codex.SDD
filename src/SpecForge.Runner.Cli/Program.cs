@@ -1,0 +1,106 @@
+using System.Text.Json;
+using SpecForge.Domain.Application;
+
+var runner = new WorkflowRunner();
+
+if (args.Length == 0)
+{
+    return ExitWithError("A command is required.");
+}
+
+try
+{
+    var command = args[0];
+
+    switch (command)
+    {
+        case "create-us":
+            await HandleCreateUserStoryAsync(runner, args);
+            return 0;
+        case "import-us":
+            await HandleImportUserStoryAsync(runner, args);
+            return 0;
+        case "continue-phase":
+            await HandleContinuePhaseAsync(runner, args);
+            return 0;
+        default:
+            return ExitWithError($"Unknown command '{command}'.");
+    }
+}
+catch (Exception exception)
+{
+    return ExitWithError(exception.Message);
+}
+
+static async Task HandleCreateUserStoryAsync(WorkflowRunner runner, IReadOnlyList<string> args)
+{
+    EnsureArgumentCount(args, expectedCount: 5);
+
+    var workspaceRoot = args[1];
+    var usId = args[2];
+    var title = args[3];
+    var sourceText = args[4];
+    var rootDirectory = await runner.CreateUserStoryAsync(workspaceRoot, usId, title, sourceText);
+
+    WriteJson(new
+    {
+        usId,
+        rootDirectory,
+        mainArtifactPath = Path.Combine(rootDirectory, "us.md")
+    });
+}
+
+static async Task HandleImportUserStoryAsync(WorkflowRunner runner, IReadOnlyList<string> args)
+{
+    EnsureArgumentCount(args, expectedCount: 5);
+
+    var workspaceRoot = args[1];
+    var usId = args[2];
+    var sourcePath = args[3];
+    var title = args[4];
+    var sourceText = await File.ReadAllTextAsync(sourcePath);
+    var rootDirectory = await runner.CreateUserStoryAsync(workspaceRoot, usId, title, sourceText);
+
+    WriteJson(new
+    {
+        usId,
+        rootDirectory,
+        mainArtifactPath = Path.Combine(rootDirectory, "us.md")
+    });
+}
+
+static async Task HandleContinuePhaseAsync(WorkflowRunner runner, IReadOnlyList<string> args)
+{
+    EnsureArgumentCount(args, expectedCount: 3);
+
+    var workspaceRoot = args[1];
+    var usId = args[2];
+    var result = await runner.ContinuePhaseAsync(workspaceRoot, usId);
+
+    WriteJson(new
+    {
+        result.UsId,
+        currentPhase = result.CurrentPhase.ToString(),
+        status = result.Status.ToString(),
+        result.GeneratedArtifactPath
+    });
+}
+
+static void EnsureArgumentCount(IReadOnlyList<string> args, int expectedCount)
+{
+    if (args.Count != expectedCount)
+    {
+        throw new InvalidOperationException($"Expected {expectedCount - 1} argument(s) for command '{args[0]}'.");
+    }
+}
+
+static void WriteJson<T>(T payload)
+{
+    Console.WriteLine(JsonSerializer.Serialize(payload));
+}
+
+static int ExitWithError(string message)
+{
+    Console.Error.WriteLine(message);
+    return 1;
+}

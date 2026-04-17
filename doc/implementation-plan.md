@@ -64,6 +64,42 @@ Notas:
 - el core de automatización ya existe mediante un workflow runner
 - `continue phase` en la extensión sigue pendiente de cableado con ese runner o con el backend MCP definitivo
 
+### ✅ Paso 5.1. Cablear la extensión al workflow runner local
+
+Entregables:
+
+- ✅ invocar `WorkflowRunner` desde los comandos de la extensión
+- ✅ hacer que `continue phase` ejecute avance real de workflow
+- ✅ refrescar el árbol tras cambios de estado y artefactos
+- ✅ abrir el artefacto generado cuando aplique
+
+### [ ] Paso 5.2. Introducir una capa de aplicación/MCP estable
+
+Entregables:
+
+- [ ] definir boundary estable entre extensión y backend
+- [ ] encapsular `WorkflowRunner` detrás de servicios de aplicación
+- [ ] alinear operaciones reales con `mcp-contract-fase-1.md`
+- [ ] preparar sustitución del runner local por backend MCP sin romper la UI
+
+### [ ] Paso 5.3. Sustituir generación placeholder por ejecución de fases real
+
+Entregables:
+
+- [ ] reemplazar artefactos de ejemplo por ejecución basada en prompts/agents
+- [ ] persistir resultados reales de fase
+- [ ] registrar fallos, bloqueos y regresiones en timeline y estado
+- [ ] mantener trazabilidad entre artefactos y decisiones
+
+### [ ] Paso 5.4. Enriquecer la UX mínima
+
+Entregables:
+
+- [ ] detalle de fase seleccionada
+- [ ] acciones contextuales por fase
+- [ ] feedback claro de errores y bloqueos
+- [ ] base para futura graph view del workflow
+
 ## Orden recomendado después de esta US
 
 1. ✅ concretar el workflow canónico de fase 1
@@ -71,6 +107,9 @@ Notas:
 3. ✅ concretar el contrato MCP mínimo
 4. ✅ arrancar implementación del dominio y persistencia
 5. [ ] fijar la estrategia de branch naming y reinicio seguro de una US
+6. [ ] cablear la extensión al runner local
+7. [ ] introducir boundary MCP estable
+8. [ ] sustituir placeholders por ejecución real de fases
 
 ## Riesgos a vigilar
 
@@ -89,7 +128,12 @@ Notas:
 
 ## Estado actual
 
-El siguiente paso útil es integrar la extensión con el workflow runner actual o introducir el backend MCP definitivo como capa de orquestación entre UI y core.
+El siguiente paso útil ya no es “hacer el wire” como bloque único. Ahora queda dividido en:
+
+1. cablear la extensión al runner local
+2. introducir boundary MCP estable
+3. sustituir placeholders por ejecución real
+4. enriquecer la UX mínima
 
 Artefactos de persistencia ya concretados o en concreción:
 

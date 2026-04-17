@@ -28,6 +28,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("specForge.continuePhase", async (summary) => {
       await continuePhase(summary);
+      explorerProvider.refresh();
     })
   );
 }

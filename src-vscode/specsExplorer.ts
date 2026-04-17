@@ -1,8 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import * as vscode from "vscode";
 
 const SPECS_RELATIVE_DIR = path.join(".specs", "us");
+const execFileAsync = promisify(execFile);
 
 export type UserStoryTreeItemKind = "userStory";
 
@@ -82,15 +85,15 @@ export async function createUserStoryFromInput(): Promise<void> {
   }
 
   const usId = await nextUserStoryId(workspaceRoot);
-  const userStoryDir = path.join(workspaceRoot, SPECS_RELATIVE_DIR, `us.${usId}`);
-  const phasesDir = path.join(userStoryDir, "phases");
+  const result = await invokeRunner<CreateOrImportUserStoryResult>(workspaceRoot, [
+    "create-us",
+    workspaceRoot,
+    usId,
+    title,
+    sourceText
+  ]);
 
-  await fs.promises.mkdir(phasesDir, { recursive: true });
-  await fs.promises.writeFile(path.join(userStoryDir, "us.md"), buildUserStoryMarkdown(usId, title, sourceText), "utf8");
-  await fs.promises.writeFile(path.join(userStoryDir, "state.yaml"), buildInitialStateYaml(usId, sourceText), "utf8");
-  await fs.promises.writeFile(path.join(userStoryDir, "timeline.md"), buildInitialTimelineMarkdown(usId, title), "utf8");
-
-  await openTextDocument(path.join(userStoryDir, "us.md"));
+  await openTextDocument(result.mainArtifactPath);
 }
 
 export async function importUserStoryFromMarkdown(): Promise<void> {
@@ -119,15 +122,15 @@ export async function importUserStoryFromMarkdown(): Promise<void> {
   const firstHeading = sourceText.split(/\r?\n/).find((line) => line.startsWith("# ")) ?? "# Imported user story";
   const title = firstHeading.replace(/^#\s+/, "").trim();
   const usId = await nextUserStoryId(workspaceRoot);
-  const userStoryDir = path.join(workspaceRoot, SPECS_RELATIVE_DIR, `us.${usId}`);
-  const phasesDir = path.join(userStoryDir, "phases");
+  const result = await invokeRunner<CreateOrImportUserStoryResult>(workspaceRoot, [
+    "import-us",
+    workspaceRoot,
+    usId,
+    sourceUri.fsPath,
+    title
+  ]);
 
-  await fs.promises.mkdir(phasesDir, { recursive: true });
-  await fs.promises.writeFile(path.join(userStoryDir, "us.md"), sourceText, "utf8");
-  await fs.promises.writeFile(path.join(userStoryDir, "state.yaml"), buildInitialStateYaml(usId, sourceText), "utf8");
-  await fs.promises.writeFile(path.join(userStoryDir, "timeline.md"), buildInitialTimelineMarkdown(usId, title), "utf8");
-
-  await openTextDocument(path.join(userStoryDir, "us.md"));
+  await openTextDocument(result.mainArtifactPath);
 }
 
 export async function openMainArtifact(summary?: UserStorySummary): Promise<void> {
@@ -145,9 +148,29 @@ export async function continuePhase(summary?: UserStorySummary): Promise<void> {
     return;
   }
 
-  void vscode.window.showWarningMessage(
-    `Continue phase is registered for ${summary.usId}, but execution still requires MCP backend wiring.`
-  );
+  const workspaceRoot = getWorkspaceRoot();
+  if (!workspaceRoot) {
+    void vscode.window.showWarningMessage("Open a workspace folder before continuing a phase.");
+    return;
+  }
+
+  try {
+    const result = await invokeRunner<ContinuePhaseResult>(workspaceRoot, [
+      "continue-phase",
+      workspaceRoot,
+      summary.usId
+    ]);
+
+    if (result.generatedArtifactPath) {
+      await openTextDocument(result.generatedArtifactPath);
+    }
+
+    void vscode.window.showInformationMessage(
+      `${summary.usId} advanced to ${result.currentPhase}.`
+    );
+  } catch (error) {
+    void vscode.window.showErrorMessage(asErrorMessage(error));
+  }
 }
 
 function getWorkspaceRoot(): string | undefined {
@@ -228,55 +251,6 @@ function parseScalar(yaml: string, key: string): string | undefined {
   return match?.[1]?.trim();
 }
 
-function buildUserStoryMarkdown(usId: string, title: string, sourceText: string): string {
-  return [
-    `# ${usId} · ${title}`,
-    "",
-    "## Objective",
-    sourceText,
-    "",
-    "## Initial Scope",
-    "- Includes:",
-    "  - ...",
-    "- Excludes:",
-    "  - ..."
-  ].join("\n");
-}
-
-function buildInitialStateYaml(usId: string, sourceText: string): string {
-  return [
-    `usId: ${usId}`,
-    "workflowId: canonical-v1",
-    "status: draft",
-    "currentPhase: capture",
-    `sourceHash: local:${Buffer.from(sourceText, "utf8").toString("base64url")}`,
-    "approvedPhases:",
-    "  []"
-  ].join("\n") + "\n";
-}
-
-function buildInitialTimelineMarkdown(usId: string, title: string): string {
-  const timestamp = new Date().toISOString();
-  return [
-    `# Timeline · ${usId} · ${title}`,
-    "",
-    "## Resumen",
-    "",
-    "- Estado actual: `draft`",
-    "- Fase actual: `capture`",
-    "- Rama activa: `sin crear`",
-    `- Última actualización: \`${timestamp}\``,
-    "",
-    "## Eventos",
-    "",
-    `### ${timestamp} · \`us_created\``,
-    "",
-    "- Actor: `user`",
-    "- Fase: `capture`",
-    "- Resumen: Se creó la US inicial y se persistieron `us.md`, `state.yaml` y `timeline.md`."
-  ].join("\n");
-}
-
 async function openTextDocument(filePath: string): Promise<void> {
   const document = await vscode.workspace.openTextDocument(filePath);
   await vscode.window.showTextDocument(document, { preview: false });
@@ -288,4 +262,43 @@ function escapeRegExp(value: string): string {
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return typeof error === "object" && error !== null && "code" in error;
+}
+
+async function invokeRunner<T>(workspaceRoot: string, args: string[]): Promise<T> {
+  const cliProjectPath = path.join(workspaceRoot, "src", "SpecForge.Runner.Cli", "SpecForge.Runner.Cli.csproj");
+  const { stdout, stderr } = await execFileAsync(
+    "dotnet",
+    ["run", "--project", cliProjectPath, "--", ...args],
+    {
+      cwd: workspaceRoot,
+      maxBuffer: 1024 * 1024
+    }
+  );
+
+  if (stderr.trim().length > 0) {
+    throw new Error(stderr.trim());
+  }
+
+  return JSON.parse(stdout) as T;
+}
+
+function asErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unknown extension error.";
+}
+
+interface CreateOrImportUserStoryResult {
+  readonly usId: string;
+  readonly rootDirectory: string;
+  readonly mainArtifactPath: string;
+}
+
+interface ContinuePhaseResult {
+  readonly usId: string;
+  readonly currentPhase: string;
+  readonly status: string;
+  readonly generatedArtifactPath: string | null;
 }
