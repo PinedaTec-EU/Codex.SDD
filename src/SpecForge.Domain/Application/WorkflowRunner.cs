@@ -93,7 +93,7 @@ public sealed class WorkflowRunner
         string? artifactPath = null;
         if (HasArtifact(workflowRun.CurrentPhase))
         {
-            artifactPath = await MaterializePhaseArtifactAsync(paths, workflowRun, cancellationToken);
+            artifactPath = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, cancellationToken);
             await AppendTimelineEventAsync(
                 paths.TimelineFilePath,
                 "phase_completed",
@@ -119,6 +119,7 @@ public sealed class WorkflowRunner
     }
 
     private async Task<string> MaterializePhaseArtifactAsync(
+        string workspaceRoot,
         UserStoryFilePaths paths,
         WorkflowRun workflowRun,
         CancellationToken cancellationToken)
@@ -126,6 +127,7 @@ public sealed class WorkflowRunner
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
         var artifactPath = NextAvailableArtifactPath(paths, workflowRun.CurrentPhase);
         var executionContext = new PhaseExecutionContext(
+            workspaceRoot,
             workflowRun.UsId,
             workflowRun.CurrentPhase,
             paths.MainArtifactPath,

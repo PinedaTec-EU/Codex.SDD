@@ -9,13 +9,23 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 {
     private readonly HttpClient httpClient;
     private readonly OpenAiCompatibleProviderOptions options;
+    private readonly RepositoryPromptCatalog promptCatalog;
 
     public OpenAiCompatiblePhaseExecutionProvider(
         HttpClient httpClient,
         OpenAiCompatibleProviderOptions options)
+        : this(httpClient, options, new RepositoryPromptCatalog())
+    {
+    }
+
+    internal OpenAiCompatiblePhaseExecutionProvider(
+        HttpClient httpClient,
+        OpenAiCompatibleProviderOptions options,
+        RepositoryPromptCatalog promptCatalog)
     {
         this.httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         this.options = options ?? throw new ArgumentNullException(nameof(options));
+        this.promptCatalog = promptCatalog ?? throw new ArgumentNullException(nameof(promptCatalog));
 
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
         {
@@ -37,6 +47,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         PhaseExecutionContext context,
         CancellationToken cancellationToken = default)
     {
+        promptCatalog.EnsureRepositoryIsInitialized(context.WorkspaceRoot);
+
         var request = BuildRequest(context);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         var payload = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -65,6 +77,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     private HttpRequestMessage BuildRequest(PhaseExecutionContext context)
     {
         var endpoint = $"{options.BaseUrl.TrimEnd('/')}/chat/completions";
+        var promptPath = promptCatalog.GetExecutePromptPath(context.WorkspaceRoot, context.PhaseId);
         var userPrompt = BuildUserPrompt(context);
         var messages = new List<object>();
 
@@ -80,7 +93,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         messages.Add(new
         {
             role = "user",
-            content = userPrompt
+            content = $"{userPrompt}{Environment.NewLine}{Environment.NewLine}Prompt template: {promptPath}"
         });
 
         var requestBody = JsonSerializer.Serialize(new

@@ -2,16 +2,20 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using SpecForge.Domain.Application;
+using SpecForge.Domain.Persistence;
 using SpecForge.Domain.Workflow;
 using SpecForge.OpenAICompatible;
 
 namespace SpecForge.Domain.Tests;
 
-public sealed class OpenAiCompatiblePhaseExecutionProviderTests
+public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 {
+    private readonly string workspaceRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+
     [Fact]
     public async Task ExecuteAsync_SendsOpenAiCompatibleRequestAndParsesMarkdown()
     {
+        await PrepareInitializedWorkspaceAsync();
         var handler = new CapturingFakeHttpMessageHandler();
         var httpClient = new HttpClient(handler);
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
@@ -21,9 +25,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests
                 ApiKey: "ollama-local",
                 Model: "llama3.1"));
         var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
             PhaseId: PhaseId.Refinement,
-            UserStoryPath: ".specs/us/us.US-0001/us.md",
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>());
 
         var result = await provider.ExecuteAsync(context);
@@ -36,6 +41,49 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests
         Assert.Equal("Bearer", handler.LastRequest.Headers.Authorization?.Scheme);
         Assert.Equal("ollama-local", handler.LastRequest.Headers.Authorization?.Parameter);
         Assert.Contains("\"model\":\"llama3.1\"", handler.LastBody);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithoutInitializedPromptSet_ThrowsClearError()
+    {
+        Directory.CreateDirectory(Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001"));
+        await File.WriteAllTextAsync(
+            Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            "# US-0001");
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new CapturingFakeHttpMessageHandler()),
+            new OpenAiCompatibleProviderOptions(
+                BaseUrl: "http://localhost:11434/v1",
+                ApiKey: "ollama-local",
+                Model: "llama3.1"));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Refinement,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>());
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ExecuteAsync(context));
+
+        Assert.Contains("Missing required prompt template", error.Message);
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(workspaceRoot))
+        {
+            Directory.Delete(workspaceRoot, recursive: true);
+        }
+    }
+
+    private async Task PrepareInitializedWorkspaceAsync()
+    {
+        var initializer = new RepositoryPromptInitializer();
+        await initializer.InitializeAsync(workspaceRoot);
+
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        Directory.CreateDirectory(paths.RootDirectory);
+        await File.WriteAllTextAsync(paths.MainArtifactPath, "# US-0001\n\n## Objetivo\nTexto inicial");
     }
 
     private sealed class CapturingFakeHttpMessageHandler : HttpMessageHandler
