@@ -108,11 +108,11 @@ Entregables:
 4. ✅ arrancar implementación del dominio y persistencia
 5. [ ] fijar la estrategia de branch naming y reinicio seguro de una US
 6. ✅ introducir backend MCP real detrás del boundary actual
-7. [ ] enriquecer ejecución de fases con providers/agents reales
-8. [ ] materializar prompts versionados por fase en `.specs/prompts/`
-9. [ ] inicializar el repo con prompts obligatorios y `config.yaml`
-10. [ ] exigir prompts requeridos en la ejecución de fases reales
-11. [ ] componer prompts efectivos por fase usando contexto runtime
+7. ✅ enriquecer ejecución de fases con providers/agents reales
+8. ✅ materializar prompts versionados por fase en `.specs/prompts/`
+9. ✅ inicializar el repo con prompts obligatorios y `config.yaml`
+10. ✅ exigir prompts requeridos en la ejecución de fases reales
+11. ✅ componer prompts efectivos por fase usando contexto runtime
 12. [ ] ampliar UX con graph view y detalle de fase más rico
 
 ## Riesgos a vigilar
@@ -139,15 +139,15 @@ La fase 5 queda resuelta en su alcance mínimo:
 3. la ejecución de fases ya genera artefactos reales derivados del estado
 4. la UX mínima ya ofrece detalle, acciones contextuales y feedback básico
 
-El siguiente salto ya no es introducir MCP, porque ya existe un servidor MCP real mínimo. Lo siguiente es enriquecer la ejecución de fases con providers/agents reales, materializar prompts versionados por repo y ampliar la UX.
+El siguiente salto ya no es introducir MCP, porque ya existe un servidor MCP real mínimo. El bloque de providers reales ya está operativo con prompts versionados por repo. Lo siguiente es ampliar la UX, hacer más rica la observabilidad del workflow y profundizar las integraciones laterales.
 
-Subtareas activas del siguiente bloque:
+Subtareas recién resueltas:
 
-- [ ] añadir una tool MCP de inicialización que exporte `.specs/prompts/` y `.specs/config.yaml`
-- [ ] fijar el set mínimo de prompts por fase: `execute` y `approve` cuando aplique
-- [ ] hacer que el engine falle si el repo no está inicializado o faltan prompts requeridos
-- [ ] cargar y componer el prompt efectivo desde artefactos versionados del repo
-- [ ] usar ese prompt efectivo desde el provider OpenAI-compatible para OpenAI y Ollama
+- ✅ añadir una tool MCP de inicialización que exporte `.specs/prompts/` y `.specs/config.yaml`
+- ✅ fijar el set mínimo de prompts por fase: `execute` y `approve` cuando aplique
+- ✅ hacer que el engine falle si el repo no está inicializado o faltan prompts requeridos
+- ✅ cargar y componer el prompt efectivo desde artefactos versionados del repo
+- ✅ usar ese prompt efectivo desde el provider OpenAI-compatible para OpenAI y Ollama
 
 Artefactos de persistencia ya concretados o en concreción:
 

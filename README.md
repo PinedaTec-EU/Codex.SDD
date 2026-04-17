@@ -141,6 +141,8 @@ export SPECFORGE_OPENAI_MODEL=llama3.1
 
 The provider targets the OpenAI-compatible chat completions shape, so OpenAI and Ollama can share the same backend integration path.
 
+Before executing real provider-backed phases, initialize the repository prompt set through the MCP backend. This materializes `.specs/config.yaml` and `.specs/prompts/`, and the engine will fail fast if the required prompt files are missing.
+
 ## Usage
 
 ### Domain core
@@ -153,6 +155,9 @@ The .NET core already supports:
 - approving approval-required phases
 - creating the work branch metadata on refinement approval
 - generating minimal phase artifacts and timeline entries
+- initializing versioned repo prompts under `.specs/prompts/`
+- requiring prompt initialization for real provider-backed phase execution
+- composing effective phase prompts from repo templates and runtime artifacts
 
 ### VS Code extension
 
@@ -167,7 +172,7 @@ The extension currently provides:
 
 Current limitation:
 
-- the extension already talks to the MCP server, but phase execution still uses deterministic local generation rather than real providers/agents
+- the extension already talks to the MCP server, but there is not yet a dedicated UX to inspect or edit the effective prompt set from inside VS Code
 
 ### Running the extension locally
 
