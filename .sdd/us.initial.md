@@ -43,6 +43,8 @@ Responsabilidades:
 * detección de cambios manuales en ficheros
 * pausa y reanudación de UHs
 * visualización de estado, progreso y métricas
+* panel de fases con zona de detalle por fase seleccionada
+* apertura de ficheros relacionados de la fase en ventana/editor independiente
 * cliente MCP para comunicarse con el backend operativo
 
 La extensión no debe contener la lógica profunda del workflow.
@@ -96,6 +98,7 @@ Construir una herramienta para VS Code que permita:
 * permitir regresión a fases previas
 * asignar agentes distintos por fase
 * permitir workflows personalizados
+* diseñar y editar dentro del propio sistema los workflows SDD, incluido el workflow principal por defecto
 * soportar revisión automática antes de generar una PR
 * si una fase se embucla o falla repetidamente, escalar al usuario
 * si todo es correcto, permitir generar la PR
@@ -114,6 +117,8 @@ Construir una herramienta para VS Code que permita:
 1. Debe existir trazabilidad entre US, refinement, diseño, implementación, review y PR.
 1. El sistema debe poder usarse desde otro workstation simplemente clonando el repo.
 1. La UX debe priorizar claridad operativa frente a espectacularidad vacía.
+1. Al abrir una US/UH en la extensión, la UI debe mostrar siempre un diagrama visible del flujo/fases (graph view), moderno, claro y atractivo, con nodos de fase, transiciones y estado actual explícito.
+1. Cada US/UH puede definir una especificación SDD propia (override), pero la ruta por defecto debe seguir usando la especificación SDD principal del proyecto cuando no exista override por US/UH.
 
 ⸻
 
@@ -153,6 +158,9 @@ Debe existir una vista específica para UHs que permita:
 * continuar workflow
 * pausar o reanudar
 * ver métricas resumidas
+* seleccionar una fase del flujo y ver su detalle contextual
+* listar en la zona de detalle los ficheros relacionados con la fase seleccionada
+* abrir el fichero relacionado en ventana/editor independiente al hacer click
 
 5.3 Workflows personalizables
 
@@ -166,6 +174,8 @@ Debe existir un workflow base por defecto, pero el usuario debe poder:
 * definir si una fase requiere aprobación humana
 * definir si una fase continúa automáticamente
 * definir agentes por fase
+* diseñar nuevos workflows SDD dentro del propio sistema
+* editar workflows SDD existentes dentro del propio sistema, incluido el workflow principal por defecto
 
 5.4 Agentes por fase
 
