@@ -1,0 +1,127 @@
+{
+    "version": "2.0.0",
+    "inputs": [],
+    "tasks": [
+        {
+            "label": "build",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "${workspaceFolder}/TravelAgent.slnx",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary;ForceNoAlign"
+            ],
+            "problemMatcher": "$msCompile",
+            "dependsOn": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "type": "shell",
+            "label": "build inc version",
+            "command": "dotnet build ${workspaceFolder}/TravelAgent.slnx",
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "dependsOn": [
+                "Increase version"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Increase version",
+            "command": "dotnet",
+            "type": "shell",
+            "args": [
+                "tool",
+                "run",
+                "versionbumper"
+            ],
+            "group": "none",
+            "presentation": {
+                "reveal": "always"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Launch test with coverage",
+            "command": "dotnet",
+            "type": "shell",
+            "args": [
+                "test",
+                "${workspaceFolder}/TravelAgent.slnx",
+                "--collect:\"XPlat Code Coverage\"",
+                "--results-directory",
+                "${workspaceFolder}/TestResults",
+                "--settings",
+                "${workspaceFolder}/tests/TravelAgent.Api.Tests/.runsettings"
+            ],
+            "problemMatcher": "$msCompile",
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Generate Coverage Report",
+            "command": "reportgenerator",
+            "type": "shell",
+            "args": [
+                "\"-reports:${workspaceFolder}/TestResults/**/coverage.cobertura.xml\"",
+                "\"-targetdir:${workspaceFolder}/TestResults/CoverageReport\"",
+                "\"-reporttypes:Html\""
+            ],
+            "problemMatcher": [],
+            "dependsOn": [
+                "Launch test with coverage"
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "options": {
+                "env": {
+                    "PATH": "${env:HOME}/.dotnet/tools:${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "Generate+Open Coverage Report",
+            "command": "open",
+            "type": "shell",
+            "args": [
+                "${workspaceFolder}/TestResults/CoverageReport/index.html"
+            ],
+            "problemMatcher": [],
+            "dependsOn": [
+                "Generate Coverage Report"
+            ],
+            "presentation": {
+                "reveal": "never"
+            }
+        },
+        {
+            "label": "Crear nuevo tag",
+            "type": "shell",
+            "command": "${workspaceFolder}/terraform/scripts/create_newtag.sh",
+            "args": [
+                "${input:entorno}"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        }
+    ]
+}
