@@ -6,7 +6,7 @@
 
 Responsabilidades:
 
-- presentar UHs y su estado
+- presentar USs y su estado
 - lanzar acciones del usuario
 - abrir artefactos markdown
 - observar cambios manuales en artefactos relevantes
@@ -45,7 +45,7 @@ La extensión orquesta interacción. El MCP decide ciclo de vida. El repo preser
 
 ## Workflow canónico inicial
 
-1. Crear o importar UH.
+1. Crear o importar US.
 2. Generar refinement.
 3. Aprobar refinement.
 4. Generar diseño técnico.
@@ -57,8 +57,12 @@ La extensión orquesta interacción. El MCP decide ciclo de vida. El repo preser
 ## Persistencia mínima recomendada
 
 - markdown para artefactos legibles por humanos
-- `state.json` para estado transaccional de la UH
-- `timeline.md` o `events.ndjson` para auditoría
+- `yaml` para estado transaccional, configuración y metadatos técnicos de la US
+- `timeline.md` para auditoría legible por humanos, con opción de evaluar `yaml` si más adelante hiciera falta procesamiento estructurado adicional
+
+Regla práctica:
+
+- no duplicar entradas de fase en `input.md` si el sistema puede inferirlas de la fase previa aprobada y de los punteros activos del estado
 
 ## Decisión abierta de stack
 

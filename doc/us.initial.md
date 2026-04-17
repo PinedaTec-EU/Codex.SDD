@@ -24,7 +24,7 @@ Construir una herramienta para VS Code que gobierne workflows SDD asistidos por 
 - Estado: `draft`
 - Prioridad: `alta`
 - Tipo: `foundation`
-- Fuente principal de verdad: esta carpeta `.sdd/`
+- Fuente principal de verdad: esta carpeta `doc/`
 
 ## Decisión de trabajo actual
 

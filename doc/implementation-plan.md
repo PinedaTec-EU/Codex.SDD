@@ -10,28 +10,34 @@ Entregables:
 - contratos de entrada y salida por fase
 - checkpoints obligatorios
 - criterios de regresión
+- reglas de versionado de artefactos
+- regla de inmutabilidad práctica de la fuente tras arrancar `refinement`
+- momento de creación de rama de trabajo
 
 ### Paso 2. Definir persistencia mínima
 
 Entregables:
 
-- estructura de carpetas de `.sdd/`
-- formato de `state.json`
+- estructura de carpetas de `doc/` y del estado runtime persistido en repo
+- formato de `state.yaml`
 - formato de timeline o eventos
 - plantillas markdown esenciales
+- regla de inferencia de entradas entre fases para evitar `input.md` redundantes
 
 ### Paso 3. Diseñar el contrato MCP inicial
 
 Entregables:
 
-- `create_uh_from_chat`
-- `import_uh_from_markdown`
-- `list_uhs`
-- `get_uh_summary`
+- `create_us_from_chat`
+- `import_us_from_markdown`
+- `list_user_stories`
+- `get_user_story_summary`
 - `get_current_phase`
 - `generate_next_phase`
 - `approve_phase`
 - `request_regression`
+- `restart_user_story_from_source`
+- `create_work_branch`
 
 ### Paso 4. Implementar el núcleo del workflow engine
 
@@ -46,7 +52,7 @@ Entregables:
 
 Entregables:
 
-- vista de UHs
+- vista de USs
 - comando crear/importar
 - comando continuar fase
 - apertura de artefacto principal
@@ -54,9 +60,10 @@ Entregables:
 ## Orden recomendado después de esta US
 
 1. concretar el workflow canónico de fase 1
-2. concretar la estructura real de `.sdd/`
+2. concretar la estructura real de `doc/` y de los artefactos runtime
 3. concretar el contrato MCP mínimo
 4. arrancar implementación del dominio y persistencia
+5. fijar la estrategia de branch naming y reinicio seguro de una US
 
 ## Riesgos a vigilar
 
@@ -68,11 +75,11 @@ Entregables:
 ## Decisiones aplazadas
 
 - edición visual completa de workflows
-- slicing paralelo intra-UH
+- slicing paralelo intra-US
 - integración real de PR
 - integración real con issues
 - estrategias avanzadas multi-proveedor
 
-## Siguiente documento recomendado
+## Estado actual
 
-El siguiente artefacto SDD debería ser `workflow-canonico-fase-1.md`, porque es la pieza que convierte esta US en trabajo implementable.
+El siguiente artefacto SDD de fase 1 es `workflow-canonico-fase-1.md`, porque convierte esta US en trabajo implementable y permite fijar persistencia y contrato MCP sobre un flujo estable.

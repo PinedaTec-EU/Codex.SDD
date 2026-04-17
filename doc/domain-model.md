@@ -8,7 +8,7 @@ Definir el núcleo mínimo gobernable para la primera fase sin arrastrar entidad
 
 ### `UserStory`
 
-Representa la UH o US gestionada por SpecForge.
+Representa la US gestionada por SpecForge.
 
 Responsabilidades:
 
@@ -16,6 +16,7 @@ Responsabilidades:
 - referencia a artefacto principal
 - estado global
 - vínculo al workflow aplicado
+- conservación del hash de la fuente inicial usada para arrancar el flujo
 
 ### `WorkflowDefinition`
 
@@ -59,7 +60,8 @@ Responsabilidades:
 - tipo de artefacto
 - ruta
 - versión lógica
-- relación con fase y UH
+- relación con fase y US
+- marca de artefacto activo o superseded
 
 ### `Checkpoint`
 
@@ -70,6 +72,17 @@ Responsabilidades:
 - motivo
 - estado de aprobación
 - instrucciones humanas adjuntas
+
+### `WorkBranch`
+
+Representa la rama de trabajo asociada a una US.
+
+Responsabilidades:
+
+- rama base elegida por el usuario
+- nombre de rama creada
+- momento de creación
+- vínculo con la US y con el workflow activo
 
 ### `ReviewFinding`
 
@@ -102,6 +115,9 @@ Quedan fuera del dominio inicial y se recuperarán si la implementación las exi
 - No se avanza a la siguiente fase si el checkpoint obligatorio no está aprobado.
 - Toda regresión debe apuntar a una fase permitida por `WorkflowDefinition`.
 - Todo `ReviewFinding` debe referenciar la fase o artefacto afectado.
+- Si cambia la fuente original después de iniciar `refinement`, el workflow no la incorpora automáticamente.
+- Toda regeneración de una salida aprobada o ya consumida genera una nueva versión de artefacto.
+- Una `UserStory` `completed` no debe reabrirse para cambios sustanciales; el flujo recomendado es crear una nueva US.
 
 ## Estados mínimos
 

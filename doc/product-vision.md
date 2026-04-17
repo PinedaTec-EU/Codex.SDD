@@ -26,7 +26,7 @@ Equipos de desarrollo que necesitan:
 
 ## Resultado esperado
 
-Desde una US o UH, el sistema debe permitir recorrer un flujo gobernado de:
+Desde una US, el sistema debe permitir recorrer un flujo gobernado de:
 
 1. definición inicial
 2. refinement
@@ -46,6 +46,6 @@ Desde una US o UH, el sistema debe permitir recorrer un flujo gobernado de:
 ## No objetivos de fase 1
 
 - editor visual avanzado de workflows
-- paralelización intra-UH
+- paralelización intra-US
 - integración completa con PR e issues
 - optimización multi-proveedor más allá de una abstracción mínima
