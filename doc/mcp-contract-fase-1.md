@@ -37,8 +37,8 @@ usId: US-0001
 status: active
 currentPhase: refinement
 activeArtifacts:
-  us: work/us/US-0001/us.md
-  refinement: work/us/US-0001/phases/01-refinement.md
+  us: .specs/us/us.US-0001/us.md
+  refinement: .specs/us/us.US-0001/phases/01-refinement.md
 messages:
   - code: refinement_generated
     level: info
@@ -69,8 +69,8 @@ usId: US-0001
 status: active
 currentPhase: refinement
 createdArtifacts:
-  us: work/us/US-0001/us.md
-  state: work/us/US-0001/state.yaml
+  us: .specs/us/us.US-0001/us.md
+  state: .specs/us/us.US-0001/state.yaml
 messages:
   - code: us_created
     level: info
@@ -153,8 +153,8 @@ phaseStates:
   refinement: waiting_user
   refinementApproval: pending
 activeArtifacts:
-  us: work/us/US-0001/us.md
-  refinement: work/us/US-0001/phases/01-refinement.md
+  us: .specs/us/us.US-0001/us.md
+  refinement: .specs/us/us.US-0001/phases/01-refinement.md
 branch:
   baseBranch: main
   workBranch: null
@@ -213,7 +213,7 @@ Output mínimo:
 usId: US-0001
 status: waiting_user
 currentPhase: refinement
-generatedArtifact: work/us/US-0001/phases/01-refinement.md
+generatedArtifact: .specs/us/us.US-0001/phases/01-refinement.md
 messages:
   - code: refinement_generated
     level: info

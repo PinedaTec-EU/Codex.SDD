@@ -46,9 +46,9 @@ No incluye:
 ## Ubicación
 
 ```text
-work/
+.specs/
   us/
-    <us-id>/
+    us.<us-id>/
       branch.yaml
 ```
 

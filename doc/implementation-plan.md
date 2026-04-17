@@ -14,11 +14,11 @@ Entregables:
 - ✅ regla de inmutabilidad práctica de la fuente tras arrancar `refinement`
 - ✅ momento de creación de rama de trabajo
 
-### [ ] Paso 2. Definir persistencia mínima
+### ✅ Paso 2. Definir persistencia mínima
 
 Entregables:
 
-- [ ] estructura de carpetas de `doc/` y del estado runtime persistido en repo
+- ✅ estructura de carpetas de `doc/` y del estado runtime persistido en repo
 - ✅ formato de `state.yaml`
 - ✅ formato de `branch.yaml`
 - ✅ formato de timeline o eventos
@@ -40,13 +40,13 @@ Entregables:
 - ✅ `restart_user_story_from_source`
 - ✅ integración de creación de rama dentro de `approve_phase`
 
-### [ ] Paso 4. Implementar el núcleo del workflow engine
+### ✅ Paso 4. Implementar el núcleo del workflow engine
 
 Entregables:
 
 - ✅ modelo de dominio
 - ✅ validación de transiciones
-- [ ] persistencia local
+- ✅ persistencia local
 - ✅ tests del dominio
 
 ### [ ] Paso 5. Añadir una extensión VS Code mínima
@@ -61,7 +61,7 @@ Entregables:
 ## Orden recomendado después de esta US
 
 1. ✅ concretar el workflow canónico de fase 1
-2. [ ] concretar la estructura real de `doc/` y de los artefactos runtime
+2. ✅ concretar la estructura real de `doc/` y de los artefactos runtime
 3. ✅ concretar el contrato MCP mínimo
 4. [ ] arrancar implementación del dominio y persistencia
 5. [ ] fijar la estrategia de branch naming y reinicio seguro de una US

@@ -40,6 +40,8 @@ public sealed class WorkflowRun
 
     public bool IsPhaseApproved(PhaseId phaseId) => approvedPhases.Contains(phaseId);
 
+    public IReadOnlyCollection<PhaseId> ApprovedPhases => approvedPhases.OrderBy(static phase => phase).ToArray();
+
     public void GenerateNextPhase()
     {
         EnsureNotCompleted();
@@ -107,6 +109,22 @@ public sealed class WorkflowRun
         Status = Definition.RequiresApproval(targetPhase)
             ? UserStoryStatus.WaitingUser
             : UserStoryStatus.Active;
+    }
+
+    public void RestoreBranch(WorkBranch branch)
+    {
+        Branch = branch ?? throw new ArgumentNullException(nameof(branch));
+    }
+
+    public void RestoreApproval(PhaseId phaseId)
+    {
+        approvedPhases.Add(phaseId);
+    }
+
+    public void RestoreState(PhaseId currentPhase, UserStoryStatus status)
+    {
+        CurrentPhase = currentPhase;
+        Status = status;
     }
 
     private static string BuildWorkBranchName(string usId)

@@ -304,9 +304,9 @@ Resolución de entradas por fase:
 - `release_approval` y `pr_preparation` toman la versión activa de `04-review.md` y los metadatos de rama
 
 ```text
-work/
+.specs/
   us/
-    <us-id>/
+    us.<us-id>/
       us.md
       state.yaml
       timeline.md
@@ -318,6 +318,11 @@ work/
         04-review.md
       branch.yaml
 ```
+
+Regla de ubicación:
+
+- cada US vive bajo `.specs/us/us.<us-id>/`
+- esta convención prioriza visibilidad al inicio del workspace y separación clara respecto al código de producto
 
 ## Estado mínimo de `state.yaml`
 
@@ -332,6 +337,8 @@ activeArtifacts:
   technicalDesign: phases/02-technical-design.md
   implementation: phases/03-implementation.md
   review: phases/04-review.md
+approvedPhases:
+  - refinement
 phaseStates:
   refinement: waiting_user
   refinementApproval: pending

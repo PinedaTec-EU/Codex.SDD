@@ -28,9 +28,9 @@ Debe referenciar esos artefactos cuando sea necesario.
 ## Ubicación
 
 ```text
-work/
+.specs/
   us/
-    <us-id>/
+    us.<us-id>/
       timeline.md
 ```
 
@@ -54,8 +54,8 @@ work/
 - Fase: `capture`
 - Resumen: Se creó la US desde chat y se inicializaron `us.md` y `state.yaml`.
 - Artefactos:
-  - `work/us/US-0001/us.md`
-  - `work/us/US-0001/state.yaml`
+  - `.specs/us/us.US-0001/us.md`
+  - `.specs/us/us.US-0001/state.yaml`
 
 ### 2026-04-18T09:04:00Z · `phase_started`
 
@@ -69,7 +69,7 @@ work/
 - Fase: `refinement`
 - Resumen: Refinement generado con evaluación `red-team` y reconstrucción `blue-team`.
 - Artefactos:
-  - `work/us/US-0001/phases/01-refinement.md`
+  - `.specs/us/us.US-0001/phases/01-refinement.md`
 
 ### 2026-04-18T09:10:00Z · `phase_approved`
 
@@ -83,7 +83,7 @@ work/
 - Fase: `refinement_approval`
 - Resumen: Se creó la rama `feature/us-0001-specforge-foundation`.
 - Artefactos:
-  - `work/us/US-0001/branch.yaml`
+  - `.specs/us/us.US-0001/branch.yaml`
 ```
 
 ## Secciones
