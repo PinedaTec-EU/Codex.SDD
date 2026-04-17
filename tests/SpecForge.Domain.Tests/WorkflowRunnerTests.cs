@@ -33,6 +33,10 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal(UserStoryStatus.WaitingUser, result.Status);
         Assert.NotNull(result.GeneratedArtifactPath);
         Assert.True(File.Exists(result.GeneratedArtifactPath!));
+        var refinementContent = await File.ReadAllTextAsync(result.GeneratedArtifactPath!);
+        Assert.Contains("Initial source text", refinementContent);
+        Assert.Contains("## Red Team", refinementContent);
+        Assert.Contains("## Blue Team", refinementContent);
     }
 
     [Fact]
@@ -47,6 +51,9 @@ public sealed class WorkflowRunnerTests : IDisposable
 
         Assert.Equal(PhaseId.TechnicalDesign, result.CurrentPhase);
         Assert.Equal(UserStoryStatus.WaitingUser, result.Status);
+        var technicalDesignContent = await File.ReadAllTextAsync(result.GeneratedArtifactPath!);
+        Assert.Contains("## Componentes afectados", technicalDesignContent);
+        Assert.Contains("SpecForge.Runner.Cli", technicalDesignContent);
 
         var loadedRun = await new UserStoryFileStore().LoadAsync(
             UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);

@@ -82,14 +82,14 @@ Entregables:
 - ✅ alinear operaciones reales con `mcp-contract-fase-1.md`
 - ✅ preparar sustitución del runner local por backend MCP sin romper la UI
 
-### [ ] Paso 5.3. Sustituir generación placeholder por ejecución de fases real
+### ✅ Paso 5.3. Sustituir generación placeholder por ejecución de fases real
 
 Entregables:
 
-- [ ] reemplazar artefactos de ejemplo por ejecución basada en prompts/agents
-- [ ] persistir resultados reales de fase
-- [ ] registrar fallos, bloqueos y regresiones en timeline y estado
-- [ ] mantener trazabilidad entre artefactos y decisiones
+- ✅ reemplazar artefactos de ejemplo por ejecución basada en artefactos previos y reglas de workflow
+- ✅ persistir resultados reales de fase
+- ✅ registrar fallos, bloqueos y regresiones en timeline y estado
+- ✅ mantener trazabilidad entre artefactos y decisiones
 
 ### [ ] Paso 5.4. Enriquecer la UX mínima
 

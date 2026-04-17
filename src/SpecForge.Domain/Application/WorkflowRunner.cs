@@ -8,15 +8,17 @@ namespace SpecForge.Domain.Application;
 public sealed class WorkflowRunner
 {
     private readonly UserStoryFileStore fileStore;
+    private readonly PhaseArtifactComposer phaseArtifactComposer;
 
     public WorkflowRunner()
-        : this(new UserStoryFileStore())
+        : this(new UserStoryFileStore(), new PhaseArtifactComposer())
     {
     }
 
-    public WorkflowRunner(UserStoryFileStore fileStore)
+    internal WorkflowRunner(UserStoryFileStore fileStore, PhaseArtifactComposer phaseArtifactComposer)
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
+        this.phaseArtifactComposer = phaseArtifactComposer ?? throw new ArgumentNullException(nameof(phaseArtifactComposer));
     }
 
     public async Task<string> CreateUserStoryAsync(
@@ -111,21 +113,14 @@ public sealed class WorkflowRunner
         return new ContinuePhaseResult(workflowRun.UsId, workflowRun.CurrentPhase, workflowRun.Status, artifactPath);
     }
 
-    private static async Task<string> MaterializePhaseArtifactAsync(
+    private async Task<string> MaterializePhaseArtifactAsync(
         UserStoryFilePaths paths,
         WorkflowRun workflowRun,
         CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
         var artifactPath = NextAvailableArtifactPath(paths, workflowRun.CurrentPhase);
-        var content = workflowRun.CurrentPhase switch
-        {
-            PhaseId.Refinement => BuildRefinementArtifact(workflowRun.UsId),
-            PhaseId.TechnicalDesign => BuildTechnicalDesignArtifact(workflowRun.UsId),
-            PhaseId.Implementation => BuildImplementationArtifact(workflowRun.UsId),
-            PhaseId.Review => BuildReviewArtifact(workflowRun.UsId),
-            _ => throw new WorkflowDomainException($"Phase '{workflowRun.CurrentPhase}' has no materialized artifact.")
-        };
+        var content = await phaseArtifactComposer.ComposeAsync(paths, workflowRun, cancellationToken);
 
         await File.WriteAllTextAsync(artifactPath, content, cancellationToken);
         return artifactPath;
@@ -218,87 +213,6 @@ public sealed class WorkflowRunner
                        "  - ...",
                        "- No incluye:",
                        "  - ..."
-                   }) +
-               Environment.NewLine;
-    }
-
-    private static string BuildRefinementArtifact(string usId)
-    {
-        return string.Join(
-                   Environment.NewLine,
-                   new[]
-                   {
-                       $"# Refinement · {usId} · v01",
-                       string.Empty,
-                       "## History Log",
-                       $"- `{DateTimeOffset.UtcNow:O}` · Creación inicial del refinement.",
-                       string.Empty,
-                       "## Estado",
-                       "- Estado: `pending_approval`",
-                       "- Basado en: `us.md`",
-                       string.Empty,
-                       "## Red Team",
-                       "- Riesgos: ...",
-                       string.Empty,
-                       "## Blue Team",
-                       "- Ajustes recomendados: ..."
-                   }) +
-               Environment.NewLine;
-    }
-
-    private static string BuildTechnicalDesignArtifact(string usId)
-    {
-        return string.Join(
-                   Environment.NewLine,
-                   new[]
-                   {
-                       $"# Technical Design · {usId} · v01",
-                       string.Empty,
-                       "## Estado",
-                       "- Estado: `pending_approval`",
-                       "- Basado en: `01-refinement.md`",
-                       string.Empty,
-                       "## Resumen técnico",
-                       "Qué solución se propone y por qué.",
-                       string.Empty,
-                       "## Estrategia de implementación",
-                       "1. ..."
-                   }) +
-               Environment.NewLine;
-    }
-
-    private static string BuildImplementationArtifact(string usId)
-    {
-        return string.Join(
-                   Environment.NewLine,
-                   new[]
-                   {
-                       $"# Implementation · {usId} · v01",
-                       string.Empty,
-                       "## Estado",
-                       "- Estado: `generated`",
-                       "- Basado en: `02-technical-design.md`",
-                       string.Empty,
-                       "## Resumen",
-                       "Implementación iniciada o preparada por el workflow runner."
-                   }) +
-               Environment.NewLine;
-    }
-
-    private static string BuildReviewArtifact(string usId)
-    {
-        return string.Join(
-                   Environment.NewLine,
-                   new[]
-                   {
-                       $"# Review · {usId} · v01",
-                       string.Empty,
-                       "## Estado",
-                       "- Resultado: `pass`",
-                       string.Empty,
-                       "## Veredicto",
-                       "- Resultado final: `pass`",
-                       "- Motivo principal: revisión mínima generada por el workflow runner."
                    }) +
                Environment.NewLine;
     }
