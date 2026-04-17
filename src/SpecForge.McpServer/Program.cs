@@ -93,6 +93,9 @@ static async Task<JsonNode> HandleToolCallAsync(
             usId: GetRequired(arguments, "usId"),
             sourcePath: GetRequired(arguments, "sourcePath"),
             title: GetRequired(arguments, "title")),
+        "initialize_repo_prompts" => await applicationService.InitializeRepoPromptsAsync(
+            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+            overwrite: GetOptionalBoolean(arguments, "overwrite")),
         "list_user_stories" => new
         {
             items = await applicationService.ListUserStoriesAsync(
@@ -138,6 +141,7 @@ static JsonObject BuildToolsList()
         {
             Tool("create_us_from_chat", "Create a user story from free text."),
             Tool("import_us_from_markdown", "Import a user story from a markdown file."),
+            Tool("initialize_repo_prompts", "Export the repo prompt templates into .specs/prompts/."),
             Tool("list_user_stories", "List user stories persisted in the workspace."),
             Tool("get_user_story_summary", "Get the operational summary of a user story."),
             Tool("get_current_phase", "Get the current phase and advanceability of a user story."),
@@ -175,6 +179,12 @@ static string? GetOptional(JsonObject arguments, string key)
 {
     var value = arguments[key]?.GetValue<string>();
     return string.IsNullOrWhiteSpace(value) ? null : value;
+}
+
+static bool GetOptionalBoolean(JsonObject arguments, string key)
+{
+    var value = arguments[key];
+    return value is not null && value.GetValue<bool>();
 }
 
 static JsonObject BuildSuccessResponse(JsonNode? id, JsonNode result)

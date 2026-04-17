@@ -7,17 +7,28 @@ public sealed class SpecForgeApplicationService
 {
     private readonly UserStoryFileStore fileStore;
     private readonly WorkflowRunner workflowRunner;
+    private readonly RepositoryPromptInitializer repositoryPromptInitializer;
 
     public SpecForgeApplicationService()
-        : this(new UserStoryFileStore(), new WorkflowRunner())
+        : this(new UserStoryFileStore(), new WorkflowRunner(), new RepositoryPromptInitializer())
     {
     }
 
-    public SpecForgeApplicationService(UserStoryFileStore fileStore, WorkflowRunner workflowRunner)
+    public SpecForgeApplicationService(
+        UserStoryFileStore fileStore,
+        WorkflowRunner workflowRunner,
+        RepositoryPromptInitializer? repositoryPromptInitializer = null)
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
         this.workflowRunner = workflowRunner ?? throw new ArgumentNullException(nameof(workflowRunner));
+        this.repositoryPromptInitializer = repositoryPromptInitializer ?? new RepositoryPromptInitializer();
     }
+
+    public Task<InitializeRepoPromptsResult> InitializeRepoPromptsAsync(
+        string workspaceRoot,
+        bool overwrite = false,
+        CancellationToken cancellationToken = default) =>
+        repositoryPromptInitializer.InitializeAsync(workspaceRoot, overwrite, cancellationToken);
 
     public async Task<CreateOrImportUserStoryResult> CreateUserStoryAsync(
         string workspaceRoot,
