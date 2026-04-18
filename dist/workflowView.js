@@ -2,16 +2,20 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildWorkflowHtml = buildWorkflowHtml;
 exports.escapeHtml = escapeHtml;
+const phaseNodeWidth = 220;
+const phaseNodeHeight = 116;
+const phaseActionOffsetX = 16;
+const phaseActionTopOffset = 18;
 const desktopGraphHeight = 1260;
 const mobileGraphHeight = 1360;
 const desktopPhasePositions = {
     "capture": { left: 18, top: 38 },
     "refinement": { left: 392, top: 142 },
     "technical-design": { left: 392, top: 332 },
-    "implementation": { left: 18, top: 436 },
-    "review": { left: 18, top: 626 },
-    "release-approval": { left: 392, top: 730 },
-    "pr-preparation": { left: 18, top: 834 }
+    "implementation": { left: 18, top: 522 },
+    "review": { left: 18, top: 712 },
+    "release-approval": { left: 392, top: 902 },
+    "pr-preparation": { left: 18, top: 1092 }
 };
 const mobilePhasePositions = {
     "capture": { left: 0, top: 16 },
@@ -22,14 +26,15 @@ const mobilePhasePositions = {
     "release-approval": { left: 176, top: 938 },
     "pr-preparation": { left: 0, top: 1138 }
 };
-const phaseAnchorMap = buildPhaseAnchorMap(desktopPhasePositions);
 function buildPhasePositionCss(positions) {
     return Object.entries(positions)
         .map(([phaseId, position]) => `.phase-node.${phaseId} { left: ${position.left}px; top: ${position.top}px; }`)
         .join("\n");
 }
-function buildPhaseAnchorMap(positions) {
-    return Object.fromEntries(Object.entries(positions).map(([phaseId, position]) => [phaseId, { x: position.left + 220, y: position.top + 58 }]));
+function buildPhaseActionPositionCss(positions, nodeWidth = phaseNodeWidth) {
+    return Object.entries(positions)
+        .map(([phaseId, position]) => `.phase-node-actions.${phaseId} { left: ${position.left + nodeWidth + phaseActionOffsetX}px; top: ${position.top + phaseActionTopOffset}px; }`)
+        .join("\n");
 }
 function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
@@ -46,7 +51,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       </section>
     `
         : "";
-    const phaseGraph = buildPhaseGraph(workflow.phases, selectedPhase.phaseId);
+    const phaseGraph = buildPhaseGraph(workflow, selectedPhase.phaseId);
     const artifactSection = selectedPhase.artifactPath
         ? `
       <div class="detail-actions">
@@ -81,9 +86,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         </div>`
         : "<p class=\"muted\">No files are attached to this user story yet.</p>"}
   `;
-    const regressionButtons = workflow.controls.regressionTargets
-        .map((target) => `<button data-command="regress" data-phase-id="${escapeHtmlAttribute(target)}">Regress to ${escapeHtml(target)}</button>`)
-        .join("");
     const playbackButtons = `
     <button class="icon-button icon-button--primary" data-command="play" aria-label="Play workflow"${playbackState === "playing" || !state.settingsConfigured ? " disabled" : ""}>
       ${playIcon()}
@@ -366,8 +368,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .phase-node {
       position: absolute;
-      width: 220px;
-      min-height: 116px;
+      width: ${phaseNodeWidth}px;
+      min-height: ${phaseNodeHeight}px;
       border-radius: 26px;
       border: 1px solid rgba(255, 255, 255, 0.08);
       padding: 16px 18px;
@@ -480,6 +482,54 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .phase-tag.active {
       background: rgba(92, 181, 255, 0.14);
       color: #90d2ff;
+    }
+    .phase-node-actions {
+      position: absolute;
+      display: flex;
+      gap: 8px;
+      z-index: 10;
+    }
+    ${buildPhaseActionPositionCss(desktopPhasePositions)}
+    .action-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.7);
+      transition: all 140ms ease;
+    }
+    .action-btn:hover {
+      transform: scale(1.08);
+      border-color: rgba(255, 255, 255, 0.28);
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .action-btn--approve {
+      background: rgba(127, 240, 165, 0.14);
+      color: #7ff0a5;
+      border-color: rgba(127, 240, 165, 0.24);
+    }
+    .action-btn--approve:hover {
+      background: rgba(127, 240, 165, 0.22);
+      border-color: rgba(127, 240, 165, 0.42);
+      box-shadow: 0 0 12px rgba(127, 240, 165, 0.18);
+    }
+    .action-btn--reject {
+      background: rgba(255, 139, 139, 0.14);
+      color: #ff8b8b;
+      border-color: rgba(255, 139, 139, 0.24);
+    }
+    .action-btn--reject:hover {
+      background: rgba(255, 139, 139, 0.22);
+      border-color: rgba(255, 139, 139, 0.42);
+      box-shadow: 0 0 12px rgba(255, 139, 139, 0.18);
     }
     .phase-node.selected .phase-index {
       box-shadow: 0 0 0 8px rgba(114, 241, 184, 0.08);
@@ -600,10 +650,15 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       .phase-node {
         width: 188px;
       }
+      .phase-node-actions {
+        transform: scale(0.94);
+        transform-origin: top left;
+      }
       .graph-stage, .phase-graph {
         min-height: ${mobileGraphHeight}px;
       }
       ${buildPhasePositionCss(mobilePhasePositions)}
+      ${buildPhaseActionPositionCss(mobilePhasePositions, 188)}
     }
   </style>
 </head>
@@ -625,9 +680,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         </div>
         <div class="control-strip">
           ${playbackButtons}
-          ${workflow.controls.canApprove ? `<button data-command="approve">Approve</button>` : ""}
-          ${workflow.controls.canRestartFromSource ? `<button data-command="restart">Restart</button>` : ""}
-          ${regressionButtons}
           <button class="icon-button" data-command="openArtifact" data-path="${escapeHtmlAttribute(workflow.mainArtifactPath)}" aria-label="Open user story">
             ${fileIcon()}
           </button>
@@ -686,15 +738,21 @@ function buildWorkflowHtml(workflow, state, playbackState) {
 </body>
 </html>`;
 }
-function buildPhaseGraph(phases, selectedPhaseId) {
-    const links = phases
+function buildPhaseGraph(workflow, selectedPhaseId) {
+    const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
+    const rejectCommand = currentPhase && workflow.controls.regressionTargets.length > 0
+        ? { command: "regress", phaseId: workflow.controls.regressionTargets[0], label: `Regress to ${workflow.controls.regressionTargets[0]}` }
+        : workflow.controls.canRestartFromSource
+            ? { command: "restart", phaseId: undefined, label: "Restart from source" }
+            : null;
+    const links = workflow.phases
         .slice(0, -1)
         .map((phase, index) => {
-        const nextPhase = phases[index + 1];
+        const nextPhase = workflow.phases[index + 1];
         return `<path class="${linkClass(nextPhase)}" d="${graphPath(phase.phaseId, nextPhase.phaseId)}"></path>`;
     })
         .join("");
-    const nodes = phases.map((phase) => `
+    const nodes = workflow.phases.map((phase) => `
     <button
       class="phase-node ${escapeHtmlAttribute(phase.phaseId)} ${phase.state}${phase.phaseId === selectedPhaseId ? " selected" : ""}"
       data-command="selectPhase"
@@ -712,12 +770,21 @@ function buildPhaseGraph(phases, selectedPhaseId) {
       </div>
     </button>
   `).join("");
+    const nodeActions = currentPhase
+        ? `
+      <div class="phase-node-actions ${escapeHtmlAttribute(currentPhase.phaseId)}">
+        ${workflow.controls.canApprove ? `<button class="action-btn action-btn--approve" data-command="approve" aria-label="Approve phase" title="Approve phase">✓</button>` : ""}
+        ${rejectCommand ? `<button class="action-btn action-btn--reject" data-command="${rejectCommand.command}"${rejectCommand.phaseId ? ` data-phase-id="${escapeHtmlAttribute(rejectCommand.phaseId)}"` : ""} aria-label="${escapeHtmlAttribute(rejectCommand.label)}" title="${escapeHtmlAttribute(rejectCommand.label)}">✕</button>` : ""}
+      </div>
+    `
+        : "";
     return `
     <div class="phase-graph" aria-label="Workflow graph">
       <svg class="graph-links" viewBox="0 0 700 ${desktopGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
         ${links}
       </svg>
       ${nodes}
+      ${nodeActions}
     </div>
   `;
 }
@@ -728,13 +795,46 @@ function linkClass(targetPhase) {
     return targetPhase.state === "completed" ? "completed" : "pending";
 }
 function graphPath(fromPhaseId, toPhaseId) {
-    const from = phaseAnchorMap[fromPhaseId];
-    const to = phaseAnchorMap[toPhaseId];
-    if (!from || !to) {
+    const fromPosition = desktopPhasePositions[fromPhaseId];
+    const toPosition = desktopPhasePositions[toPhaseId];
+    if (!fromPosition || !toPosition) {
         return "";
     }
-    const controlOffset = Math.max(48, Math.abs(to.x - from.x) * 0.36);
-    return `M ${from.x} ${from.y} C ${from.x + controlOffset} ${from.y}, ${to.x - controlOffset} ${to.y}, ${to.x} ${to.y}`;
+    const { fromSide, toSide } = resolveAnchorSides(fromPosition, toPosition);
+    const from = getAnchorPoint(fromPosition, fromSide);
+    const to = getAnchorPoint(toPosition, toSide);
+    const horizontalDirection = to.x >= from.x ? 1 : -1;
+    const verticalDirection = to.y >= from.y ? 1 : -1;
+    const horizontalOffset = Math.max(54, Math.abs(to.x - from.x) * 0.32);
+    const verticalOffset = Math.max(44, Math.abs(to.y - from.y) * 0.24);
+    if ((fromSide === "right" || fromSide === "left") && (toSide === "right" || toSide === "left")) {
+        return `M ${from.x} ${from.y} C ${from.x + horizontalOffset * horizontalDirection} ${from.y}, ${to.x - horizontalOffset * horizontalDirection} ${to.y}, ${to.x} ${to.y}`;
+    }
+    return `M ${from.x} ${from.y} C ${from.x} ${from.y + verticalOffset * verticalDirection}, ${to.x} ${to.y - verticalOffset * verticalDirection}, ${to.x} ${to.y}`;
+}
+function resolveAnchorSides(from, to) {
+    const deltaX = to.left - from.left;
+    const deltaY = to.top - from.top;
+    if (Math.abs(deltaX) >= Math.abs(deltaY) * 0.6) {
+        return deltaX >= 0
+            ? { fromSide: "right", toSide: "left" }
+            : { fromSide: "left", toSide: "right" };
+    }
+    return deltaY >= 0
+        ? { fromSide: "bottom", toSide: "top" }
+        : { fromSide: "top", toSide: "bottom" };
+}
+function getAnchorPoint(position, side) {
+    switch (side) {
+        case "left":
+            return { x: position.left, y: position.top + phaseNodeHeight / 2 };
+        case "right":
+            return { x: position.left + phaseNodeWidth, y: position.top + phaseNodeHeight / 2 };
+        case "top":
+            return { x: position.left + phaseNodeWidth / 2, y: position.top };
+        case "bottom":
+            return { x: position.left + phaseNodeWidth / 2, y: position.top + phaseNodeHeight };
+    }
 }
 function playIcon() {
     return `
