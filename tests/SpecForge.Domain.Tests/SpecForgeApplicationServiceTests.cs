@@ -1,4 +1,5 @@
 using SpecForge.Domain.Application;
+using SpecForge.Domain.Persistence;
 
 namespace SpecForge.Domain.Tests;
 
@@ -58,6 +59,28 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         Assert.Equal("US-0001", result.UsId);
         Assert.Equal("technical-design", result.CurrentPhase);
         Assert.Equal("waiting-user", result.Status);
+    }
+
+    [Fact]
+    public async Task RestartUserStoryFromSourceAsync_ReturnsRegeneratedRefinementState()
+    {
+        var runner = new WorkflowRunner();
+        var applicationService = new SpecForgeApplicationService();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "Initial source");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        await File.WriteAllTextAsync(paths.MainArtifactPath, "# US-0001 · Story one\n\n## Objetivo\nUpdated source");
+
+        var result = await applicationService.RestartUserStoryFromSourceAsync(
+            workspaceRoot,
+            "US-0001",
+            "Source changed after refinement");
+
+        Assert.Equal("US-0001", result.UsId);
+        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("waiting-user", result.Status);
+        Assert.NotNull(result.GeneratedArtifactPath);
     }
 
     public void Dispose()

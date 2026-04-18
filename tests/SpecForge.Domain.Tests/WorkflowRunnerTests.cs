@@ -89,6 +89,66 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Contains("Review found a design gap", timeline);
     }
 
+    [Fact]
+    public async Task RestartUserStoryFromSourceAsync_WhenSourceChanged_ArchivesDerivedStateAndRegeneratesRefinement()
+    {
+        var runner = new WorkflowRunner();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        await File.WriteAllTextAsync(
+            paths.MainArtifactPath,
+            "# US-0001 · Test story\n\n## Objetivo\nUpdated source text\n\n## Alcance inicial\n- Incluye:\n  - restart flow");
+
+        var result = await runner.RestartUserStoryFromSourceAsync(
+            workspaceRoot,
+            "US-0001",
+            "Source changed after technical design");
+
+        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("waiting-user", result.Status);
+        Assert.NotNull(result.GeneratedArtifactPath);
+        Assert.True(File.Exists(result.GeneratedArtifactPath!));
+
+        var refinementContent = await File.ReadAllTextAsync(result.GeneratedArtifactPath!);
+        Assert.Contains("Updated source text", refinementContent);
+
+        var loadedRun = await new UserStoryFileStore().LoadAsync(paths.RootDirectory);
+        Assert.Equal(PhaseId.Refinement, loadedRun.CurrentPhase);
+        Assert.False(loadedRun.IsPhaseApproved(PhaseId.Refinement));
+        Assert.Null(loadedRun.Branch);
+
+        var archiveDirectory = Directory.GetDirectories(paths.RestartsDirectoryPath).Single();
+        Assert.True(File.Exists(Path.Combine(archiveDirectory, "state.yaml")));
+        Assert.True(File.Exists(Path.Combine(archiveDirectory, "branch.yaml")));
+        Assert.True(File.Exists(Path.Combine(archiveDirectory, "phases", "01-refinement.md")));
+        Assert.True(File.Exists(Path.Combine(archiveDirectory, "phases", "02-technical-design.md")));
+
+        var archivedBranch = await File.ReadAllTextAsync(Path.Combine(archiveDirectory, "branch.yaml"));
+        Assert.Contains("status: superseded", archivedBranch);
+
+        var timeline = await File.ReadAllTextAsync(paths.TimelineFilePath);
+        Assert.Contains("`source_hash_mismatch_detected`", timeline);
+        Assert.Contains("`us_restarted_from_source`", timeline);
+        Assert.Contains("Source changed after technical design", timeline);
+    }
+
+    [Fact]
+    public async Task RestartUserStoryFromSourceAsync_WithoutSourceChange_Throws()
+    {
+        var runner = new WorkflowRunner();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
+            runner.RestartUserStoryFromSourceAsync(workspaceRoot, "US-0001", "No actual source change"));
+
+        Assert.Contains("source has not changed", error.Message);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(workspaceRoot))

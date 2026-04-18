@@ -162,6 +162,13 @@ public sealed class SpecForgeApplicationService
         return workflowRunner.RequestRegressionAsync(workspaceRoot, usId, phaseId, reason, cancellationToken);
     }
 
+    public Task<RestartUserStoryResult> RestartUserStoryFromSourceAsync(
+        string workspaceRoot,
+        string usId,
+        string? reason = null,
+        CancellationToken cancellationToken = default) =>
+        workflowRunner.RestartUserStoryFromSourceAsync(workspaceRoot, usId, reason, cancellationToken);
+
     private static async Task<string> ReadTitleAsync(string filePath, CancellationToken cancellationToken)
     {
         var lines = await File.ReadAllLinesAsync(filePath, cancellationToken);

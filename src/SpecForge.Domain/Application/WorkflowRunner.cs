@@ -112,6 +112,65 @@ public sealed class WorkflowRunner
             WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase));
     }
 
+    public async Task<RestartUserStoryResult> RestartUserStoryFromSourceAsync(
+        string workspaceRoot,
+        string usId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var existingRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+
+        if (existingRun.CurrentPhase == PhaseId.Capture)
+        {
+            throw new WorkflowDomainException("Restart is not allowed before refinement has started.");
+        }
+
+        var currentSourceText = await ReadSourceTextFromUserStoryAsync(paths.MainArtifactPath, cancellationToken);
+        var currentSourceHash = ComputeSourceHash(currentSourceText);
+        if (string.Equals(existingRun.SourceHash, currentSourceHash, StringComparison.Ordinal))
+        {
+            throw new WorkflowDomainException("Restart is not allowed because the source has not changed.");
+        }
+
+        var restartTimestamp = DateTimeOffset.UtcNow;
+        await ArchiveDerivedArtifactsAsync(paths, existingRun, restartTimestamp, cancellationToken);
+
+        var restartedRun = new WorkflowRun(existingRun.UsId, currentSourceHash, existingRun.Definition);
+        restartedRun.GenerateNextPhase();
+        var generatedArtifactPath = await MaterializePhaseArtifactAsync(workspaceRoot, paths, restartedRun, cancellationToken);
+        await fileStore.SaveAsync(restartedRun, paths.RootDirectory, cancellationToken);
+
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "source_hash_mismatch_detected",
+            "system",
+            restartedRun.CurrentPhase,
+            $"Detected source change. Previous hash `{existingRun.SourceHash}` differs from current hash `{currentSourceHash}`.",
+            cancellationToken);
+
+        var summary = "Restarted workflow from the updated source and regenerated refinement.";
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            summary = $"{summary} Reason: {reason.Trim()}.";
+        }
+
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "us_restarted_from_source",
+            "user",
+            restartedRun.CurrentPhase,
+            summary,
+            cancellationToken,
+            generatedArtifactPath);
+
+        return new RestartUserStoryResult(
+            restartedRun.UsId,
+            WorkflowPresentation.ToStatusSlug(restartedRun.Status),
+            WorkflowPresentation.ToPhaseSlug(restartedRun.CurrentPhase),
+            generatedArtifactPath);
+    }
+
     public async Task<ContinuePhaseResult> ContinuePhaseAsync(
         string workspaceRoot,
         string usId,
@@ -206,6 +265,79 @@ public sealed class WorkflowRunner
 
     private static bool HasArtifact(PhaseId phaseId) =>
         phaseId is PhaseId.Refinement or PhaseId.TechnicalDesign or PhaseId.Implementation or PhaseId.Review;
+
+    private static async Task<string> ReadSourceTextFromUserStoryAsync(string userStoryPath, CancellationToken cancellationToken)
+    {
+        var userStory = await File.ReadAllTextAsync(userStoryPath, cancellationToken);
+        var objective = ReadMarkdownSection(userStory, "## Objetivo", "## Objective");
+        return objective == "..." ? userStory.Trim() : objective;
+    }
+
+    private static string ReadMarkdownSection(string markdown, params string[] headings)
+    {
+        var lines = markdown.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        for (var index = 0; index < lines.Length; index++)
+        {
+            if (!headings.Contains(lines[index], StringComparer.Ordinal))
+            {
+                continue;
+            }
+
+            var builder = new StringBuilder();
+            for (var cursor = index + 1; cursor < lines.Length; cursor++)
+            {
+                if (lines[cursor].StartsWith("## ", StringComparison.Ordinal))
+                {
+                    break;
+                }
+
+                builder.AppendLine(lines[cursor]);
+            }
+
+            var content = builder.ToString().Trim();
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                return content;
+            }
+        }
+
+        return "...";
+    }
+
+    private static async Task ArchiveDerivedArtifactsAsync(
+        UserStoryFilePaths paths,
+        WorkflowRun workflowRun,
+        DateTimeOffset restartTimestamp,
+        CancellationToken cancellationToken)
+    {
+        var archiveDirectory = paths.GetRestartArchiveDirectoryPath(restartTimestamp);
+        Directory.CreateDirectory(archiveDirectory);
+
+        if (Directory.Exists(paths.PhasesDirectoryPath) &&
+            Directory.EnumerateFileSystemEntries(paths.PhasesDirectoryPath).Any())
+        {
+            var archivedPhasesPath = Path.Combine(archiveDirectory, "phases");
+            Directory.Move(paths.PhasesDirectoryPath, archivedPhasesPath);
+        }
+
+        if (workflowRun.Branch is not null)
+        {
+            workflowRun.Branch.MarkSuperseded();
+            var archivedBranchPath = Path.Combine(archiveDirectory, "branch.yaml");
+            await File.WriteAllTextAsync(
+                archivedBranchPath,
+                BranchYamlSerializer.Serialize(workflowRun.UsId, workflowRun.Branch),
+                cancellationToken);
+        }
+
+        var archivedStatePath = Path.Combine(archiveDirectory, "state.yaml");
+        await File.WriteAllTextAsync(
+            archivedStatePath,
+            StateYamlSerializer.Serialize(workflowRun),
+            cancellationToken);
+
+        Directory.CreateDirectory(paths.PhasesDirectoryPath);
+    }
 
     private static async Task AppendTimelineEventAsync(
         string timelinePath,

@@ -22,6 +22,7 @@
     "onCommand:specForge.continuePhase",
     "onCommand:specForge.approveCurrentPhase",
     "onCommand:specForge.requestRegression",
+    "onCommand:specForge.restartUserStoryFromSource",
     "onCommand:specForge.showUserStoryDetails"
   ],
   "main": "./dist/extension.js",
@@ -79,6 +80,10 @@
       {
         "command": "specForge.requestRegression",
         "title": "Request Regression"
+      },
+      {
+        "command": "specForge.restartUserStoryFromSource",
+        "title": "Restart User Story From Source"
       },
       {
         "command": "specForge.showUserStoryDetails",
@@ -141,6 +146,11 @@
         },
         {
           "command": "specForge.requestRegression",
+          "when": "view == specForge.userStories && viewItem == specForge.userStory",
+          "group": "navigation"
+        },
+        {
+          "command": "specForge.restartUserStoryFromSource",
           "when": "view == specForge.userStories && viewItem == specForge.userStory",
           "group": "navigation"
         },

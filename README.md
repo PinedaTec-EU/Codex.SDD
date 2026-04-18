@@ -21,7 +21,6 @@ Implemented today:
 
 Not implemented yet:
 
-- safe restart-from-source workflow
 - full PR integration
 - rich VS Code phase details and graph UI
 
@@ -228,7 +227,8 @@ Typical contents:
 - [x] require repo prompt initialization before executing real providers
 - [x] compose effective per-phase prompts from repo templates plus runtime context
 - [x] expose explicit phase regression through domain, MCP, and VS Code
-- [ ] implement safe restart from source and finalize branch lifecycle rules
+- [x] implement safe restart from source and archive superseded derived state
+- [ ] finalize richer branch lifecycle rules and naming strategy
 - [ ] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration
 - [ ] support customizable workflows and agent profiles
@@ -245,7 +245,7 @@ The current target is an MVP, not a feature-complete product.
 - [x] expose the workflow through a local MCP backend
 - [x] support repo-initialized prompts and an OpenAI-compatible provider path
 - [x] support explicit regression to an earlier valid phase
-- [ ] support safe restart from the original source
+- [x] support safe restart from the original source
 
 ### Post-MVP
 

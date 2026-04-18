@@ -119,6 +119,10 @@ static async Task<JsonNode> HandleToolCallAsync(
             usId: GetRequired(arguments, "usId"),
             targetPhase: GetRequired(arguments, "targetPhase"),
             reason: GetOptional(arguments, "reason")),
+        "restart_user_story_from_source" => await applicationService.RestartUserStoryFromSourceAsync(
+            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+            usId: GetRequired(arguments, "usId"),
+            reason: GetOptional(arguments, "reason")),
         _ => throw new InvalidOperationException($"Tool '{toolName}' is not supported.")
     };
 
@@ -152,7 +156,8 @@ static JsonObject BuildToolsList()
             Tool("get_current_phase", "Get the current phase and advanceability of a user story."),
             Tool("generate_next_phase", "Advance to the next linear phase and generate its artifact."),
             Tool("approve_phase", "Approve the current phase and create the work branch if required."),
-            Tool("request_regression", "Regress a user story to an earlier valid phase.")
+            Tool("request_regression", "Regress a user story to an earlier valid phase."),
+            Tool("restart_user_story_from_source", "Restart a user story after the source has changed.")
         }
     };
 }

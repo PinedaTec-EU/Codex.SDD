@@ -21,6 +21,7 @@ public sealed class UserStoryFilePaths
         TimelineFilePath = Path.Combine(rootDirectory, "timeline.md");
         PhasesDirectoryPath = Path.Combine(rootDirectory, "phases");
         BranchFilePath = Path.Combine(rootDirectory, "branch.yaml");
+        RestartsDirectoryPath = Path.Combine(rootDirectory, "restarts");
     }
 
     public static UserStoryFilePaths FromWorkspaceRoot(string workspaceRoot, string usId)
@@ -56,6 +57,8 @@ public sealed class UserStoryFilePaths
 
     public string BranchFilePath { get; }
 
+    public string RestartsDirectoryPath { get; }
+
     public string GetPhaseArtifactPath(PhaseId phaseId, int version = 1)
     {
         var fileName = phaseId switch
@@ -69,5 +72,11 @@ public sealed class UserStoryFilePaths
 
         var versionSuffix = version <= 1 ? string.Empty : $".v{version:00}";
         return Path.Combine(PhasesDirectoryPath, $"{fileName}{versionSuffix}.md");
+    }
+
+    public string GetRestartArchiveDirectoryPath(DateTimeOffset timestampUtc)
+    {
+        var directoryName = timestampUtc.UtcDateTime.ToString("yyyyMMdd'T'HHmmss'Z'");
+        return Path.Combine(RestartsDirectoryPath, directoryName);
     }
 }

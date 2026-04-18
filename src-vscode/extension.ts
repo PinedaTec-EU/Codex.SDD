@@ -10,6 +10,7 @@ import {
   importUserStoryFromMarkdown,
   openPromptTemplates,
   openMainArtifact,
+  restartUserStoryFromSource,
   requestRegression
 } from "./specsExplorer";
 
@@ -48,6 +49,10 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("specForge.requestRegression", async (summary) => {
       await requestRegression(summary);
+      explorerProvider.refresh();
+    }),
+    vscode.commands.registerCommand("specForge.restartUserStoryFromSource", async (summary) => {
+      await restartUserStoryFromSource(summary);
       explorerProvider.refresh();
     }),
     vscode.commands.registerCommand("specForge.continuePhase", async (summary) => {

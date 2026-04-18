@@ -37,7 +37,7 @@ Entregables:
 - ✅ `generate_next_phase`
 - ✅ `approve_phase`
 - ✅ `request_regression`
-- [ ] `restart_user_story_from_source`
+- ✅ `restart_user_story_from_source`
 - ✅ integración de creación de rama dentro de `approve_phase`
 
 ### ✅ Paso 4. Implementar el núcleo del workflow engine
@@ -114,9 +114,10 @@ Entregables:
 10. ✅ exigir prompts requeridos en la ejecución de fases reales
 11. ✅ componer prompts efectivos por fase usando contexto runtime
 12. ✅ exponer `request_regression` de punta a punta en dominio, MCP y extensión
-13. [ ] implementar reinicio seguro desde fuente y estrategia de branch naming asociada
-14. [ ] ampliar UX con graph view y detalle de fase más rico
-15. [ ] añadir editor/inspector de prompts más rico desde la extensión
+13. ✅ implementar reinicio seguro desde fuente
+14. [ ] cerrar estrategia de branch naming y ciclo de vida enriquecido de ramas
+15. [ ] ampliar UX con graph view y detalle de fase más rico
+16. [ ] añadir editor/inspector de prompts más rico desde la extensión
 
 ## Riesgos a vigilar
 
@@ -158,7 +159,7 @@ Incluye en el MVP:
 - ✅ backend MCP mínimo
 - ✅ prompts versionados por repo y provider OpenAI-compatible
 - ✅ regresión explícita de fase desde UI y backend
-- [ ] reinicio seguro de una US desde la fuente
+- ✅ reinicio seguro de una US desde la fuente
 - ✅ roadmap operativo coherente entre `doc/` y `README`
 
 No bloquea el MVP:
@@ -181,10 +182,10 @@ Subtareas recién resueltas:
 - ✅ usar ese prompt efectivo desde el provider OpenAI-compatible para OpenAI y Ollama
 - ✅ exponer `request_regression` en dominio, aplicación, MCP y extensión
 - ✅ invalidar aprobaciones obsoletas al regresar a una fase anterior
+- ✅ implementar `restart_user_story_from_source` con archivo de artefactos y rama previa supersedida
 
 Subtareas pendientes de cerrar antes de considerar el MVP completo:
 
-- [ ] implementar `restart_user_story_from_source`
 - [ ] cerrar la decisión de branch naming y ciclo de vida de `branch.yaml`
 
 Artefactos de persistencia ya concretados o en concreción:

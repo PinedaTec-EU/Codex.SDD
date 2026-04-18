@@ -318,6 +318,43 @@ export async function requestRegression(summary?: UserStorySummary): Promise<voi
   }
 }
 
+export async function restartUserStoryFromSource(summary?: UserStorySummary): Promise<void> {
+  if (!summary) {
+    void vscode.window.showInformationMessage("Select a user story first.");
+    return;
+  }
+
+  const workspaceRoot = getWorkspaceRoot();
+  if (!workspaceRoot) {
+    void vscode.window.showWarningMessage("Open a workspace folder before restarting a user story.");
+    return;
+  }
+
+  const reason = await vscode.window.showInputBox({
+    prompt: "Reason for restart from source",
+    ignoreFocusOut: true,
+    validateInput: (value) => value.trim().length > 0 ? undefined : "Reason is required."
+  });
+
+  if (!reason) {
+    return;
+  }
+
+  try {
+    const result = await getBackendClient(workspaceRoot).restartUserStoryFromSource(summary.usId, reason);
+
+    if (result.generatedArtifactPath) {
+      await openTextDocument(result.generatedArtifactPath);
+    }
+
+    void vscode.window.showInformationMessage(
+      `${summary.usId} restarted from source at ${result.currentPhase} with status ${result.status}.`
+    );
+  } catch (error) {
+    void vscode.window.showErrorMessage(asErrorMessage(error));
+  }
+}
+
 function getWorkspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }

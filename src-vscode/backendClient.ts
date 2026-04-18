@@ -38,6 +38,13 @@ export interface RequestRegressionResult {
   readonly status: string;
 }
 
+export interface RestartUserStoryResult {
+  readonly usId: string;
+  readonly currentPhase: string;
+  readonly status: string;
+  readonly generatedArtifactPath: string | null;
+}
+
 export interface SpecForgeBackendClient {
   listUserStories(): Promise<readonly UserStorySummary[]>;
   getUserStorySummary(usId: string): Promise<UserStorySummary>;
@@ -47,6 +54,7 @@ export interface SpecForgeBackendClient {
   continuePhase(usId: string): Promise<ContinuePhaseResult>;
   approveCurrentPhase(usId: string, baseBranch?: string): Promise<UserStorySummary>;
   requestRegression(usId: string, targetPhase: string, reason?: string): Promise<RequestRegressionResult>;
+  restartUserStoryFromSource(usId: string, reason?: string): Promise<RestartUserStoryResult>;
   dispose(): void;
 }
 
@@ -164,6 +172,19 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     }
 
     return this.callTool<RequestRegressionResult>("request_regression", argumentsPayload);
+  }
+
+  public async restartUserStoryFromSource(usId: string, reason?: string): Promise<RestartUserStoryResult> {
+    const argumentsPayload: Record<string, string> = {
+      workspaceRoot: this.workspaceRoot,
+      usId
+    };
+
+    if (reason && reason.trim().length > 0) {
+      argumentsPayload.reason = reason;
+    }
+
+    return this.callTool<RestartUserStoryResult>("restart_user_story_from_source", argumentsPayload);
   }
 
   public dispose(): void {

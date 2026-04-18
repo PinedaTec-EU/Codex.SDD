@@ -12,5 +12,16 @@ public sealed class UserStoryFilePathsTests
         Assert.Equal("/repo/.specs/us/us.US-0001", paths.RootDirectory);
         Assert.Equal("/repo/.specs/us/us.US-0001/state.yaml", paths.StateFilePath);
         Assert.Equal("/repo/.specs/us/us.US-0001/branch.yaml", paths.BranchFilePath);
+        Assert.Equal("/repo/.specs/us/us.US-0001/restarts", paths.RestartsDirectoryPath);
+    }
+
+    [Fact]
+    public void GetRestartArchiveDirectoryPath_UsesTimestampedArchiveDirectory()
+    {
+        var paths = UserStoryFilePaths.FromWorkspaceRoot("/repo", "US-0001");
+
+        var archiveDirectory = paths.GetRestartArchiveDirectoryPath(new DateTimeOffset(2026, 4, 18, 10, 30, 0, TimeSpan.Zero));
+
+        Assert.Equal("/repo/.specs/us/us.US-0001/restarts/20260418T103000Z", archiveDirectory);
     }
 }
