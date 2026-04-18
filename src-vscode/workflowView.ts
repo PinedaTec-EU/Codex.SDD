@@ -588,8 +588,20 @@ export function buildWorkflowHtml(
       outline: 2px solid rgba(114, 241, 184, 0.52);
       outline-offset: 2px;
     }
+    .phase-node.pending.selected {
+      outline: 2px solid rgba(255, 255, 255, 0.24);
+      outline-offset: 2px;
+    }
     .phase-node.disabled.selected {
       outline: 2px solid rgba(255, 255, 255, 0.28);
+      outline-offset: 2px;
+    }
+    .phase-node.current.selected {
+      outline: 2px solid rgba(92, 181, 255, 0.56);
+      outline-offset: 2px;
+    }
+    .phase-node.completed.selected {
+      outline: 2px solid rgba(114, 241, 184, 0.52);
       outline-offset: 2px;
     }
     .phase-node.current {
