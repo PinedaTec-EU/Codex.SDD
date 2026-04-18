@@ -36,18 +36,18 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       await this.handleMessageAsync(message);
     });
 
-    return this.renderAsync();
+    return this.safeRenderAsync();
   }
 
   private async handleMessageAsync(message: SidebarMessage): Promise<void> {
     switch (message.command) {
       case "showCreateForm":
         this.showCreateForm = true;
-        await this.renderAsync();
+        await this.safeRenderAsync();
         return;
       case "hideCreateForm":
         this.showCreateForm = false;
-        await this.renderAsync();
+        await this.safeRenderAsync();
         return;
       case "openWorkflow":
         if (!message.usId) {
@@ -116,8 +116,10 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    const backendClient = getOrCreateBackendClient(workspaceRoot);
-    const userStories = await backendClient.listUserStories();
+    const hasPersistedStories = await hasPersistedUserStoriesAsync(workspaceRoot);
+    const userStories = hasPersistedStories
+      ? await getOrCreateBackendClient(workspaceRoot).listUserStories()
+      : [];
     const categories = await getUserStoryCategoriesAsync(workspaceRoot);
     this.webviewView.webview.html = buildSidebarHtml({
       hasWorkspace: true,
@@ -125,6 +127,24 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       categories,
       userStories
     });
+  }
+
+  private async safeRenderAsync(): Promise<void> {
+    try {
+      await this.renderAsync();
+    } catch (error) {
+      if (!this.webviewView) {
+        return;
+      }
+
+      this.webviewView.webview.html = buildSidebarHtml({
+        hasWorkspace: true,
+        showCreateForm: false,
+        categories: [],
+        userStories: []
+      });
+      void vscode.window.showErrorMessage(`SpecForge sidebar failed to load: ${asErrorMessage(error)}`);
+    }
   }
 }
 
@@ -152,7 +172,25 @@ async function pathExistsAsync(filePath: string): Promise<boolean> {
   }
 }
 
+async function hasPersistedUserStoriesAsync(workspaceRoot: string): Promise<boolean> {
+  const storiesRoot = path.join(workspaceRoot, ".specs", "us");
+  if (!await pathExistsAsync(storiesRoot)) {
+    return false;
+  }
+
+  const entries = await fs.promises.readdir(storiesRoot, { withFileTypes: true });
+  return entries.some((entry) => entry.isDirectory() && entry.name.startsWith("us."));
+}
+
 async function openTextDocument(filePath: string): Promise<void> {
   const document = await vscode.workspace.openTextDocument(filePath);
   await vscode.window.showTextDocument(document, { preview: false });
+}
+
+function asErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unknown sidebar error.";
 }

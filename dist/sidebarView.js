@@ -61,17 +61,17 @@ class SidebarViewProvider {
         webviewView.webview.onDidReceiveMessage(async (message) => {
             await this.handleMessageAsync(message);
         });
-        return this.renderAsync();
+        return this.safeRenderAsync();
     }
     async handleMessageAsync(message) {
         switch (message.command) {
             case "showCreateForm":
                 this.showCreateForm = true;
-                await this.renderAsync();
+                await this.safeRenderAsync();
                 return;
             case "hideCreateForm":
                 this.showCreateForm = false;
-                await this.renderAsync();
+                await this.safeRenderAsync();
                 return;
             case "openWorkflow":
                 if (!message.usId) {
@@ -130,8 +130,10 @@ class SidebarViewProvider {
             });
             return;
         }
-        const backendClient = (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot);
-        const userStories = await backendClient.listUserStories();
+        const hasPersistedStories = await hasPersistedUserStoriesAsync(workspaceRoot);
+        const userStories = hasPersistedStories
+            ? await (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot).listUserStories()
+            : [];
         const categories = await getUserStoryCategoriesAsync(workspaceRoot);
         this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
             hasWorkspace: true,
@@ -139,6 +141,23 @@ class SidebarViewProvider {
             categories,
             userStories
         });
+    }
+    async safeRenderAsync() {
+        try {
+            await this.renderAsync();
+        }
+        catch (error) {
+            if (!this.webviewView) {
+                return;
+            }
+            this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
+                hasWorkspace: true,
+                showCreateForm: false,
+                categories: [],
+                userStories: []
+            });
+            void vscode.window.showErrorMessage(`SpecForge sidebar failed to load: ${asErrorMessage(error)}`);
+        }
     }
 }
 exports.SidebarViewProvider = SidebarViewProvider;
@@ -163,8 +182,22 @@ async function pathExistsAsync(filePath) {
         return false;
     }
 }
+async function hasPersistedUserStoriesAsync(workspaceRoot) {
+    const storiesRoot = path.join(workspaceRoot, ".specs", "us");
+    if (!await pathExistsAsync(storiesRoot)) {
+        return false;
+    }
+    const entries = await fs.promises.readdir(storiesRoot, { withFileTypes: true });
+    return entries.some((entry) => entry.isDirectory() && entry.name.startsWith("us."));
+}
 async function openTextDocument(filePath) {
     const document = await vscode.workspace.openTextDocument(filePath);
     await vscode.window.showTextDocument(document, { preview: false });
+}
+function asErrorMessage(error) {
+    if (error instanceof Error) {
+        return error.message;
+    }
+    return "Unknown sidebar error.";
 }
 //# sourceMappingURL=sidebarView.js.map
