@@ -42,7 +42,7 @@ function buildPhasePositionCss(positions: Record<string, PhasePosition>): string
 
 function buildPhaseAnchorMap(positions: Record<string, PhasePosition>): Record<string, { x: number; y: number }> {
   return Object.fromEntries(
-    Object.entries(positions).map(([phaseId, position]) => [phaseId, { x: position.left + 220, y: position.top + 58 }])
+    Object.entries(positions).map(([phaseId, position]) => [phaseId, { x: position.left + 110, y: position.top + 116 }])
   );
 }
 
@@ -503,6 +503,56 @@ export function buildWorkflowHtml(
       background: rgba(92, 181, 255, 0.14);
       color: #90d2ff;
     }
+    .phase-node-actions {
+      position: absolute;
+      right: -68px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      gap: 8px;
+      z-index: 10;
+    }
+    .action-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.7);
+      transition: all 140ms ease;
+    }
+    .action-btn:hover {
+      transform: scale(1.08);
+      border-color: rgba(255, 255, 255, 0.28);
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .action-btn--approve {
+      background: rgba(127, 240, 165, 0.14);
+      color: #7ff0a5;
+      border-color: rgba(127, 240, 165, 0.24);
+    }
+    .action-btn--approve:hover {
+      background: rgba(127, 240, 165, 0.22);
+      border-color: rgba(127, 240, 165, 0.42);
+      box-shadow: 0 0 12px rgba(127, 240, 165, 0.18);
+    }
+    .action-btn--reject {
+      background: rgba(255, 139, 139, 0.14);
+      color: #ff8b8b;
+      border-color: rgba(255, 139, 139, 0.24);
+    }
+    .action-btn--reject:hover {
+      background: rgba(255, 139, 139, 0.22);
+      border-color: rgba(255, 139, 139, 0.42);
+      box-shadow: 0 0 12px rgba(255, 139, 139, 0.18);
+    }
     .phase-node.selected .phase-index {
       box-shadow: 0 0 0 8px rgba(114, 241, 184, 0.08);
     }
@@ -734,6 +784,12 @@ function buildPhaseGraph(phases: readonly WorkflowPhaseDetails[], selectedPhaseI
         ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
         ${phase.isApproved ? `<span class="phase-tag">approved</span>` : ""}
       </div>
+      ${phase.requiresApproval && !phase.isApproved ? `
+        <div class="phase-node-actions">
+          <button class="action-btn action-btn--approve" data-command="approve" data-phase-id="${escapeHtmlAttribute(phase.phaseId)}" aria-label="Approve phase">✓</button>
+          <button class="action-btn action-btn--reject" data-command="reject" data-phase-id="${escapeHtmlAttribute(phase.phaseId)}" aria-label="Reject phase">✕</button>
+        </div>
+      ` : ""}
     </button>
   `).join("");
 
