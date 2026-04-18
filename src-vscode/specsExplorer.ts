@@ -7,7 +7,7 @@ import {
   type UserStorySummary
 } from "./backendClient";
 
-export type UserStoryTreeItemKind = "userStory" | "repoPromptSetup" | "repoPromptTemplates";
+export type UserStoryTreeItemKind = "userStory" | "userStoryCategory" | "repoPromptSetup" | "repoPromptTemplates";
 const backendClients = new Map<string, SpecForgeBackendClient>();
 const REGRESSION_TARGETS: Record<string, readonly string[]> = {
   review: ["implementation", "technical-design", "refinement"],
@@ -38,6 +38,17 @@ export class UserStoryTreeItem extends vscode.TreeItem {
       title: "Open Main Artifact",
       arguments: [summary]
     };
+  }
+}
+
+class UserStoryCategoryTreeItem extends vscode.TreeItem {
+  public readonly contextValue: UserStoryTreeItemKind = "userStoryCategory";
+
+  public constructor(public readonly category: string, count: number) {
+    super(category, vscode.TreeItemCollapsibleState.Expanded);
+    this.description = `${count} US`;
+    this.tooltip = `User stories in category ${category}`;
+    this.iconPath = new vscode.ThemeIcon("folder-library");
   }
 }
 
@@ -84,9 +95,21 @@ export class SpecsExplorerProvider implements vscode.TreeDataProvider<vscode.Tre
     return element;
   }
 
-  public async getChildren(): Promise<vscode.TreeItem[]> {
+  public async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
     const workspaceRoot = getWorkspaceRoot();
     if (!workspaceRoot) {
+      return [];
+    }
+
+    const summaries = await getBackendClient(workspaceRoot).listUserStories();
+    if (element instanceof UserStoryCategoryTreeItem) {
+      return summaries
+        .filter((summary) => normalizeCategory(summary.category) === element.category)
+        .sort(compareUserStories)
+        .map((summary) => new UserStoryTreeItem(summary));
+    }
+
+    if (element instanceof UserStoryTreeItem) {
       return [];
     }
 
@@ -97,8 +120,21 @@ export class SpecsExplorerProvider implements vscode.TreeDataProvider<vscode.Tre
       items.push(new RepoPromptSetupTreeItem());
     }
 
-    const summaries = await getBackendClient(workspaceRoot).listUserStories();
-    items.push(...summaries.map((summary) => new UserStoryTreeItem(summary)));
+    const grouped = new Map<string, UserStorySummary[]>();
+    for (const summary of summaries) {
+      const category = normalizeCategory(summary.category);
+      const bucket = grouped.get(category);
+      if (bucket) {
+        bucket.push(summary);
+      } else {
+        grouped.set(category, [summary]);
+      }
+    }
+
+    for (const category of [...grouped.keys()].sort((left, right) => left.localeCompare(right))) {
+      items.push(new UserStoryCategoryTreeItem(category, grouped.get(category)!.length));
+    }
+
     return items;
   }
 }
@@ -387,6 +423,15 @@ export async function restartUserStoryFromSource(summary?: UserStorySummary): Pr
 
 function getWorkspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+function normalizeCategory(category: string | null | undefined): string {
+  const normalized = category?.trim().toLowerCase();
+  return normalized && normalized.length > 0 ? normalized : "uncategorized";
+}
+
+function compareUserStories(left: UserStorySummary, right: UserStorySummary): number {
+  return left.usId.localeCompare(right.usId);
 }
 
 async function pickUserStoryKind(): Promise<string | undefined> {

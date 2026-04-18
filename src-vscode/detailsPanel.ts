@@ -66,6 +66,7 @@ function buildHtml(summary: UserStorySummary): string {
   <h1>${escapeHtml(summary.usId)}</h1>
   <div class="meta">
     <div><strong>Title:</strong> ${escapeHtml(summary.title)}</div>
+    <div><strong>Category:</strong> <code>${escapeHtml(summary.category)}</code></div>
     <div><strong>Status:</strong> <code>${escapeHtml(summary.status)}</code></div>
     <div><strong>Current phase:</strong> <code>${escapeHtml(summary.currentPhase)}</code></div>
     <div><strong>Branch:</strong> <code>${escapeHtml(summary.workBranch ?? "not-created")}</code></div>

@@ -233,7 +233,7 @@ Typical contents:
 - [x] implement safe restart from source and archive superseded derived state
 - [x] derive branch names from explicit US kind plus short slug
 - [x] validate explicit US categories against a repo-configured catalog
-- [ ] group the VS Code explorer by user-story category
+- [x] group the VS Code explorer by user-story category
 - [ ] finalize richer branch lifecycle rules and Git/PR metadata
 - [ ] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration
