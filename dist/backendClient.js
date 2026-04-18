@@ -96,6 +96,12 @@ class StdioMcpBackendClient {
             title
         });
     }
+    async initializeRepoPrompts(overwrite = false) {
+        return this.callTool("initialize_repo_prompts", {
+            workspaceRoot: this.workspaceRoot,
+            overwrite
+        });
+    }
     async continuePhase(usId) {
         return this.callTool("generate_next_phase", {
             workspaceRoot: this.workspaceRoot,

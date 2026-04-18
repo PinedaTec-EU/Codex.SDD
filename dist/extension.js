@@ -48,6 +48,11 @@ function activate(context) {
     }), vscode.commands.registerCommand("specForge.importUserStory", async () => {
         await (0, specsExplorer_1.importUserStoryFromMarkdown)();
         explorerProvider.refresh();
+    }), vscode.commands.registerCommand("specForge.initializeRepoPrompts", async () => {
+        await (0, specsExplorer_1.initializeRepoPrompts)();
+        explorerProvider.refresh();
+    }), vscode.commands.registerCommand("specForge.openPromptTemplates", async () => {
+        await (0, specsExplorer_1.openPromptTemplates)();
     }), vscode.commands.registerCommand("specForge.openMainArtifact", async (summary) => {
         await (0, specsExplorer_1.openMainArtifact)(summary);
     }), vscode.commands.registerCommand("specForge.showUserStoryDetails", async (summary) => {

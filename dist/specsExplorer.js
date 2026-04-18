@@ -36,11 +36,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SpecsExplorerProvider = exports.UserStoryTreeItem = void 0;
 exports.createUserStoryFromInput = createUserStoryFromInput;
 exports.importUserStoryFromMarkdown = importUserStoryFromMarkdown;
+exports.initializeRepoPrompts = initializeRepoPrompts;
+exports.openPromptTemplates = openPromptTemplates;
 exports.openMainArtifact = openMainArtifact;
 exports.continuePhase = continuePhase;
 exports.approveCurrentPhase = approveCurrentPhase;
 exports.disposeBackendClients = disposeBackendClients;
 const fs = __importStar(require("node:fs"));
+const path = __importStar(require("node:path"));
 const vscode = __importStar(require("vscode"));
 const backendClient_1 = require("./backendClient");
 const backendClients = new Map();
@@ -60,6 +63,32 @@ class UserStoryTreeItem extends vscode.TreeItem {
     }
 }
 exports.UserStoryTreeItem = UserStoryTreeItem;
+class RepoPromptSetupTreeItem extends vscode.TreeItem {
+    contextValue = "repoPromptSetup";
+    constructor() {
+        super("Repo Prompts Not Initialized", vscode.TreeItemCollapsibleState.None);
+        this.description = "required for real providers";
+        this.tooltip = "Initialize .specs/config.yaml and .specs/prompts/ for provider-backed phase execution.";
+        this.iconPath = new vscode.ThemeIcon("warning");
+        this.command = {
+            command: "specForge.initializeRepoPrompts",
+            title: "Initialize Repo Prompts"
+        };
+    }
+}
+class RepoPromptTemplatesTreeItem extends vscode.TreeItem {
+    contextValue = "repoPromptTemplates";
+    constructor() {
+        super("Open Prompt Templates", vscode.TreeItemCollapsibleState.None);
+        this.description = ".specs/prompts/";
+        this.tooltip = "Open the repo prompt manifest and templates.";
+        this.iconPath = new vscode.ThemeIcon("book");
+        this.command = {
+            command: "specForge.openPromptTemplates",
+            title: "Open Prompt Templates"
+        };
+    }
+}
 class SpecsExplorerProvider {
     onDidChangeTreeDataEmitter = new vscode.EventEmitter();
     onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
@@ -74,8 +103,16 @@ class SpecsExplorerProvider {
         if (!workspaceRoot) {
             return [];
         }
+        const items = [];
+        if (await hasInitializedRepoPromptsAsync(workspaceRoot)) {
+            items.push(new RepoPromptTemplatesTreeItem());
+        }
+        else {
+            items.push(new RepoPromptSetupTreeItem());
+        }
         const summaries = await getBackendClient(workspaceRoot).listUserStories();
-        return summaries.map((summary) => new UserStoryTreeItem(summary));
+        items.push(...summaries.map((summary) => new UserStoryTreeItem(summary)));
+        return items;
     }
 }
 exports.SpecsExplorerProvider = SpecsExplorerProvider;
@@ -130,6 +167,35 @@ async function importUserStoryFromMarkdown() {
     const usId = await nextUserStoryId(workspaceRoot);
     const result = await getBackendClient(workspaceRoot).importUserStory(usId, sourceUri.fsPath, title);
     await openTextDocument(result.mainArtifactPath);
+}
+async function initializeRepoPrompts() {
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+        void vscode.window.showWarningMessage("Open a workspace folder before initializing repo prompts.");
+        return;
+    }
+    try {
+        const result = await getBackendClient(workspaceRoot).initializeRepoPrompts(false);
+        const createdCount = result.createdFiles.length;
+        const skippedCount = result.skippedFiles.length;
+        void vscode.window.showInformationMessage(`Repo prompts initialized. Created ${createdCount} files and skipped ${skippedCount}.`);
+    }
+    catch (error) {
+        void vscode.window.showErrorMessage(asErrorMessage(error));
+    }
+}
+async function openPromptTemplates() {
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+        void vscode.window.showWarningMessage("Open a workspace folder before opening prompt templates.");
+        return;
+    }
+    const manifestPath = path.join(workspaceRoot, ".specs", "prompts", "prompts.yaml");
+    if (!await pathExistsAsync(manifestPath)) {
+        void vscode.window.showWarningMessage("Repo prompts are not initialized yet.");
+        return;
+    }
+    await openTextDocument(manifestPath);
 }
 async function openMainArtifact(summary) {
     if (!summary) {
@@ -192,6 +258,11 @@ async function approveCurrentPhase(summary) {
 function getWorkspaceRoot() {
     return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
+async function hasInitializedRepoPromptsAsync(workspaceRoot) {
+    const hasConfig = await pathExistsAsync(path.join(workspaceRoot, ".specs", "config.yaml"));
+    const hasManifest = await pathExistsAsync(path.join(workspaceRoot, ".specs", "prompts", "prompts.yaml"));
+    return hasConfig && hasManifest;
+}
 async function nextUserStoryId(workspaceRoot) {
     const summaries = await getBackendClient(workspaceRoot).listUserStories();
     const maxValue = summaries
@@ -204,6 +275,15 @@ async function nextUserStoryId(workspaceRoot) {
 async function openTextDocument(filePath) {
     const document = await vscode.workspace.openTextDocument(filePath);
     await vscode.window.showTextDocument(document, { preview: false });
+}
+async function pathExistsAsync(filePath) {
+    try {
+        await fs.promises.access(filePath, fs.constants.F_OK);
+        return true;
+    }
+    catch {
+        return false;
+    }
 }
 function getBackendClient(workspaceRoot) {
     let client = backendClients.get(workspaceRoot);
