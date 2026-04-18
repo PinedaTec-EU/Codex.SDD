@@ -200,7 +200,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .graph-stage {
       position: relative;
-      min-height: 620px;
+      min-height: 980px;
       z-index: 2;
     }
     .graph-links {
@@ -231,7 +231,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .phase-graph {
       position: relative;
-      min-height: 620px;
+      min-height: 980px;
     }
     .phase-node {
       position: absolute;
@@ -278,13 +278,13 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       background: linear-gradient(180deg, rgba(22, 28, 38, 0.88), rgba(10, 14, 20, 0.96));
       opacity: 0.9;
     }
-    .phase-node.capture { left: 18px; top: 42px; }
-    .phase-node.refinement { left: 192px; top: 168px; }
-    .phase-node.technical-design { left: 18px; top: 324px; }
-    .phase-node.implementation { left: 258px; top: 324px; }
-    .phase-node.review { left: 192px; top: 480px; }
-    .phase-node.release-approval { left: 436px; top: 222px; }
-    .phase-node.pr-preparation { left: 436px; top: 456px; }
+    .phase-node.capture { left: 18px; top: 38px; }
+    .phase-node.refinement { left: 392px; top: 142px; }
+    .phase-node.technical-design { left: 392px; top: 318px; }
+    .phase-node.implementation { left: 18px; top: 468px; }
+    .phase-node.review { left: 18px; top: 646px; }
+    .phase-node.release-approval { left: 392px; top: 792px; }
+    .phase-node.pr-preparation { left: 18px; top: 900px; }
     .phase-node-header {
       display: flex;
       justify-content: space-between;
@@ -442,7 +442,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         min-height: auto;
       }
       .graph-stage, .phase-graph {
-        min-height: 720px;
+        min-height: 980px;
       }
     }
     @media (max-width: 760px) {
@@ -455,13 +455,16 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       .phase-node {
         width: 188px;
       }
-      .phase-node.capture { left: 0; top: 24px; }
-      .phase-node.refinement { left: 132px; top: 144px; }
-      .phase-node.technical-design { left: 0; top: 292px; }
-      .phase-node.implementation { left: 156px; top: 292px; }
-      .phase-node.review { left: 112px; top: 448px; }
-      .phase-node.release-approval { left: 272px; top: 196px; }
-      .phase-node.pr-preparation { left: 272px; top: 430px; }
+      .graph-stage, .phase-graph {
+        min-height: 1080px;
+      }
+      .phase-node.capture { left: 0; top: 16px; }
+      .phase-node.refinement { left: 176px; top: 138px; }
+      .phase-node.technical-design { left: 176px; top: 300px; }
+      .phase-node.implementation { left: 0; top: 450px; }
+      .phase-node.review { left: 0; top: 622px; }
+      .phase-node.release-approval { left: 176px; top: 772px; }
+      .phase-node.pr-preparation { left: 0; top: 932px; }
     }
   </style>
 </head>
@@ -562,7 +565,7 @@ function buildPhaseGraph(phases, selectedPhaseId) {
   `).join("");
     return `
     <div class="phase-graph" aria-label="Workflow graph">
-      <svg class="graph-links" viewBox="0 0 700 640" preserveAspectRatio="none" aria-hidden="true">
+      <svg class="graph-links" viewBox="0 0 700 1000" preserveAspectRatio="none" aria-hidden="true">
         ${links}
       </svg>
       ${nodes}
@@ -585,13 +588,13 @@ function graphPath(fromPhaseId, toPhaseId) {
     return `M ${from.x} ${from.y} C ${from.x + controlOffset} ${from.y}, ${to.x - controlOffset} ${to.y}, ${to.x} ${to.y}`;
 }
 const phaseAnchorMap = {
-    "capture": { x: 238, y: 100 },
-    "refinement": { x: 412, y: 226 },
-    "technical-design": { x: 238, y: 382 },
-    "implementation": { x: 478, y: 382 },
-    "review": { x: 412, y: 538 },
-    "release-approval": { x: 656, y: 280 },
-    "pr-preparation": { x: 656, y: 514 }
+    "capture": { x: 238, y: 96 },
+    "refinement": { x: 392, y: 200 },
+    "technical-design": { x: 392, y: 376 },
+    "implementation": { x: 238, y: 526 },
+    "review": { x: 238, y: 704 },
+    "release-approval": { x: 392, y: 850 },
+    "pr-preparation": { x: 238, y: 958 }
 };
 function escapeHtml(value) {
     return value
