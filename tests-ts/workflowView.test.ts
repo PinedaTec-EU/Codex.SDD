@@ -134,3 +134,125 @@ test("buildWorkflowHtml shows configuration warning and disables execution contr
   assert.match(html, /<button data-command="play" disabled>/);
   assert.match(html, /<button data-command="continue" disabled>/);
 });
+
+test("buildWorkflowHtml spaces same-column phases far enough apart to avoid overlap", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0002",
+    title: "Workflow layout",
+    category: "workflow",
+    status: "active",
+    currentPhase: "implementation",
+    directoryPath: "/tmp/us.US-0002",
+    workBranch: "feature/us-0002-layout",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        isApproved: true,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: true,
+        isApproved: true,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "technical-design",
+        title: "Technical Design",
+        order: 2,
+        requiresApproval: true,
+        isApproved: true,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "implementation",
+        title: "Implementation",
+        order: 3,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "review",
+        title: "Review",
+        order: 4,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "release-approval",
+        title: "Release Approval",
+        order: 5,
+        requiresApproval: true,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "pr-preparation",
+        title: "PR Preparation",
+        order: 6,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "implementation",
+    selectedArtifactContent: null,
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /\.phase-node\.technical-design \{ left: 392px; top: 332px; \}/);
+  assert.match(html, /\.phase-node\.implementation \{ left: 18px; top: 522px; \}/);
+  assert.match(html, /\.phase-node\.review \{ left: 18px; top: 712px; \}/);
+  assert.match(html, /viewBox="0 0 700 1260"/);
+});

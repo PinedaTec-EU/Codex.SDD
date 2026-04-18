@@ -7,6 +7,45 @@ export interface WorkflowViewState {
   readonly settingsMessage: string | null;
 }
 
+type PhasePosition = { left: number; top: number };
+
+const desktopGraphHeight = 1260;
+const mobileGraphHeight = 1360;
+
+const desktopPhasePositions: Record<string, PhasePosition> = {
+  "capture": { left: 18, top: 38 },
+  "refinement": { left: 392, top: 142 },
+  "technical-design": { left: 392, top: 332 },
+  "implementation": { left: 18, top: 522 },
+  "review": { left: 18, top: 712 },
+  "release-approval": { left: 392, top: 902 },
+  "pr-preparation": { left: 18, top: 1092 }
+};
+
+const mobilePhasePositions: Record<string, PhasePosition> = {
+  "capture": { left: 0, top: 16 },
+  "refinement": { left: 176, top: 138 },
+  "technical-design": { left: 176, top: 338 },
+  "implementation": { left: 0, top: 538 },
+  "review": { left: 0, top: 738 },
+  "release-approval": { left: 176, top: 938 },
+  "pr-preparation": { left: 0, top: 1138 }
+};
+
+const phaseAnchorMap = buildPhaseAnchorMap(desktopPhasePositions);
+
+function buildPhasePositionCss(positions: Record<string, PhasePosition>): string {
+  return Object.entries(positions)
+    .map(([phaseId, position]) => `.phase-node.${phaseId} { left: ${position.left}px; top: ${position.top}px; }`)
+    .join("\n");
+}
+
+function buildPhaseAnchorMap(positions: Record<string, PhasePosition>): Record<string, { x: number; y: number }> {
+  return Object.fromEntries(
+    Object.entries(positions).map(([phaseId, position]) => [phaseId, { x: position.left + 220, y: position.top + 58 }])
+  );
+}
+
 export function buildWorkflowHtml(
   workflow: UserStoryWorkflowDetails,
   state: WorkflowViewState,
@@ -280,7 +319,7 @@ export function buildWorkflowHtml(
     }
     .graph-stage {
       position: relative;
-      min-height: 1080px;
+      min-height: ${desktopGraphHeight}px;
       z-index: 2;
     }
     .graph-links {
@@ -311,7 +350,7 @@ export function buildWorkflowHtml(
     }
     .phase-graph {
       position: relative;
-      min-height: 1080px;
+      min-height: ${desktopGraphHeight}px;
     }
     .phase-node {
       position: absolute;
@@ -358,13 +397,7 @@ export function buildWorkflowHtml(
       background: linear-gradient(180deg, rgba(22, 28, 38, 0.88), rgba(10, 14, 20, 0.96));
       opacity: 0.9;
     }
-    .phase-node.capture { left: 18px; top: 38px; }
-    .phase-node.refinement { left: 392px; top: 142px; }
-    .phase-node.technical-design { left: 392px; top: 286px; }
-    .phase-node.implementation { left: 18px; top: 430px; }
-    .phase-node.review { left: 18px; top: 566px; }
-    .phase-node.release-approval { left: 392px; top: 698px; }
-    .phase-node.pr-preparation { left: 18px; top: 830px; }
+    ${buildPhasePositionCss(desktopPhasePositions)}
     .phase-node-header {
       display: flex;
       justify-content: space-between;
@@ -542,7 +575,7 @@ export function buildWorkflowHtml(
         min-height: auto;
       }
       .graph-stage, .phase-graph {
-        min-height: 1080px;
+        min-height: ${desktopGraphHeight}px;
       }
     }
     @media (max-width: 760px) {
@@ -556,15 +589,9 @@ export function buildWorkflowHtml(
         width: 188px;
       }
       .graph-stage, .phase-graph {
-        min-height: 1180px;
+        min-height: ${mobileGraphHeight}px;
       }
-      .phase-node.capture { left: 0; top: 16px; }
-      .phase-node.refinement { left: 176px; top: 138px; }
-      .phase-node.technical-design { left: 176px; top: 282px; }
-      .phase-node.implementation { left: 0; top: 426px; }
-      .phase-node.review { left: 0; top: 562px; }
-      .phase-node.release-approval { left: 176px; top: 694px; }
-      .phase-node.pr-preparation { left: 0; top: 826px; }
+      ${buildPhasePositionCss(mobilePhasePositions)}
     }
   </style>
 </head>
@@ -677,7 +704,7 @@ function buildPhaseGraph(phases: readonly WorkflowPhaseDetails[], selectedPhaseI
 
   return `
     <div class="phase-graph" aria-label="Workflow graph">
-      <svg class="graph-links" viewBox="0 0 700 1000" preserveAspectRatio="none" aria-hidden="true">
+      <svg class="graph-links" viewBox="0 0 700 ${desktopGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
         ${links}
       </svg>
       ${nodes}
@@ -703,17 +730,6 @@ function graphPath(fromPhaseId: string, toPhaseId: string): string {
   const controlOffset = Math.max(48, Math.abs(to.x - from.x) * 0.36);
   return `M ${from.x} ${from.y} C ${from.x + controlOffset} ${from.y}, ${to.x - controlOffset} ${to.y}, ${to.x} ${to.y}`;
 }
-
-const phaseAnchorMap: Record<string, { x: number; y: number }> = {
-  "capture": { x: 238, y: 96 },
-  "refinement": { x: 392, y: 200 },
-  "technical-design": { x: 392, y: 344 },
-  "implementation": { x: 238, y: 488 },
-  "review": { x: 238, y: 624 },
-  "release-approval": { x: 392, y: 756 },
-  "pr-preparation": { x: 238, y: 888 }
-};
-
 export function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
