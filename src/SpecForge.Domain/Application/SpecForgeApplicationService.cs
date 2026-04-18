@@ -184,7 +184,8 @@ public sealed class SpecForgeApplicationService
             result.UsId,
             WorkflowPresentation.ToPhaseSlug(result.CurrentPhase),
             WorkflowPresentation.ToStatusSlug(result.Status),
-            result.GeneratedArtifactPath);
+            result.GeneratedArtifactPath,
+            result.Usage);
     }
 
     public async Task<ApprovalResult> ApprovePhaseAsync(

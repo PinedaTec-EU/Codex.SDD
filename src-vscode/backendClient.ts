@@ -27,6 +27,13 @@ export interface ContinuePhaseResult {
   readonly currentPhase: string;
   readonly status: string;
   readonly generatedArtifactPath: string | null;
+  readonly usage: TokenUsage | null;
+}
+
+export interface TokenUsage {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly totalTokens: number;
 }
 
 export interface CreateOrImportUserStoryResult {

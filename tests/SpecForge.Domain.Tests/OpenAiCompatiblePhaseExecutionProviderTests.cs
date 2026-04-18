@@ -36,6 +36,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         Assert.Equal("openai-compatible", result.ExecutionKind);
         Assert.Equal("# generated markdown", result.Content);
+        Assert.NotNull(result.Usage);
+        Assert.Equal(120, result.Usage!.InputTokens);
+        Assert.Equal(48, result.Usage.OutputTokens);
+        Assert.Equal(168, result.Usage.TotalTokens);
         Assert.NotNull(handler.LastRequest);
         Assert.Equal(HttpMethod.Post, handler.LastRequest!.Method);
         Assert.Equal("http://localhost:11434/v1/chat/completions", handler.LastRequest.RequestUri!.ToString());
@@ -173,6 +177,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
             var payload = """
                 {
+                  "usage": {
+                    "prompt_tokens": 120,
+                    "completion_tokens": 48,
+                    "total_tokens": 168
+                  },
                   "choices": [
                     {
                       "message": {

@@ -159,7 +159,8 @@ public sealed class WorkflowRunner
 
         var restartedRun = new WorkflowRun(existingRun.UsId, currentSourceHash, existingRun.Definition);
         restartedRun.GenerateNextPhase();
-        var generatedArtifactPath = await MaterializePhaseArtifactAsync(workspaceRoot, paths, restartedRun, cancellationToken);
+        var generation = await MaterializePhaseArtifactAsync(workspaceRoot, paths, restartedRun, cancellationToken);
+        var generatedArtifactPath = generation.ArtifactPath;
         await fileStore.SaveAsync(restartedRun, paths.RootDirectory, cancellationToken);
 
         await AppendTimelineEventAsync(
@@ -183,7 +184,8 @@ public sealed class WorkflowRunner
             restartedRun.CurrentPhase,
             summary,
             cancellationToken,
-            generatedArtifactPath);
+            generatedArtifactPath,
+            generation.Usage);
 
         return new RestartUserStoryResult(
             restartedRun.UsId,
@@ -203,9 +205,12 @@ public sealed class WorkflowRunner
         workflowRun.GenerateNextPhase();
 
         string? artifactPath = null;
+        TokenUsage? usage = null;
         if (HasArtifact(workflowRun.CurrentPhase))
         {
-            artifactPath = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+            var generation = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+            artifactPath = generation.ArtifactPath;
+            usage = generation.Usage;
             await AppendTimelineEventAsync(
                 paths.TimelineFilePath,
                 "phase_completed",
@@ -213,7 +218,8 @@ public sealed class WorkflowRunner
                 workflowRun.CurrentPhase,
                 $"Generated artifact for phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}`.",
                 cancellationToken,
-                artifactPath);
+                artifactPath,
+                usage);
         }
         else
         {
@@ -227,10 +233,10 @@ public sealed class WorkflowRunner
         }
 
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
-        return new ContinuePhaseResult(workflowRun.UsId, workflowRun.CurrentPhase, workflowRun.Status, artifactPath);
+        return new ContinuePhaseResult(workflowRun.UsId, workflowRun.CurrentPhase, workflowRun.Status, artifactPath, usage);
     }
 
-    private async Task<string> MaterializePhaseArtifactAsync(
+    private async Task<ArtifactGenerationResult> MaterializePhaseArtifactAsync(
         string workspaceRoot,
         UserStoryFilePaths paths,
         WorkflowRun workflowRun,
@@ -248,7 +254,7 @@ public sealed class WorkflowRunner
         var result = await phaseExecutionProvider.ExecuteAsync(executionContext, cancellationToken);
 
         await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
-        return artifactPath;
+        return new ArtifactGenerationResult(artifactPath, result.Usage);
     }
 
     private static IReadOnlyDictionary<PhaseId, string> BuildPreviousArtifactMap(UserStoryFilePaths paths, PhaseId currentPhase)
@@ -380,7 +386,8 @@ public sealed class WorkflowRunner
         PhaseId phaseId,
         string summary,
         CancellationToken cancellationToken,
-        string? artifactPath = null)
+        string? artifactPath = null,
+        TokenUsage? usage = null)
     {
         var timestamp = DateTimeOffset.UtcNow.ToString("O");
         var builder = new StringBuilder()
@@ -397,8 +404,18 @@ public sealed class WorkflowRunner
                 .AppendLine($"  - `{artifactPath.Replace('\\', '/')}`");
         }
 
+        if (usage is not null)
+        {
+            builder.AppendLine("- Tokens:")
+                .AppendLine($"  - input: `{usage.InputTokens}`")
+                .AppendLine($"  - output: `{usage.OutputTokens}`")
+                .AppendLine($"  - total: `{usage.TotalTokens}`");
+        }
+
         await File.AppendAllTextAsync(timelinePath, builder.ToString(), cancellationToken);
     }
+
+    private sealed record ArtifactGenerationResult(string ArtifactPath, TokenUsage? Usage);
 
     private static string BuildInitialTimeline(string usId, string title)
     {

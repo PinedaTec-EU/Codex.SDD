@@ -67,13 +67,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .GetProperty("message")
             .GetProperty("content")
             .GetString();
+        var usage = TryReadUsage(document.RootElement);
 
         if (string.IsNullOrWhiteSpace(content))
         {
             throw new InvalidOperationException("OpenAI-compatible provider returned an empty content payload.");
         }
 
-        return new PhaseExecutionResult(content.Trim(), ExecutionKind: "openai-compatible");
+        return new PhaseExecutionResult(content.Trim(), ExecutionKind: "openai-compatible", usage);
     }
 
     private HttpRequestMessage BuildRequest(string systemPrompt, string userPrompt)
@@ -213,6 +214,46 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                && !parsed.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
                && !parsed.Host.Equals("0.0.0.0", StringComparison.OrdinalIgnoreCase)
                && !parsed.Host.Equals("::1", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static TokenUsage? TryReadUsage(JsonElement root)
+    {
+        if (!root.TryGetProperty("usage", out var usageElement) || usageElement.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var inputTokens = TryGetInt32(usageElement, "prompt_tokens")
+            ?? TryGetInt32(usageElement, "input_tokens");
+        var outputTokens = TryGetInt32(usageElement, "completion_tokens")
+            ?? TryGetInt32(usageElement, "output_tokens");
+        var totalTokens = TryGetInt32(usageElement, "total_tokens");
+
+        if (inputTokens is null && outputTokens is null && totalTokens is null)
+        {
+            return null;
+        }
+
+        var normalizedInputTokens = inputTokens ?? 0;
+        var normalizedOutputTokens = outputTokens ?? 0;
+        var normalizedTotalTokens = totalTokens ?? normalizedInputTokens + normalizedOutputTokens;
+
+        return new TokenUsage(normalizedInputTokens, normalizedOutputTokens, normalizedTotalTokens);
+    }
+
+    private static int? TryGetInt32(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var property))
+        {
+            return null;
+        }
+
+        return property.ValueKind switch
+        {
+            JsonValueKind.Number when property.TryGetInt32(out var value) => value,
+            JsonValueKind.String when int.TryParse(property.GetString(), out var value) => value,
+            _ => null
+        };
     }
 
     private sealed record EffectivePrompt(string SystemPrompt, string UserPrompt);

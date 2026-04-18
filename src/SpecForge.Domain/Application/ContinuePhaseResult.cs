@@ -6,4 +6,5 @@ public sealed record ContinuePhaseResult(
     string UsId,
     PhaseId CurrentPhase,
     UserStoryStatus Status,
-    string? GeneratedArtifactPath);
+    string? GeneratedArtifactPath,
+    TokenUsage? Usage = null);

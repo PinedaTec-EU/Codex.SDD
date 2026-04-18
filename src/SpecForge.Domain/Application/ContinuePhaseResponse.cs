@@ -4,4 +4,5 @@ public sealed record ContinuePhaseResponse(
     string UsId,
     string CurrentPhase,
     string Status,
-    string? GeneratedArtifactPath);
+    string? GeneratedArtifactPath,
+    TokenUsage? Usage);

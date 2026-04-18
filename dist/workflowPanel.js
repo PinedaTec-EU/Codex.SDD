@@ -194,7 +194,10 @@ class WorkflowPanelController {
     async continueCurrentPhaseAsync() {
         const previousPhase = this.summary.currentPhase;
         const result = await this.getBackendClient().continuePhase(this.summary.usId);
-        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' advanced from '${previousPhase}' to '${result.currentPhase}' with status '${result.status}'.`);
+        const usageSummary = result.usage
+            ? ` Tokens in/out/total: ${result.usage.inputTokens}/${result.usage.outputTokens}/${result.usage.totalTokens}.`
+            : "";
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' advanced from '${previousPhase}' to '${result.currentPhase}' with status '${result.status}'.${usageSummary}`);
         this.summary = {
             ...this.summary,
             currentPhase: result.currentPhase,

@@ -180,11 +180,44 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Single(timelineEvent.Artifacts);
     }
 
+    [Fact]
+    public async Task ContinuePhaseAsync_WithProviderUsage_PersistsTokenUsageInResultAndTimeline()
+    {
+        var runner = new WorkflowRunner(new UsageCapturingPhaseExecutionProvider());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+
+        var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.NotNull(result.Usage);
+        Assert.Equal(321, result.Usage!.InputTokens);
+        Assert.Equal(123, result.Usage.OutputTokens);
+        Assert.Equal(444, result.Usage.TotalTokens);
+
+        var timelinePath = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
+        var timeline = await File.ReadAllTextAsync(timelinePath);
+        Assert.Contains("- Tokens:", timeline);
+        Assert.Contains("input: `321`", timeline);
+        Assert.Contains("output: `123`", timeline);
+        Assert.Contains("total: `444`", timeline);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(workspaceRoot))
         {
             Directory.Delete(workspaceRoot, recursive: true);
         }
+    }
+
+    private sealed class UsageCapturingPhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        public Task<PhaseExecutionResult> ExecuteAsync(
+            PhaseExecutionContext context,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(
+                new PhaseExecutionResult(
+                    "# generated markdown\n\n## Tokens\n- captured",
+                    "test-double",
+                    new TokenUsage(321, 123, 444)));
     }
 }
