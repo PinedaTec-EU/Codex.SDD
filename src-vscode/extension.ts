@@ -6,6 +6,7 @@ import {
   continuePhase,
   createUserStoryFromInput,
   disposeBackendClients,
+  initializeRepoPrompts,
   importUserStoryFromMarkdown,
   openMainArtifact
 } from "./specsExplorer";
@@ -24,6 +25,10 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("specForge.importUserStory", async () => {
       await importUserStoryFromMarkdown();
+      explorerProvider.refresh();
+    }),
+    vscode.commands.registerCommand("specForge.initializeRepoPrompts", async () => {
+      await initializeRepoPrompts();
       explorerProvider.refresh();
     }),
     vscode.commands.registerCommand("specForge.openMainArtifact", async (summary) => {

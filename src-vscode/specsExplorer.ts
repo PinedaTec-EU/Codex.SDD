@@ -112,6 +112,25 @@ export async function importUserStoryFromMarkdown(): Promise<void> {
   await openTextDocument(result.mainArtifactPath);
 }
 
+export async function initializeRepoPrompts(): Promise<void> {
+  const workspaceRoot = getWorkspaceRoot();
+  if (!workspaceRoot) {
+    void vscode.window.showWarningMessage("Open a workspace folder before initializing repo prompts.");
+    return;
+  }
+
+  try {
+    const result = await getBackendClient(workspaceRoot).initializeRepoPrompts(false);
+    const createdCount = result.createdFiles.length;
+    const skippedCount = result.skippedFiles.length;
+    void vscode.window.showInformationMessage(
+      `Repo prompts initialized. Created ${createdCount} files and skipped ${skippedCount}.`
+    );
+  } catch (error) {
+    void vscode.window.showErrorMessage(asErrorMessage(error));
+  }
+}
+
 export async function openMainArtifact(summary?: UserStorySummary): Promise<void> {
   if (!summary) {
     void vscode.window.showInformationMessage("Select a user story first.");

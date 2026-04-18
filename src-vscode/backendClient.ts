@@ -24,11 +24,20 @@ export interface CreateOrImportUserStoryResult {
   readonly mainArtifactPath: string;
 }
 
+export interface InitializeRepoPromptsResult {
+  readonly workspaceRoot: string;
+  readonly configPath: string;
+  readonly promptManifestPath: string;
+  readonly createdFiles: readonly string[];
+  readonly skippedFiles: readonly string[];
+}
+
 export interface SpecForgeBackendClient {
   listUserStories(): Promise<readonly UserStorySummary[]>;
   getUserStorySummary(usId: string): Promise<UserStorySummary>;
   createUserStory(usId: string, title: string, sourceText: string): Promise<CreateOrImportUserStoryResult>;
   importUserStory(usId: string, sourcePath: string, title: string): Promise<CreateOrImportUserStoryResult>;
+  initializeRepoPrompts(overwrite?: boolean): Promise<InitializeRepoPromptsResult>;
   continuePhase(usId: string): Promise<ContinuePhaseResult>;
   approveCurrentPhase(usId: string, baseBranch?: string): Promise<UserStorySummary>;
   dispose(): void;
@@ -106,6 +115,13 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
       usId,
       sourcePath,
       title
+    });
+  }
+
+  public async initializeRepoPrompts(overwrite = false): Promise<InitializeRepoPromptsResult> {
+    return this.callTool<InitializeRepoPromptsResult>("initialize_repo_prompts", {
+      workspaceRoot: this.workspaceRoot,
+      overwrite
     });
   }
 
