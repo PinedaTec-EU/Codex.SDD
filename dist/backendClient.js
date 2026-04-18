@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createMcpBackendClient = createMcpBackendClient;
 const node_child_process_1 = require("node:child_process");
 const path = __importStar(require("node:path"));
+const backendClientModel_1 = require("./backendClientModel");
 function createMcpBackendClient(workspaceRoot) {
     return new StdioMcpBackendClient(workspaceRoot);
 }
@@ -113,35 +114,13 @@ class StdioMcpBackendClient {
         });
     }
     async approveCurrentPhase(usId, baseBranch) {
-        const argumentsPayload = {
-            workspaceRoot: this.workspaceRoot,
-            usId
-        };
-        if (baseBranch) {
-            argumentsPayload.baseBranch = baseBranch;
-        }
-        return this.callTool("approve_phase", argumentsPayload);
+        return this.callTool("approve_phase", (0, backendClientModel_1.buildApprovePhaseArguments)(this.workspaceRoot, usId, baseBranch));
     }
     async requestRegression(usId, targetPhase, reason) {
-        const argumentsPayload = {
-            workspaceRoot: this.workspaceRoot,
-            usId,
-            targetPhase
-        };
-        if (reason && reason.trim().length > 0) {
-            argumentsPayload.reason = reason;
-        }
-        return this.callTool("request_regression", argumentsPayload);
+        return this.callTool("request_regression", (0, backendClientModel_1.buildRequestRegressionArguments)(this.workspaceRoot, usId, targetPhase, reason));
     }
     async restartUserStoryFromSource(usId, reason) {
-        const argumentsPayload = {
-            workspaceRoot: this.workspaceRoot,
-            usId
-        };
-        if (reason && reason.trim().length > 0) {
-            argumentsPayload.reason = reason;
-        }
-        return this.callTool("restart_user_story_from_source", argumentsPayload);
+        return this.callTool("restart_user_story_from_source", (0, backendClientModel_1.buildRestartUserStoryArguments)(this.workspaceRoot, usId, reason));
     }
     dispose() {
         this.process.kill();
@@ -167,11 +146,7 @@ class StdioMcpBackendClient {
             name: toolName,
             arguments: args
         });
-        const content = result?.content?.[0]?.text;
-        if (typeof content !== "string") {
-            throw new Error(`Tool '${toolName}' returned an invalid MCP payload.`);
-        }
-        return JSON.parse(content);
+        return (0, backendClientModel_1.parseToolContent)(toolName, result);
     }
     async sendNotificationAsync(method, params) {
         const payload = {

@@ -5,6 +5,7 @@ exports.normalizeCategory = normalizeCategory;
 exports.compareUserStories = compareUserStories;
 exports.parseYamlSequence = parseYamlSequence;
 exports.nextUserStoryIdFromSummaries = nextUserStoryIdFromSummaries;
+exports.groupUserStoriesByCategory = groupUserStoriesByCategory;
 exports.DEFAULT_USER_STORY_CATEGORIES = [
     "workflow",
     "ux",
@@ -59,5 +60,24 @@ function nextUserStoryIdFromSummaries(summaries) {
         .map((match) => Number.parseInt(match[1], 10))
         .reduce((currentMax, value) => Math.max(currentMax, value), 0);
     return `US-${String(maxValue + 1).padStart(4, "0")}`;
+}
+function groupUserStoriesByCategory(summaries) {
+    const grouped = new Map();
+    for (const summary of summaries) {
+        const category = normalizeCategory(summary.category);
+        const bucket = grouped.get(category);
+        if (bucket) {
+            bucket.push(summary);
+        }
+        else {
+            grouped.set(category, [summary]);
+        }
+    }
+    return [...grouped.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([category, items]) => ({
+        category,
+        summaries: [...items].sort(compareUserStories)
+    }));
 }
 //# sourceMappingURL=explorerModel.js.map

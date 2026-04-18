@@ -18,6 +18,7 @@
   },
   "include": [
     "tests-ts/**/*.ts",
+    "src-vscode/backendClientModel.ts",
     "src-vscode/explorerModel.ts",
     "src-vscode/detailsView.ts",
     "src-vscode/backendClient.ts"

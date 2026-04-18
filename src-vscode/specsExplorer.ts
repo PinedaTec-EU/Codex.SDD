@@ -9,6 +9,7 @@ import {
 import {
   compareUserStories,
   DEFAULT_USER_STORY_CATEGORIES,
+  groupUserStoriesByCategory,
   nextUserStoryIdFromSummaries,
   normalizeCategory,
   parseYamlSequence
@@ -115,19 +116,8 @@ export class SpecsExplorerProvider implements vscode.TreeDataProvider<vscode.Tre
       items.push(new RepoPromptSetupTreeItem());
     }
 
-    const grouped = new Map<string, UserStorySummary[]>();
-    for (const summary of summaries) {
-      const category = normalizeCategory(summary.category);
-      const bucket = grouped.get(category);
-      if (bucket) {
-        bucket.push(summary);
-      } else {
-        grouped.set(category, [summary]);
-      }
-    }
-
-    for (const category of [...grouped.keys()].sort((left, right) => left.localeCompare(right))) {
-      items.push(new UserStoryCategoryTreeItem(category, grouped.get(category)!.length));
+    for (const group of groupUserStoriesByCategory(summaries)) {
+      items.push(new UserStoryCategoryTreeItem(group.category, group.summaries.length));
     }
 
     return items;

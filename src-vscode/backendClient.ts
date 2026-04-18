@@ -1,5 +1,11 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import * as path from "node:path";
+import {
+  buildApprovePhaseArguments,
+  buildRequestRegressionArguments,
+  buildRestartUserStoryArguments,
+  parseToolContent
+} from "./backendClientModel";
 
 export interface UserStorySummary {
   readonly usId: string;
@@ -153,43 +159,24 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
   }
 
   public async approveCurrentPhase(usId: string, baseBranch?: string): Promise<UserStorySummary> {
-    const argumentsPayload: Record<string, string> = {
-      workspaceRoot: this.workspaceRoot,
-      usId
-    };
-
-    if (baseBranch) {
-      argumentsPayload.baseBranch = baseBranch;
-    }
-
-    return this.callTool<UserStorySummary>("approve_phase", argumentsPayload);
+    return this.callTool<UserStorySummary>(
+      "approve_phase",
+      buildApprovePhaseArguments(this.workspaceRoot, usId, baseBranch)
+    );
   }
 
   public async requestRegression(usId: string, targetPhase: string, reason?: string): Promise<RequestRegressionResult> {
-    const argumentsPayload: Record<string, string> = {
-      workspaceRoot: this.workspaceRoot,
-      usId,
-      targetPhase
-    };
-
-    if (reason && reason.trim().length > 0) {
-      argumentsPayload.reason = reason;
-    }
-
-    return this.callTool<RequestRegressionResult>("request_regression", argumentsPayload);
+    return this.callTool<RequestRegressionResult>(
+      "request_regression",
+      buildRequestRegressionArguments(this.workspaceRoot, usId, targetPhase, reason)
+    );
   }
 
   public async restartUserStoryFromSource(usId: string, reason?: string): Promise<RestartUserStoryResult> {
-    const argumentsPayload: Record<string, string> = {
-      workspaceRoot: this.workspaceRoot,
-      usId
-    };
-
-    if (reason && reason.trim().length > 0) {
-      argumentsPayload.reason = reason;
-    }
-
-    return this.callTool<RestartUserStoryResult>("restart_user_story_from_source", argumentsPayload);
+    return this.callTool<RestartUserStoryResult>(
+      "restart_user_story_from_source",
+      buildRestartUserStoryArguments(this.workspaceRoot, usId, reason)
+    );
   }
 
   public dispose(): void {
@@ -220,12 +207,7 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
       name: toolName,
       arguments: args
     });
-    const content = result?.content?.[0]?.text;
-    if (typeof content !== "string") {
-      throw new Error(`Tool '${toolName}' returned an invalid MCP payload.`);
-    }
-
-    return JSON.parse(content) as T;
+    return parseToolContent<T>(toolName, result);
   }
 
   private async sendNotificationAsync(method: string, params: unknown): Promise<void> {

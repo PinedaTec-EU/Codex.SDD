@@ -181,7 +181,7 @@ The extension currently provides:
 - `Continue Phase`
 - explicit `feature` / `bug` / `hotfix` selection when creating or importing a US
 - explicit category selection from the repo category catalog when creating or importing a US
-- lightweight TypeScript unit tests for pure explorer and details-view logic
+- lightweight TypeScript unit tests for explorer grouping, detail rendering, and MCP client payload/parsing logic
 
 Current limitation:
 

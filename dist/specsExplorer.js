@@ -139,19 +139,8 @@ class SpecsExplorerProvider {
         else {
             items.push(new RepoPromptSetupTreeItem());
         }
-        const grouped = new Map();
-        for (const summary of summaries) {
-            const category = (0, explorerModel_1.normalizeCategory)(summary.category);
-            const bucket = grouped.get(category);
-            if (bucket) {
-                bucket.push(summary);
-            }
-            else {
-                grouped.set(category, [summary]);
-            }
-        }
-        for (const category of [...grouped.keys()].sort((left, right) => left.localeCompare(right))) {
-            items.push(new UserStoryCategoryTreeItem(category, grouped.get(category).length));
+        for (const group of (0, explorerModel_1.groupUserStoriesByCategory)(summaries)) {
+            items.push(new UserStoryCategoryTreeItem(group.category, group.summaries.length));
         }
         return items;
     }

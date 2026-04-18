@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import type { UserStorySummary } from "../src-vscode/backendClient";
 import {
+  groupUserStoriesByCategory,
   nextUserStoryIdFromSummaries,
   normalizeCategory,
   parseYamlSequence
@@ -49,4 +50,31 @@ test("nextUserStoryIdFromSummaries increments the highest numeric id", () => {
   ];
 
   assert.equal(nextUserStoryIdFromSummaries(summaries), "US-0013");
+});
+
+test("groupUserStoriesByCategory normalizes categories and sorts categories and user stories", () => {
+  const summaries: UserStorySummary[] = [
+    { ...createSummary("US-0003"), category: " UX " },
+    { ...createSummary("US-0002"), category: "" },
+    { ...createSummary("US-0001"), category: "workflow" },
+    { ...createSummary("US-0004"), category: "ux" }
+  ];
+
+  assert.deepEqual(groupUserStoriesByCategory(summaries), [
+    {
+      category: "uncategorized",
+      summaries: [{ ...createSummary("US-0002"), category: "" }]
+    },
+    {
+      category: "ux",
+      summaries: [
+        { ...createSummary("US-0003"), category: " UX " },
+        { ...createSummary("US-0004"), category: "ux" }
+      ]
+    },
+    {
+      category: "workflow",
+      summaries: [{ ...createSummary("US-0001"), category: "workflow" }]
+    }
+  ]);
 });

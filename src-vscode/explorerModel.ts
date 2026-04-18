@@ -68,3 +68,28 @@ export function nextUserStoryIdFromSummaries(summaries: readonly UserStorySummar
 
   return `US-${String(maxValue + 1).padStart(4, "0")}`;
 }
+
+export interface UserStoryCategoryGroup {
+  readonly category: string;
+  readonly summaries: readonly UserStorySummary[];
+}
+
+export function groupUserStoriesByCategory(summaries: readonly UserStorySummary[]): readonly UserStoryCategoryGroup[] {
+  const grouped = new Map<string, UserStorySummary[]>();
+  for (const summary of summaries) {
+    const category = normalizeCategory(summary.category);
+    const bucket = grouped.get(category);
+    if (bucket) {
+      bucket.push(summary);
+    } else {
+      grouped.set(category, [summary]);
+    }
+  }
+
+  return [...grouped.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([category, items]) => ({
+      category,
+      summaries: [...items].sort(compareUserStories)
+    }));
+}
