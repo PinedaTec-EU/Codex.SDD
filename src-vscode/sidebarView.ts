@@ -59,7 +59,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         await this.openWorkflowAsync(message.usId);
         return;
       case "initializeRepoPrompts":
-        await vscode.commands.executeCommand("specForge.initializeRepoPrompts");
+        await this.initializeRepoPromptsFromSidebarAsync();
         await this.safeRenderAsync();
         return;
       case "openPromptTemplates":
@@ -107,6 +107,32 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
     const summary = await getOrCreateBackendClient(workspaceRoot).getUserStorySummary(usId);
     await vscode.commands.executeCommand("specForge.openWorkflowView", summary);
+  }
+
+  private async initializeRepoPromptsFromSidebarAsync(): Promise<void> {
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+      return;
+    }
+
+    const promptsInitialized = await hasInitializedRepoPromptsAsync(workspaceRoot);
+    if (!promptsInitialized) {
+      await vscode.commands.executeCommand("specForge.initializeRepoPrompts", false);
+      return;
+    }
+
+    const confirmLabel = "Overwrite Prompts";
+    const selection = await vscode.window.showWarningMessage(
+      "Repo prompts are already initialized. Overwriting them will discard any local prompt edits.",
+      { modal: true },
+      confirmLabel
+    );
+
+    if (selection !== confirmLabel) {
+      return;
+    }
+
+    await vscode.commands.executeCommand("specForge.initializeRepoPrompts", true);
   }
 
   private async renderAsync(): Promise<void> {

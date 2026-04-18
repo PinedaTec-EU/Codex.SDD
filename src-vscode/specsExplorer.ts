@@ -212,7 +212,7 @@ export async function importUserStoryFromMarkdown(): Promise<void> {
   await openTextDocument(result.mainArtifactPath);
 }
 
-export async function initializeRepoPrompts(): Promise<void> {
+export async function initializeRepoPrompts(overwrite = false): Promise<void> {
   const workspaceRoot = getWorkspaceRoot();
   if (!workspaceRoot) {
     void vscode.window.showWarningMessage("Open a workspace folder before initializing repo prompts.");
@@ -220,11 +220,13 @@ export async function initializeRepoPrompts(): Promise<void> {
   }
 
   try {
-    const result = await getBackendClient(workspaceRoot).initializeRepoPrompts(false);
+    const result = await getBackendClient(workspaceRoot).initializeRepoPrompts(overwrite);
     const createdCount = result.createdFiles.length;
     const skippedCount = result.skippedFiles.length;
     void vscode.window.showInformationMessage(
-      `Repo prompts initialized. Created ${createdCount} files and skipped ${skippedCount}.`
+      overwrite
+        ? `Repo prompts reinitialized. Created ${createdCount} files and skipped ${skippedCount}.`
+        : `Repo prompts initialized. Created ${createdCount} files and skipped ${skippedCount}.`
     );
   } catch (error) {
     void vscode.window.showErrorMessage(asErrorMessage(error));

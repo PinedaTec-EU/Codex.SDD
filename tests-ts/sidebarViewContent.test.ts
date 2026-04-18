@@ -14,9 +14,9 @@ test("buildSidebarHtml shows a single prominent create action when there are no 
   assert.match(html, /Create your first user story/);
   assert.match(html, /SpecForge\.AI/);
   assert.match(html, /Create User Story/);
-  assert.match(html, /Initialize Repo Prompts/);
+  assert.match(html, /aria-label="Initialize repo prompts"/);
   assert.doesNotMatch(html, /Workflow backlog/);
-  assert.doesNotMatch(html, /Open Prompt Templates/);
+  assert.doesNotMatch(html, /Repo prompts ready/);
 });
 
 test("buildSidebarHtml renders the embedded creation form inside the sidebar", () => {
@@ -34,7 +34,7 @@ test("buildSidebarHtml renders the embedded creation form inside the sidebar", (
   assert.match(html, /<option value="workflow">workflow<\/option>/);
 });
 
-test("buildSidebarHtml exposes prompt templates when repo prompts are initialized", () => {
+test("buildSidebarHtml exposes a compact prompt reset action when repo prompts are initialized", () => {
   const html = buildSidebarHtml({
     hasWorkspace: true,
     showCreateForm: false,
@@ -52,9 +52,9 @@ test("buildSidebarHtml exposes prompt templates when repo prompts are initialize
     }],
   });
 
-  assert.match(html, /Repo prompts ready/);
-  assert.match(html, /Open Prompt Templates/);
-  assert.doesNotMatch(html, /Initialize Repo Prompts/);
+  assert.match(html, /aria-label="Reinitialize repo prompts"/);
+  assert.doesNotMatch(html, /Repo prompts ready/);
+  assert.doesNotMatch(html, /Open Prompt Templates/);
 });
 
 test("buildSidebarHtml wraps the create action in its own card when stories already exist", () => {

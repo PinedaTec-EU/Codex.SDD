@@ -9,7 +9,7 @@ export interface DisposableLike {
 export interface ExtensionActions {
   createUserStoryFromInput(): Promise<void>;
   importUserStoryFromMarkdown(): Promise<void>;
-  initializeRepoPrompts(): Promise<void>;
+  initializeRepoPrompts(overwrite?: boolean): Promise<void>;
   openPromptTemplates(): Promise<void>;
   openWorkflowView(summary: unknown): Promise<void>;
   openMainArtifact(summary: unknown): Promise<void>;
@@ -49,8 +49,8 @@ export function activateExtension(
       await actions.importUserStoryFromMarkdown();
       explorerProvider.refresh();
     }),
-    host.registerCommand("specForge.initializeRepoPrompts", async () => {
-      await actions.initializeRepoPrompts();
+    host.registerCommand("specForge.initializeRepoPrompts", async (overwrite) => {
+      await actions.initializeRepoPrompts(typeof overwrite === "boolean" ? overwrite : undefined);
       explorerProvider.refresh();
     }),
     host.registerCommand("specForge.openPromptTemplates", async () => {

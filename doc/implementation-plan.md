@@ -173,7 +173,7 @@ Incluye en el MVP:
 - ✅ watcher opcional con notificaciones de atención y controles `play/pause/stop`
 - ✅ sidebar de extensión con CTA único en vacío y formulario embebido para crear US
 - ✅ distinción visible en la UI y en la documentación entre fases automáticas y checkpoints del usuario
-- ✅ affordance visible en la sidebar para inicializar y abrir los prompts versionados del repo
+- ✅ acción compacta en la cabecera de la sidebar para inicializar o rebootstrap de prompts versionados del repo
 - ✅ visibilidad inicial centrada en US/workflows activos en la sidebar y vistas principales
 - ✅ acceso desde la workflow view a los prompts asociados de la fase seleccionada
 - ✅ anexos de archivos en la workflow view reutilizados como contexto runtime de la US

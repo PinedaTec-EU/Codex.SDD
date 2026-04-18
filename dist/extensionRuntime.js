@@ -11,8 +11,8 @@ function activateExtension(context, host, explorerProvider, actions) {
     }), host.registerCommand("specForge.importUserStory", async () => {
         await actions.importUserStoryFromMarkdown();
         explorerProvider.refresh();
-    }), host.registerCommand("specForge.initializeRepoPrompts", async () => {
-        await actions.initializeRepoPrompts();
+    }), host.registerCommand("specForge.initializeRepoPrompts", async (overwrite) => {
+        await actions.initializeRepoPrompts(typeof overwrite === "boolean" ? overwrite : undefined);
         explorerProvider.refresh();
     }), host.registerCommand("specForge.openPromptTemplates", async () => {
         await actions.openPromptTemplates();

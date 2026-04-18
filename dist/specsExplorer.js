@@ -222,17 +222,19 @@ async function importUserStoryFromMarkdown() {
     const result = await getBackendClient(workspaceRoot).importUserStory(usId, sourceUri.fsPath, title, kind, category);
     await openTextDocument(result.mainArtifactPath);
 }
-async function initializeRepoPrompts() {
+async function initializeRepoPrompts(overwrite = false) {
     const workspaceRoot = getWorkspaceRoot();
     if (!workspaceRoot) {
         void vscode.window.showWarningMessage("Open a workspace folder before initializing repo prompts.");
         return;
     }
     try {
-        const result = await getBackendClient(workspaceRoot).initializeRepoPrompts(false);
+        const result = await getBackendClient(workspaceRoot).initializeRepoPrompts(overwrite);
         const createdCount = result.createdFiles.length;
         const skippedCount = result.skippedFiles.length;
-        void vscode.window.showInformationMessage(`Repo prompts initialized. Created ${createdCount} files and skipped ${skippedCount}.`);
+        void vscode.window.showInformationMessage(overwrite
+            ? `Repo prompts reinitialized. Created ${createdCount} files and skipped ${skippedCount}.`
+            : `Repo prompts initialized. Created ${createdCount} files and skipped ${skippedCount}.`);
     }
     catch (error) {
         void vscode.window.showErrorMessage(asErrorMessage(error));

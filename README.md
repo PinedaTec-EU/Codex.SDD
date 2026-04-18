@@ -177,7 +177,7 @@ The extension currently provides:
 - a `SpecForge.AI` activity bar view
 - a sidebar webview with embedded user-story intake
 - a single high-contrast `Create User Story` empty state in the sidebar
-- a visible prompt setup card in the sidebar to initialize `.specs/prompts/` or open the repo prompt templates
+- a compact header action in the sidebar to initialize or reinitialize `.specs/prompts/`
 - a default navigation focus on active user stories and active workflows
 - a workflow webview opened directly from a user story click
 - per-phase detail inside the workflow view with artifact preview
