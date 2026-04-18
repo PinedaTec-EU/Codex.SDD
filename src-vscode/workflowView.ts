@@ -286,33 +286,34 @@ export function buildWorkflowHtml(
     }
     .detail-metrics {
       display: flex;
-      gap: 10px;
-      margin-top: 14px;
+      gap: 8px;
+      margin-top: 12px;
       overflow-x: auto;
-      padding-bottom: 4px;
+      padding-bottom: 2px;
       flex-wrap: nowrap;
     }
     .metric-card {
-      flex: 0 0 min(280px, calc((100% - 30px) / 4));
-      min-width: 220px;
-      padding: 12px 14px;
-      border-radius: 16px;
+      flex: 0 0 min(210px, calc((100% - 24px) / 4));
+      min-width: 168px;
+      padding: 9px 12px;
+      border-radius: 14px;
       border: 1px solid rgba(114, 241, 184, 0.18);
       background: linear-gradient(180deg, rgba(18, 44, 34, 0.94), rgba(9, 20, 17, 0.98));
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
     }
     .metric-card__label {
       display: block;
-      margin-bottom: 6px;
-      font-size: 0.72rem;
-      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+      font-size: 0.66rem;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
       color: rgba(114, 241, 184, 0.74);
     }
     .metric-card__value {
       display: block;
-      font-size: 1.02rem;
+      font-size: 0.9rem;
       font-weight: 700;
+      line-height: 1.15;
       color: #f2fff9;
     }
     .hero-meta {
