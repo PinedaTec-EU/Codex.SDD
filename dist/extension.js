@@ -40,17 +40,21 @@ const detailsPanel_1 = require("./detailsPanel");
 const extensionRuntime_1 = require("./extensionRuntime");
 const extensionSettings_1 = require("./extensionSettings");
 const workflowPanel_1 = require("./workflowPanel");
+const sidebarView_1 = require("./sidebarView");
 const specsExplorer_1 = require("./specsExplorer");
 let previousAttentionSnapshot = new Map();
 function activate(context) {
-    const explorerProvider = new specsExplorer_1.SpecsExplorerProvider();
-    (0, extensionRuntime_1.activateExtension)(context, createVsCodeHost(), explorerProvider, createExtensionActions(explorerProvider));
+    const sidebarProvider = new sidebarView_1.SidebarViewProvider(context.extensionUri, async () => {
+        await refreshWorkspaceUiAsync();
+    });
+    const refreshableProvider = { refresh: () => sidebarProvider.refresh() };
+    (0, extensionRuntime_1.activateExtension)(context, createVsCodeHost(), refreshableProvider, createExtensionActions(refreshableProvider));
     const refreshWorkspaceUiAsync = async () => {
-        explorerProvider.refresh();
+        sidebarProvider.refresh();
         await (0, workflowPanel_1.refreshWorkflowViews)();
         await notifyAttentionChangesAsync();
     };
-    context.subscriptions.push(createWorkspaceWatcher(refreshWorkspaceUiAsync), vscode.workspace.onDidChangeConfiguration((event) => {
+    context.subscriptions.push(vscode.window.registerWebviewViewProvider("specForge.userStories", sidebarProvider), createWorkspaceWatcher(refreshWorkspaceUiAsync), vscode.workspace.onDidChangeConfiguration((event) => {
         if (!event.affectsConfiguration("specForge")) {
             return;
         }
@@ -58,7 +62,7 @@ function activate(context) {
         if (workspaceRoot) {
             (0, specsExplorer_1.resetBackendClient)(workspaceRoot);
         }
-        explorerProvider.refresh();
+        sidebarProvider.refresh();
     }));
 }
 function deactivate() {
@@ -68,7 +72,7 @@ function deactivate() {
 }
 function createVsCodeHost() {
     return {
-        registerTreeDataProvider: (viewId, provider) => vscode.window.registerTreeDataProvider(viewId, provider),
+        registerTreeDataProvider: () => new vscode.Disposable(() => undefined),
         registerCommand: (command, callback) => vscode.commands.registerCommand(command, callback)
     };
 }

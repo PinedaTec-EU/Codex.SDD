@@ -3,8 +3,8 @@ import { showUserStoryDetails } from "./detailsPanel";
 import { activateExtension, deactivateExtension, type ExtensionActions, type ExtensionHost } from "./extensionRuntime";
 import { getSpecForgeSettings } from "./extensionSettings";
 import { openWorkflowView, refreshWorkflowViews } from "./workflowPanel";
+import { SidebarViewProvider } from "./sidebarView";
 import {
-  SpecsExplorerProvider,
   approveCurrentPhase,
   continuePhase,
   createUserStoryFromInput,
@@ -22,15 +22,19 @@ import {
 let previousAttentionSnapshot = new Map<string, string>();
 
 export function activate(context: vscode.ExtensionContext): void {
-  const explorerProvider = new SpecsExplorerProvider();
-  activateExtension(context, createVsCodeHost(), explorerProvider, createExtensionActions(explorerProvider));
+  const sidebarProvider = new SidebarViewProvider(context.extensionUri, async () => {
+    await refreshWorkspaceUiAsync();
+  });
+  const refreshableProvider = { refresh: () => sidebarProvider.refresh() };
+  activateExtension(context, createVsCodeHost(), refreshableProvider, createExtensionActions(refreshableProvider));
   const refreshWorkspaceUiAsync = async () => {
-    explorerProvider.refresh();
+    sidebarProvider.refresh();
     await refreshWorkflowViews();
     await notifyAttentionChangesAsync();
   };
 
   context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider("specForge.userStories", sidebarProvider),
     createWorkspaceWatcher(refreshWorkspaceUiAsync),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (!event.affectsConfiguration("specForge")) {
@@ -42,7 +46,7 @@ export function activate(context: vscode.ExtensionContext): void {
         resetBackendClient(workspaceRoot);
       }
 
-      explorerProvider.refresh();
+      sidebarProvider.refresh();
     })
   );
 }
@@ -55,15 +59,12 @@ export function deactivate(): void {
 
 function createVsCodeHost(): ExtensionHost {
   return {
-    registerTreeDataProvider: (viewId, provider) => vscode.window.registerTreeDataProvider(
-      viewId,
-      provider as unknown as vscode.TreeDataProvider<unknown>
-    ),
+    registerTreeDataProvider: () => new vscode.Disposable(() => undefined),
     registerCommand: (command, callback) => vscode.commands.registerCommand(command, callback)
   };
 }
 
-function createExtensionActions(explorerProvider: SpecsExplorerProvider): ExtensionActions {
+function createExtensionActions(explorerProvider: { refresh(): void }): ExtensionActions {
   return {
     createUserStoryFromInput,
     importUserStoryFromMarkdown,

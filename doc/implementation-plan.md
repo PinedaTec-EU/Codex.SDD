@@ -171,6 +171,7 @@ Incluye en el MVP:
 - ✅ vista principal de workflow abierta desde el explorer con detalle por fase y auditoría
 - ✅ settings de extensión para provider, conexión y watcher
 - ✅ watcher opcional con notificaciones de atención y controles `play/pause/stop`
+- ✅ sidebar de extensión con CTA único en vacío y formulario embebido para crear US
 
 No bloquea el MVP:
 
@@ -203,6 +204,7 @@ Subtareas recién resueltas:
 - ✅ exponer settings de extensión para provider, conexión OpenAI-compatible, API key, modelo y watcher
 - ✅ refrescar automáticamente desde cambios en `.specs/us/**` cuando el watcher está habilitado
 - ✅ añadir controles `play/pause/stop` con `stop` best-effort sobre el backend MCP local
+- ✅ reemplazar la botonera lateral por una sidebar webview con formulario de creación embebido
 
 Subtareas pendientes de cerrar antes de considerar el MVP completo:
 

@@ -172,7 +172,8 @@ The .NET core already supports:
 The extension currently provides:
 
 - a `SpecForge` activity bar view
-- a `User Stories` tree sourced from `.specs/us/`
+- a sidebar webview with embedded user-story intake
+- a single high-contrast `Create User Story` empty state in the sidebar
 - a workflow webview opened directly from a user story click
 - per-phase detail inside the workflow view with artifact preview
 - inline audit stream sourced from `timeline.md`

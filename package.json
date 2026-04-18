@@ -41,7 +41,8 @@
       "specForge": [
         {
           "id": "specForge.userStories",
-          "name": "User Stories"
+          "name": "User Stories",
+          "type": "webview"
         }
       ]
     },
@@ -134,82 +135,7 @@
         }
       }
     },
-    "menus": {
-      "view/title": [
-        {
-          "command": "specForge.refreshUserStories",
-          "when": "view == specForge.userStories",
-          "group": "navigation"
-        },
-        {
-          "command": "specForge.createUserStory",
-          "when": "view == specForge.userStories",
-          "group": "navigation"
-        },
-        {
-          "command": "specForge.importUserStory",
-          "when": "view == specForge.userStories",
-          "group": "navigation"
-        },
-        {
-          "command": "specForge.initializeRepoPrompts",
-          "when": "view == specForge.userStories",
-          "group": "navigation"
-        },
-        {
-          "command": "specForge.openPromptTemplates",
-          "when": "view == specForge.userStories",
-          "group": "navigation"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "specForge.initializeRepoPrompts",
-          "when": "view == specForge.userStories && viewItem == specForge.repoPromptSetup",
-          "group": "inline"
-        },
-        {
-          "command": "specForge.openPromptTemplates",
-          "when": "view == specForge.userStories && viewItem == specForge.repoPromptTemplates",
-          "group": "inline"
-        },
-        {
-          "command": "specForge.openWorkflowView",
-          "when": "view == specForge.userStories && viewItem == specForge.userStory",
-          "group": "inline@1"
-        },
-        {
-          "command": "specForge.openMainArtifact",
-          "when": "view == specForge.userStories && viewItem == specForge.userStory",
-          "group": "inline@2"
-        },
-        {
-          "command": "specForge.continuePhase",
-          "when": "view == specForge.userStories && viewItem == specForge.userStory",
-          "group": "inline"
-        },
-        {
-          "command": "specForge.approveCurrentPhase",
-          "when": "view == specForge.userStories && viewItem == specForge.userStory",
-          "group": "inline"
-        },
-        {
-          "command": "specForge.requestRegression",
-          "when": "view == specForge.userStories && viewItem == specForge.userStory",
-          "group": "navigation"
-        },
-        {
-          "command": "specForge.restartUserStoryFromSource",
-          "when": "view == specForge.userStories && viewItem == specForge.userStory",
-          "group": "navigation"
-        },
-        {
-          "command": "specForge.showUserStoryDetails",
-          "when": "view == specForge.userStories && viewItem == specForge.userStory",
-          "group": "navigation"
-        }
-      ]
-    }
+    "menus": {}
   },
   "scripts": {
     "compile": "node node_modules/typescript/lib/tsc.js -p ./",
