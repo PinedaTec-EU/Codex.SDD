@@ -6,8 +6,6 @@ const phaseNodeWidth = 220;
 const phaseNodeHeight = 116;
 const phaseActionOffsetX = 16;
 const phaseActionTopOffset = 18;
-const desktopGraphHeight = 1260;
-const mobileGraphHeight = 1360;
 const desktopPhasePositions = {
     "capture": { left: 18, top: 38 },
     "refinement": { left: 392, top: 162 },
@@ -26,6 +24,8 @@ const mobilePhasePositions = {
     "release-approval": { left: 176, top: 938 },
     "pr-preparation": { left: 0, top: 1138 }
 };
+const desktopGraphHeight = computeGraphHeight(desktopPhasePositions, phaseNodeHeight, 96);
+const mobileGraphHeight = computeGraphHeight(mobilePhasePositions, phaseNodeHeight, 96);
 function buildPhasePositionCss(positions) {
     return Object.entries(positions)
         .map(([phaseId, position]) => `.phase-node.${phaseId} { left: ${position.left}px; top: ${position.top}px; }`)
@@ -35,6 +35,10 @@ function buildPhaseActionPositionCss(positions, nodeWidth = phaseNodeWidth) {
     return Object.entries(positions)
         .map(([phaseId, position]) => `.phase-node-actions.${phaseId} { left: ${position.left + nodeWidth + phaseActionOffsetX}px; top: ${position.top + phaseActionTopOffset}px; }`)
         .join("\n");
+}
+function computeGraphHeight(positions, nodeHeight, bottomPadding) {
+    const maxTop = Math.max(...Object.values(positions).map((position) => position.top));
+    return maxTop + nodeHeight + bottomPadding;
 }
 function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
