@@ -89,7 +89,7 @@ export function buildWorkflowHtml(
       </section>
     `
     : "";
-  const phaseGraph = buildPhaseGraph(workflow, selectedPhase.phaseId);
+  const phaseGraph = buildPhaseGraph(workflow, selectedPhase.phaseId, playbackState);
   const isMarkdownArtifact = Boolean(selectedPhase.artifactPath?.toLowerCase().endsWith(".md"));
   const artifactPreviewHtml = isMarkdownArtifact
     ? renderMarkdownToHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")
@@ -426,6 +426,12 @@ export function buildWorkflowHtml(
       stroke: rgba(92, 181, 255, 0.92);
       stroke-dasharray: 16 12;
       animation: currentFlow 1.8s linear infinite;
+    }
+    .graph-links path.executing {
+      stroke: rgba(92, 181, 255, 0.98);
+      stroke-dasharray: 22 10;
+      animation: currentFlow 1.1s linear infinite;
+      filter: drop-shadow(0 0 14px rgba(92, 181, 255, 0.42));
     }
     .graph-links path.pending {
       stroke: rgba(255, 255, 255, 0.1);
@@ -911,19 +917,27 @@ export function buildWorkflowHtml(
 </html>`;
 }
 
-function buildPhaseGraph(workflow: UserStoryWorkflowDetails, selectedPhaseId: string): string {
+function buildPhaseGraph(
+  workflow: UserStoryWorkflowDetails,
+  selectedPhaseId: string,
+  playbackState: "idle" | "playing" | "paused" | "stopping"
+): string {
   const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
   const rejectCommand = currentPhase && workflow.controls.regressionTargets.length > 0
     ? { command: "regress", phaseId: workflow.controls.regressionTargets[0], label: `Regress to ${workflow.controls.regressionTargets[0]}` }
     : workflow.controls.canRestartFromSource
       ? { command: "restart", phaseId: undefined, label: "Restart from source" }
       : null;
+  const currentPhaseIndex = workflow.phases.findIndex((phase) => phase.phaseId === currentPhase.phaseId);
+  const executingTargetPhaseId = playbackState === "playing" && currentPhaseIndex >= 0 && currentPhaseIndex < workflow.phases.length - 1
+    ? workflow.phases[currentPhaseIndex + 1].phaseId
+    : null;
 
   const links = workflow.phases
     .slice(0, -1)
     .map((phase, index) => {
       const nextPhase = workflow.phases[index + 1];
-      return `<path class="${linkClass(nextPhase)}" d="${graphPath(phase.phaseId, nextPhase.phaseId)}"></path>`;
+      return `<path class="${linkClass(nextPhase, executingTargetPhaseId)}" d="${graphPath(phase.phaseId, nextPhase.phaseId)}"></path>`;
     })
     .join("");
 
@@ -966,7 +980,11 @@ function buildPhaseGraph(workflow: UserStoryWorkflowDetails, selectedPhaseId: st
   `;
 }
 
-function linkClass(targetPhase: WorkflowPhaseDetails): string {
+function linkClass(targetPhase: WorkflowPhaseDetails, executingTargetPhaseId: string | null): string {
+  if (executingTargetPhaseId === targetPhase.phaseId) {
+    return "executing";
+  }
+
   if (targetPhase.isCurrent) {
     return "current";
   }

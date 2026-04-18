@@ -145,6 +145,66 @@ test("buildWorkflowHtml shows configuration warning and disables execution contr
   assert.doesNotMatch(html, /data-command="continue"/);
 });
 
+test("buildWorkflowHtml animates the next link while autoplay is running", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0003",
+    title: "Autoplay graph",
+    category: "workflow",
+    status: "active",
+    currentPhase: "capture",
+    directoryPath: "/tmp/us.US-0003",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: true,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "capture",
+    selectedArtifactContent: null,
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "playing");
+
+  assert.match(html, /graph-links path\.executing/);
+  assert.match(html, /<path class="executing"/);
+});
+
 test("buildWorkflowHtml warns when the workflow is open without an SLM or LLM provider", () => {
   const html = buildWorkflowHtml({
     usId: "US-0002",

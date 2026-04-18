@@ -210,6 +210,7 @@ class WorkflowPanelController {
             currentPhase: result.currentPhase,
             status: result.status
         };
+        this.selectedPhaseId = result.currentPhase;
         await this.callbacks.refreshExplorer();
         await this.refreshAsync();
     }
@@ -269,6 +270,7 @@ class WorkflowPanelController {
             currentPhase: result.currentPhase,
             status: result.status
         };
+        this.selectedPhaseId = result.currentPhase;
         await this.callbacks.refreshExplorer();
         await this.refreshAsync();
     }
@@ -288,6 +290,7 @@ class WorkflowPanelController {
             currentPhase: result.currentPhase,
             status: result.status
         };
+        this.selectedPhaseId = result.currentPhase;
         await this.callbacks.refreshExplorer();
         await this.refreshAsync();
     }
