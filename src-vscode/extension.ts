@@ -7,6 +7,7 @@ import { SidebarViewProvider } from "./sidebarView";
 import {
   approveCurrentPhase,
   continuePhase,
+  configureBackendHostRoot,
   createUserStoryFromInput,
   disposeBackendClients,
   initializeRepoPrompts,
@@ -22,6 +23,7 @@ import {
 let previousAttentionSnapshot = new Map<string, string>();
 
 export function activate(context: vscode.ExtensionContext): void {
+  configureBackendHostRoot(context.extensionUri.fsPath);
   const sidebarProvider = new SidebarViewProvider(context.extensionUri, async () => {
     await refreshWorkspaceUiAsync();
   });

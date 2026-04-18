@@ -1,59 +1,27 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createMcpBackendClient = createMcpBackendClient;
 const node_child_process_1 = require("node:child_process");
-const path = __importStar(require("node:path"));
 const backendClientModel_1 = require("./backendClientModel");
 const extensionSettings_1 = require("./extensionSettings");
-function createMcpBackendClient(workspaceRoot, settings) {
-    return new StdioMcpBackendClient(workspaceRoot, settings);
+function createMcpBackendClient(workspaceRoot, hostRoot, settings) {
+    return new StdioMcpBackendClient(workspaceRoot, hostRoot, settings);
 }
 class StdioMcpBackendClient {
     process;
     pending = new Map();
     bufferChunks = [];
     workspaceRoot;
+    hostRoot;
     nextRequestId = 1;
     initialized = false;
     disposed = false;
-    constructor(workspaceRoot, settings) {
+    constructor(workspaceRoot, hostRoot, settings) {
         this.workspaceRoot = workspaceRoot;
-        const serverProjectPath = path.join(workspaceRoot, "src", "SpecForge.McpServer", "SpecForge.McpServer.csproj");
+        this.hostRoot = hostRoot;
+        const serverProjectPath = (0, backendClientModel_1.buildServerProjectPath)(hostRoot);
         this.process = (0, node_child_process_1.spawn)("dotnet", ["run", "--project", serverProjectPath], {
-            cwd: workspaceRoot,
+            cwd: this.hostRoot,
             stdio: "pipe",
             env: {
                 ...process.env,

@@ -59,3 +59,7 @@ export function parseToolContent<T>(toolName: string, result: any): T {
 
   return JSON.parse(content) as T;
 }
+
+export function buildServerProjectPath(hostRoot: string): string {
+  return `${hostRoot.replace(/[\\\/]+$/, "")}/src/SpecForge.McpServer/SpecForge.McpServer.csproj`;
+}

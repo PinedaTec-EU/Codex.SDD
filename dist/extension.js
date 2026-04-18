@@ -44,6 +44,7 @@ const sidebarView_1 = require("./sidebarView");
 const specsExplorer_1 = require("./specsExplorer");
 let previousAttentionSnapshot = new Map();
 function activate(context) {
+    (0, specsExplorer_1.configureBackendHostRoot)(context.extensionUri.fsPath);
     const sidebarProvider = new sidebarView_1.SidebarViewProvider(context.extensionUri, async () => {
         await refreshWorkspaceUiAsync();
     });

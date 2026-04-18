@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SpecsExplorerProvider = exports.UserStoryTreeItem = void 0;
+exports.configureBackendHostRoot = configureBackendHostRoot;
 exports.createUserStoryFromInput = createUserStoryFromInput;
 exports.importUserStoryFromMarkdown = importUserStoryFromMarkdown;
 exports.initializeRepoPrompts = initializeRepoPrompts;
@@ -58,6 +59,10 @@ const REGRESSION_TARGETS = {
     "release-approval": ["implementation", "technical-design", "refinement"]
 };
 const USER_STORY_KINDS = ["feature", "bug", "hotfix"];
+let backendHostRoot;
+function configureBackendHostRoot(hostRoot) {
+    backendHostRoot = hostRoot;
+}
 class UserStoryTreeItem extends vscode.TreeItem {
     summary;
     contextValue = "userStory";
@@ -435,7 +440,7 @@ async function pathExistsAsync(filePath) {
 function getBackendClient(workspaceRoot) {
     let client = backendClients.get(workspaceRoot);
     if (!client) {
-        client = (0, backendClient_1.createMcpBackendClient)(workspaceRoot, (0, extensionSettings_1.getSpecForgeSettings)());
+        client = (0, backendClient_1.createMcpBackendClient)(workspaceRoot, backendHostRoot ?? workspaceRoot, (0, extensionSettings_1.getSpecForgeSettings)());
         backendClients.set(workspaceRoot, client);
     }
     return client;

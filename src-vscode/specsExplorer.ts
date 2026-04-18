@@ -23,6 +23,11 @@ const REGRESSION_TARGETS: Record<string, readonly string[]> = {
   "release-approval": ["implementation", "technical-design", "refinement"]
 };
 const USER_STORY_KINDS = ["feature", "bug", "hotfix"] as const;
+let backendHostRoot: string | undefined;
+
+export function configureBackendHostRoot(hostRoot: string): void {
+  backendHostRoot = hostRoot;
+}
 export class UserStoryTreeItem extends vscode.TreeItem {
   public readonly contextValue: UserStoryTreeItemKind = "userStory";
 
@@ -482,7 +487,7 @@ async function pathExistsAsync(filePath: string): Promise<boolean> {
 function getBackendClient(workspaceRoot: string): SpecForgeBackendClient {
   let client = backendClients.get(workspaceRoot);
   if (!client) {
-    client = createMcpBackendClient(workspaceRoot, getSpecForgeSettings());
+    client = createMcpBackendClient(workspaceRoot, backendHostRoot ?? workspaceRoot, getSpecForgeSettings());
     backendClients.set(workspaceRoot, client);
   }
 

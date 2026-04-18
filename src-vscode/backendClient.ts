@@ -4,6 +4,7 @@ import {
   buildApprovePhaseArguments,
   buildRequestRegressionArguments,
   buildRestartUserStoryArguments,
+  buildServerProjectPath,
   parseToolContent
 } from "./backendClientModel";
 import type { SpecForgeSettings } from "./extensionSettings";
@@ -113,8 +114,12 @@ export interface SpecForgeBackendClient {
   dispose(): void;
 }
 
-export function createMcpBackendClient(workspaceRoot: string, settings: SpecForgeSettings): SpecForgeBackendClient {
-  return new StdioMcpBackendClient(workspaceRoot, settings);
+export function createMcpBackendClient(
+  workspaceRoot: string,
+  hostRoot: string,
+  settings: SpecForgeSettings
+): SpecForgeBackendClient {
+  return new StdioMcpBackendClient(workspaceRoot, hostRoot, settings);
 }
 
 class StdioMcpBackendClient implements SpecForgeBackendClient {
@@ -122,18 +127,20 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
   private readonly pending = new Map<number, PendingRequest>();
   private readonly bufferChunks: Buffer[] = [];
   private readonly workspaceRoot: string;
+  private readonly hostRoot: string;
   private nextRequestId = 1;
   private initialized = false;
   private disposed = false;
 
-  public constructor(workspaceRoot: string, settings: SpecForgeSettings) {
+  public constructor(workspaceRoot: string, hostRoot: string, settings: SpecForgeSettings) {
     this.workspaceRoot = workspaceRoot;
-    const serverProjectPath = path.join(workspaceRoot, "src", "SpecForge.McpServer", "SpecForge.McpServer.csproj");
+    this.hostRoot = hostRoot;
+    const serverProjectPath = buildServerProjectPath(hostRoot);
     this.process = spawn(
       "dotnet",
       ["run", "--project", serverProjectPath],
       {
-        cwd: workspaceRoot,
+        cwd: this.hostRoot,
         stdio: "pipe",
         env: {
           ...process.env,

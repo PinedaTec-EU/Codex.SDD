@@ -4,6 +4,7 @@ import {
   buildApprovePhaseArguments,
   buildRequestRegressionArguments,
   buildRestartUserStoryArguments,
+  buildServerProjectPath,
   parseToolContent
 } from "../src-vscode/backendClientModel";
 
@@ -60,5 +61,16 @@ test("parseToolContent returns parsed text payload and rejects invalid payloads"
   assert.throws(
     () => parseToolContent("list_user_stories", { content: [{}] }),
     /Tool 'list_user_stories' returned an invalid MCP payload\./
+  );
+});
+
+test("buildServerProjectPath anchors the MCP server under the extension host root", () => {
+  assert.equal(
+    buildServerProjectPath("/Users/me/SpecForge.AI"),
+    "/Users/me/SpecForge.AI/src/SpecForge.McpServer/SpecForge.McpServer.csproj"
+  );
+  assert.equal(
+    buildServerProjectPath("/Users/me/SpecForge.AI/"),
+    "/Users/me/SpecForge.AI/src/SpecForge.McpServer/SpecForge.McpServer.csproj"
   );
 });
