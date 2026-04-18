@@ -108,6 +108,9 @@ static async Task<JsonNode> HandleToolCallAsync(
         "get_user_story_summary" => await applicationService.GetUserStorySummaryAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId")),
+        "get_user_story_workflow" => await applicationService.GetUserStoryWorkflowAsync(
+            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+            usId: GetRequired(arguments, "usId")),
         "get_current_phase" => await applicationService.GetCurrentPhaseAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId")),
@@ -157,6 +160,7 @@ static JsonObject BuildToolsList()
             Tool("initialize_repo_prompts", "Export the repo prompt templates into .specs/prompts/."),
             Tool("list_user_stories", "List user stories persisted in the workspace."),
             Tool("get_user_story_summary", "Get the operational summary of a user story."),
+            Tool("get_user_story_workflow", "Get workflow phases, controls, and audit trail for a user story."),
             Tool("get_current_phase", "Get the current phase and advanceability of a user story."),
             Tool("generate_next_phase", "Advance to the next linear phase and generate its artifact."),
             Tool("approve_phase", "Approve the current phase and create the work branch if required."),

@@ -94,6 +94,41 @@ public sealed class SpecForgeApplicationService
         return await GetUserStorySummaryFromDirectoryAsync(paths.RootDirectory, cancellationToken);
     }
 
+    public async Task<UserStoryWorkflowDetails> GetUserStoryWorkflowAsync(
+        string workspaceRoot,
+        string usId,
+        CancellationToken cancellationToken = default)
+    {
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        var title = await ReadTitleAsync(paths.MainArtifactPath, cancellationToken);
+        var metadata = await WorkflowRunner.ReadUserStoryMetadataAsync(paths.MainArtifactPath, workflowRun.UsId, cancellationToken);
+        var rawTimeline = File.Exists(paths.TimelineFilePath)
+            ? await File.ReadAllTextAsync(paths.TimelineFilePath, cancellationToken)
+            : string.Empty;
+        var currentPhase = await GetCurrentPhaseAsync(workspaceRoot, usId, cancellationToken);
+
+        return new UserStoryWorkflowDetails(
+            workflowRun.UsId,
+            title,
+            metadata.Category,
+            WorkflowPresentation.ToStatusSlug(workflowRun.Status),
+            WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
+            workflowRun.Branch?.WorkBranchName,
+            paths.MainArtifactPath,
+            paths.TimelineFilePath,
+            rawTimeline,
+            BuildPhaseDetails(workflowRun, paths),
+            new CurrentPhaseControls(
+                currentPhase.CanAdvance,
+                currentPhase.RequiresApproval,
+                currentPhase.RequiresApproval,
+                currentPhase.BlockingReason,
+                workflowRun.CurrentPhase != Workflow.PhaseId.Capture,
+                BuildRegressionTargets(workflowRun)),
+            TimelineMarkdownParser.ParseEvents(rawTimeline));
+    }
+
     private async Task<UserStorySummary> GetUserStorySummaryFromDirectoryAsync(
         string directory,
         CancellationToken cancellationToken)
@@ -184,5 +219,92 @@ public sealed class SpecForgeApplicationService
         var titleLine = lines.FirstOrDefault(static line => line.StartsWith("# ", StringComparison.Ordinal));
         return titleLine?.Replace("# ", string.Empty, StringComparison.Ordinal).Trim()
             ?? Path.GetFileName(Path.GetDirectoryName(filePath) ?? filePath);
+    }
+
+    private static IReadOnlyCollection<WorkflowPhaseDetails> BuildPhaseDetails(
+        Workflow.WorkflowRun workflowRun,
+        UserStoryFilePaths paths)
+    {
+        var phases = new[]
+        {
+            Workflow.PhaseId.Capture,
+            Workflow.PhaseId.Refinement,
+            Workflow.PhaseId.TechnicalDesign,
+            Workflow.PhaseId.Implementation,
+            Workflow.PhaseId.Review,
+            Workflow.PhaseId.ReleaseApproval,
+            Workflow.PhaseId.PrPreparation
+        };
+
+        return phases
+            .Select((phaseId, index) => new WorkflowPhaseDetails(
+                WorkflowPresentation.ToPhaseSlug(phaseId),
+                ToPhaseTitle(phaseId),
+                index,
+                workflowRun.Definition.RequiresApproval(phaseId),
+                workflowRun.IsPhaseApproved(phaseId),
+                workflowRun.CurrentPhase == phaseId,
+                ResolvePhaseState(workflowRun, phaseId),
+                TryGetLatestArtifactPath(paths, phaseId)))
+            .ToArray();
+    }
+
+    private static string ResolvePhaseState(Workflow.WorkflowRun workflowRun, Workflow.PhaseId phaseId)
+    {
+        if (workflowRun.CurrentPhase == phaseId)
+        {
+            return "current";
+        }
+
+        return phaseId < workflowRun.CurrentPhase ? "completed" : "pending";
+    }
+
+    private static string ToPhaseTitle(Workflow.PhaseId phaseId) => phaseId switch
+    {
+        Workflow.PhaseId.Capture => "Capture",
+        Workflow.PhaseId.Refinement => "Refinement",
+        Workflow.PhaseId.TechnicalDesign => "Technical Design",
+        Workflow.PhaseId.Implementation => "Implementation",
+        Workflow.PhaseId.Review => "Review",
+        Workflow.PhaseId.ReleaseApproval => "Release Approval",
+        Workflow.PhaseId.PrPreparation => "PR Preparation",
+        _ => throw new ArgumentOutOfRangeException(nameof(phaseId), phaseId, null)
+    };
+
+    private static string? TryGetLatestArtifactPath(UserStoryFilePaths paths, Workflow.PhaseId phaseId)
+    {
+        if (phaseId is Workflow.PhaseId.Capture or Workflow.PhaseId.ReleaseApproval or Workflow.PhaseId.PrPreparation)
+        {
+            return null;
+        }
+
+        string? latestPath = null;
+        for (var version = 1; version < 100; version++)
+        {
+            var candidate = paths.GetPhaseArtifactPath(phaseId, version);
+            if (!File.Exists(candidate))
+            {
+                break;
+            }
+
+            latestPath = candidate;
+        }
+
+        return latestPath;
+    }
+
+    private static IReadOnlyCollection<string> BuildRegressionTargets(Workflow.WorkflowRun workflowRun)
+    {
+        var candidates = new[]
+        {
+            Workflow.PhaseId.Refinement,
+            Workflow.PhaseId.TechnicalDesign,
+            Workflow.PhaseId.Implementation
+        };
+
+        return candidates
+            .Where(target => workflowRun.Definition.CanRegress(workflowRun.CurrentPhase, target))
+            .Select(WorkflowPresentation.ToPhaseSlug)
+            .ToArray();
     }
 }

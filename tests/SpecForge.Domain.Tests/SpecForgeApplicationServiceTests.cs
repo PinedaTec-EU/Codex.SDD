@@ -85,6 +85,28 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         Assert.NotNull(result.GeneratedArtifactPath);
     }
 
+    [Fact]
+    public async Task GetUserStoryWorkflowAsync_ReturnsPhaseDetailsControlsAndTimelineEvents()
+    {
+        var runner = new WorkflowRunner();
+        var applicationService = new SpecForgeApplicationService();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var workflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal("US-0001", workflow.UsId);
+        Assert.Equal("refinement", workflow.CurrentPhase);
+        Assert.Equal("workflow", workflow.Category);
+        Assert.Equal("waiting-user", workflow.Status);
+        Assert.Equal(7, workflow.Phases.Count);
+        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.IsCurrent && phase.ArtifactPath is not null);
+        Assert.True(workflow.Controls.CanApprove);
+        Assert.False(workflow.Controls.CanContinue);
+        Assert.Contains("`phase_completed`", workflow.RawTimeline);
+        Assert.Contains(workflow.Events, timelineEvent => timelineEvent.Code == "phase_completed");
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(workspaceRoot))

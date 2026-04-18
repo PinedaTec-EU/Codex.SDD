@@ -81,6 +81,12 @@ class StdioMcpBackendClient {
             usId
         });
     }
+    async getUserStoryWorkflow(usId) {
+        return this.callTool("get_user_story_workflow", {
+            workspaceRoot: this.workspaceRoot,
+            usId
+        });
+    }
     async createUserStory(usId, title, kind, category, sourceText) {
         return this.callTool("create_us_from_chat", {
             workspaceRoot: this.workspaceRoot,

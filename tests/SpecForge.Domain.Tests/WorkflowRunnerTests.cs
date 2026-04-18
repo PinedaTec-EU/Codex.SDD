@@ -152,6 +152,34 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Contains("source has not changed", error.Message);
     }
 
+    [Fact]
+    public async Task TimelineMarkdownParser_ParseEvents_ExtractsStructuredAuditData()
+    {
+        const string timeline = """
+# Timeline · US-0001 · Test story
+
+## Eventos
+
+### 2026-04-18T09:10:00Z · `phase_approved`
+
+- Actor: `user`
+- Fase: `refinement`
+- Resumen: Phase `refinement` approved.
+- Artefactos:
+  - .specs/us/us.US-0001/branch.yaml
+""";
+
+        var events = TimelineMarkdownParser.ParseEvents(timeline);
+
+        var timelineEvent = Assert.Single(events);
+        Assert.Equal("2026-04-18T09:10:00Z", timelineEvent.TimestampUtc);
+        Assert.Equal("phase_approved", timelineEvent.Code);
+        Assert.Equal("user", timelineEvent.Actor);
+        Assert.Equal("refinement", timelineEvent.Phase);
+        Assert.Equal("Phase `refinement` approved.", timelineEvent.Summary);
+        Assert.Single(timelineEvent.Artifacts);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(workspaceRoot))

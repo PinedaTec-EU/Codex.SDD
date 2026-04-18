@@ -52,9 +52,54 @@ export interface RestartUserStoryResult {
   readonly generatedArtifactPath: string | null;
 }
 
+export interface WorkflowPhaseDetails {
+  readonly phaseId: string;
+  readonly title: string;
+  readonly order: number;
+  readonly requiresApproval: boolean;
+  readonly isApproved: boolean;
+  readonly isCurrent: boolean;
+  readonly state: string;
+  readonly artifactPath: string | null;
+}
+
+export interface CurrentPhaseControls {
+  readonly canContinue: boolean;
+  readonly canApprove: boolean;
+  readonly requiresApproval: boolean;
+  readonly blockingReason: string | null;
+  readonly canRestartFromSource: boolean;
+  readonly regressionTargets: readonly string[];
+}
+
+export interface TimelineEventDetails {
+  readonly timestampUtc: string;
+  readonly code: string;
+  readonly actor: string | null;
+  readonly phase: string | null;
+  readonly summary: string | null;
+  readonly artifacts: readonly string[];
+}
+
+export interface UserStoryWorkflowDetails {
+  readonly usId: string;
+  readonly title: string;
+  readonly category: string;
+  readonly status: string;
+  readonly currentPhase: string;
+  readonly workBranch: string | null;
+  readonly mainArtifactPath: string;
+  readonly timelinePath: string;
+  readonly rawTimeline: string;
+  readonly phases: readonly WorkflowPhaseDetails[];
+  readonly controls: CurrentPhaseControls;
+  readonly events: readonly TimelineEventDetails[];
+}
+
 export interface SpecForgeBackendClient {
   listUserStories(): Promise<readonly UserStorySummary[]>;
   getUserStorySummary(usId: string): Promise<UserStorySummary>;
+  getUserStoryWorkflow(usId: string): Promise<UserStoryWorkflowDetails>;
   createUserStory(usId: string, title: string, kind: string, category: string, sourceText: string): Promise<CreateOrImportUserStoryResult>;
   importUserStory(usId: string, sourcePath: string, title: string, kind: string, category: string): Promise<CreateOrImportUserStoryResult>;
   initializeRepoPrompts(overwrite?: boolean): Promise<InitializeRepoPromptsResult>;
@@ -117,6 +162,13 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
 
   public async getUserStorySummary(usId: string): Promise<UserStorySummary> {
     return this.callTool<UserStorySummary>("get_user_story_summary", {
+      workspaceRoot: this.workspaceRoot,
+      usId
+    });
+  }
+
+  public async getUserStoryWorkflow(usId: string): Promise<UserStoryWorkflowDetails> {
+    return this.callTool<UserStoryWorkflowDetails>("get_user_story_workflow", {
       workspaceRoot: this.workspaceRoot,
       usId
     });
