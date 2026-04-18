@@ -13,7 +13,7 @@ public sealed class WorkflowRunnerTests : IDisposable
     {
         var runner = new WorkflowRunner();
 
-        var rootDirectory = await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "Initial source text");
+        var rootDirectory = await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "Initial source text");
 
         Assert.Equal(Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001"), rootDirectory);
         Assert.True(File.Exists(Path.Combine(rootDirectory, "us.md")));
@@ -25,7 +25,7 @@ public sealed class WorkflowRunnerTests : IDisposable
     public async Task ContinuePhaseAsync_FromCapture_GeneratesRefinementArtifact()
     {
         var runner = new WorkflowRunner();
-        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "Initial source text");
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "Initial source text");
 
         var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
@@ -43,7 +43,7 @@ public sealed class WorkflowRunnerTests : IDisposable
     public async Task ApproveCurrentPhaseAsync_ThenContinuePhaseAsync_GeneratesTechnicalDesign()
     {
         var runner = new WorkflowRunner();
-        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "Initial source text");
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "Initial source text");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
@@ -59,13 +59,15 @@ public sealed class WorkflowRunnerTests : IDisposable
             UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
         Assert.NotNull(loadedRun.Branch);
         Assert.Equal("main", loadedRun.Branch!.BaseBranch);
+        Assert.Equal("feature/us-0001-test-story", loadedRun.Branch.WorkBranchName);
+        Assert.Equal("feature", loadedRun.Branch.Kind);
     }
 
     [Fact]
     public async Task RequestRegressionAsync_FromReviewToTechnicalDesign_PersistsStateAndTimeline()
     {
         var runner = new WorkflowRunner();
-        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "Initial source text");
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "Initial source text");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
@@ -93,7 +95,7 @@ public sealed class WorkflowRunnerTests : IDisposable
     public async Task RestartUserStoryFromSourceAsync_WhenSourceChanged_ArchivesDerivedStateAndRegeneratesRefinement()
     {
         var runner = new WorkflowRunner();
-        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "Initial source text");
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "Initial source text");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
@@ -140,7 +142,7 @@ public sealed class WorkflowRunnerTests : IDisposable
     public async Task RestartUserStoryFromSourceAsync_WithoutSourceChange_Throws()
     {
         var runner = new WorkflowRunner();
-        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "Initial source text");
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "Initial source text");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
         var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>

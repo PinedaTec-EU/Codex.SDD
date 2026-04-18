@@ -64,7 +64,11 @@ public sealed class WorkflowRun
             : UserStoryStatus.Active;
     }
 
-    public void ApproveCurrentPhase(string? baseBranch = null, DateTimeOffset? approvedAtUtc = null)
+    public void ApproveCurrentPhase(
+        string? baseBranch = null,
+        string? workBranchName = null,
+        string? workBranchKind = null,
+        DateTimeOffset? approvedAtUtc = null)
     {
         EnsureNotCompleted();
 
@@ -85,9 +89,20 @@ public sealed class WorkflowRun
                 throw new WorkflowDomainException("Base branch is required to approve refinement.");
             }
 
+            if (string.IsNullOrWhiteSpace(workBranchName))
+            {
+                throw new WorkflowDomainException("Work branch name is required to approve refinement.");
+            }
+
+            if (string.IsNullOrWhiteSpace(workBranchKind))
+            {
+                throw new WorkflowDomainException("Work branch kind is required to approve refinement.");
+            }
+
             Branch = new WorkBranch(
                 baseBranch,
-                BuildWorkBranchName(UsId),
+                workBranchName,
+                workBranchKind,
                 approvedAtUtc ?? DateTimeOffset.UtcNow);
         }
 
@@ -127,11 +142,6 @@ public sealed class WorkflowRun
     {
         CurrentPhase = currentPhase;
         Status = status;
-    }
-
-    private static string BuildWorkBranchName(string usId)
-    {
-        return $"feature/{usId.ToLowerInvariant()}";
     }
 
     private void EnsureNotCompleted()

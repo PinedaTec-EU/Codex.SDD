@@ -11,10 +11,13 @@ internal static class BranchYamlSerializer
                    new[]
                    {
                        $"usId: {usId}",
+                       $"kind: {branch.Kind}",
                        $"baseBranch: {branch.BaseBranch}",
                        $"workBranch: {branch.WorkBranchName}",
                        $"status: {branch.Status}",
-                       $"createdAt: {branch.CreatedAtUtc:O}"
+                       $"createdAt: {branch.CreatedAtUtc:O}",
+                       "createdFromPhase: refinement_approval",
+                       $"strategy: {branch.Strategy}"
                    }) +
                Environment.NewLine;
     }
@@ -31,7 +34,9 @@ internal static class BranchYamlSerializer
         var branch = new WorkBranch(
             GetRequired(values, "baseBranch"),
             GetRequired(values, "workBranch"),
-            DateTimeOffset.Parse(GetRequired(values, "createdAt")));
+            GetOptional(values, "kind") ?? InferKindFromWorkBranch(GetRequired(values, "workBranch")),
+            DateTimeOffset.Parse(GetRequired(values, "createdAt")),
+            GetOptional(values, "strategy") ?? WorkBranch.SingleBranchPerUserStoryStrategy);
 
         var status = GetRequired(values, "status");
         if (status == "superseded")
@@ -40,6 +45,27 @@ internal static class BranchYamlSerializer
         }
 
         return branch;
+    }
+
+    private static string? GetOptional(IReadOnlyDictionary<string, string> values, string key)
+    {
+        if (!values.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value;
+    }
+
+    private static string InferKindFromWorkBranch(string workBranch)
+    {
+        var separatorIndex = workBranch.IndexOf('/');
+        if (separatorIndex <= 0)
+        {
+            return "feature";
+        }
+
+        return workBranch[..separatorIndex];
     }
 
     private static string GetRequired(IReadOnlyDictionary<string, string> values, string key)

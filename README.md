@@ -152,7 +152,7 @@ The .NET core already supports:
 - persisting `state.yaml` and `branch.yaml`
 - advancing to the next valid phase
 - approving approval-required phases
-- creating the work branch metadata on refinement approval
+- creating the work branch metadata on refinement approval using `<kind>/us-xxxx-short-slug`
 - generating minimal phase artifacts and timeline entries
 - initializing versioned repo prompts under `.specs/prompts/`
 - requiring prompt initialization for real provider-backed phase execution
@@ -170,6 +170,7 @@ The extension currently provides:
 - `Open Prompt Templates`
 - `Open Main Artifact`
 - `Continue Phase`
+- explicit `feature` / `bug` / `hotfix` selection when creating or importing a US
 
 Current limitation:
 
@@ -228,7 +229,8 @@ Typical contents:
 - [x] compose effective per-phase prompts from repo templates plus runtime context
 - [x] expose explicit phase regression through domain, MCP, and VS Code
 - [x] implement safe restart from source and archive superseded derived state
-- [ ] finalize richer branch lifecycle rules and naming strategy
+- [x] derive branch names from explicit US kind plus short slug
+- [ ] finalize richer branch lifecycle rules and Git/PR metadata
 - [ ] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration
 - [ ] support customizable workflows and agent profiles

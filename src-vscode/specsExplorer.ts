@@ -13,6 +13,7 @@ const REGRESSION_TARGETS: Record<string, readonly string[]> = {
   review: ["implementation", "technical-design", "refinement"],
   "release-approval": ["implementation", "technical-design", "refinement"]
 };
+const USER_STORY_KINDS = ["feature", "bug", "hotfix"] as const;
 
 export class UserStoryTreeItem extends vscode.TreeItem {
   public readonly contextValue: UserStoryTreeItemKind = "userStory";
@@ -108,6 +109,11 @@ export async function createUserStoryFromInput(): Promise<void> {
     return;
   }
 
+  const kind = await pickUserStoryKind();
+  if (!kind) {
+    return;
+  }
+
   const sourceText = await vscode.window.showInputBox({
     prompt: "User story objective or initial source text",
     ignoreFocusOut: true,
@@ -119,7 +125,7 @@ export async function createUserStoryFromInput(): Promise<void> {
   }
 
   const usId = await nextUserStoryId(workspaceRoot);
-  const result = await getBackendClient(workspaceRoot).createUserStory(usId, title, sourceText);
+  const result = await getBackendClient(workspaceRoot).createUserStory(usId, title, kind, sourceText);
 
   await openTextDocument(result.mainArtifactPath);
 }
@@ -149,8 +155,12 @@ export async function importUserStoryFromMarkdown(): Promise<void> {
   const sourceText = await fs.promises.readFile(sourceUri.fsPath, "utf8");
   const firstHeading = sourceText.split(/\r?\n/).find((line) => line.startsWith("# ")) ?? "# Imported user story";
   const title = firstHeading.replace(/^#\s+/, "").trim();
+  const kind = await pickUserStoryKind();
+  if (!kind) {
+    return;
+  }
   const usId = await nextUserStoryId(workspaceRoot);
-  const result = await getBackendClient(workspaceRoot).importUserStory(usId, sourceUri.fsPath, title);
+  const result = await getBackendClient(workspaceRoot).importUserStory(usId, sourceUri.fsPath, title, kind);
 
   await openTextDocument(result.mainArtifactPath);
 }
@@ -357,6 +367,22 @@ export async function restartUserStoryFromSource(summary?: UserStorySummary): Pr
 
 function getWorkspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+async function pickUserStoryKind(): Promise<string | undefined> {
+  const selection = await vscode.window.showQuickPick(
+    USER_STORY_KINDS.map((kind) => ({
+      label: kind,
+      description: `Create or import a ${kind} user story`
+    })),
+    {
+      ignoreFocusOut: true,
+      title: "User story kind",
+      placeHolder: "Choose the branch kind for this user story"
+    }
+  );
+
+  return selection?.label;
 }
 
 async function hasInitializedRepoPromptsAsync(workspaceRoot: string): Promise<boolean> {

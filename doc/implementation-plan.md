@@ -106,7 +106,7 @@ Entregables:
 2. ✅ concretar la estructura real de `doc/` y de los artefactos runtime
 3. ✅ concretar el contrato MCP mínimo
 4. ✅ arrancar implementación del dominio y persistencia
-5. [ ] fijar la estrategia de branch naming y reinicio seguro de una US
+5. ✅ fijar la estrategia de branch naming y reinicio seguro de una US
 6. ✅ introducir backend MCP real detrás del boundary actual
 7. ✅ enriquecer ejecución de fases con providers/agents reales
 8. ✅ materializar prompts versionados por fase en `.specs/prompts/`
@@ -115,9 +115,10 @@ Entregables:
 11. ✅ componer prompts efectivos por fase usando contexto runtime
 12. ✅ exponer `request_regression` de punta a punta en dominio, MCP y extensión
 13. ✅ implementar reinicio seguro desde fuente
-14. [ ] cerrar estrategia de branch naming y ciclo de vida enriquecido de ramas
+14. ✅ cerrar estrategia base de branch naming para fase 1
 15. [ ] ampliar UX con graph view y detalle de fase más rico
 16. [ ] añadir editor/inspector de prompts más rico desde la extensión
+17. [ ] enriquecer el ciclo de vida de ramas con integración Git/PR real
 
 ## Riesgos a vigilar
 
@@ -160,6 +161,7 @@ Incluye en el MVP:
 - ✅ prompts versionados por repo y provider OpenAI-compatible
 - ✅ regresión explícita de fase desde UI y backend
 - ✅ reinicio seguro de una US desde la fuente
+- ✅ branch naming explícito por `kind` con formato `<kind>/us-xxxx-short-slug`
 - ✅ roadmap operativo coherente entre `doc/` y `README`
 
 No bloquea el MVP:
@@ -183,10 +185,11 @@ Subtareas recién resueltas:
 - ✅ exponer `request_regression` en dominio, aplicación, MCP y extensión
 - ✅ invalidar aprobaciones obsoletas al regresar a una fase anterior
 - ✅ implementar `restart_user_story_from_source` con archivo de artefactos y rama previa supersedida
+- ✅ fijar `kind` explícito en la US y naming de rama `<kind>/us-xxxx-short-slug`
 
 Subtareas pendientes de cerrar antes de considerar el MVP completo:
 
-- [ ] cerrar la decisión de branch naming y ciclo de vida de `branch.yaml`
+- [ ] enriquecer el ciclo de vida de `branch.yaml` con metadatos Git/PR reales
 
 Artefactos de persistencia ya concretados o en concreción:
 

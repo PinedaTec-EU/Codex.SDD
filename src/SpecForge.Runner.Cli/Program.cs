@@ -44,13 +44,14 @@ catch (Exception exception)
 
 static async Task HandleCreateUserStoryAsync(WorkflowRunner runner, IReadOnlyList<string> args)
 {
-    EnsureArgumentCount(args, expectedCount: 5);
+    EnsureArgumentCount(args, expectedCount: 6);
 
     var workspaceRoot = args[1];
     var usId = args[2];
     var title = args[3];
-    var sourceText = args[4];
-    var rootDirectory = await runner.CreateUserStoryAsync(workspaceRoot, usId, title, sourceText);
+    var kind = args[4];
+    var sourceText = args[5];
+    var rootDirectory = await runner.CreateUserStoryAsync(workspaceRoot, usId, title, kind, sourceText);
 
     WriteJson(new
     {
@@ -62,14 +63,15 @@ static async Task HandleCreateUserStoryAsync(WorkflowRunner runner, IReadOnlyLis
 
 static async Task HandleImportUserStoryAsync(WorkflowRunner runner, IReadOnlyList<string> args)
 {
-    EnsureArgumentCount(args, expectedCount: 5);
+    EnsureArgumentCount(args, expectedCount: 6);
 
     var workspaceRoot = args[1];
     var usId = args[2];
     var sourcePath = args[3];
     var title = args[4];
+    var kind = args[5];
     var sourceText = await File.ReadAllTextAsync(sourcePath);
-    var rootDirectory = await runner.CreateUserStoryAsync(workspaceRoot, usId, title, sourceText);
+    var rootDirectory = await runner.CreateUserStoryAsync(workspaceRoot, usId, title, kind, sourceText);
 
     WriteJson(new
     {

@@ -87,12 +87,14 @@ static async Task<JsonNode> HandleToolCallAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
             title: GetRequired(arguments, "title"),
+            kind: GetRequired(arguments, "kind"),
             sourceText: GetRequired(arguments, "sourceText")),
         "import_us_from_markdown" => await applicationService.ImportUserStoryAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
             sourcePath: GetRequired(arguments, "sourcePath"),
-            title: GetRequired(arguments, "title")),
+            title: GetRequired(arguments, "title"),
+            kind: GetRequired(arguments, "kind")),
         "initialize_repo_prompts" => await applicationService.InitializeRepoPromptsAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             overwrite: GetOptionalBoolean(arguments, "overwrite")),

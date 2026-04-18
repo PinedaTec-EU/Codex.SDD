@@ -34,10 +34,11 @@ public sealed class SpecForgeApplicationService
         string workspaceRoot,
         string usId,
         string title,
+        string kind,
         string sourceText,
         CancellationToken cancellationToken = default)
     {
-        var rootDirectory = await workflowRunner.CreateUserStoryAsync(workspaceRoot, usId, title, sourceText, cancellationToken);
+        var rootDirectory = await workflowRunner.CreateUserStoryAsync(workspaceRoot, usId, title, kind, sourceText, cancellationToken);
         return new CreateOrImportUserStoryResult(usId, rootDirectory, Path.Combine(rootDirectory, "us.md"));
     }
 
@@ -46,10 +47,11 @@ public sealed class SpecForgeApplicationService
         string usId,
         string sourcePath,
         string title,
+        string kind,
         CancellationToken cancellationToken = default)
     {
         var sourceText = await File.ReadAllTextAsync(sourcePath, cancellationToken);
-        return await CreateUserStoryAsync(workspaceRoot, usId, title, sourceText, cancellationToken);
+        return await CreateUserStoryAsync(workspaceRoot, usId, title, kind, sourceText, cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<UserStorySummary>> ListUserStoriesAsync(

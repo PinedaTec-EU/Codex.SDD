@@ -56,6 +56,7 @@ No incluye:
 
 ```yaml
 usId: US-0001
+kind: feature
 baseBranch: main
 workBranch: feature/us-0001-specforge-foundation
 status: active
@@ -77,9 +78,27 @@ Identificador estable de la US dueña de la rama.
 
 Rama base elegida por el usuario al aprobar el primer refinement.
 
+### `kind`
+
+Tipo explícito de la US que gobierna el prefijo de rama.
+
+Valores de fase 1:
+
+- `feature`
+- `bug`
+- `hotfix`
+
 ### `workBranch`
 
 Nombre de la rama creada para aislar el trabajo de la US.
+
+Convención cerrada para fase 1:
+
+- formato `<kind>/us-0001-short-slug`
+- el `usId` es el ancla estable
+- `short-slug` deriva del título actual de la US
+- el slug mejora legibilidad, pero no es fuente de verdad
+- no se renombra automáticamente la rama si cambia el título de la US
 
 ### `status`
 
@@ -123,11 +142,18 @@ Valores iniciales de `pullRequest.status`:
 
 - una US activa tiene como máximo un `branch.yaml` activo
 - no puede existir `workBranch` sin `baseBranch`
+- no puede existir `workBranch` sin `kind`
 - `branch.yaml` no se crea antes de la aprobación inicial del refinement
 - si una US se reinicia desde fuente, el branch previo debe quedar marcado como `superseded` o `abandoned`, nunca reutilizado silenciosamente
 
+## Decisiones cerradas
+
+- convención de `workBranch`: `<kind>/us-0001-short-slug`
+- estrategia de ramas activa en fase 1: `single-branch-per-user-story`
+- una sola rama activa por US
+- el rename manual de rama se pospone; no existe rename automático en fase 1
+
 ## Decisiones abiertas
 
-- convención final de naming para `workBranch`
 - si `branch.yaml` debe incluir el `headCommit` local en fase 1 o posponerse
 - si el estado `merged` debe quedar en fase 1 o reservarse para la futura integración real con PR

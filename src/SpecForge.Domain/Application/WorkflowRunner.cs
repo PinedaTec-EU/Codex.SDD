@@ -30,13 +30,16 @@ public sealed class WorkflowRunner
         string workspaceRoot,
         string usId,
         string title,
+        string kind,
         string sourceText,
         CancellationToken cancellationToken = default)
     {
         ValidateRequired(workspaceRoot, nameof(workspaceRoot));
         ValidateRequired(usId, nameof(usId));
         ValidateRequired(title, nameof(title));
+        ValidateRequired(kind, nameof(kind));
         ValidateRequired(sourceText, nameof(sourceText));
+        ValidateUserStoryKind(kind);
 
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
         Directory.CreateDirectory(paths.RootDirectory);
@@ -44,7 +47,7 @@ public sealed class WorkflowRunner
 
         var workflowRun = new WorkflowRun(usId, ComputeSourceHash(sourceText), WorkflowDefinition.CanonicalV1);
 
-        await File.WriteAllTextAsync(paths.MainArtifactPath, BuildUserStoryMarkdown(usId, title, sourceText), cancellationToken);
+        await File.WriteAllTextAsync(paths.MainArtifactPath, BuildUserStoryMarkdown(usId, title, kind, sourceText), cancellationToken);
         await File.WriteAllTextAsync(paths.TimelineFilePath, BuildInitialTimeline(usId, title), cancellationToken);
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
         return paths.RootDirectory;
@@ -58,7 +61,9 @@ public sealed class WorkflowRunner
     {
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
-        workflowRun.ApproveCurrentPhase(baseBranch, DateTimeOffset.UtcNow);
+        var metadata = await ReadUserStoryMetadataAsync(paths.MainArtifactPath, usId, cancellationToken);
+        var workBranchName = BuildWorkBranchName(usId, metadata.Title, metadata.Kind);
+        workflowRun.ApproveCurrentPhase(baseBranch, workBranchName, metadata.Kind, DateTimeOffset.UtcNow);
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
@@ -393,13 +398,16 @@ public sealed class WorkflowRunner
                Environment.NewLine;
     }
 
-    private static string BuildUserStoryMarkdown(string usId, string title, string sourceText)
+    private static string BuildUserStoryMarkdown(string usId, string title, string kind, string sourceText)
     {
         return string.Join(
                    Environment.NewLine,
                    new[]
                    {
                        $"# {usId} · {title}",
+                       string.Empty,
+                       "## Metadata",
+                       $"- Kind: `{kind}`",
                        string.Empty,
                        "## Objetivo",
                        sourceText,
@@ -411,6 +419,21 @@ public sealed class WorkflowRunner
                        "  - ..."
                    }) +
                Environment.NewLine;
+    }
+
+    private static async Task<UserStoryMetadata> ReadUserStoryMetadataAsync(
+        string userStoryPath,
+        string usId,
+        CancellationToken cancellationToken)
+    {
+        var userStory = await File.ReadAllTextAsync(userStoryPath, cancellationToken);
+        var title = ReadHeading(userStory, usId);
+        var normalizedTitle = title.Replace($"{usId} · ", string.Empty, StringComparison.Ordinal)
+            .Replace($"{usId} - ", string.Empty, StringComparison.Ordinal)
+            .Trim();
+        var kind = ReadUserStoryKind(userStory);
+        ValidateUserStoryKind(kind);
+        return new UserStoryMetadata(normalizedTitle, kind);
     }
 
     private static string ComputeSourceHash(string sourceText)
@@ -426,4 +449,81 @@ public sealed class WorkflowRunner
             throw new ArgumentException($"{paramName} is required.", paramName);
         }
     }
+
+    private static void ValidateUserStoryKind(string kind)
+    {
+        if (kind is not ("feature" or "bug" or "hotfix"))
+        {
+            throw new WorkflowDomainException($"Unsupported user story kind '{kind}'.");
+        }
+    }
+
+    private static string ReadHeading(string markdown, string fallback)
+    {
+        using var reader = new StringReader(markdown);
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (line.StartsWith("# ", StringComparison.Ordinal))
+            {
+                return line[2..].Trim();
+            }
+        }
+
+        return fallback;
+    }
+
+    private static string ReadUserStoryKind(string markdown)
+    {
+        using var reader = new StringReader(markdown);
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith("- Kind:", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var value = trimmed["- Kind:".Length..].Trim().Trim('`').ToLowerInvariant();
+            return string.IsNullOrWhiteSpace(value) ? "feature" : value;
+        }
+
+        return "feature";
+    }
+
+    private static string BuildWorkBranchName(string usId, string title, string kind)
+    {
+        var slug = BuildShortSlug(title);
+        return $"{kind}/{usId.ToLowerInvariant()}-{slug}";
+    }
+
+    private static string BuildShortSlug(string title)
+    {
+        var normalized = title.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+
+        foreach (var character in normalized)
+        {
+            if (char.GetUnicodeCategory(character) == System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            builder.Append(character);
+        }
+
+        var ascii = builder.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
+        ascii = System.Text.RegularExpressions.Regex.Replace(ascii, @"[^a-z0-9]+", "-");
+        ascii = System.Text.RegularExpressions.Regex.Replace(ascii, @"-+", "-").Trim('-');
+
+        if (string.IsNullOrWhiteSpace(ascii))
+        {
+            return "work-item";
+        }
+
+        return ascii.Length <= 48 ? ascii : ascii[..48].Trim('-');
+    }
+
+    private sealed record UserStoryMetadata(string Title, string Kind);
 }

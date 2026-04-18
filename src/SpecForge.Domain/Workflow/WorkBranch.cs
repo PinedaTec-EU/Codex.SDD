@@ -2,7 +2,9 @@ namespace SpecForge.Domain.Workflow;
 
 public sealed class WorkBranch
 {
-    public WorkBranch(string baseBranch, string workBranch, DateTimeOffset createdAtUtc)
+    public const string SingleBranchPerUserStoryStrategy = "single-branch-per-user-story";
+
+    public WorkBranch(string baseBranch, string workBranch, string kind, DateTimeOffset createdAtUtc, string strategy = SingleBranchPerUserStoryStrategy)
     {
         if (string.IsNullOrWhiteSpace(baseBranch))
         {
@@ -14,9 +16,16 @@ public sealed class WorkBranch
             throw new ArgumentException("Work branch is required.", nameof(workBranch));
         }
 
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            throw new ArgumentException("Kind is required.", nameof(kind));
+        }
+
         BaseBranch = baseBranch;
         WorkBranchName = workBranch;
+        Kind = kind;
         CreatedAtUtc = createdAtUtc;
+        Strategy = strategy;
         Status = "active";
     }
 
@@ -24,7 +33,11 @@ public sealed class WorkBranch
 
     public string WorkBranchName { get; }
 
+    public string Kind { get; }
+
     public DateTimeOffset CreatedAtUtc { get; }
+
+    public string Strategy { get; }
 
     public string Status { get; private set; }
 

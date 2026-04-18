@@ -16,6 +16,9 @@ Definir la plantilla mínima de `us.md` como artefacto fuente estable de la hist
 ```md
 # US-0001 · <titulo breve>
 
+## Metadata
+- Kind: `feature` | `bug` | `hotfix`
+
 ## Estado
 - Estado: `draft`
 - Prioridad: `alta`
@@ -54,5 +57,6 @@ Notas, referencias, links internos o dependencias conocidas.
 ## Notas de uso
 
 - `us.md` es el punto de entrada del workflow
+- `Kind` gobierna el prefijo de la rama de trabajo futura
 - tras iniciar `refinement`, su contenido deja de mutar el flujo automáticamente
 - si cambia y el usuario quiere incorporarlo, debe reiniciarse la US
