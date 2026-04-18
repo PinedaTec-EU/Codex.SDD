@@ -4,6 +4,7 @@ exports.buildApprovePhaseArguments = buildApprovePhaseArguments;
 exports.buildRequestRegressionArguments = buildRequestRegressionArguments;
 exports.buildRestartUserStoryArguments = buildRestartUserStoryArguments;
 exports.parseToolContent = parseToolContent;
+exports.buildServerProjectPath = buildServerProjectPath;
 function buildApprovePhaseArguments(workspaceRoot, usId, baseBranch) {
     const argumentsPayload = {
         workspaceRoot,
@@ -41,5 +42,8 @@ function parseToolContent(toolName, result) {
         throw new Error(`Tool '${toolName}' returned an invalid MCP payload.`);
     }
     return JSON.parse(content);
+}
+function buildServerProjectPath(hostRoot) {
+    return `${hostRoot.replace(/[\\\/]+$/, "")}/src/SpecForge.McpServer/SpecForge.McpServer.csproj`;
 }
 //# sourceMappingURL=backendClientModel.js.map
