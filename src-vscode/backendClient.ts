@@ -146,6 +146,7 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
   private readonly bufferChunks: Buffer[] = [];
   private readonly workspaceRoot: string;
   private readonly hostRoot: string;
+  private writeQueue: Promise<void> = Promise.resolve();
   private nextRequestId = 1;
   private initialized = false;
   private disposed = false;
@@ -355,8 +356,13 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
   private async writePayloadAsync(json: string): Promise<void> {
     const payload = Buffer.from(json, "utf8");
     const header = Buffer.from(`Content-Length: ${payload.length}\r\n\r\n`, "ascii");
-    await writeAsync(this.process.stdin, header);
-    await writeAsync(this.process.stdin, payload);
+    const writeOperation = this.writeQueue.then(async () => {
+      await writeAsync(this.process.stdin, header);
+      await writeAsync(this.process.stdin, payload);
+    });
+
+    this.writeQueue = writeOperation.catch(() => undefined);
+    await writeOperation;
   }
 
   private async drainMessagesAsync(): Promise<void> {

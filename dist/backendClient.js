@@ -48,6 +48,7 @@ class StdioMcpBackendClient {
     bufferChunks = [];
     workspaceRoot;
     hostRoot;
+    writeQueue = Promise.resolve();
     nextRequestId = 1;
     initialized = false;
     disposed = false;
@@ -216,8 +217,12 @@ class StdioMcpBackendClient {
     async writePayloadAsync(json) {
         const payload = Buffer.from(json, "utf8");
         const header = Buffer.from(`Content-Length: ${payload.length}\r\n\r\n`, "ascii");
-        await writeAsync(this.process.stdin, header);
-        await writeAsync(this.process.stdin, payload);
+        const writeOperation = this.writeQueue.then(async () => {
+            await writeAsync(this.process.stdin, header);
+            await writeAsync(this.process.stdin, payload);
+        });
+        this.writeQueue = writeOperation.catch(() => undefined);
+        await writeOperation;
     }
     async drainMessagesAsync() {
         let buffer = Buffer.concat(this.bufferChunks);
