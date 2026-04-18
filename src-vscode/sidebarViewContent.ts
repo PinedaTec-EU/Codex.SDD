@@ -21,16 +21,21 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
     `);
   }
 
-  if (model.userStories.length === 0 && !model.showCreateForm) {
+  const promptsBootstrapMarkup = !model.promptsInitialized
+    ? buildPromptsBootstrapMarkup(model.userStories.length === 0)
+    : "";
+
+  if (model.userStories.length === 0 && !model.showCreateForm && model.promptsInitialized) {
     return wrapHtml(`
       ${buildSettingsWarningMarkup(model)}
+      ${promptsBootstrapMarkup}
       <section class="empty-state hero">
         <div class="hero-header">
           <div>
             <p class="eyebrow">SpecForge.AI</p>
             <h1>Create your first user story</h1>
           </div>
-          ${buildPromptActionButton(model.promptsInitialized)}
+          ${buildCompactActions(model)}
         </div>
         <p class="copy">No faded text-buttons, no scattered prompts. Start here and the sidebar opens the full intake form in place.</p>
         <button class="primary-action" data-command="showCreateForm">Create User Story</button>
@@ -52,7 +57,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
     </section>
   `).join("");
 
-  const formMarkup = model.showCreateForm
+  const formMarkup = model.showCreateForm && model.promptsInitialized
     ? `
       <section class="form-card">
         <div class="section-header">
@@ -89,21 +94,11 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
         </form>
       </section>
     `
-    : `
-      <section class="action-card">
-        <div class="section-header">
-          <div>
-            <p class="eyebrow">SpecForge.AI</p>
-            <h2>Start another user story</h2>
-          </div>
-        </div>
-        <p class="copy">Keep the backlog focused on active work and open a new workflow intake directly from the sidebar.</p>
-        <button class="primary-action" data-command="showCreateForm">Create User Story</button>
-      </section>
-    `;
+    : "";
 
   return wrapHtml(`
     ${buildSettingsWarningMarkup(model)}
+    ${promptsBootstrapMarkup}
     ${formMarkup}
     <section class="story-list">
       <div class="section-header">
@@ -111,9 +106,9 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
           <p class="eyebrow">User Stories</p>
           <h2>Workflow backlog</h2>
         </div>
-        ${buildPromptActionButton(model.promptsInitialized)}
+        ${buildCompactActions(model)}
       </div>
-      ${storiesMarkup}
+      ${storiesMarkup || "<p class=\"copy story-list__empty\">Bootstrap the repo prompts to start creating user stories from the sidebar.</p>"}
     </section>
   `);
 }
@@ -152,6 +147,47 @@ function buildPromptActionButton(promptsInitialized: boolean): string {
   `;
 }
 
+function buildCreateActionButton(enabled: boolean): string {
+  const title = enabled
+    ? "Create new user story"
+    : "Initialize repo prompts before creating a user story";
+  const disabled = enabled ? "" : " disabled";
+
+  return `
+    <button
+      class="icon-action"
+      data-command="showCreateForm"
+      title="${escapeHtmlAttr(title)}"
+      aria-label="${escapeHtmlAttr(title)}"${disabled}>
+      <span aria-hidden="true">+</span>
+    </button>
+  `;
+}
+
+function buildCompactActions(model: SidebarViewModel): string {
+  return `
+    <div class="compact-actions">
+      ${buildPromptActionButton(model.promptsInitialized)}
+      ${buildCreateActionButton(model.promptsInitialized)}
+    </div>
+  `;
+}
+
+function buildPromptsBootstrapMarkup(isFirstRun: boolean): string {
+  return `
+    <section class="action-card bootstrap-card">
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Repo Bootstrap</p>
+          <h2>${isFirstRun ? "Initialize prompts before the first user story" : "Initialize missing repo prompts"}</h2>
+        </div>
+      </div>
+      <p class="copy">SpecForge.AI needs the repo prompt set under <code>.specs/prompts/</code> before the sidebar can create or refresh workflow intake.</p>
+      <button class="primary-action" data-command="initializeRepoPrompts">Bootstrap Prompts</button>
+    </section>
+  `;
+}
+
 function wrapHtml(content: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -177,6 +213,9 @@ function wrapHtml(content: string): string {
       border-radius: 20px;
       background: rgba(14, 20, 26, 0.92);
       box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+    }
+    .bootstrap-card {
+      margin-bottom: 14px;
     }
     .settings-warning {
       display: grid;
@@ -290,6 +329,16 @@ function wrapHtml(content: string): string {
       background: rgba(114, 241, 184, 0.12);
       border-color: rgba(114, 241, 184, 0.34);
     }
+    .icon-action:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .compact-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-shrink: 0;
+    }
     .form-card, .story-list, .action-card {
       padding: 16px;
     }
@@ -330,6 +379,9 @@ function wrapHtml(content: string): string {
     }
     .story-list {
       margin-top: 14px;
+    }
+    .story-list__empty {
+      margin-top: 6px;
     }
     .story-group + .story-group {
       margin-top: 14px;

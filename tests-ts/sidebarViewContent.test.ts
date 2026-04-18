@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildSidebarHtml } from "../src-vscode/sidebarViewContent";
 
-test("buildSidebarHtml shows a single prominent create action when there are no user stories", () => {
+test("buildSidebarHtml shows the bootstrap block when prompts are missing before the first user story", () => {
   const html = buildSidebarHtml({
     hasWorkspace: true,
     showCreateForm: false,
@@ -13,19 +13,36 @@ test("buildSidebarHtml shows a single prominent create action when there are no 
     userStories: []
   });
 
-  assert.match(html, /Create your first user story/);
-  assert.match(html, /SpecForge\.AI/);
-  assert.match(html, /Create User Story/);
+  assert.match(html, /Initialize prompts before the first user story/);
+  assert.match(html, /Bootstrap Prompts/);
   assert.match(html, /aria-label="Initialize repo prompts"/);
+  assert.match(html, /aria-label="Initialize repo prompts before creating a user story"/);
+  assert.match(html, /data-command="showCreateForm"[\s\S]*disabled/);
+});
+
+test("buildSidebarHtml shows a single prominent create action when prompts are initialized and there are no user stories", () => {
+  const html = buildSidebarHtml({
+    hasWorkspace: true,
+    showCreateForm: false,
+    promptsInitialized: true,
+    settingsConfigured: true,
+    settingsMessage: null,
+    categories: ["workflow", "ux"],
+    userStories: []
+  });
+
+  assert.match(html, /Create your first user story/);
+  assert.match(html, /Create User Story/);
+  assert.match(html, /aria-label="Reinitialize repo prompts"/);
+  assert.match(html, /aria-label="Create new user story"/);
   assert.doesNotMatch(html, /Workflow backlog/);
-  assert.doesNotMatch(html, /Repo prompts ready/);
 });
 
 test("buildSidebarHtml renders the embedded creation form inside the sidebar", () => {
   const html = buildSidebarHtml({
     hasWorkspace: true,
     showCreateForm: true,
-    promptsInitialized: false,
+    promptsInitialized: true,
     settingsConfigured: true,
     settingsMessage: null,
     categories: ["workflow", "ux"],
@@ -59,11 +76,38 @@ test("buildSidebarHtml exposes a compact prompt reset action when repo prompts a
   });
 
   assert.match(html, /aria-label="Reinitialize repo prompts"/);
+  assert.match(html, /aria-label="Create new user story"/);
   assert.doesNotMatch(html, /Repo prompts ready/);
   assert.doesNotMatch(html, /Open Prompt Templates/);
 });
 
-test("buildSidebarHtml wraps the create action in its own card when stories already exist", () => {
+test("buildSidebarHtml uses compact actions instead of a separate create card when stories already exist", () => {
+  const html = buildSidebarHtml({
+    hasWorkspace: true,
+    showCreateForm: false,
+    promptsInitialized: true,
+    settingsConfigured: true,
+    settingsMessage: null,
+    categories: ["workflow"],
+    userStories: [{
+      usId: "US-0001",
+      title: "Workflow graph",
+      category: "workflow",
+      currentPhase: "refinement",
+      status: "active",
+      mainArtifactPath: "/tmp/us.md",
+      directoryPath: "/tmp/us.US-0001",
+      workBranch: null
+    }],
+  });
+
+  assert.match(html, /compact-actions/);
+  assert.match(html, /aria-label="Create new user story"/);
+  assert.doesNotMatch(html, /Start another user story/);
+  assert.doesNotMatch(html, /Keep the backlog focused on active work/);
+});
+
+test("buildSidebarHtml shows a bootstrap block above the backlog when prompts are missing", () => {
   const html = buildSidebarHtml({
     hasWorkspace: true,
     showCreateForm: false,
@@ -83,9 +127,9 @@ test("buildSidebarHtml wraps the create action in its own card when stories alre
     }],
   });
 
-  assert.match(html, /Start another user story/);
-  assert.match(html, /Keep the backlog focused on active work/);
-  assert.doesNotMatch(html, /compact-actions/);
+  assert.match(html, /Initialize missing repo prompts/);
+  assert.match(html, /Bootstrap Prompts/);
+  assert.match(html, /aria-label="Initialize repo prompts before creating a user story"/);
 });
 
 test("buildSidebarHtml exposes a visible settings warning when execution is not configured", () => {
