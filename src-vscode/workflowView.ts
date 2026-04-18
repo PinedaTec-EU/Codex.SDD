@@ -360,11 +360,11 @@ export function buildWorkflowHtml(
     }
     .phase-node.capture { left: 18px; top: 38px; }
     .phase-node.refinement { left: 392px; top: 142px; }
-    .phase-node.technical-design { left: 392px; top: 318px; }
-    .phase-node.implementation { left: 18px; top: 468px; }
-    .phase-node.review { left: 18px; top: 646px; }
-    .phase-node.release-approval { left: 392px; top: 792px; }
-    .phase-node.pr-preparation { left: 18px; top: 930px; }
+    .phase-node.technical-design { left: 392px; top: 286px; }
+    .phase-node.implementation { left: 18px; top: 430px; }
+    .phase-node.review { left: 18px; top: 574px; }
+    .phase-node.release-approval { left: 392px; top: 718px; }
+    .phase-node.pr-preparation { left: 18px; top: 862px; }
     .phase-node-header {
       display: flex;
       justify-content: space-between;
@@ -560,11 +560,11 @@ export function buildWorkflowHtml(
       }
       .phase-node.capture { left: 0; top: 16px; }
       .phase-node.refinement { left: 176px; top: 138px; }
-      .phase-node.technical-design { left: 176px; top: 300px; }
-      .phase-node.implementation { left: 0; top: 450px; }
-      .phase-node.review { left: 0; top: 622px; }
-      .phase-node.release-approval { left: 176px; top: 772px; }
-      .phase-node.pr-preparation { left: 0; top: 1010px; }
+      .phase-node.technical-design { left: 176px; top: 282px; }
+      .phase-node.implementation { left: 0; top: 426px; }
+      .phase-node.review { left: 0; top: 570px; }
+      .phase-node.release-approval { left: 176px; top: 714px; }
+      .phase-node.pr-preparation { left: 0; top: 858px; }
     }
   </style>
 </head>
@@ -707,11 +707,11 @@ function graphPath(fromPhaseId: string, toPhaseId: string): string {
 const phaseAnchorMap: Record<string, { x: number; y: number }> = {
   "capture": { x: 238, y: 96 },
   "refinement": { x: 392, y: 200 },
-  "technical-design": { x: 392, y: 376 },
-  "implementation": { x: 238, y: 526 },
-  "review": { x: 238, y: 704 },
-  "release-approval": { x: 392, y: 850 },
-  "pr-preparation": { x: 238, y: 958 }
+  "technical-design": { x: 392, y: 344 },
+  "implementation": { x: 238, y: 488 },
+  "review": { x: 238, y: 632 },
+  "release-approval": { x: 392, y: 776 },
+  "pr-preparation": { x: 238, y: 920 }
 };
 
 export function escapeHtml(value: string): string {
