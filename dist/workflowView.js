@@ -473,7 +473,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     <section class="panel hero">
       <div class="hero-head">
         <div>
-          <p class="eyebrow">SpecForge Workflow Graph</p>
+          <p class="eyebrow">SpecForge.AI Workflow Graph</p>
           <h1>${escapeHtml(workflow.usId)} · ${escapeHtml(workflow.title)}</h1>
           <div class="hero-meta">
             <span class="token accent">${escapeHtml(workflow.category)}</span>

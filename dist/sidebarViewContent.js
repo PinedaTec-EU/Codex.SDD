@@ -5,7 +5,7 @@ function buildSidebarHtml(model) {
     if (!model.hasWorkspace) {
         return wrapHtml(`
       <section class="empty-state">
-        <p class="eyebrow">SpecForge</p>
+        <p class="eyebrow">SpecForge.AI</p>
         <h1>Open a workspace to start.</h1>
         <p class="copy">The sidebar needs a workspace folder to persist user stories under <code>.specs/</code>.</p>
       </section>
@@ -14,7 +14,7 @@ function buildSidebarHtml(model) {
     if (model.userStories.length === 0 && !model.showCreateForm) {
         return wrapHtml(`
       <section class="empty-state hero">
-        <p class="eyebrow">SpecForge</p>
+        <p class="eyebrow">SpecForge.AI</p>
         <h1>Create your first user story</h1>
         <p class="copy">No faded text-buttons, no scattered prompts. Start here and the sidebar opens the full intake form in place.</p>
         <button class="primary-action" data-command="showCreateForm">Create User Story</button>
@@ -73,7 +73,14 @@ function buildSidebarHtml(model) {
       </section>
     `
         : `
-      <section class="compact-actions">
+      <section class="action-card">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">SpecForge.AI</p>
+            <h2>Start another user story</h2>
+          </div>
+        </div>
+        <p class="copy">Keep the backlog focused on active work and open a new workflow intake directly from the sidebar.</p>
         <button class="primary-action" data-command="showCreateForm">Create User Story</button>
       </section>
     `;
@@ -138,7 +145,7 @@ function wrapHtml(content) {
         linear-gradient(180deg, rgba(9, 16, 22, 0.98), rgba(11, 15, 20, 1));
       color: var(--vscode-editor-foreground);
     }
-    .empty-state, .form-card, .story-list, .prompt-card {
+    .empty-state, .form-card, .story-list, .prompt-card, .action-card {
       border: 1px solid rgba(114, 241, 184, 0.12);
       border-radius: 20px;
       background: rgba(14, 20, 26, 0.92);
@@ -192,13 +199,10 @@ function wrapHtml(content) {
       background: rgba(255, 255, 255, 0.04);
       color: inherit;
     }
-    .compact-actions {
-      margin-bottom: 14px;
-    }
-    .form-card, .story-list, .prompt-card {
+    .form-card, .story-list, .prompt-card, .action-card {
       padding: 16px;
     }
-    .prompt-card {
+    .prompt-card, .action-card {
       margin-top: 14px;
     }
     .section-header {

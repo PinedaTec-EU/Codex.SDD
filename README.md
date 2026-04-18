@@ -174,7 +174,7 @@ The .NET core already supports:
 
 The extension currently provides:
 
-- a `SpecForge` activity bar view
+- a `SpecForge.AI` activity bar view
 - a sidebar webview with embedded user-story intake
 - a single high-contrast `Create User Story` empty state in the sidebar
 - a visible prompt setup card in the sidebar to initialize `.specs/prompts/` or open the repo prompt templates
@@ -215,7 +215,7 @@ Today the canonical checkpoint is `release_approval`. The graph and phase detail
 1. Open the repository in VS Code.
 2. Run `npm run compile`.
 3. Start the extension from the VS Code Extension Development Host workflow.
-4. Use the `SpecForge` activity bar view.
+4. Use the `SpecForge.AI` activity bar view.
 
 ### Extension settings
 

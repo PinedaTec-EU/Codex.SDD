@@ -1,7 +1,7 @@
 {
   "name": "specforge-ai",
-  "displayName": "SpecForge AI",
-  "description": "Minimal VS Code extension for exploring SpecForge user stories.",
+  "displayName": "SpecForge.AI",
+  "description": "Minimal VS Code extension for exploring SpecForge.AI user stories.",
   "version": "0.0.1",
   "publisher": "local",
   "license": "MIT",
@@ -32,7 +32,7 @@
       "activitybar": [
         {
           "id": "specForge",
-          "title": "SpecForge",
+          "title": "SpecForge.AI",
           "icon": "media/specforge.svg"
         }
       ]
@@ -97,7 +97,7 @@
       }
     ],
     "configuration": {
-      "title": "SpecForge",
+      "title": "SpecForge.AI",
       "properties": {
         "specForge.execution.provider": {
           "type": "string",

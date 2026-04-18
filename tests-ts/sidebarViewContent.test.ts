@@ -12,6 +12,7 @@ test("buildSidebarHtml shows a single prominent create action when there are no 
   });
 
   assert.match(html, /Create your first user story/);
+  assert.match(html, /SpecForge\.AI/);
   assert.match(html, /Create User Story/);
   assert.match(html, /Initialize Repo Prompts/);
   assert.doesNotMatch(html, /Workflow backlog/);
@@ -54,4 +55,27 @@ test("buildSidebarHtml exposes prompt templates when repo prompts are initialize
   assert.match(html, /Repo prompts ready/);
   assert.match(html, /Open Prompt Templates/);
   assert.doesNotMatch(html, /Initialize Repo Prompts/);
+});
+
+test("buildSidebarHtml wraps the create action in its own card when stories already exist", () => {
+  const html = buildSidebarHtml({
+    hasWorkspace: true,
+    showCreateForm: false,
+    promptsInitialized: false,
+    categories: ["workflow"],
+    userStories: [{
+      usId: "US-0001",
+      title: "Workflow graph",
+      category: "workflow",
+      currentPhase: "refinement",
+      status: "active",
+      mainArtifactPath: "/tmp/us.md",
+      directoryPath: "/tmp/us.US-0001",
+      workBranch: null
+    }],
+  });
+
+  assert.match(html, /Start another user story/);
+  assert.match(html, /Keep the backlog focused on active work/);
+  assert.doesNotMatch(html, /compact-actions/);
 });
