@@ -167,12 +167,14 @@ The extension currently provides:
 - a `User Stories` tree sourced from `.specs/us/`
 - `Create User Story`
 - `Import User Story`
+- `Initialize Repo Prompts`
+- `Open Prompt Templates`
 - `Open Main Artifact`
 - `Continue Phase`
 
 Current limitation:
 
-- the extension already talks to the MCP server, but there is not yet a dedicated UX to inspect or edit the effective prompt set from inside VS Code
+- the extension can initialize and open repo prompts, but it still does not provide a richer prompt editor, diffing, or effective prompt inspection UX
 
 ### Running the extension locally
 
