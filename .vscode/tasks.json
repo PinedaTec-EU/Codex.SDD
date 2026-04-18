@@ -15,7 +15,7 @@
             ],
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": false
             },
             "presentation": {
                 "reveal": "always",
@@ -28,7 +28,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/TravelAgent.slnx",
+                "${workspaceFolder}/SpecForge.AI.slnx",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary;ForceNoAlign"
             ],
@@ -42,7 +42,7 @@
         {
             "type": "shell",
             "label": "build inc version",
-            "command": "dotnet build ${workspaceFolder}/TravelAgent.slnx",
+            "command": "dotnet build ${workspaceFolder}/SpecForge.AI.slnx",
             "problemMatcher": [
                 "$msCompile"
             ],
@@ -51,7 +51,7 @@
             ],
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": false
             }
         },
         {
@@ -70,78 +70,40 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "Launch test with coverage",
-            "command": "dotnet",
+            "label": "build bundle",
             "type": "shell",
+            "command": "bash",
             "args": [
-                "test",
-                "${workspaceFolder}/TravelAgent.slnx",
-                "--collect:\"XPlat Code Coverage\"",
-                "--results-directory",
-                "${workspaceFolder}/TestResults",
-                "--settings",
-                "${workspaceFolder}/tests/TravelAgent.Api.Tests/.runsettings"
+                "-c",
+                "cd '${workspaceFolder}' && npm run compile && cd '../ai-skills-shared' && dotnet build ai-skills-shared.slnx"
             ],
-            "problemMatcher": "$msCompile",
-            "presentation": {
-                "reveal": "always"
-            },
+            "problemMatcher": [
+                "$tsc",
+                "$msCompile"
+            ],
             "group": {
-                "kind": "test",
+                "kind": "build",
                 "isDefault": true
-            }
-        },
-        {
-            "label": "Generate Coverage Report",
-            "command": "reportgenerator",
-            "type": "shell",
-            "args": [
-                "\"-reports:${workspaceFolder}/TestResults/**/coverage.cobertura.xml\"",
-                "\"-targetdir:${workspaceFolder}/TestResults/CoverageReport\"",
-                "\"-reporttypes:Html\""
-            ],
-            "problemMatcher": [],
-            "dependsOn": [
-                "Launch test with coverage"
-            ],
-            "presentation": {
-                "reveal": "always"
             },
-            "options": {
-                "env": {
-                    "PATH": "${env:HOME}/.dotnet/tools:${env:PATH}"
-                }
-            }
-        },
-        {
-            "label": "Generate+Open Coverage Report",
-            "command": "open",
-            "type": "shell",
-            "args": [
-                "${workspaceFolder}/TestResults/CoverageReport/index.html"
-            ],
-            "problemMatcher": [],
-            "dependsOn": [
-                "Generate Coverage Report"
-            ],
             "presentation": {
-                "reveal": "never"
-            }
-        },
-        {
-            "label": "Crear nuevo tag",
-            "type": "shell",
-            "command": "${workspaceFolder}/terraform/scripts/create_newtag.sh",
-            "args": [
-                "${input:entorno}"
-            ],
-            "problemMatcher": [],
-            "presentation": {
-                "echo": true,
                 "reveal": "always",
-                "focus": false,
                 "panel": "shared"
             }
-        }
+        },
+        // {
+        //     "label": "Crear nuevo tag",
+        //     "type": "shell",
+        //     "command": "${workspaceFolder}/terraform/scripts/create_newtag.sh",
+        //     "args": [
+        //         "${input:entorno}"
+        //     ],
+        //     "problemMatcher": [],
+        //     "presentation": {
+        //         "echo": true,
+        //         "reveal": "always",
+        //         "focus": false,
+        //         "panel": "shared"
+        //     }
+        // }
     ]
 }
