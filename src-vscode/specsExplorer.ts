@@ -6,6 +6,13 @@ import {
   type SpecForgeBackendClient,
   type UserStorySummary
 } from "./backendClient";
+import {
+  compareUserStories,
+  DEFAULT_USER_STORY_CATEGORIES,
+  nextUserStoryIdFromSummaries,
+  normalizeCategory,
+  parseYamlSequence
+} from "./explorerModel";
 
 export type UserStoryTreeItemKind = "userStory" | "userStoryCategory" | "repoPromptSetup" | "repoPromptTemplates";
 const backendClients = new Map<string, SpecForgeBackendClient>();
@@ -14,18 +21,6 @@ const REGRESSION_TARGETS: Record<string, readonly string[]> = {
   "release-approval": ["implementation", "technical-design", "refinement"]
 };
 const USER_STORY_KINDS = ["feature", "bug", "hotfix"] as const;
-const DEFAULT_USER_STORY_CATEGORIES = [
-  "workflow",
-  "ux",
-  "prompts",
-  "mcp",
-  "providers",
-  "branching",
-  "review",
-  "integrations",
-  "infra"
-] as const;
-
 export class UserStoryTreeItem extends vscode.TreeItem {
   public readonly contextValue: UserStoryTreeItemKind = "userStory";
 
@@ -425,15 +420,6 @@ function getWorkspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
-function normalizeCategory(category: string | null | undefined): string {
-  const normalized = category?.trim().toLowerCase();
-  return normalized && normalized.length > 0 ? normalized : "uncategorized";
-}
-
-function compareUserStories(left: UserStorySummary, right: UserStorySummary): number {
-  return left.usId.localeCompare(right.usId);
-}
-
 async function pickUserStoryKind(): Promise<string | undefined> {
   const selection = await vscode.window.showQuickPick(
     USER_STORY_KINDS.map((kind) => ({
@@ -478,44 +464,6 @@ async function getUserStoryCategoriesAsync(workspaceRoot: string): Promise<reado
   return categories.length === 0 ? DEFAULT_USER_STORY_CATEGORIES : categories;
 }
 
-function parseYamlSequence(yaml: string, key: string): string[] {
-  const lines = yaml.replace(/\r\n/g, "\n").split("\n");
-  const result: string[] = [];
-  let insideSection = false;
-
-  for (const rawLine of lines) {
-    const line = rawLine.trimEnd();
-
-    if (!insideSection) {
-      if (line === `${key}:`) {
-        insideSection = true;
-      }
-
-      continue;
-    }
-
-    if (!line) {
-      continue;
-    }
-
-    if (!/^\s/.test(rawLine)) {
-      break;
-    }
-
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("- ")) {
-      continue;
-    }
-
-    const value = trimmed.slice(2).trim().toLowerCase();
-    if (value) {
-      result.push(value);
-    }
-  }
-
-  return [...new Set(result)].sort((left, right) => left.localeCompare(right));
-}
-
 async function hasInitializedRepoPromptsAsync(workspaceRoot: string): Promise<boolean> {
   const hasConfig = await pathExistsAsync(path.join(workspaceRoot, ".specs", "config.yaml"));
   const hasManifest = await pathExistsAsync(path.join(workspaceRoot, ".specs", "prompts", "prompts.yaml"));
@@ -524,13 +472,7 @@ async function hasInitializedRepoPromptsAsync(workspaceRoot: string): Promise<bo
 
 async function nextUserStoryId(workspaceRoot: string): Promise<string> {
   const summaries = await getBackendClient(workspaceRoot).listUserStories();
-  const maxValue = summaries
-    .map((summary) => /^US-(\d+)$/.exec(summary.usId))
-    .filter((match): match is RegExpExecArray => match !== null)
-    .map((match) => Number.parseInt(match[1], 10))
-    .reduce((currentMax, value) => Math.max(currentMax, value), 0);
-
-  return `US-${String(maxValue + 1).padStart(4, "0")}`;
+  return nextUserStoryIdFromSummaries(summaries);
 }
 async function openTextDocument(filePath: string): Promise<void> {
   const document = await vscode.workspace.openTextDocument(filePath);

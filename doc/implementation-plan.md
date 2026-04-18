@@ -118,9 +118,10 @@ Entregables:
 14. ✅ cerrar estrategia base de branch naming para fase 1
 15. ✅ introducir categoría explícita de US con catálogo configurable del repo
 16. ✅ agrupar el explorer de VS Code por categoría de US
-17. [ ] ampliar UX con graph view y detalle de fase más rico
-18. [ ] añadir editor/inspector de prompts más rico desde la extensión
-19. [ ] enriquecer el ciclo de vida de ramas con integración Git/PR real
+17. ✅ introducir un proyecto mínimo de tests TypeScript para la extensión
+18. [ ] ampliar UX con graph view y detalle de fase más rico
+19. [ ] añadir editor/inspector de prompts más rico desde la extensión
+20. [ ] enriquecer el ciclo de vida de ramas con integración Git/PR real
 
 ## Riesgos a vigilar
 
@@ -166,6 +167,7 @@ Incluye en el MVP:
 - ✅ branch naming explícito por `kind` con formato `<kind>/us-xxxx-short-slug`
 - ✅ categoría explícita de US con catálogo configurable desde `.specs/config.yaml`
 - ✅ roadmap operativo coherente entre `doc/` y `README`
+- ✅ proyecto mínimo de tests TypeScript para lógica pura de la extensión
 
 No bloquea el MVP:
 
@@ -191,6 +193,7 @@ Subtareas recién resueltas:
 - ✅ fijar `kind` explícito en la US y naming de rama `<kind>/us-xxxx-short-slug`
 - ✅ introducir `category` explícita en la US y validarla contra el catálogo global del repo
 - ✅ agrupar el explorer de VS Code por categoría de US
+- ✅ añadir tests TypeScript mínimos para parsing, agrupación y render seguro del panel de detalle
 
 Subtareas pendientes de cerrar antes de considerar el MVP completo:
 

@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "module": "Node16",
+    "target": "ES2022",
+    "lib": [
+      "ES2022"
+    ],
+    "outDir": "dist-tests",
+    "rootDir": ".",
+    "sourceMap": true,
+    "strict": true,
+    "moduleResolution": "Node16",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "tests-ts/**/*.ts",
+    "src-vscode/explorerModel.ts",
+    "src-vscode/detailsView.ts",
+    "src-vscode/backendClient.ts"
+  ]
+}

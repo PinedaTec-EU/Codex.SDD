@@ -110,10 +110,18 @@ npm install
 npm run compile
 ```
 
+The npm scripts invoke the local TypeScript compiler entrypoint directly, so the extension and test builds do not depend on a global `tsc`.
+
 ### Run .NET tests
 
 ```bash
 dotnet test SpecForge.AI.slnx
+```
+
+### Run TypeScript tests
+
+```bash
+npm run test:ts
 ```
 
 ## Provider Configuration
@@ -173,6 +181,7 @@ The extension currently provides:
 - `Continue Phase`
 - explicit `feature` / `bug` / `hotfix` selection when creating or importing a US
 - explicit category selection from the repo category catalog when creating or importing a US
+- lightweight TypeScript unit tests for pure explorer and details-view logic
 
 Current limitation:
 
