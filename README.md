@@ -22,7 +22,7 @@ Implemented today:
 Not implemented yet:
 
 - full PR integration
-- rich VS Code phase details and graph UI
+- richer prompt inspection UX, diffing, and effective prompt visibility
 
 ## Features
 
@@ -284,7 +284,7 @@ Typical contents:
 - [x] add watcher-driven refresh, attention notifications, and playback controls with best-effort stop
 - [x] keep the default navigation focused on active user stories and workflows for the MVP
 - [ ] finalize richer branch lifecycle rules and Git/PR metadata
-- [ ] add richer phase detail UI and graph visualization
+- [x] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration
 - [ ] support customizable workflows and agent profiles
 - [ ] add a switch to show completed user stories and workflows
@@ -306,7 +306,7 @@ The current target is an MVP, not a feature-complete product.
 
 ### Post-MVP
 
-- [ ] graph visualization and richer workflow observability
+- [x] graph visualization and richer workflow observability
 - [ ] prompt diffing and effective prompt inspection UX
 - [ ] GitHub PR / issue integration
 - [ ] customizable workflows and agent profiles

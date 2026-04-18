@@ -180,7 +180,7 @@ Incluye en el MVP:
 
 No bloquea el MVP:
 
-- [ ] graph view del workflow
+- ✅ graph view del workflow
 - [ ] panel de detalle rico con diff, timeline navegable o inspección de prompt efectivo
 - [ ] integración real con PR/issues
 - [ ] workflows personalizables y perfiles avanzados de agentes
