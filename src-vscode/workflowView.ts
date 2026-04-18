@@ -293,8 +293,8 @@ export function buildWorkflowHtml(
     .metric-card {
       padding: 12px 14px;
       border-radius: 16px;
-      border: 1px solid rgba(92, 181, 255, 0.16);
-      background: linear-gradient(180deg, rgba(18, 34, 52, 0.92), rgba(9, 16, 24, 0.98));
+      border: 1px solid rgba(114, 241, 184, 0.18);
+      background: linear-gradient(180deg, rgba(18, 44, 34, 0.94), rgba(9, 20, 17, 0.98));
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
     }
     .metric-card__label {
@@ -303,13 +303,13 @@ export function buildWorkflowHtml(
       font-size: 0.72rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: rgba(146, 205, 255, 0.76);
+      color: rgba(114, 241, 184, 0.74);
     }
     .metric-card__value {
       display: block;
       font-size: 1.02rem;
       font-weight: 700;
-      color: #eef7ff;
+      color: #f2fff9;
     }
     .hero-meta {
       margin-top: 14px;
