@@ -174,6 +174,7 @@ Incluye en el MVP:
 - ✅ sidebar de extensión con CTA único en vacío y formulario embebido para crear US
 - ✅ distinción visible en la UI y en la documentación entre fases automáticas y checkpoints del usuario
 - ✅ affordance visible en la sidebar para inicializar y abrir los prompts versionados del repo
+- ✅ visibilidad inicial centrada en US/workflows activos en la sidebar y vistas principales
 
 No bloquea el MVP:
 
@@ -181,6 +182,8 @@ No bloquea el MVP:
 - [ ] panel de detalle rico con diff, timeline navegable o inspección de prompt efectivo
 - [ ] integración real con PR/issues
 - [ ] workflows personalizables y perfiles avanzados de agentes
+- [ ] mostrar también US finalizadas mediante un switch explícito en la UI
+- [ ] añadir buscador de US/workflows sobre la vista lateral
 
 Subtarea recién resuelta:
 
@@ -208,6 +211,7 @@ Subtareas recién resueltas:
 - ✅ refrescar automáticamente desde cambios en `.specs/us/**` cuando el watcher está habilitado
 - ✅ añadir controles `play/pause/stop` con `stop` best-effort sobre el backend MCP local
 - ✅ reemplazar la botonera lateral por una sidebar webview con formulario de creación embebido
+- ✅ fijar que el foco inicial de la UX esté en las US activas; el histórico y la búsqueda quedan post-MVP
 
 Subtareas pendientes de cerrar antes de considerar el MVP completo:
 

@@ -178,6 +178,7 @@ The extension currently provides:
 - a sidebar webview with embedded user-story intake
 - a single high-contrast `Create User Story` empty state in the sidebar
 - a visible prompt setup card in the sidebar to initialize `.specs/prompts/` or open the repo prompt templates
+- a default navigation focus on active user stories and active workflows
 - a workflow webview opened directly from a user story click
 - per-phase detail inside the workflow view with artifact preview
 - inline audit stream sourced from `timeline.md`
@@ -198,6 +199,7 @@ Current limitation:
 
 - `stop` is best-effort: it cancels the local MCP backend process for the workspace, but it is not yet a durable job-control protocol
 - the extension still does not provide a richer prompt editor, diffing, or effective prompt inspection UX
+- the sidebar does not yet expose completed user stories through a visibility switch or search; for the MVP it stays focused on active work
 
 ### Workflow readability
 
@@ -278,10 +280,13 @@ Typical contents:
 - [x] open user stories into a workflow view with phase detail and timeline audit
 - [x] add extension settings for provider connection and watcher behavior
 - [x] add watcher-driven refresh, attention notifications, and playback controls with best-effort stop
+- [x] keep the default navigation focused on active user stories and workflows for the MVP
 - [ ] finalize richer branch lifecycle rules and Git/PR metadata
 - [ ] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration
 - [ ] support customizable workflows and agent profiles
+- [ ] add a switch to show completed user stories and workflows
+- [ ] add sidebar search across user stories and workflows
 
 ## MVP Roadmap
 
@@ -303,6 +308,8 @@ The current target is an MVP, not a feature-complete product.
 - [ ] prompt diffing and effective prompt inspection UX
 - [ ] GitHub PR / issue integration
 - [ ] customizable workflows and agent profiles
+- [ ] completed user story visibility toggle in the sidebar
+- [ ] user story and workflow search in the sidebar
 
 ## Development
 
