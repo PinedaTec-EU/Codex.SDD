@@ -1,3 +1,9 @@
+<p align="center">
+  <a href="https://github.com/PinedaTec-EU/SpecForge.AI">
+    <img loading="lazy" alt="Sphere Integration Hub" src="./doc/images/banner.png" width="85%"/>
+  </a>
+</p>
+
 # SpecForge.AI
 
 SpecForge.AI is an early-stage developer tool for running structured SDD workflows inside VS Code.
