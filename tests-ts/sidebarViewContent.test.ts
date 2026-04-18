@@ -109,8 +109,35 @@ test("buildSidebarHtml uses compact actions instead of a separate create card wh
   assert.match(html, /compact-actions/);
   assert.match(html, /aria-label="Create new user story"/);
   assert.match(html, /aria-label="Delete US-0001"/);
+  assert.match(html, /story-card--active story-card--phase-refinement/);
+  assert.match(html, /story-card__phase-number">3</);
   assert.doesNotMatch(html, /Start another user story/);
   assert.doesNotMatch(html, /Keep the backlog focused on active work/);
+});
+
+test("buildSidebarHtml does not render the phase rail for non-active user stories", () => {
+  const html = buildSidebarHtml({
+    hasWorkspace: true,
+    showCreateForm: false,
+    busyMessage: null,
+    promptsInitialized: true,
+    settingsConfigured: true,
+    settingsMessage: null,
+    categories: ["workflow"],
+    userStories: [{
+      usId: "US-0002",
+      title: "Waiting story",
+      category: "workflow",
+      currentPhase: "technical-design",
+      status: "waiting-user",
+      mainArtifactPath: "/tmp/us.md",
+      directoryPath: "/tmp/us.US-0002",
+      workBranch: null
+    }],
+  });
+
+  assert.doesNotMatch(html, /<button class="story-card story-card--active/);
+  assert.doesNotMatch(html, /<span class="story-card__phase-number">/);
 });
 
 test("buildSidebarHtml shows a bootstrap block above the backlog when prompts are missing", () => {

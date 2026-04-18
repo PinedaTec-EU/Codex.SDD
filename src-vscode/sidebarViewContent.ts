@@ -61,10 +61,19 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
       <div class="group-header">${escapeHtml(group.category)}</div>
       ${group.items.map((summary) => `
         <div class="story-row">
-          <button class="story-card" data-command="openWorkflow" data-us-id="${escapeHtmlAttr(summary.usId)}">
-            <span class="story-card__id">${escapeHtml(summary.usId)}</span>
-            <strong>${escapeHtml(summary.title)}</strong>
-            <span class="story-card__meta">${escapeHtml(summary.currentPhase)} · ${escapeHtml(summary.status)}</span>
+          <button class="story-card${summary.status === "active" ? ` story-card--active story-card--phase-${escapeHtmlAttr(summary.currentPhase)}` : ""}" data-command="openWorkflow" data-us-id="${escapeHtmlAttr(summary.usId)}">
+            ${summary.status === "active"
+              ? `
+                <span class="story-card__phase-rail" aria-hidden="true">
+                  <span class="story-card__phase-number">${phaseNumberFor(summary.currentPhase)}</span>
+                </span>
+              `
+              : ""}
+            <span class="story-card__content">
+              <span class="story-card__id">${escapeHtml(summary.usId)}</span>
+              <strong>${escapeHtml(summary.title)}</strong>
+              <span class="story-card__meta">${escapeHtml(summary.currentPhase)} · ${escapeHtml(summary.status)}</span>
+            </span>
           </button>
           <button
             class="icon-action icon-action--danger story-delete"
@@ -478,11 +487,59 @@ function wrapHtml(content: string, busy: boolean): string {
     }
     .story-card {
       text-align: left;
-      padding: 12px 14px;
+      padding: 0;
       background: rgba(255, 255, 255, 0.03);
       color: inherit;
       display: grid;
+      grid-template-columns: 1fr;
+      overflow: hidden;
+    }
+    .story-card__content {
+      display: grid;
       gap: 4px;
+      padding: 12px 14px;
+    }
+    .story-card--active {
+      grid-template-columns: 42px minmax(0, 1fr);
+      align-items: stretch;
+    }
+    .story-card__phase-rail {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+      border-top-left-radius: 13px;
+      border-bottom-left-radius: 13px;
+    }
+    .story-card__phase-number {
+      display: inline-block;
+      transform: rotate(-90deg);
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      color: rgba(255, 255, 255, 0.92);
+      line-height: 1;
+    }
+    .story-card--phase-capture .story-card__phase-rail,
+    .story-card--phase-clarification .story-card__phase-rail {
+      background: linear-gradient(180deg, rgba(114, 241, 184, 0.22), rgba(18, 46, 36, 0.92));
+      border-right-color: rgba(114, 241, 184, 0.18);
+    }
+    .story-card--phase-refinement .story-card__phase-rail,
+    .story-card--phase-technical-design .story-card__phase-rail {
+      background: linear-gradient(180deg, rgba(92, 181, 255, 0.24), rgba(15, 34, 56, 0.92));
+      border-right-color: rgba(92, 181, 255, 0.2);
+    }
+    .story-card--phase-implementation .story-card__phase-rail,
+    .story-card--phase-review .story-card__phase-rail {
+      background: linear-gradient(180deg, rgba(255, 193, 120, 0.22), rgba(52, 34, 15, 0.92));
+      border-right-color: rgba(255, 193, 120, 0.18);
+    }
+    .story-card--phase-release-approval .story-card__phase-rail,
+    .story-card--phase-pr-preparation .story-card__phase-rail {
+      background: linear-gradient(180deg, rgba(255, 139, 139, 0.22), rgba(56, 18, 18, 0.92));
+      border-right-color: rgba(255, 139, 139, 0.18);
     }
     .story-delete {
       align-self: center;
@@ -574,4 +631,19 @@ function escapeHtml(value: string): string {
 
 function escapeHtmlAttr(value: string): string {
   return escapeHtml(value);
+}
+
+function phaseNumberFor(currentPhase: string): string {
+  const phaseOrder: Record<string, string> = {
+    "capture": "1",
+    "clarification": "2",
+    "refinement": "3",
+    "technical-design": "4",
+    "implementation": "5",
+    "review": "6",
+    "release-approval": "7",
+    "pr-preparation": "8"
+  };
+
+  return phaseOrder[currentPhase] ?? "?";
 }
