@@ -84,6 +84,7 @@ public sealed class UserStoryFileStoreTests : IDisposable
     {
         var run = new WorkflowRun("US-0001", "sha256:abc", WorkflowDefinition.CanonicalV1);
         run.GenerateNextPhase();
+        run.GenerateNextPhase();
         run.ApproveCurrentPhase(
             "main",
             "feature/us-0001-test-story",

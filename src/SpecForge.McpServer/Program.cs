@@ -130,6 +130,10 @@ static async Task<JsonNode> HandleToolCallAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
             reason: GetOptional(arguments, "reason")),
+        "submit_clarification_answers" => await applicationService.SubmitClarificationAnswersAsync(
+            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+            usId: GetRequired(arguments, "usId"),
+            answers: GetStringArray(arguments, "answers")),
         _ => throw new InvalidOperationException($"Tool '{toolName}' is not supported.")
     };
 
@@ -165,7 +169,8 @@ static JsonObject BuildToolsList()
             Tool("generate_next_phase", "Advance to the next linear phase and generate its artifact."),
             Tool("approve_phase", "Approve the current phase and create the work branch if required."),
             Tool("request_regression", "Regress a user story to an earlier valid phase."),
-            Tool("restart_user_story_from_source", "Restart a user story after the source has changed.")
+            Tool("restart_user_story_from_source", "Restart a user story after the source has changed."),
+            Tool("submit_clarification_answers", "Store clarification answers inside the user story so clarification can re-run.")
         }
     };
 }
@@ -204,6 +209,20 @@ static bool GetOptionalBoolean(JsonObject arguments, string key)
 {
     var value = arguments[key];
     return value is not null && value.GetValue<bool>();
+}
+
+static string[] GetStringArray(JsonObject arguments, string key)
+{
+    if (arguments[key] is not JsonArray array)
+    {
+        return [];
+    }
+
+    return array
+        .Select(static item => item?.GetValue<string>()?.Trim())
+        .Where(static item => !string.IsNullOrWhiteSpace(item))
+        .Cast<string>()
+        .ToArray();
 }
 
 static JsonObject BuildSuccessResponse(JsonNode? id, JsonNode result)

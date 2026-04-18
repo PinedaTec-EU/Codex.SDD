@@ -104,7 +104,10 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         Assert.Equal("refinement", workflow.CurrentPhase);
         Assert.Equal("workflow", workflow.Category);
         Assert.Equal("waiting-user", workflow.Status);
-        Assert.Equal(7, workflow.Phases.Count);
+        Assert.Equal(8, workflow.Phases.Count);
+        Assert.NotNull(workflow.Clarification);
+        Assert.Equal("ready_for_refinement", workflow.Clarification!.Status);
+        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "clarification" && phase.ExecutePromptPath is not null);
         Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.IsCurrent && phase.ArtifactPath is not null);
         Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.ExecutePromptPath is not null && phase.ApprovePromptPath is not null);
         Assert.True(workflow.Controls.CanApprove);

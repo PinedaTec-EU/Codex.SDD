@@ -76,6 +76,19 @@ export interface WorkflowPhaseDetails {
   readonly approvePromptPath: string | null;
 }
 
+export interface ClarificationQuestionAnswerDetails {
+  readonly index: number;
+  readonly question: string;
+  readonly answer: string | null;
+}
+
+export interface ClarificationSessionDetails {
+  readonly status: string;
+  readonly tolerance: string;
+  readonly reason: string | null;
+  readonly items: readonly ClarificationQuestionAnswerDetails[];
+}
+
 export interface CurrentPhaseControls {
   readonly canContinue: boolean;
   readonly canApprove: boolean;
@@ -114,6 +127,7 @@ export interface UserStoryWorkflowDetails {
   readonly rawTimeline: string;
   readonly phases: readonly WorkflowPhaseDetails[];
   readonly controls: CurrentPhaseControls;
+  readonly clarification: ClarificationSessionDetails | null;
   readonly events: readonly TimelineEventDetails[];
   readonly attachmentsDirectoryPath: string;
   readonly attachments: readonly AttachmentDetails[];
@@ -130,6 +144,7 @@ export interface SpecForgeBackendClient {
   approveCurrentPhase(usId: string, baseBranch?: string): Promise<UserStorySummary>;
   requestRegression(usId: string, targetPhase: string, reason?: string): Promise<RequestRegressionResult>;
   restartUserStoryFromSource(usId: string, reason?: string): Promise<RestartUserStoryResult>;
+  submitClarificationAnswers(usId: string, answers: readonly string[]): Promise<void>;
   cancelActiveOperations(): void;
   dispose(): void;
 }
@@ -270,6 +285,14 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
       "restart_user_story_from_source",
       buildRestartUserStoryArguments(this.workspaceRoot, usId, reason)
     );
+  }
+
+  public async submitClarificationAnswers(usId: string, answers: readonly string[]): Promise<void> {
+    await this.callTool<void>("submit_clarification_answers", {
+      workspaceRoot: this.workspaceRoot,
+      usId,
+      answers
+    });
   }
 
   public cancelActiveOperations(): void {

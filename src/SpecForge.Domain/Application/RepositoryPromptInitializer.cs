@@ -29,6 +29,7 @@ public sealed class RepositoryPromptInitializer
             [paths.SharedSystemPromptPath] = BuildSharedSystemPrompt(),
             [paths.SharedStylePromptPath] = BuildSharedStylePrompt(),
             [paths.SharedOutputRulesPromptPath] = BuildSharedOutputRulesPrompt(),
+            [paths.ClarificationExecutePromptPath] = BuildClarificationExecutePrompt(),
             [paths.RefinementExecutePromptPath] = BuildRefinementExecutePrompt(),
             [paths.RefinementApprovePromptPath] = BuildRefinementApprovePrompt(),
             [paths.TechnicalDesignExecutePromptPath] = BuildTechnicalDesignExecutePrompt(),
@@ -83,6 +84,8 @@ public sealed class RepositoryPromptInitializer
           style: .specs/prompts/shared/style.md
           outputRules: .specs/prompts/shared/output-rules.md
         phases:
+          clarification:
+            execute: .specs/prompts/phases/clarification.execute.md
           refinement:
             execute: .specs/prompts/phases/refinement.execute.md
             approve: .specs/prompts/phases/refinement.approve.md
@@ -119,6 +122,28 @@ public sealed class RepositoryPromptInitializer
         Do not wrap the response in code fences.
         Preserve the expected section names of the target artifact.
         If required context is missing or contradictory, state it explicitly inside the artifact instead of hiding the issue.
+        """;
+
+    private static string BuildClarificationExecutePrompt() =>
+        """
+        Role: clarification analyst.
+
+        Goal:
+        - inspect `us.md` and decide whether the story is ready for refinement
+        - if it is not ready, ask only the minimum concrete questions needed
+        - if it is ready, say so explicitly and avoid inventing new questions
+
+        Required sections:
+        - Estado
+        - Decision
+        - Reason
+        - Questions
+
+        Decision rules:
+        - use `ready_for_refinement` when the story is concrete enough to produce a meaningful refinement
+        - use `needs_clarification` when actors, business behavior, inputs, outputs, rules, or acceptance intent are too vague
+        - if there are already answers in the clarification log inside `us.md`, use them as first-class context
+        - keep the questions concrete and answerable by the user inside the extension
         """;
 
     private static string BuildRefinementExecutePrompt() =>

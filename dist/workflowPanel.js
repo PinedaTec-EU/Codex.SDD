@@ -168,6 +168,9 @@ class WorkflowPanelController {
                     await this.requestRegressionAsync(message.phaseId);
                 }
                 return;
+            case "submitClarificationAnswers":
+                await this.submitClarificationAnswersAsync(message.answers ?? []);
+                return;
             case "play":
                 if (!this.isExecutionConfigured()) {
                     await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
@@ -211,6 +214,12 @@ class WorkflowPanelController {
             status: result.status
         };
         this.selectedPhaseId = result.currentPhase;
+        await this.callbacks.refreshExplorer();
+        await this.refreshAsync();
+    }
+    async submitClarificationAnswersAsync(answers) {
+        await this.getBackendClient().submitClarificationAnswers(this.summary.usId, answers);
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' stored ${answers.length} clarification answer(s).`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync();
     }

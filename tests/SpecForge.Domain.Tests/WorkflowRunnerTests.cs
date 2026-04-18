@@ -40,23 +40,61 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task ContinuePhaseAsync_FromCapture_WithInsufficientSource_RejectsAndStaysAtCapture()
+    public async Task ContinuePhaseAsync_FromCapture_WithInsufficientSource_RequestsClarification()
     {
         var runner = new WorkflowRunner();
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "sample US");
 
-        var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
-            runner.ContinuePhaseAsync(workspaceRoot, "US-0001"));
+        var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
-        Assert.Contains("source is too thin", error.Message);
-
+        Assert.Equal(PhaseId.Clarification, result.CurrentPhase);
+        Assert.Equal(UserStoryStatus.WaitingUser, result.Status);
+        Assert.NotNull(result.GeneratedArtifactPath);
         var loadedRun = await new UserStoryFileStore().LoadAsync(
             UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
-        Assert.Equal(PhaseId.Capture, loadedRun.CurrentPhase);
+        Assert.Equal(PhaseId.Clarification, loadedRun.CurrentPhase);
+
+        var userStoryPath = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").MainArtifactPath;
+        var userStory = await File.ReadAllTextAsync(userStoryPath);
+        Assert.Contains("## Clarification Log", userStory);
+        Assert.Contains("### Questions", userStory);
+        Assert.Contains("### Answers", userStory);
 
         var timelinePath = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
         var timeline = await File.ReadAllTextAsync(timelinePath);
-        Assert.Contains("`capture_rejected_insufficient_source`", timeline);
+        Assert.Contains("`clarification_requested`", timeline);
+    }
+
+    [Fact]
+    public async Task SubmitClarificationAnswersAsync_AllowsClarificationToAdvanceToRefinement()
+    {
+        var runner = new WorkflowRunner();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "sample US");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var answerResult = await runner.SubmitClarificationAnswersAsync(
+            workspaceRoot,
+            "US-0001",
+            [
+                "El analista funcional.",
+                "Recibe datos del formulario y debe producir una especificación refinada validable.",
+                "Debe quedar un objetivo claro y criterios de aceptación comprobables."
+            ]);
+
+        Assert.Equal("clarification", answerResult.CurrentPhase);
+        Assert.Equal("active", answerResult.Status);
+        Assert.Equal(3, answerResult.AnsweredQuestions);
+
+        var continueResult = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal(PhaseId.Refinement, continueResult.CurrentPhase);
+        Assert.Equal(UserStoryStatus.WaitingUser, continueResult.Status);
+        Assert.NotNull(continueResult.GeneratedArtifactPath);
+
+        var timelinePath = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
+        var timeline = await File.ReadAllTextAsync(timelinePath);
+        Assert.Contains("`clarification_answered`", timeline);
+        Assert.Contains("`clarification_passed`", timeline);
     }
 
     [Fact]

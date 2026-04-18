@@ -7,6 +7,7 @@ public static class WorkflowPresentation
     public static string ToPhaseSlug(PhaseId phaseId) => phaseId switch
     {
         PhaseId.Capture => "capture",
+        PhaseId.Clarification => "clarification",
         PhaseId.Refinement => "refinement",
         PhaseId.TechnicalDesign => "technical-design",
         PhaseId.Implementation => "implementation",
@@ -29,6 +30,7 @@ public static class WorkflowPresentation
     public static PhaseId ParsePhaseSlug(string phaseSlug) => phaseSlug switch
     {
         "capture" => PhaseId.Capture,
+        "clarification" => PhaseId.Clarification,
         "refinement" => PhaseId.Refinement,
         "technical-design" => PhaseId.TechnicalDesign,
         "implementation" => PhaseId.Implementation,

@@ -66,6 +66,7 @@ public sealed class UserStoryFilePaths
     {
         var fileName = phaseId switch
         {
+            PhaseId.Clarification => "00-clarification",
             PhaseId.Refinement => "01-refinement",
             PhaseId.TechnicalDesign => "02-technical-design",
             PhaseId.Implementation => "03-implementation",

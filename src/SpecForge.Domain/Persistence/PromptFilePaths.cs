@@ -19,6 +19,7 @@ public sealed class PromptFilePaths
         SharedSystemPromptPath = Path.Combine(SharedPromptsDirectoryPath, "system.md");
         SharedStylePromptPath = Path.Combine(SharedPromptsDirectoryPath, "style.md");
         SharedOutputRulesPromptPath = Path.Combine(SharedPromptsDirectoryPath, "output-rules.md");
+        ClarificationExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "clarification.execute.md");
         RefinementExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "refinement.execute.md");
         RefinementApprovePromptPath = Path.Combine(PhasePromptsDirectoryPath, "refinement.approve.md");
         TechnicalDesignExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "technical-design.execute.md");
@@ -47,6 +48,8 @@ public sealed class PromptFilePaths
     public string SharedStylePromptPath { get; }
 
     public string SharedOutputRulesPromptPath { get; }
+
+    public string ClarificationExecutePromptPath { get; }
 
     public string RefinementExecutePromptPath { get; }
 

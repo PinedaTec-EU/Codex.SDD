@@ -48,6 +48,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
       canRestartFromSource: true,
       regressionTargets: []
     },
+    clarification: null,
     events: [
       {
         timestampUtc: "2026-04-18T10:00:00Z",
@@ -133,6 +134,7 @@ test("buildWorkflowHtml shows configuration warning and disables execution contr
       canRestartFromSource: false,
       regressionTargets: []
     },
+    clarification: null,
     events: [],
     attachmentsDirectoryPath: "/tmp/attachments",
     attachments: []
@@ -195,6 +197,7 @@ test("buildWorkflowHtml animates the next link while autoplay is running", () =>
       canRestartFromSource: false,
       regressionTargets: []
     },
+    clarification: null,
     events: [],
     attachmentsDirectoryPath: "/tmp/attachments",
     attachments: []
@@ -241,6 +244,7 @@ test("buildWorkflowHtml warns when the workflow is open without an SLM or LLM pr
       canRestartFromSource: false,
       regressionTargets: []
     },
+    clarification: null,
     events: [],
     attachmentsDirectoryPath: "/tmp/attachments",
     attachments: []
@@ -254,6 +258,80 @@ test("buildWorkflowHtml warns when the workflow is open without an SLM or LLM pr
   assert.match(html, /SLM\/LLM execution provider/);
   assert.match(html, /data-command="play"[^>]*disabled/);
   assert.doesNotMatch(html, /data-command="continue"/);
+});
+
+test("buildWorkflowHtml renders clarification questions and embedded answer inputs", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0004",
+    title: "Clarification flow",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "clarification",
+    directoryPath: "/tmp/us.US-0004",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "clarification",
+        title: "Clarification",
+        order: 1,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/00-clarification.md",
+        executePromptPath: "/tmp/clarification.execute.md",
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: "clarification_pending_answers",
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: {
+      status: "needs_clarification",
+      tolerance: "balanced",
+      reason: "The capture is still too vague to infer a valid refinement.",
+      items: [
+        { index: 1, question: "Who triggers the workflow?", answer: "A backoffice operator." },
+        { index: 2, question: "What input and output should be expected?", answer: null }
+      ]
+    },
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "clarification",
+    selectedArtifactContent: "## Decision\nneeds_clarification",
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /<h3>Clarification<\/h3>/);
+  assert.match(html, /needs_clarification/);
+  assert.match(html, /The capture is still too vague/);
+  assert.match(html, /data-clarification-answer/);
+  assert.match(html, /A backoffice operator\./);
+  assert.match(html, /Submit Answers/);
+  assert.match(html, /submitClarificationAnswers/);
 });
 
 test("buildWorkflowHtml spaces same-column phases far enough apart to avoid overlap", () => {
@@ -282,9 +360,21 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
         approvePromptPath: null
       },
       {
+        phaseId: "clarification",
+        title: "Clarification",
+        order: 1,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
         phaseId: "refinement",
         title: "Refinement",
-        order: 1,
+        order: 2,
         requiresApproval: true,
         isApproved: true,
         isCurrent: false,
@@ -296,7 +386,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
       {
         phaseId: "technical-design",
         title: "Technical Design",
-        order: 2,
+        order: 3,
         requiresApproval: true,
         isApproved: true,
         isCurrent: false,
@@ -308,7 +398,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
       {
         phaseId: "implementation",
         title: "Implementation",
-        order: 3,
+        order: 4,
         requiresApproval: false,
         isApproved: false,
         isCurrent: true,
@@ -320,7 +410,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
       {
         phaseId: "review",
         title: "Review",
-        order: 4,
+        order: 5,
         requiresApproval: false,
         isApproved: false,
         isCurrent: false,
@@ -332,7 +422,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
       {
         phaseId: "release-approval",
         title: "Release Approval",
-        order: 5,
+        order: 6,
         requiresApproval: true,
         isApproved: false,
         isCurrent: false,
@@ -344,7 +434,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
       {
         phaseId: "pr-preparation",
         title: "PR Preparation",
-        order: 6,
+        order: 7,
         requiresApproval: false,
         isApproved: false,
         isCurrent: false,
@@ -362,6 +452,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
       canRestartFromSource: false,
       regressionTargets: []
     },
+    clarification: null,
     events: [],
     attachmentsDirectoryPath: "/tmp/attachments",
     attachments: []
@@ -372,8 +463,9 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /\.phase-node\.technical-design \{ left: 392px; top: 352px; \}/);
-  assert.match(html, /\.phase-node\.implementation \{ left: 18px; top: 462px; \}/);
-  assert.match(html, /\.phase-node\.review \{ left: 18px; top: 652px; \}/);
-  assert.match(html, /viewBox="0 0 700 1104"/);
+  assert.match(html, /\.phase-node\.clarification \{ left: 206px; top: 150px; \}/);
+  assert.match(html, /\.phase-node\.technical-design \{ left: 392px; top: 452px; \}/);
+  assert.match(html, /\.phase-node\.implementation \{ left: 18px; top: 562px; \}/);
+  assert.match(html, /\.phase-node\.review \{ left: 18px; top: 752px; \}/);
+  assert.match(html, /viewBox="0 0 700 1204"/);
 });

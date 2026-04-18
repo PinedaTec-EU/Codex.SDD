@@ -15,6 +15,7 @@ internal sealed class RepositoryPromptCatalog
             paths.SharedSystemPromptPath,
             paths.SharedStylePromptPath,
             paths.SharedOutputRulesPromptPath,
+            paths.ClarificationExecutePromptPath,
             paths.RefinementExecutePromptPath,
             paths.RefinementApprovePromptPath,
             paths.TechnicalDesignExecutePromptPath,
@@ -40,6 +41,7 @@ internal sealed class RepositoryPromptCatalog
 
         return phaseId switch
         {
+            PhaseId.Clarification => paths.ClarificationExecutePromptPath,
             PhaseId.Refinement => paths.RefinementExecutePromptPath,
             PhaseId.TechnicalDesign => paths.TechnicalDesignExecutePromptPath,
             PhaseId.Implementation => paths.ImplementationExecutePromptPath,

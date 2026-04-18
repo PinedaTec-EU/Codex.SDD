@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Diagnostics;
-using System.Text.RegularExpressions;
 using SpecForge.Domain.Persistence;
 using SpecForge.Domain.Workflow;
 
@@ -9,10 +8,6 @@ namespace SpecForge.Domain.Application;
 
 public sealed class WorkflowRunner
 {
-    private static readonly Regex PlaceholderSourceRegex = new(
-        @"\b(sample(\s+us)?|placeholder|todo|tbd|lorem ipsum)\b|^\s*\.\.\.\s*$",
-        RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Compiled);
-
     private readonly UserStoryFileStore fileStore;
     private readonly IPhaseExecutionProvider phaseExecutionProvider;
     private readonly RepositoryCategoryCatalog repositoryCategoryCatalog;
@@ -154,7 +149,6 @@ public sealed class WorkflowRunner
         }
 
         var currentSourceText = await ReadSourceTextFromUserStoryAsync(paths.MainArtifactPath, cancellationToken);
-        EnsureSourceIsReadyForRefinement(currentSourceText);
         var currentSourceHash = ComputeSourceHash(currentSourceText);
         if (string.Equals(existingRun.SourceHash, currentSourceHash, StringComparison.Ordinal))
         {
@@ -165,9 +159,8 @@ public sealed class WorkflowRunner
         await ArchiveDerivedArtifactsAsync(paths, existingRun, restartTimestamp, cancellationToken);
 
         var restartedRun = new WorkflowRun(existingRun.UsId, currentSourceHash, existingRun.Definition);
-        restartedRun.GenerateNextPhase();
-        var generation = await MaterializePhaseArtifactAsync(workspaceRoot, paths, restartedRun, cancellationToken);
-        var generatedArtifactPath = generation.ArtifactPath;
+        var regeneration = await ContinueFromCaptureOrClarificationAsync(workspaceRoot, paths, restartedRun, cancellationToken);
+        var generatedArtifactPath = regeneration.ArtifactPath;
         await fileStore.SaveAsync(restartedRun, paths.RootDirectory, cancellationToken);
 
         await AppendTimelineEventAsync(
@@ -178,7 +171,9 @@ public sealed class WorkflowRunner
             $"Detected source change. Previous hash `{existingRun.SourceHash}` differs from current hash `{currentSourceHash}`.",
             cancellationToken);
 
-        var summary = "Restarted workflow from the updated source and regenerated refinement.";
+        var summary = restartedRun.CurrentPhase == PhaseId.Refinement
+            ? "Restarted workflow from the updated source and regenerated refinement."
+            : "Restarted workflow from the updated source and requested clarification before refinement.";
         if (!string.IsNullOrWhiteSpace(reason))
         {
             summary = $"{summary} Reason: {reason.Trim()}.";
@@ -192,8 +187,8 @@ public sealed class WorkflowRunner
             summary,
             cancellationToken,
             generatedArtifactPath,
-            generation.Usage,
-            generation.DurationMs);
+            regeneration.Usage,
+            regeneration.DurationMs);
 
         return new RestartUserStoryResult(
             restartedRun.UsId,
@@ -209,21 +204,12 @@ public sealed class WorkflowRunner
     {
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
-        if (workflowRun.CurrentPhase == PhaseId.Capture)
+
+        if (workflowRun.CurrentPhase is PhaseId.Capture or PhaseId.Clarification)
         {
-            var sourceText = await ReadSourceTextFromUserStoryAsync(paths.MainArtifactPath, cancellationToken);
-            var assessment = AssessSourceReadinessForRefinement(sourceText);
-            if (!assessment.IsReady)
-            {
-                await AppendTimelineEventAsync(
-                    paths.TimelineFilePath,
-                    "capture_rejected_insufficient_source",
-                    "system",
-                    workflowRun.CurrentPhase,
-                    assessment.Summary,
-                    cancellationToken);
-                throw new WorkflowDomainException(assessment.Summary);
-            }
+            var clarificationResult = await ContinueFromCaptureOrClarificationAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+            await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+            return new ContinuePhaseResult(workflowRun.UsId, workflowRun.CurrentPhase, workflowRun.Status, clarificationResult.ArtifactPath, clarificationResult.Usage);
         }
 
         workflowRun.GenerateNextPhase();
@@ -261,6 +247,92 @@ public sealed class WorkflowRunner
 
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
         return new ContinuePhaseResult(workflowRun.UsId, workflowRun.CurrentPhase, workflowRun.Status, artifactPath, usage);
+    }
+
+    public async Task<SubmitClarificationAnswersResult> SubmitClarificationAnswersAsync(
+        string workspaceRoot,
+        string usId,
+        IReadOnlyList<string> answers,
+        CancellationToken cancellationToken = default)
+    {
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        if (workflowRun.CurrentPhase != PhaseId.Clarification)
+        {
+            throw new WorkflowDomainException("Clarification answers can only be submitted while the workflow is in the clarification phase.");
+        }
+
+        var userStory = await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken);
+        var session = UserStoryClarificationMarkdown.Parse(userStory)
+            ?? throw new WorkflowDomainException("No clarification questions are currently registered for this user story.");
+
+        var updatedSession = UserStoryClarificationMarkdown.WithAnswers(session, answers);
+        var updatedUserStory = UserStoryClarificationMarkdown.Upsert(userStory, updatedSession);
+        await File.WriteAllTextAsync(paths.MainArtifactPath, updatedUserStory, cancellationToken);
+
+        workflowRun.RestoreState(PhaseId.Clarification, UserStoryStatus.Active);
+        await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "clarification_answered",
+            "user",
+            workflowRun.CurrentPhase,
+            $"Recorded {updatedSession.Items.Count(item => !string.IsNullOrWhiteSpace(item.Answer))} clarification answer(s) in `us.md`.",
+            cancellationToken,
+            paths.MainArtifactPath);
+
+        return new SubmitClarificationAnswersResult(
+            workflowRun.UsId,
+            WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
+            WorkflowPresentation.ToStatusSlug(workflowRun.Status),
+            updatedSession.Items.Count(item => !string.IsNullOrWhiteSpace(item.Answer)));
+    }
+
+    private async Task<CaptureTransitionResult> ContinueFromCaptureOrClarificationAsync(
+        string workspaceRoot,
+        UserStoryFilePaths paths,
+        WorkflowRun workflowRun,
+        CancellationToken cancellationToken)
+    {
+        if (workflowRun.CurrentPhase == PhaseId.Capture)
+        {
+            workflowRun.GenerateNextPhase();
+        }
+
+        var clarificationGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+        var clarification = ParseClarificationArtifact(await File.ReadAllTextAsync(clarificationGeneration.ArtifactPath, cancellationToken));
+        await UpdateClarificationLogAsync(paths.MainArtifactPath, clarification, cancellationToken);
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            clarification.IsReady ? "clarification_passed" : "clarification_requested",
+            "system",
+            workflowRun.CurrentPhase,
+            clarification.Summary,
+            cancellationToken,
+            clarificationGeneration.ArtifactPath,
+            clarificationGeneration.Usage,
+            clarificationGeneration.DurationMs);
+
+        if (!clarification.IsReady)
+        {
+            workflowRun.RestoreState(PhaseId.Clarification, UserStoryStatus.WaitingUser);
+            return new CaptureTransitionResult(clarificationGeneration.ArtifactPath, clarificationGeneration.Usage, clarificationGeneration.DurationMs);
+        }
+
+        workflowRun.GenerateNextPhase();
+        var refinementGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "phase_completed",
+            "system",
+            workflowRun.CurrentPhase,
+            $"Generated artifact for phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}` after clarification.",
+            cancellationToken,
+            refinementGeneration.ArtifactPath,
+            refinementGeneration.Usage,
+            refinementGeneration.DurationMs);
+
+        return new CaptureTransitionResult(refinementGeneration.ArtifactPath, refinementGeneration.Usage, refinementGeneration.DurationMs);
     }
 
     private async Task<ArtifactGenerationResult> MaterializePhaseArtifactAsync(
@@ -451,7 +523,8 @@ public sealed class WorkflowRunner
     }
 
     private sealed record ArtifactGenerationResult(string ArtifactPath, TokenUsage? Usage, long DurationMs);
-    private sealed record SourceReadinessAssessment(bool IsReady, string Summary);
+    private sealed record ClarificationAssessment(bool IsReady, string Reason, IReadOnlyCollection<string> Questions, string Summary);
+    private sealed record CaptureTransitionResult(string ArtifactPath, TokenUsage? Usage, long DurationMs);
 
     private static string BuildInitialTimeline(string usId, string title)
     {
@@ -526,27 +599,59 @@ public sealed class WorkflowRunner
         return $"sha256:{Convert.ToHexStringLower(bytes)}";
     }
 
-    private static void EnsureSourceIsReadyForRefinement(string sourceText)
+    private static ClarificationAssessment ParseClarificationArtifact(string markdown)
     {
-        var assessment = AssessSourceReadinessForRefinement(sourceText);
-        if (!assessment.IsReady)
-        {
-            throw new WorkflowDomainException(assessment.Summary);
-        }
+        var decision = ReadMarkdownSection(markdown, "## Decision").Trim();
+        var reason = ReadMarkdownSection(markdown, "## Reason").Trim();
+        var questionsSection = ReadMarkdownSection(markdown, "## Questions").Trim();
+        var questions = questionsSection
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(static line => line.Trim())
+            .Where(static line => line.Length > 0 && char.IsDigit(line[0]))
+            .Select(static line =>
+            {
+                var separator = line.IndexOf(". ", StringComparison.Ordinal);
+                return separator > 0 ? line[(separator + 2)..].Trim() : line;
+            })
+            .Where(static line => !string.Equals(line, "No clarification questions remain.", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var isReady = string.Equals(decision, "ready_for_refinement", StringComparison.OrdinalIgnoreCase);
+
+        return new ClarificationAssessment(
+            isReady,
+            reason,
+            questions,
+            isReady
+                ? "Clarification pre-flight passed. Advancing to refinement."
+                : "Clarification questions were generated and recorded in `us.md`.");
     }
 
-    private static SourceReadinessAssessment AssessSourceReadinessForRefinement(string sourceText)
+    private static async Task UpdateClarificationLogAsync(
+        string userStoryPath,
+        ClarificationAssessment clarification,
+        CancellationToken cancellationToken)
     {
-        var normalized = sourceText.Trim();
-        var containsPlaceholder = PlaceholderSourceRegex.IsMatch(normalized);
-        if (!containsPlaceholder)
-        {
-            return new SourceReadinessAssessment(true, string.Empty);
-        }
+        var userStory = await File.ReadAllTextAsync(userStoryPath, cancellationToken);
+        var existing = UserStoryClarificationMarkdown.Parse(userStory);
+        var items = clarification.Questions
+            .Select((question, index) => new ClarificationItem(
+                index + 1,
+                question,
+                existing?.Items.FirstOrDefault(item => item.Index == index + 1)?.Answer))
+            .ToArray();
+        var session = new ClarificationSession(
+            clarification.IsReady ? "ready_for_refinement" : "needs_clarification",
+            ReadCaptureTolerance(),
+            clarification.Reason,
+            items);
+        var updated = UserStoryClarificationMarkdown.Upsert(userStory, session);
+        await File.WriteAllTextAsync(userStoryPath, updated, cancellationToken);
+    }
 
-        return new SourceReadinessAssessment(
-            false,
-            "Capture cannot advance to refinement because the user story source is too thin. Replace sample or placeholder text and add concrete business behavior, actors, data, and expected outcomes in `us.md` before running Play again.");
+    private static string ReadCaptureTolerance()
+    {
+        var configured = Environment.GetEnvironmentVariable("SPECFORGE_CAPTURE_TOLERANCE")?.Trim().ToLowerInvariant();
+        return configured is "strict" or "balanced" or "inferential" ? configured : "balanced";
     }
 
     private static void ValidateRequired(string value, string paramName)

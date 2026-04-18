@@ -5,20 +5,21 @@ namespace SpecForge.Domain.Tests;
 public sealed class WorkflowRunTests
 {
     [Fact]
-    public void GenerateNextPhase_FromCapture_MovesToRefinementAndWaitsForApproval()
+    public void GenerateNextPhase_FromCapture_MovesToClarificationAndStaysActive()
     {
         var run = CreateRun();
 
         run.GenerateNextPhase();
 
-        Assert.Equal(PhaseId.Refinement, run.CurrentPhase);
-        Assert.Equal(UserStoryStatus.WaitingUser, run.Status);
+        Assert.Equal(PhaseId.Clarification, run.CurrentPhase);
+        Assert.Equal(UserStoryStatus.Active, run.Status);
     }
 
     [Fact]
     public void GenerateNextPhase_FromApprovalRequiredPhaseWithoutApproval_Throws()
     {
         var run = CreateRun();
+        run.GenerateNextPhase();
         run.GenerateNextPhase();
 
         var act = () => run.GenerateNextPhase();
@@ -31,6 +32,7 @@ public sealed class WorkflowRunTests
     public void ApproveCurrentPhase_OnRefinement_CreatesWorkBranch()
     {
         var run = CreateRun();
+        run.GenerateNextPhase();
         run.GenerateNextPhase();
 
         run.ApproveCurrentPhase(
@@ -56,6 +58,7 @@ public sealed class WorkflowRunTests
     {
         var run = CreateRun();
         run.GenerateNextPhase();
+        run.GenerateNextPhase();
 
         var act = () => run.ApproveCurrentPhase();
 
@@ -67,6 +70,7 @@ public sealed class WorkflowRunTests
     public void ApprovedRefinement_CanAdvanceLinearlyToTechnicalDesign()
     {
         var run = CreateRun();
+        run.GenerateNextPhase();
         run.GenerateNextPhase();
         run.ApproveCurrentPhase("main", "feature/us-0001-test-story", "feature", "workflow", "Test story", ".specs/us/us.US-0001/us.md");
 
@@ -120,6 +124,7 @@ public sealed class WorkflowRunTests
 
     private static void AdvanceToImplementation(WorkflowRun run)
     {
+        run.GenerateNextPhase();
         run.GenerateNextPhase();
         run.ApproveCurrentPhase("main", "feature/us-0001-test-story", "feature", "workflow", "Test story", ".specs/us/us.US-0001/us.md");
         run.GenerateNextPhase();

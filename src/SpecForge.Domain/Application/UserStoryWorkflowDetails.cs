@@ -13,6 +13,7 @@ public sealed record UserStoryWorkflowDetails(
     string RawTimeline,
     IReadOnlyCollection<WorkflowPhaseDetails> Phases,
     CurrentPhaseControls Controls,
+    ClarificationSessionDetails? Clarification,
     IReadOnlyCollection<TimelineEventDetails> Events,
     string AttachmentsDirectoryPath,
     IReadOnlyCollection<AttachmentDetails> Attachments);
@@ -46,6 +47,17 @@ public sealed record TimelineEventDetails(
     IReadOnlyCollection<string> Artifacts,
     TokenUsage? Usage,
     long? DurationMs);
+
+public sealed record ClarificationSessionDetails(
+    string Status,
+    string Tolerance,
+    string? Reason,
+    IReadOnlyCollection<ClarificationQuestionAnswerDetails> Items);
+
+public sealed record ClarificationQuestionAnswerDetails(
+    int Index,
+    string Question,
+    string? Answer);
 
 public sealed record AttachmentDetails(
     string Name,

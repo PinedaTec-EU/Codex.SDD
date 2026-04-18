@@ -11,6 +11,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
     {
         var content = context.PhaseId switch
         {
+            PhaseId.Clarification => await ComposeClarificationAsync(context, cancellationToken),
             PhaseId.Refinement => await ComposeRefinementAsync(context, cancellationToken),
             PhaseId.TechnicalDesign => await ComposeTechnicalDesignAsync(context, cancellationToken),
             PhaseId.Implementation => await ComposeImplementationAsync(context, cancellationToken),
@@ -19,6 +20,52 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         };
 
         return new PhaseExecutionResult(content, ExecutionKind: "deterministic");
+    }
+
+    private static async Task<string> ComposeClarificationAsync(
+        PhaseExecutionContext context,
+        CancellationToken cancellationToken)
+    {
+        var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
+        var objective = ReadSection(userStory, "## Objetivo", "## Objective");
+        var clarification = UserStoryClarificationMarkdown.Parse(userStory);
+        var hasAnswers = clarification is not null && clarification.Items.Any(item => !string.IsNullOrWhiteSpace(item.Answer));
+        var looksPlaceholder = objective.Contains("sample", StringComparison.OrdinalIgnoreCase)
+            || objective.Contains("...", StringComparison.Ordinal)
+            || objective.Contains("todo", StringComparison.OrdinalIgnoreCase)
+            || objective.Contains("tbd", StringComparison.OrdinalIgnoreCase);
+        var isReady = !looksPlaceholder || hasAnswers;
+
+        var questions = isReady
+            ? []
+            : new[]
+            {
+                "¿Qué actor o rol ejecuta esta funcionalidad?",
+                "¿Qué datos concretos entran y qué resultado observable debe salir?",
+                "¿Qué regla de negocio o criterio de aceptación debe cumplirse para considerar la US válida?"
+            };
+
+        return string.Join(
+                   Environment.NewLine,
+                   new[]
+                   {
+                       $"# Clarification · {context.UsId} · v01",
+                       string.Empty,
+                       "## Estado",
+                       $"- Estado: `{(isReady ? "ready" : "pending_user_input")}`",
+                       string.Empty,
+                       "## Decision",
+                       isReady ? "ready_for_refinement" : "needs_clarification",
+                       string.Empty,
+                       "## Reason",
+                       isReady
+                           ? "The current user story plus recorded clarification answers are concrete enough to proceed to refinement."
+                           : "The current user story still reads like a placeholder and needs minimum business detail before refinement can be useful.",
+                       string.Empty,
+                       "## Questions",
+                       questions.Length == 0 ? "1. No clarification questions remain." : string.Join(Environment.NewLine, questions.Select((question, index) => $"{index + 1}. {question}"))
+                   }) +
+               Environment.NewLine;
     }
 
     private static async Task<string> ComposeRefinementAsync(

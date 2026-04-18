@@ -143,6 +143,13 @@ class StdioMcpBackendClient {
     async restartUserStoryFromSource(usId, reason) {
         return this.callTool("restart_user_story_from_source", (0, backendClientModel_1.buildRestartUserStoryArguments)(this.workspaceRoot, usId, reason));
     }
+    async submitClarificationAnswers(usId, answers) {
+        await this.callTool("submit_clarification_answers", {
+            workspaceRoot: this.workspaceRoot,
+            usId,
+            answers
+        });
+    }
     cancelActiveOperations() {
         this.dispose();
     }

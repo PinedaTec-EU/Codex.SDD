@@ -17,6 +17,7 @@ type WorkflowPanelCommand =
   | { readonly command: "approve" }
   | { readonly command: "restart" }
   | { readonly command: "regress"; readonly phaseId?: string }
+  | { readonly command: "submitClarificationAnswers"; readonly answers?: string[] }
   | { readonly command: "play" }
   | { readonly command: "pause" }
   | { readonly command: "stop" };
@@ -173,6 +174,9 @@ class WorkflowPanelController {
           await this.requestRegressionAsync(message.phaseId);
         }
         return;
+      case "submitClarificationAnswers":
+        await this.submitClarificationAnswersAsync(message.answers ?? []);
+        return;
       case "play":
         if (!this.isExecutionConfigured()) {
           await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
@@ -219,6 +223,13 @@ class WorkflowPanelController {
       status: result.status
     };
     this.selectedPhaseId = result.currentPhase;
+    await this.callbacks.refreshExplorer();
+    await this.refreshAsync();
+  }
+
+  private async submitClarificationAnswersAsync(answers: string[]): Promise<void> {
+    await this.getBackendClient().submitClarificationAnswers(this.summary.usId, answers);
+    appendSpecForgeLog(`Workflow '${this.summary.usId}' stored ${answers.length} clarification answer(s).`);
     await this.callbacks.refreshExplorer();
     await this.refreshAsync();
   }

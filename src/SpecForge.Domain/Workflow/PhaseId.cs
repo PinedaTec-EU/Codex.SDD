@@ -3,10 +3,11 @@ namespace SpecForge.Domain.Workflow;
 public enum PhaseId
 {
     Capture = 0,
-    Refinement = 1,
-    TechnicalDesign = 2,
-    Implementation = 3,
-    Review = 4,
-    ReleaseApproval = 5,
-    PrPreparation = 6
+    Clarification = 1,
+    Refinement = 2,
+    TechnicalDesign = 3,
+    Implementation = 4,
+    Review = 5,
+    ReleaseApproval = 6,
+    PrPreparation = 7
 }

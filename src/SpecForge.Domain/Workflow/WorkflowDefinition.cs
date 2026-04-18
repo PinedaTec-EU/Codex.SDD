@@ -5,7 +5,8 @@ public sealed class WorkflowDefinition
     private static readonly IReadOnlyDictionary<PhaseId, PhaseId> LinearTransitions =
         new Dictionary<PhaseId, PhaseId>
         {
-            [PhaseId.Capture] = PhaseId.Refinement,
+            [PhaseId.Capture] = PhaseId.Clarification,
+            [PhaseId.Clarification] = PhaseId.Refinement,
             [PhaseId.Refinement] = PhaseId.TechnicalDesign,
             [PhaseId.TechnicalDesign] = PhaseId.Implementation,
             [PhaseId.Implementation] = PhaseId.Review,

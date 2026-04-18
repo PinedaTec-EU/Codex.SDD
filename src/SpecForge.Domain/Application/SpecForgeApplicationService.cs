@@ -106,6 +106,8 @@ public sealed class SpecForgeApplicationService
         var rawTimeline = File.Exists(paths.TimelineFilePath)
             ? await File.ReadAllTextAsync(paths.TimelineFilePath, cancellationToken)
             : string.Empty;
+        var userStoryMarkdown = await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken);
+        var clarification = UserStoryClarificationMarkdown.Parse(userStoryMarkdown);
         var currentPhase = await GetCurrentPhaseAsync(workspaceRoot, usId, cancellationToken);
 
         return new UserStoryWorkflowDetails(
@@ -127,6 +129,13 @@ public sealed class SpecForgeApplicationService
                 currentPhase.BlockingReason,
                 workflowRun.CurrentPhase != Workflow.PhaseId.Capture,
                 BuildRegressionTargets(workflowRun)),
+            clarification is null
+                ? null
+                : new ClarificationSessionDetails(
+                    clarification.Status,
+                    clarification.Tolerance,
+                    clarification.Reason,
+                    clarification.Items.Select(item => new ClarificationQuestionAnswerDetails(item.Index, item.Question, item.Answer)).ToArray()),
             TimelineMarkdownParser.ParseEvents(rawTimeline),
             paths.AttachmentsDirectoryPath,
             BuildAttachmentDetails(paths));
@@ -159,6 +168,20 @@ public sealed class SpecForgeApplicationService
     {
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        if (workflowRun.CurrentPhase == Workflow.PhaseId.Clarification)
+        {
+            var userStoryMarkdown = await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken);
+            var clarification = UserStoryClarificationMarkdown.Parse(userStoryMarkdown);
+            var canAdvanceClarification = UserStoryClarificationMarkdown.HasAllAnswers(clarification);
+            return new CurrentPhaseSummary(
+                workflowRun.UsId,
+                WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
+                WorkflowPresentation.ToStatusSlug(workflowRun.Status),
+                canAdvanceClarification,
+                false,
+                canAdvanceClarification ? null : "clarification_pending_answers");
+        }
+
         var requiresApproval = workflowRun.Definition.RequiresApproval(workflowRun.CurrentPhase);
         var canAdvance = !requiresApproval || workflowRun.IsPhaseApproved(workflowRun.CurrentPhase);
         var blockingReason = canAdvance
@@ -217,6 +240,13 @@ public sealed class SpecForgeApplicationService
         CancellationToken cancellationToken = default) =>
         workflowRunner.RestartUserStoryFromSourceAsync(workspaceRoot, usId, reason, cancellationToken);
 
+    public Task<SubmitClarificationAnswersResult> SubmitClarificationAnswersAsync(
+        string workspaceRoot,
+        string usId,
+        IReadOnlyList<string> answers,
+        CancellationToken cancellationToken = default) =>
+        workflowRunner.SubmitClarificationAnswersAsync(workspaceRoot, usId, answers, cancellationToken);
+
     private static async Task<string> ReadTitleAsync(string filePath, CancellationToken cancellationToken)
     {
         var lines = await File.ReadAllLinesAsync(filePath, cancellationToken);
@@ -232,6 +262,7 @@ public sealed class SpecForgeApplicationService
         var phases = new[]
         {
             Workflow.PhaseId.Capture,
+            Workflow.PhaseId.Clarification,
             Workflow.PhaseId.Refinement,
             Workflow.PhaseId.TechnicalDesign,
             Workflow.PhaseId.Implementation,
@@ -281,6 +312,7 @@ public sealed class SpecForgeApplicationService
     private static string ToPhaseTitle(Workflow.PhaseId phaseId) => phaseId switch
     {
         Workflow.PhaseId.Capture => "Capture",
+        Workflow.PhaseId.Clarification => "Clarification",
         Workflow.PhaseId.Refinement => "Refinement",
         Workflow.PhaseId.TechnicalDesign => "Technical Design",
         Workflow.PhaseId.Implementation => "Implementation",
@@ -317,6 +349,7 @@ public sealed class SpecForgeApplicationService
         var promptPaths = new PromptFilePaths(FindWorkspaceRoot(paths));
         var candidate = phaseId switch
         {
+            Workflow.PhaseId.Clarification => promptPaths.ClarificationExecutePromptPath,
             Workflow.PhaseId.Refinement => promptPaths.RefinementExecutePromptPath,
             Workflow.PhaseId.TechnicalDesign => promptPaths.TechnicalDesignExecutePromptPath,
             Workflow.PhaseId.Implementation => promptPaths.ImplementationExecutePromptPath,

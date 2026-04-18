@@ -17,22 +17,24 @@ const phaseActionTopOffset = 18;
 
 const desktopPhasePositions: Record<string, PhasePosition> = {
   "capture": { left: 18, top: 38 },
-  "refinement": { left: 392, top: 162 },
-  "technical-design": { left: 392, top: 352 },
-  "implementation": { left: 18, top: 462 },
-  "review": { left: 18, top: 652 },
-  "release-approval": { left: 392, top: 776 },
-  "pr-preparation": { left: 18, top: 892 }
+  "clarification": { left: 206, top: 150 },
+  "refinement": { left: 392, top: 262 },
+  "technical-design": { left: 392, top: 452 },
+  "implementation": { left: 18, top: 562 },
+  "review": { left: 18, top: 752 },
+  "release-approval": { left: 392, top: 876 },
+  "pr-preparation": { left: 18, top: 992 }
 };
 
 const mobilePhasePositions: Record<string, PhasePosition> = {
   "capture": { left: 0, top: 16 },
-  "refinement": { left: 176, top: 138 },
-  "technical-design": { left: 176, top: 338 },
-  "implementation": { left: 0, top: 538 },
-  "review": { left: 0, top: 738 },
-  "release-approval": { left: 176, top: 938 },
-  "pr-preparation": { left: 0, top: 1138 }
+  "clarification": { left: 176, top: 154 },
+  "refinement": { left: 176, top: 330 },
+  "technical-design": { left: 176, top: 530 },
+  "implementation": { left: 0, top: 730 },
+  "review": { left: 0, top: 930 },
+  "release-approval": { left: 176, top: 1130 },
+  "pr-preparation": { left: 0, top: 1330 }
 };
 
 const desktopGraphHeight = computeGraphHeight(desktopPhasePositions, phaseNodeHeight, 96);
@@ -182,6 +184,39 @@ export function buildWorkflowHtml(
         </div>`
       : "<p class=\"muted\">No files are attached to this user story yet.</p>"}
   `;
+  const clarificationSection = selectedPhase.phaseId === "clarification" && workflow.clarification
+    ? `
+      <div class="clarification-shell">
+        <div class="clarification-meta">
+          <span class="badge">${escapeHtml(workflow.clarification.status)}</span>
+          <span class="badge">${escapeHtml(workflow.clarification.tolerance)}</span>
+        </div>
+        ${workflow.clarification.reason ? `<p class="clarification-reason">${escapeHtml(workflow.clarification.reason)}</p>` : ""}
+        ${workflow.clarification.items.length > 0
+          ? `
+            <div class="clarification-list">
+              ${workflow.clarification.items.map((item) => `
+                <label class="clarification-item">
+                  <span class="clarification-question">${item.index}. ${escapeHtml(item.question)}</span>
+                  <textarea
+                    class="clarification-answer"
+                    data-clarification-answer
+                    data-index="${item.index}"
+                    rows="3"
+                    placeholder="Write the answer that should remain persisted in us.md">${escapeHtml(item.answer ?? "")}</textarea>
+                </label>
+              `).join("")}
+            </div>
+            <div class="detail-actions">
+              <button id="submit-clarification-answers" ${selectedPhase.isCurrent ? "" : "disabled"}>
+                Submit Answers
+              </button>
+            </div>
+          `
+          : "<p class=\"muted\">No clarification questions are currently registered for this user story.</p>"}
+      </div>
+    `
+    : "";
 
   const playbackButtons = `
     <button class="icon-button icon-button--primary" data-command="play" aria-label="Play workflow"${playbackState === "playing" || !state.settingsConfigured ? " disabled" : ""}>
@@ -726,6 +761,49 @@ export function buildWorkflowHtml(
       font-size: 0.8rem;
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
     }
+    .clarification-shell {
+      display: grid;
+      gap: 12px;
+    }
+    .clarification-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .clarification-reason {
+      margin: 0;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.82);
+    }
+    .clarification-list {
+      display: grid;
+      gap: 12px;
+    }
+    .clarification-item {
+      display: grid;
+      gap: 8px;
+    }
+    .clarification-question {
+      font-size: 0.92rem;
+      font-weight: 600;
+      line-height: 1.45;
+    }
+    .clarification-answer {
+      width: 100%;
+      min-height: 84px;
+      resize: vertical;
+      border-radius: 14px;
+      border: 1px solid rgba(114, 241, 184, 0.16);
+      background: rgba(4, 10, 16, 0.72);
+      color: inherit;
+      padding: 12px 14px;
+      font: inherit;
+      line-height: 1.45;
+    }
+    .clarification-answer:focus {
+      outline: 2px solid rgba(114, 241, 184, 0.22);
+      border-color: rgba(114, 241, 184, 0.36);
+    }
     .artifact-preview, .audit-log {
       margin: 0;
       padding: 14px;
@@ -967,6 +1045,14 @@ export function buildWorkflowHtml(
           <h3>Artifact</h3>
           ${artifactSection}
         </section>
+        ${clarificationSection
+          ? `
+            <section class="detail-card">
+              <h3>Clarification</h3>
+              ${clarificationSection}
+            </section>
+          `
+          : ""}
         <section class="detail-card">
           <h3>Phase Prompts</h3>
           ${promptSection}
@@ -990,6 +1076,20 @@ export function buildWorkflowHtml(
           command: element.dataset.command,
           phaseId: element.dataset.phaseId,
           path: element.dataset.path
+        });
+      });
+    }
+
+    const clarificationSubmit = document.getElementById("submit-clarification-answers");
+    if (clarificationSubmit) {
+      clarificationSubmit.addEventListener("click", () => {
+        const answers = Array.from(document.querySelectorAll("[data-clarification-answer]"))
+          .sort((left, right) => Number(left.dataset.index) - Number(right.dataset.index))
+          .map((element) => element.value ?? "");
+
+        vscode.postMessage({
+          command: "submitClarificationAnswers",
+          answers
         });
       });
     }
