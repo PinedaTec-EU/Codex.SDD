@@ -79,6 +79,13 @@ class SidebarViewProvider {
                 }
                 await this.openWorkflowAsync(message.usId);
                 return;
+            case "initializeRepoPrompts":
+                await vscode.commands.executeCommand("specForge.initializeRepoPrompts");
+                await this.safeRenderAsync();
+                return;
+            case "openPromptTemplates":
+                await vscode.commands.executeCommand("specForge.openPromptTemplates");
+                return;
             case "submitCreateForm":
                 await this.submitCreateFormAsync(message);
                 return;
@@ -125,6 +132,7 @@ class SidebarViewProvider {
             this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
                 hasWorkspace: false,
                 showCreateForm: false,
+                promptsInitialized: false,
                 categories: [],
                 userStories: []
             });
@@ -135,9 +143,11 @@ class SidebarViewProvider {
             ? await (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot).listUserStories()
             : [];
         const categories = await getUserStoryCategoriesAsync(workspaceRoot);
+        const promptsInitialized = await hasInitializedRepoPromptsAsync(workspaceRoot);
         this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
             hasWorkspace: true,
             showCreateForm: this.showCreateForm,
+            promptsInitialized,
             categories,
             userStories
         });
@@ -153,6 +163,7 @@ class SidebarViewProvider {
             this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
                 hasWorkspace: true,
                 showCreateForm: false,
+                promptsInitialized: false,
                 categories: [],
                 userStories: []
             });
@@ -189,6 +200,11 @@ async function hasPersistedUserStoriesAsync(workspaceRoot) {
     }
     const entries = await fs.promises.readdir(storiesRoot, { withFileTypes: true });
     return entries.some((entry) => entry.isDirectory() && entry.name.startsWith("us."));
+}
+async function hasInitializedRepoPromptsAsync(workspaceRoot) {
+    const configPath = path.join(workspaceRoot, ".specs", "config.yaml");
+    const promptsPath = path.join(workspaceRoot, ".specs", "prompts", "prompts.yaml");
+    return await pathExistsAsync(configPath) && await pathExistsAsync(promptsPath);
 }
 async function openTextDocument(filePath) {
     const document = await vscode.workspace.openTextDocument(filePath);

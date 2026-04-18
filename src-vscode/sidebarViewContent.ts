@@ -3,6 +3,7 @@ import type { UserStorySummary } from "./backendClient";
 export interface SidebarViewModel {
   readonly hasWorkspace: boolean;
   readonly showCreateForm: boolean;
+  readonly promptsInitialized: boolean;
   readonly categories: readonly string[];
   readonly userStories: readonly UserStorySummary[];
 }
@@ -26,6 +27,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
         <p class="copy">No faded text-buttons, no scattered prompts. Start here and the sidebar opens the full intake form in place.</p>
         <button class="primary-action" data-command="showCreateForm">Create User Story</button>
       </section>
+      ${buildPromptSetupMarkup(model.promptsInitialized)}
     `);
   }
 
@@ -87,6 +89,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
     `;
 
   return wrapHtml(`
+    ${buildPromptSetupMarkup(model.promptsInitialized)}
     ${formMarkup}
     <section class="story-list">
       <div class="section-header">
@@ -98,6 +101,34 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
       ${storiesMarkup}
     </section>
   `);
+}
+
+function buildPromptSetupMarkup(promptsInitialized: boolean): string {
+  return promptsInitialized
+    ? `
+      <section class="prompt-card">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Agent Prompts</p>
+            <h2>Repo prompts ready</h2>
+          </div>
+        </div>
+        <p class="copy">The repo already has <code>.specs/prompts/</code>. Open the manifest and templates that provider-backed phases will use.</p>
+        <button class="ghost-action" data-command="openPromptTemplates">Open Prompt Templates</button>
+      </section>
+    `
+    : `
+      <section class="prompt-card">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Agent Prompts</p>
+            <h2>Initialize repo prompts</h2>
+          </div>
+        </div>
+        <p class="copy">Real providers use versioned prompt templates from <code>.specs/prompts/</code>. Initialize them once for this workspace, then edit them directly from the sidebar.</p>
+        <button class="primary-action" data-command="initializeRepoPrompts">Initialize Repo Prompts</button>
+      </section>
+    `;
 }
 
 function wrapHtml(content: string): string {
@@ -120,7 +151,7 @@ function wrapHtml(content: string): string {
         linear-gradient(180deg, rgba(9, 16, 22, 0.98), rgba(11, 15, 20, 1));
       color: var(--vscode-editor-foreground);
     }
-    .empty-state, .form-card, .story-list {
+    .empty-state, .form-card, .story-list, .prompt-card {
       border: 1px solid rgba(114, 241, 184, 0.12);
       border-radius: 20px;
       background: rgba(14, 20, 26, 0.92);
@@ -177,8 +208,11 @@ function wrapHtml(content: string): string {
     .compact-actions {
       margin-bottom: 14px;
     }
-    .form-card, .story-list {
+    .form-card, .story-list, .prompt-card {
       padding: 16px;
+    }
+    .prompt-card {
+      margin-top: 14px;
     }
     .section-header {
       display: flex;

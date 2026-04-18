@@ -9,6 +9,8 @@ import { buildSidebarHtml } from "./sidebarViewContent";
 type SidebarMessage =
   | { readonly command: "showCreateForm" }
   | { readonly command: "hideCreateForm" }
+  | { readonly command: "initializeRepoPrompts" }
+  | { readonly command: "openPromptTemplates" }
   | { readonly command: "openWorkflow"; readonly usId?: string }
   | { readonly command: "submitCreateForm"; readonly title?: string; readonly kind?: string; readonly category?: string; readonly sourceText?: string };
 
@@ -55,6 +57,13 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         }
 
         await this.openWorkflowAsync(message.usId);
+        return;
+      case "initializeRepoPrompts":
+        await vscode.commands.executeCommand("specForge.initializeRepoPrompts");
+        await this.safeRenderAsync();
+        return;
+      case "openPromptTemplates":
+        await vscode.commands.executeCommand("specForge.openPromptTemplates");
         return;
       case "submitCreateForm":
         await this.submitCreateFormAsync(message);
@@ -110,6 +119,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       this.webviewView.webview.html = buildSidebarHtml({
         hasWorkspace: false,
         showCreateForm: false,
+        promptsInitialized: false,
         categories: [],
         userStories: []
       });
@@ -121,9 +131,11 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       ? await getOrCreateBackendClient(workspaceRoot).listUserStories()
       : [];
     const categories = await getUserStoryCategoriesAsync(workspaceRoot);
+    const promptsInitialized = await hasInitializedRepoPromptsAsync(workspaceRoot);
     this.webviewView.webview.html = buildSidebarHtml({
       hasWorkspace: true,
       showCreateForm: this.showCreateForm,
+      promptsInitialized,
       categories,
       userStories
     });
@@ -140,6 +152,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       this.webviewView.webview.html = buildSidebarHtml({
         hasWorkspace: true,
         showCreateForm: false,
+        promptsInitialized: false,
         categories: [],
         userStories: []
       });
@@ -180,6 +193,12 @@ async function hasPersistedUserStoriesAsync(workspaceRoot: string): Promise<bool
 
   const entries = await fs.promises.readdir(storiesRoot, { withFileTypes: true });
   return entries.some((entry) => entry.isDirectory() && entry.name.startsWith("us."));
+}
+
+async function hasInitializedRepoPromptsAsync(workspaceRoot: string): Promise<boolean> {
+  const configPath = path.join(workspaceRoot, ".specs", "config.yaml");
+  const promptsPath = path.join(workspaceRoot, ".specs", "prompts", "prompts.yaml");
+  return await pathExistsAsync(configPath) && await pathExistsAsync(promptsPath);
 }
 
 async function openTextDocument(filePath: string): Promise<void> {
