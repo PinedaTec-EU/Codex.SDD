@@ -4,6 +4,7 @@ exports.buildWorkflowHtml = buildWorkflowHtml;
 exports.escapeHtml = escapeHtml;
 function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
+    const phaseGraph = buildPhaseGraph(workflow.phases, selectedPhase.phaseId);
     const artifactSection = selectedPhase.artifactPath
         ? `
       <div class="detail-actions">
@@ -12,22 +13,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       <pre class="artifact-preview">${escapeHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")}</pre>
     `
         : "<p class=\"muted\">No artifact is persisted for this phase.</p>";
-    const phaseItems = workflow.phases.map((phase) => `
-    <button
-      class="phase ${phase.state}${phase.phaseId === selectedPhase.phaseId ? " selected" : ""}"
-      data-command="selectPhase"
-      data-phase-id="${escapeHtmlAttribute(phase.phaseId)}">
-      <span class="phase-order">${phase.order + 1}</span>
-      <span class="phase-meta">
-        <strong>${escapeHtml(phase.title)}</strong>
-        <span>${escapeHtml(phase.phaseId)}</span>
-      </span>
-      <span class="phase-badges">
-        ${phase.requiresApproval ? `<span class="badge">approval</span>` : ""}
-        ${phase.isApproved ? `<span class="badge success">approved</span>` : ""}
-      </span>
-    </button>
-  `).join("");
     const regressionButtons = workflow.controls.regressionTargets
         .map((target) => `<button data-command="regress" data-phase-id="${escapeHtmlAttribute(target)}">Regress to ${escapeHtml(target)}</button>`)
         .join("");
@@ -52,123 +37,334 @@ function buildWorkflowHtml(workflow, state, playbackState) {
   <style>
     :root {
       color-scheme: light dark;
-      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: "Avenir Next", "Segoe UI", ui-sans-serif, sans-serif;
+      --accent: #72f1b8;
+      --accent-strong: #1fd89b;
+      --accent-soft: rgba(114, 241, 184, 0.16);
+      --phase-current: rgba(66, 178, 255, 0.18);
+      --phase-completed: rgba(114, 241, 184, 0.18);
+      --phase-pending: rgba(255, 255, 255, 0.04);
+      --danger: #ff8b8b;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+    }
+    * {
+      box-sizing: border-box;
     }
     body {
       margin: 0;
       padding: 18px;
-      background: radial-gradient(circle at top, rgba(70, 130, 180, 0.18), transparent 35%), var(--vscode-editor-background);
       color: var(--vscode-editor-foreground);
+      background:
+        radial-gradient(circle at 8% 10%, rgba(114, 241, 184, 0.16), transparent 20%),
+        radial-gradient(circle at 88% 18%, rgba(72, 131, 255, 0.18), transparent 24%),
+        radial-gradient(circle at 50% 100%, rgba(255, 170, 84, 0.12), transparent 26%),
+        linear-gradient(180deg, rgba(10, 20, 24, 0.96), rgba(10, 14, 20, 1));
+      min-height: 100vh;
     }
-    .layout {
+    .shell {
       display: grid;
-      grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
       gap: 18px;
     }
     .panel {
-      border: 1px solid var(--vscode-panel-border);
-      border-radius: 14px;
-      padding: 16px;
-      background: color-mix(in srgb, var(--vscode-editor-background) 92%, white 8%);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+      border: 1px solid rgba(114, 241, 184, 0.16);
+      border-radius: 24px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
+        rgba(12, 18, 24, 0.92);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
     }
     .hero {
-      margin-bottom: 18px;
+      padding: 22px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -8% -48% 42%;
+      height: 220px;
+      background: radial-gradient(circle, rgba(114, 241, 184, 0.22), transparent 62%);
+      pointer-events: none;
+    }
+    .hero-head {
       display: flex;
       justify-content: space-between;
-      gap: 16px;
+      gap: 18px;
       flex-wrap: wrap;
+      position: relative;
+      z-index: 1;
     }
-    .hero h1 {
-      margin: 0 0 6px;
-      font-size: 1.5rem;
+    .eyebrow {
+      margin: 0 0 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.72rem;
+      color: var(--accent);
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.7rem, 3vw, 2.55rem);
+      line-height: 1.05;
+      max-width: 820px;
     }
     .hero-meta, .control-strip, .detail-meta {
       display: flex;
-      gap: 8px;
+      gap: 10px;
       flex-wrap: wrap;
       align-items: center;
+    }
+    .hero-meta {
+      margin-top: 14px;
     }
     .token, .badge {
       border-radius: 999px;
-      padding: 4px 10px;
-      font-size: 0.85rem;
-      background: color-mix(in srgb, var(--vscode-badge-background) 60%, transparent 40%);
-      color: var(--vscode-badge-foreground);
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(8px);
     }
     .success {
-      background: rgba(46, 160, 67, 0.22);
-      color: #2ea043;
+      background: rgba(46, 160, 67, 0.16);
+      color: #7ff0a5;
+      border-color: rgba(127, 240, 165, 0.24);
     }
-    .phase-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-top: 14px;
+    .token.accent {
+      background: rgba(114, 241, 184, 0.12);
+      color: var(--accent);
+      border-color: rgba(114, 241, 184, 0.24);
     }
-    .phase {
-      border: 1px solid var(--vscode-panel-border);
-      border-radius: 12px;
-      padding: 12px;
-      background: transparent;
-      color: inherit;
+    .control-strip {
+      align-content: flex-start;
+      justify-content: flex-end;
+      max-width: 540px;
+    }
+    .control-strip button, .detail-actions button {
+      border: 1px solid rgba(114, 241, 184, 0.18);
+      border-radius: 14px;
+      padding: 10px 14px;
+      background: linear-gradient(180deg, rgba(114, 241, 184, 0.16), rgba(18, 33, 28, 0.92));
+      color: #f2fff9;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+    }
+    .control-strip button:hover, .detail-actions button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(114, 241, 184, 0.38);
+      background: linear-gradient(180deg, rgba(114, 241, 184, 0.24), rgba(18, 33, 28, 0.94));
+    }
+    .control-strip button:disabled, .detail-actions button:disabled {
+      opacity: 0.46;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .layout {
       display: grid;
-      grid-template-columns: 34px minmax(0, 1fr) auto;
-      gap: 12px;
-      align-items: center;
+      grid-template-columns: minmax(420px, 1.15fr) minmax(420px, 1fr);
+      gap: 18px;
+    }
+    .graph-panel {
+      padding: 22px;
+      min-height: 720px;
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(11, 20, 24, 0.98), rgba(12, 17, 24, 0.94));
+      background-size: 22px 22px, 22px 22px, auto;
+    }
+    .graph-panel::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 22% 14%, rgba(114, 241, 184, 0.14), transparent 16%),
+        radial-gradient(circle at 86% 46%, rgba(72, 131, 255, 0.14), transparent 18%);
+      pointer-events: none;
+    }
+    .panel-title {
+      position: relative;
+      z-index: 2;
+      margin: 0 0 6px;
+      font-size: 1.1rem;
+    }
+    .panel-copy {
+      position: relative;
+      z-index: 2;
+      margin: 0 0 18px;
+      opacity: 0.7;
+    }
+    .graph-stage {
+      position: relative;
+      min-height: 620px;
+      z-index: 2;
+    }
+    .graph-links {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+    }
+    .graph-links path {
+      fill: none;
+      stroke-width: 4;
+      stroke-linecap: round;
+      filter: drop-shadow(0 0 12px rgba(114, 241, 184, 0.24));
+    }
+    .graph-links path.completed {
+      stroke: rgba(114, 241, 184, 0.72);
+    }
+    .graph-links path.current {
+      stroke: rgba(92, 181, 255, 0.92);
+    }
+    .graph-links path.pending {
+      stroke: rgba(255, 255, 255, 0.1);
+    }
+    .phase-graph {
+      position: relative;
+      min-height: 620px;
+    }
+    .phase-node {
+      position: absolute;
+      width: 220px;
+      min-height: 116px;
+      border-radius: 26px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 16px 18px;
+      color: inherit;
+      background: linear-gradient(180deg, rgba(22, 28, 38, 0.94), rgba(10, 14, 20, 0.98));
       text-align: left;
       cursor: pointer;
+      box-shadow: 0 18px 28px rgba(0, 0, 0, 0.24);
+      transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+      overflow: hidden;
     }
-    .phase.current {
-      border-color: var(--vscode-focusBorder);
-      background: rgba(60, 140, 200, 0.12);
+    .phase-node::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 46%);
+      pointer-events: none;
     }
-    .phase.selected {
-      outline: 2px solid var(--vscode-focusBorder);
+    .phase-node:hover {
+      transform: translateY(-2px) scale(1.01);
+      border-color: rgba(114, 241, 184, 0.28);
     }
-    .phase-order {
+    .phase-node.selected {
+      outline: 2px solid rgba(114, 241, 184, 0.52);
+      outline-offset: 2px;
+    }
+    .phase-node.current {
+      background: linear-gradient(180deg, rgba(24, 49, 82, 0.96), rgba(10, 20, 32, 0.98));
+      border-color: rgba(92, 181, 255, 0.45);
+      box-shadow: 0 20px 34px rgba(48, 120, 255, 0.16);
+    }
+    .phase-node.completed {
+      background: linear-gradient(180deg, rgba(18, 44, 34, 0.96), rgba(10, 20, 17, 0.98));
+      border-color: rgba(114, 241, 184, 0.24);
+    }
+    .phase-node.pending {
+      background: linear-gradient(180deg, rgba(22, 28, 38, 0.88), rgba(10, 14, 20, 0.96));
+      opacity: 0.9;
+    }
+    .phase-node.capture { left: 18px; top: 42px; }
+    .phase-node.refinement { left: 192px; top: 168px; }
+    .phase-node.technical-design { left: 18px; top: 324px; }
+    .phase-node.implementation { left: 258px; top: 324px; }
+    .phase-node.review { left: 192px; top: 480px; }
+    .phase-node.release-approval { left: 436px; top: 222px; }
+    .phase-node.pr-preparation { left: 436px; top: 456px; }
+    .phase-node-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      position: relative;
+      z-index: 1;
+    }
+    .phase-index {
       width: 34px;
       height: 34px;
-      border-radius: 50%;
+      border-radius: 12px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: rgba(128, 128, 128, 0.18);
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 0.9rem;
       font-weight: 700;
     }
-    .phase-meta {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 0;
+    .phase-status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.18);
+      box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.04);
+      margin-top: 4px;
     }
-    .phase-meta span {
-      opacity: 0.75;
-      font-size: 0.88rem;
+    .phase-node.current .phase-status-dot {
+      background: #59bbff;
+      box-shadow: 0 0 0 8px rgba(89, 187, 255, 0.12);
     }
-    .phase-badges {
+    .phase-node.completed .phase-status-dot {
+      background: var(--accent);
+      box-shadow: 0 0 0 8px rgba(114, 241, 184, 0.1);
+    }
+    .phase-node h3 {
+      margin: 14px 0 4px;
+      font-size: 1rem;
+      position: relative;
+      z-index: 1;
+    }
+    .phase-slug {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 0.76rem;
+      opacity: 0.66;
+      position: relative;
+      z-index: 1;
+    }
+    .phase-tags {
       display: flex;
-      gap: 6px;
+      gap: 8px;
       flex-wrap: wrap;
-      justify-content: flex-end;
+      margin-top: 14px;
+      position: relative;
+      z-index: 1;
     }
-    h2, h3 {
+    .phase-tag {
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 0.72rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.84);
+    }
+    .phase-tag.approval {
+      background: rgba(255, 170, 84, 0.15);
+      color: #ffc178;
+    }
+    .phase-tag.active {
+      background: rgba(92, 181, 255, 0.14);
+      color: #90d2ff;
+    }
+    .detail-panel {
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+      align-content: start;
+    }
+    .detail-card {
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 20px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+    .detail-card h2, .detail-card h3 {
       margin-top: 0;
-    }
-    .section {
-      margin-top: 18px;
-    }
-    .control-strip button, .detail-actions button {
-      border: 1px solid var(--vscode-button-border, transparent);
-      border-radius: 10px;
-      padding: 8px 12px;
-      background: var(--vscode-button-background);
-      color: var(--vscode-button-foreground);
-      cursor: pointer;
-    }
-    .control-strip button:disabled, .detail-actions button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
     }
     .detail-actions {
       margin: 14px 0;
@@ -176,8 +372,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .artifact-preview, .audit-log {
       margin: 0;
       padding: 14px;
-      border-radius: 12px;
-      background: rgba(0, 0, 0, 0.18);
+      border-radius: 16px;
+      background: rgba(4, 10, 16, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.06);
       overflow: auto;
       white-space: pre-wrap;
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -186,18 +383,19 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .audit-stream {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
       max-height: 360px;
       overflow: auto;
+      padding-right: 4px;
     }
     .audit-row {
-      border-left: 2px solid var(--vscode-panel-border);
+      border-left: 2px solid rgba(114, 241, 184, 0.18);
       padding-left: 12px;
     }
     .audit-head {
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
-      font-size: 0.82rem;
-      opacity: 0.75;
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.62);
     }
     .audit-body {
       margin-top: 4px;
@@ -206,58 +404,91 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .muted {
       opacity: 0.7;
     }
-    @media (max-width: 960px) {
+    @media (max-width: 1160px) {
       .layout {
         grid-template-columns: 1fr;
       }
+      .graph-panel {
+        min-height: auto;
+      }
+      .graph-stage, .phase-graph {
+        min-height: 720px;
+      }
+    }
+    @media (max-width: 760px) {
+      body {
+        padding: 12px;
+      }
+      .hero, .graph-panel, .detail-panel {
+        padding: 16px;
+      }
+      .phase-node {
+        width: 188px;
+      }
+      .phase-node.capture { left: 0; top: 24px; }
+      .phase-node.refinement { left: 132px; top: 144px; }
+      .phase-node.technical-design { left: 0; top: 292px; }
+      .phase-node.implementation { left: 156px; top: 292px; }
+      .phase-node.review { left: 112px; top: 448px; }
+      .phase-node.release-approval { left: 272px; top: 196px; }
+      .phase-node.pr-preparation { left: 272px; top: 430px; }
     }
   </style>
 </head>
 <body>
-  <section class="panel hero">
-    <div>
-      <h1>${escapeHtml(workflow.usId)} · ${escapeHtml(workflow.title)}</h1>
-      <div class="hero-meta">
-        <span class="token">${escapeHtml(workflow.category)}</span>
-        <span class="token">${escapeHtml(workflow.status)}</span>
-        <span class="token">${escapeHtml(workflow.currentPhase)}</span>
-        <span class="token">${escapeHtml(workflow.workBranch ?? "branch:not-created")}</span>
-        <span class="token">runner:${escapeHtml(playbackState)}</span>
+  <div class="shell">
+    <section class="panel hero">
+      <div class="hero-head">
+        <div>
+          <p class="eyebrow">SpecForge Workflow Graph</p>
+          <h1>${escapeHtml(workflow.usId)} · ${escapeHtml(workflow.title)}</h1>
+          <div class="hero-meta">
+            <span class="token accent">${escapeHtml(workflow.category)}</span>
+            <span class="token">${escapeHtml(workflow.status)}</span>
+            <span class="token">${escapeHtml(workflow.currentPhase)}</span>
+            <span class="token">${escapeHtml(workflow.workBranch ?? "branch:not-created")}</span>
+            <span class="token">runner:${escapeHtml(playbackState)}</span>
+          </div>
+        </div>
+        <div class="control-strip">
+          ${playbackButtons}
+          ${workflow.controls.canContinue ? `<button data-command="continue">Continue</button>` : ""}
+          ${workflow.controls.canApprove ? `<button data-command="approve">Approve</button>` : ""}
+          ${workflow.controls.canRestartFromSource ? `<button data-command="restart">Restart</button>` : ""}
+          ${regressionButtons}
+          <button data-command="openArtifact" data-path="${escapeHtmlAttribute(workflow.mainArtifactPath)}">Open US</button>
+        </div>
       </div>
-    </div>
-    <div class="control-strip">
-      ${playbackButtons}
-      ${workflow.controls.canContinue ? `<button data-command="continue">Continue</button>` : ""}
-      ${workflow.controls.canApprove ? `<button data-command="approve">Approve</button>` : ""}
-      ${workflow.controls.canRestartFromSource ? `<button data-command="restart">Restart</button>` : ""}
-      ${regressionButtons}
-      <button data-command="openArtifact" data-path="${escapeHtmlAttribute(workflow.mainArtifactPath)}">Open US</button>
-    </div>
-  </section>
-  <section class="layout">
-    <aside class="panel">
-      <h2>Workflow</h2>
-      <p class="muted">Select a phase to inspect its detail.</p>
-      <div class="phase-list">${phaseItems}</div>
-    </aside>
-    <main class="panel">
-      <h2>${escapeHtml(selectedPhase.title)}</h2>
-      <div class="detail-meta">
-        <span class="token">${escapeHtml(selectedPhase.phaseId)}</span>
-        <span class="token">${escapeHtml(selectedPhase.state)}</span>
-        ${selectedPhase.requiresApproval ? `<span class="token">approval required</span>` : ""}
-        ${selectedPhase.isApproved ? `<span class="token">approved</span>` : ""}
-      </div>
-      <div class="section">
-        <h3>Artifact</h3>
-        ${artifactSection}
-      </div>
-      <div class="section">
-        <h3>Audit</h3>
-        <div class="audit-stream">${auditRows}</div>
-      </div>
-    </main>
-  </section>
+    </section>
+    <section class="layout">
+      <aside class="panel graph-panel">
+        <h2 class="panel-title">Workflow Constellation</h2>
+        <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and audit context.</p>
+        <div class="graph-stage">
+          ${phaseGraph}
+        </div>
+      </aside>
+      <main class="panel detail-panel">
+        <section class="detail-card">
+          <h2>${escapeHtml(selectedPhase.title)}</h2>
+          <div class="detail-meta">
+            <span class="token">${escapeHtml(selectedPhase.phaseId)}</span>
+            <span class="token">${escapeHtml(selectedPhase.state)}</span>
+            ${selectedPhase.requiresApproval ? `<span class="token">approval required</span>` : ""}
+            ${selectedPhase.isApproved ? `<span class="token success">approved</span>` : ""}
+          </div>
+        </section>
+        <section class="detail-card">
+          <h3>Artifact</h3>
+          ${artifactSection}
+        </section>
+        <section class="detail-card">
+          <h3>Audit Stream</h3>
+          <div class="audit-stream">${auditRows}</div>
+        </section>
+      </main>
+    </section>
+  </div>
   <script>
     const vscode = acquireVsCodeApi();
     for (const element of document.querySelectorAll("[data-command]")) {
@@ -273,6 +504,65 @@ function buildWorkflowHtml(workflow, state, playbackState) {
 </body>
 </html>`;
 }
+function buildPhaseGraph(phases, selectedPhaseId) {
+    const links = phases
+        .slice(0, -1)
+        .map((phase, index) => {
+        const nextPhase = phases[index + 1];
+        return `<path class="${linkClass(nextPhase)}" d="${graphPath(phase.phaseId, nextPhase.phaseId)}"></path>`;
+    })
+        .join("");
+    const nodes = phases.map((phase) => `
+    <button
+      class="phase-node ${escapeHtmlAttribute(phase.phaseId)} ${phase.state}${phase.phaseId === selectedPhaseId ? " selected" : ""}"
+      data-command="selectPhase"
+      data-phase-id="${escapeHtmlAttribute(phase.phaseId)}">
+      <div class="phase-node-header">
+        <span class="phase-index">${phase.order + 1}</span>
+        <span class="phase-status-dot"></span>
+      </div>
+      <h3>${escapeHtml(phase.title)}</h3>
+      <div class="phase-slug">${escapeHtml(phase.phaseId)}</div>
+      <div class="phase-tags">
+        <span class="phase-tag ${phase.isCurrent ? "active" : ""}">${escapeHtml(phase.state)}</span>
+        ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
+        ${phase.isApproved ? `<span class="phase-tag">approved</span>` : ""}
+      </div>
+    </button>
+  `).join("");
+    return `
+    <div class="phase-graph" aria-label="Workflow graph">
+      <svg class="graph-links" viewBox="0 0 700 640" preserveAspectRatio="none">
+        ${links}
+      </svg>
+      ${nodes}
+    </div>
+  `;
+}
+function linkClass(targetPhase) {
+    if (targetPhase.isCurrent) {
+        return "current";
+    }
+    return targetPhase.state === "completed" ? "completed" : "pending";
+}
+function graphPath(fromPhaseId, toPhaseId) {
+    const from = phaseAnchorMap[fromPhaseId];
+    const to = phaseAnchorMap[toPhaseId];
+    if (!from || !to) {
+        return "";
+    }
+    const controlOffset = Math.max(48, Math.abs(to.x - from.x) * 0.36);
+    return `M ${from.x} ${from.y} C ${from.x + controlOffset} ${from.y}, ${to.x - controlOffset} ${to.y}, ${to.x} ${to.y}`;
+}
+const phaseAnchorMap = {
+    "capture": { x: 238, y: 100 },
+    "refinement": { x: 412, y: 226 },
+    "technical-design": { x: 238, y: 382 },
+    "implementation": { x: 478, y: 382 },
+    "review": { x: 412, y: 538 },
+    "release-approval": { x: 656, y: 280 },
+    "pr-preparation": { x: 656, y: 514 }
+};
 function escapeHtml(value) {
     return value
         .replaceAll("&", "&amp;")
