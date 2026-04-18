@@ -206,7 +206,7 @@ export function buildWorkflowHtml(
       padding: 22px;
       min-height: 720px;
       position: relative;
-      overflow: hidden;
+      overflow: auto;
       background:
         linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
@@ -236,7 +236,7 @@ export function buildWorkflowHtml(
     }
     .graph-stage {
       position: relative;
-      min-height: 980px;
+      min-height: 1080px;
       z-index: 2;
     }
     .graph-links {
@@ -267,7 +267,7 @@ export function buildWorkflowHtml(
     }
     .phase-graph {
       position: relative;
-      min-height: 980px;
+      min-height: 1080px;
     }
     .phase-node {
       position: absolute;
@@ -320,7 +320,7 @@ export function buildWorkflowHtml(
     .phase-node.implementation { left: 18px; top: 468px; }
     .phase-node.review { left: 18px; top: 646px; }
     .phase-node.release-approval { left: 392px; top: 792px; }
-    .phase-node.pr-preparation { left: 18px; top: 900px; }
+    .phase-node.pr-preparation { left: 18px; top: 930px; }
     .phase-node-header {
       display: flex;
       justify-content: space-between;
@@ -498,7 +498,7 @@ export function buildWorkflowHtml(
         min-height: auto;
       }
       .graph-stage, .phase-graph {
-        min-height: 980px;
+        min-height: 1080px;
       }
     }
     @media (max-width: 760px) {
@@ -512,7 +512,7 @@ export function buildWorkflowHtml(
         width: 188px;
       }
       .graph-stage, .phase-graph {
-        min-height: 1080px;
+        min-height: 1180px;
       }
       .phase-node.capture { left: 0; top: 16px; }
       .phase-node.refinement { left: 176px; top: 138px; }
@@ -520,7 +520,7 @@ export function buildWorkflowHtml(
       .phase-node.implementation { left: 0; top: 450px; }
       .phase-node.review { left: 0; top: 622px; }
       .phase-node.release-approval { left: 176px; top: 772px; }
-      .phase-node.pr-preparation { left: 0; top: 932px; }
+      .phase-node.pr-preparation { left: 0; top: 1010px; }
     }
   </style>
 </head>
