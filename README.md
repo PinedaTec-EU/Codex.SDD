@@ -34,6 +34,9 @@ Not implemented yet:
   - `review`
   - `release_approval`
   - `pr_preparation`
+- Phase execution semantics are explicit:
+  - automatic/system-driven phases: `capture`, `refinement`, `technical_design`, `implementation`, `review`, `pr_preparation`
+  - user checkpoint phases: `release_approval`
 - Explicit approval gates and regression rules
 - Local workspace persistence under `.specs/us/us.<us-id>/`
 - Human-readable artifacts in Markdown
@@ -174,6 +177,7 @@ The extension currently provides:
 - a `SpecForge` activity bar view
 - a sidebar webview with embedded user-story intake
 - a single high-contrast `Create User Story` empty state in the sidebar
+- a visible prompt setup card in the sidebar to initialize `.specs/prompts/` or open the repo prompt templates
 - a workflow webview opened directly from a user story click
 - per-phase detail inside the workflow view with artifact preview
 - inline audit stream sourced from `timeline.md`
@@ -194,6 +198,15 @@ Current limitation:
 
 - `stop` is best-effort: it cancels the local MCP backend process for the workspace, but it is not yet a durable job-control protocol
 - the extension still does not provide a richer prompt editor, diffing, or effective prompt inspection UX
+
+### Workflow readability
+
+The workflow view intentionally distinguishes between:
+
+- automatic phases that the system can execute when the provider and prompts are ready
+- user-driven checkpoints that require explicit approval before the next transition
+
+Today the canonical checkpoint is `release_approval`. The graph and phase detail make this visible so the operator can see where the workflow will stop and wait for attention.
 
 ### Running the extension locally
 

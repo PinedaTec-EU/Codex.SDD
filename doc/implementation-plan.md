@@ -172,6 +172,8 @@ Incluye en el MVP:
 - ✅ settings de extensión para provider, conexión y watcher
 - ✅ watcher opcional con notificaciones de atención y controles `play/pause/stop`
 - ✅ sidebar de extensión con CTA único en vacío y formulario embebido para crear US
+- ✅ distinción visible en la UI y en la documentación entre fases automáticas y checkpoints del usuario
+- ✅ affordance visible en la sidebar para inicializar y abrir los prompts versionados del repo
 
 No bloquea el MVP:
 
@@ -183,6 +185,7 @@ No bloquea el MVP:
 Subtarea recién resuelta:
 
 - ✅ añadir en la extensión comandos y affordances para inicializar `.specs/prompts/`, detectar repos no inicializados y abrir los templates desde la UI
+- ✅ hacer explícito en `README` y roadmap qué fases son automáticas y cuáles requieren intervención humana
 
 Subtareas recién resueltas:
 
