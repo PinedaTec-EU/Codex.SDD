@@ -175,6 +175,8 @@ Incluye en el MVP:
 - ✅ distinción visible en la UI y en la documentación entre fases automáticas y checkpoints del usuario
 - ✅ affordance visible en la sidebar para inicializar y abrir los prompts versionados del repo
 - ✅ visibilidad inicial centrada en US/workflows activos en la sidebar y vistas principales
+- ✅ acceso desde la workflow view a los prompts asociados de la fase seleccionada
+- ✅ anexos de archivos en la workflow view reutilizados como contexto runtime de la US
 
 No bloquea el MVP:
 
@@ -212,6 +214,8 @@ Subtareas recién resueltas:
 - ✅ añadir controles `play/pause/stop` con `stop` best-effort sobre el backend MCP local
 - ✅ reemplazar la botonera lateral por una sidebar webview con formulario de creación embebido
 - ✅ fijar que el foco inicial de la UX esté en las US activas; el histórico y la búsqueda quedan post-MVP
+- ✅ permitir adjuntar ficheros a una US desde la workflow view y abrirlos desde esa misma pantalla
+- ✅ exponer botones para abrir los prompts `execute` y `approve` de la fase seleccionada cuando existan
 
 Subtareas pendientes de cerrar antes de considerar el MVP completo:
 

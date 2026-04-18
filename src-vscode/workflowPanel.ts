@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as path from "node:path";
 import * as vscode from "vscode";
 import type { SpecForgeBackendClient, UserStorySummary } from "./backendClient";
 import { buildWorkflowHtml } from "./workflowView";
@@ -6,6 +7,9 @@ import { buildWorkflowHtml } from "./workflowView";
 type WorkflowPanelCommand =
   | { readonly command: "selectPhase"; readonly phaseId?: string }
   | { readonly command: "openArtifact"; readonly path?: string }
+  | { readonly command: "openPrompt"; readonly path?: string }
+  | { readonly command: "openAttachment"; readonly path?: string }
+  | { readonly command: "attachFiles" }
   | { readonly command: "continue" }
   | { readonly command: "approve" }
   | { readonly command: "restart" }
@@ -121,9 +125,14 @@ class WorkflowPanelController {
         }
         return;
       case "openArtifact":
+      case "openPrompt":
+      case "openAttachment":
         if (message.path) {
           await openTextDocument(message.path);
         }
+        return;
+      case "attachFiles":
+        await this.attachFilesAsync();
         return;
       case "continue":
         await this.continueCurrentPhaseAsync();
@@ -171,6 +180,30 @@ class WorkflowPanelController {
     };
     await this.callbacks.refreshExplorer();
     await this.refreshAsync();
+  }
+
+  private async attachFilesAsync(): Promise<void> {
+    const selection = await vscode.window.showOpenDialog({
+      canSelectFiles: true,
+      canSelectFolders: false,
+      canSelectMany: true,
+      openLabel: "Attach files to user story"
+    });
+
+    if (!selection || selection.length === 0) {
+      return;
+    }
+
+    const attachmentsDirectoryPath = path.join(this.summary.directoryPath, "attachments");
+    await fs.promises.mkdir(attachmentsDirectoryPath, { recursive: true });
+
+    for (const source of selection) {
+      const targetPath = await getNextAttachmentPathAsync(attachmentsDirectoryPath, path.basename(source.fsPath));
+      await fs.promises.copyFile(source.fsPath, targetPath);
+    }
+
+    await this.refreshAsync();
+    void vscode.window.showInformationMessage(`Attached ${selection.length} file(s) to ${this.summary.usId}.`);
   }
 
   private async approveCurrentPhaseAsync(): Promise<void> {
@@ -270,6 +303,23 @@ async function readArtifactContentAsync(artifactPath: string | null): Promise<st
   } catch {
     return null;
   }
+}
+
+async function getNextAttachmentPathAsync(directoryPath: string, fileName: string): Promise<string> {
+  const extension = path.extname(fileName);
+  const baseName = extension.length > 0 ? fileName.slice(0, -extension.length) : fileName;
+
+  for (let version = 1; version < 1000; version++) {
+    const suffix = version === 1 ? "" : `.v${String(version).padStart(2, "0")}`;
+    const candidate = path.join(directoryPath, `${baseName}${suffix}${extension}`);
+    try {
+      await fs.promises.access(candidate, fs.constants.F_OK);
+    } catch {
+      return candidate;
+    }
+  }
+
+  throw new Error(`Unable to allocate attachment path for '${fileName}'.`);
 }
 
 async function openTextDocument(filePath: string): Promise<void> {

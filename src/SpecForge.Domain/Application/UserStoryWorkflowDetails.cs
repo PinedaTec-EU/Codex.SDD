@@ -6,13 +6,16 @@ public sealed record UserStoryWorkflowDetails(
     string Category,
     string Status,
     string CurrentPhase,
+    string DirectoryPath,
     string? WorkBranch,
     string MainArtifactPath,
     string TimelinePath,
     string RawTimeline,
     IReadOnlyCollection<WorkflowPhaseDetails> Phases,
     CurrentPhaseControls Controls,
-    IReadOnlyCollection<TimelineEventDetails> Events);
+    IReadOnlyCollection<TimelineEventDetails> Events,
+    string AttachmentsDirectoryPath,
+    IReadOnlyCollection<AttachmentDetails> Attachments);
 
 public sealed record WorkflowPhaseDetails(
     string PhaseId,
@@ -22,7 +25,9 @@ public sealed record WorkflowPhaseDetails(
     bool IsApproved,
     bool IsCurrent,
     string State,
-    string? ArtifactPath);
+    string? ArtifactPath,
+    string? ExecutePromptPath,
+    string? ApprovePromptPath);
 
 public sealed record CurrentPhaseControls(
     bool CanContinue,
@@ -39,3 +44,7 @@ public sealed record TimelineEventDetails(
     string? Phase,
     string? Summary,
     IReadOnlyCollection<string> Artifacts);
+
+public sealed record AttachmentDetails(
+    string Name,
+    string Path);

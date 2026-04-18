@@ -181,6 +181,8 @@ The extension currently provides:
 - a default navigation focus on active user stories and active workflows
 - a workflow webview opened directly from a user story click
 - per-phase detail inside the workflow view with artifact preview
+- per-phase prompt access inside the workflow view when the selected phase exposes `execute` or `approve` templates
+- user-story attachment management inside the workflow view, with attached files reused as runtime context for provider-backed execution
 - inline audit stream sourced from `timeline.md`
 - play / pause / stop controls for workflow execution
 - `Create User Story`

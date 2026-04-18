@@ -7,4 +7,5 @@ public sealed record PhaseExecutionContext(
     string UsId,
     PhaseId PhaseId,
     string UserStoryPath,
-    IReadOnlyDictionary<PhaseId, string> PreviousArtifactPaths);
+    IReadOnlyDictionary<PhaseId, string> PreviousArtifactPaths,
+    IReadOnlyCollection<string> AttachmentPaths);

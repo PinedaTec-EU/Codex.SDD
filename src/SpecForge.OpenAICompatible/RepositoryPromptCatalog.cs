@@ -47,4 +47,17 @@ internal sealed class RepositoryPromptCatalog
             _ => throw new InvalidOperationException($"Phase '{phaseId}' does not have an execute prompt.")
         };
     }
+
+    public string GetApprovePromptPath(string workspaceRoot, PhaseId phaseId)
+    {
+        var paths = new PromptFilePaths(workspaceRoot);
+
+        return phaseId switch
+        {
+            PhaseId.Refinement => paths.RefinementApprovePromptPath,
+            PhaseId.TechnicalDesign => paths.TechnicalDesignApprovePromptPath,
+            PhaseId.ReleaseApproval => paths.ReleaseApprovalApprovePromptPath,
+            _ => throw new InvalidOperationException($"Phase '{phaseId}' does not have an approve prompt.")
+        };
+    }
 }

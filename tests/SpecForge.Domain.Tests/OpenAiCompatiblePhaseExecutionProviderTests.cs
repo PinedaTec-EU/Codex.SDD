@@ -29,7 +29,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             UsId: "US-0001",
             PhaseId: PhaseId.Refinement,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
-            PreviousArtifactPaths: new Dictionary<PhaseId, string>());
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            AttachmentPaths: []);
 
         var result = await provider.ExecuteAsync(context);
 
@@ -43,6 +44,36 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Contains("\"model\":\"llama3.1\"", handler.LastBody);
         Assert.Contains("Role: refinement analyst.", handler.LastBody);
         Assert.Contains("Texto inicial", handler.LastBody);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_IncludesAttachmentContentsInRuntimeContext()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var attachmentDirectory = Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "attachments");
+        Directory.CreateDirectory(attachmentDirectory);
+        var attachmentPath = Path.Combine(attachmentDirectory, "notes.md");
+        await File.WriteAllTextAsync(attachmentPath, "# Notes\nUseful attachment");
+        var handler = new CapturingFakeHttpMessageHandler();
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            new OpenAiCompatibleProviderOptions(
+                BaseUrl: "http://localhost:11434/v1",
+                ApiKey: "ollama-local",
+                Model: "llama3.1"));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Refinement,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            AttachmentPaths: [attachmentPath]);
+
+        await provider.ExecuteAsync(context);
+
+        Assert.Contains("## User Story Attachments", handler.LastBody);
+        Assert.Contains("notes.md", handler.LastBody);
+        Assert.Contains("Useful attachment", handler.LastBody);
     }
 
     [Fact]
@@ -63,7 +94,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             UsId: "US-0001",
             PhaseId: PhaseId.Refinement,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
-            PreviousArtifactPaths: new Dictionary<PhaseId, string>());
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            AttachmentPaths: []);
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ExecuteAsync(context));
 

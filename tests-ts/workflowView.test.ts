@@ -9,6 +9,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
     category: "workflow",
     status: "waiting-user",
     currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0001",
     workBranch: "feature/us-0001-workflow-view",
     mainArtifactPath: "/tmp/us.md",
     timelinePath: "/tmp/timeline.md",
@@ -22,7 +23,9 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
         isApproved: false,
         isCurrent: false,
         state: "completed",
-        artifactPath: null
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
       },
       {
         phaseId: "refinement",
@@ -32,7 +35,9 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
         isApproved: false,
         isCurrent: true,
         state: "current",
-        artifactPath: "/tmp/01-refinement.md"
+        artifactPath: "/tmp/01-refinement.md",
+        executePromptPath: "/tmp/refinement.execute.md",
+        approvePromptPath: "/tmp/refinement.approve.md"
       }
     ],
     controls: {
@@ -52,6 +57,13 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
         summary: "Generated refinement artifact.",
         artifacts: ["/tmp/01-refinement.md"]
       }
+    ],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: [
+      {
+        name: "api-notes.md",
+        path: "/tmp/attachments/api-notes.md"
+      }
     ]
   }, {
     selectedPhaseId: "refinement",
@@ -67,4 +79,8 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /Generated refinement artifact\./);
   assert.match(html, /## Refinement/);
   assert.match(html, /Open Artifact/);
+  assert.match(html, /Open Execute Prompt/);
+  assert.match(html, /Open Approve Prompt/);
+  assert.match(html, /Attach Files/);
+  assert.match(html, /api-notes\.md/);
 });

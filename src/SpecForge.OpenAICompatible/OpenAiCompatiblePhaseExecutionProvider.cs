@@ -170,6 +170,24 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             }
         }
 
+        if (context.AttachmentPaths.Count > 0)
+        {
+            builder.AppendLine("## User Story Attachments");
+            builder.AppendLine();
+
+            foreach (var attachmentPath in context.AttachmentPaths.OrderBy(static path => path, StringComparer.Ordinal))
+            {
+                var attachmentContent = await File.ReadAllTextAsync(attachmentPath, cancellationToken);
+                builder
+                    .AppendLine($"### {Path.GetFileName(attachmentPath)}")
+                    .AppendLine()
+                    .AppendLine($"Path: `{attachmentPath}`")
+                    .AppendLine()
+                    .AppendLine(attachmentContent.Trim())
+                    .AppendLine();
+            }
+        }
+
         builder
             .AppendLine("## Execution Rules")
             .AppendLine()

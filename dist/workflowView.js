@@ -13,6 +13,32 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       <pre class="artifact-preview">${escapeHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")}</pre>
     `
         : "<p class=\"muted\">No artifact is persisted for this phase.</p>";
+    const promptButtons = [
+        selectedPhase.executePromptPath
+            ? `<button data-command="openPrompt" data-path="${escapeHtmlAttribute(selectedPhase.executePromptPath)}">Open Execute Prompt</button>`
+            : "",
+        selectedPhase.approvePromptPath
+            ? `<button data-command="openPrompt" data-path="${escapeHtmlAttribute(selectedPhase.approvePromptPath)}">Open Approve Prompt</button>`
+            : ""
+    ].filter(Boolean).join("");
+    const promptSection = promptButtons
+        ? `<div class="detail-actions">${promptButtons}</div>`
+        : "<p class=\"muted\">This phase does not expose prompt templates from the current repo bootstrap.</p>";
+    const attachmentsSection = `
+    <div class="detail-actions">
+      <button data-command="attachFiles">Attach Files</button>
+    </div>
+    ${workflow.attachments.length > 0
+        ? `<div class="attachment-list">
+          ${workflow.attachments.map((attachment) => `
+            <button class="attachment-item" data-command="openAttachment" data-path="${escapeHtmlAttribute(attachment.path)}">
+              <strong>${escapeHtml(attachment.name)}</strong>
+              <span>${escapeHtml(attachment.path)}</span>
+            </button>
+          `).join("")}
+        </div>`
+        : "<p class=\"muted\">No files are attached to this user story yet.</p>"}
+  `;
     const regressionButtons = workflow.controls.regressionTargets
         .map((target) => `<button data-command="regress" data-phase-id="${escapeHtmlAttribute(target)}">Regress to ${escapeHtml(target)}</button>`)
         .join("");
@@ -141,7 +167,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       justify-content: flex-end;
       max-width: 540px;
     }
-    .control-strip button, .detail-actions button {
+    .control-strip button, .detail-actions button, .attachment-item {
       border: 1px solid rgba(114, 241, 184, 0.18);
       border-radius: 14px;
       padding: 10px 14px;
@@ -151,7 +177,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
       transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
     }
-    .control-strip button:hover, .detail-actions button:hover {
+    .control-strip button:hover, .detail-actions button:hover, .attachment-item:hover {
       transform: translateY(-1px);
       border-color: rgba(114, 241, 184, 0.38);
       background: linear-gradient(180deg, rgba(114, 241, 184, 0.24), rgba(18, 33, 28, 0.94));
@@ -376,6 +402,26 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .detail-actions {
       margin: 14px 0;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .attachment-list {
+      display: grid;
+      gap: 10px;
+    }
+    .attachment-item {
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.035);
+      color: inherit;
+      text-align: left;
+      display: grid;
+      gap: 4px;
+    }
+    .attachment-item span {
+      opacity: 0.62;
+      font-size: 0.8rem;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
     }
     .artifact-preview, .audit-log {
       margin: 0;
@@ -514,6 +560,14 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         <section class="detail-card">
           <h3>Artifact</h3>
           ${artifactSection}
+        </section>
+        <section class="detail-card">
+          <h3>Phase Prompts</h3>
+          ${promptSection}
+        </section>
+        <section class="detail-card">
+          <h3>User Story Attachments</h3>
+          ${attachmentsSection}
         </section>
         <section class="detail-card">
           <h3>Audit Stream</h3>

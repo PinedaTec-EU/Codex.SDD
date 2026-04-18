@@ -114,6 +114,7 @@ public sealed class SpecForgeApplicationService
             metadata.Category,
             WorkflowPresentation.ToStatusSlug(workflowRun.Status),
             WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
+            paths.RootDirectory,
             workflowRun.Branch?.WorkBranchName,
             paths.MainArtifactPath,
             paths.TimelineFilePath,
@@ -126,7 +127,9 @@ public sealed class SpecForgeApplicationService
                 currentPhase.BlockingReason,
                 workflowRun.CurrentPhase != Workflow.PhaseId.Capture,
                 BuildRegressionTargets(workflowRun)),
-            TimelineMarkdownParser.ParseEvents(rawTimeline));
+            TimelineMarkdownParser.ParseEvents(rawTimeline),
+            paths.AttachmentsDirectoryPath,
+            BuildAttachmentDetails(paths));
     }
 
     private async Task<UserStorySummary> GetUserStorySummaryFromDirectoryAsync(
@@ -245,7 +248,22 @@ public sealed class SpecForgeApplicationService
                 workflowRun.IsPhaseApproved(phaseId),
                 workflowRun.CurrentPhase == phaseId,
                 ResolvePhaseState(workflowRun, phaseId),
-                TryGetLatestArtifactPath(paths, phaseId)))
+                TryGetLatestArtifactPath(paths, phaseId),
+                TryGetExecutePromptPath(paths, phaseId),
+                TryGetApprovePromptPath(paths, phaseId)))
+            .ToArray();
+    }
+
+    private static IReadOnlyCollection<AttachmentDetails> BuildAttachmentDetails(UserStoryFilePaths paths)
+    {
+        if (!Directory.Exists(paths.AttachmentsDirectoryPath))
+        {
+            return [];
+        }
+
+        return Directory.GetFiles(paths.AttachmentsDirectoryPath, "*", SearchOption.TopDirectoryOnly)
+            .OrderBy(static path => path, StringComparer.Ordinal)
+            .Select(static path => new AttachmentDetails(Path.GetFileName(path), path))
             .ToArray();
     }
 
@@ -291,6 +309,45 @@ public sealed class SpecForgeApplicationService
         }
 
         return latestPath;
+    }
+
+    private static string? TryGetExecutePromptPath(UserStoryFilePaths paths, Workflow.PhaseId phaseId)
+    {
+        var promptPaths = new PromptFilePaths(FindWorkspaceRoot(paths));
+        var candidate = phaseId switch
+        {
+            Workflow.PhaseId.Refinement => promptPaths.RefinementExecutePromptPath,
+            Workflow.PhaseId.TechnicalDesign => promptPaths.TechnicalDesignExecutePromptPath,
+            Workflow.PhaseId.Implementation => promptPaths.ImplementationExecutePromptPath,
+            Workflow.PhaseId.Review => promptPaths.ReviewExecutePromptPath,
+            _ => null
+        };
+
+        return candidate is not null && File.Exists(candidate) ? candidate : null;
+    }
+
+    private static string? TryGetApprovePromptPath(UserStoryFilePaths paths, Workflow.PhaseId phaseId)
+    {
+        var promptPaths = new PromptFilePaths(FindWorkspaceRoot(paths));
+        var candidate = phaseId switch
+        {
+            Workflow.PhaseId.Refinement => promptPaths.RefinementApprovePromptPath,
+            Workflow.PhaseId.TechnicalDesign => promptPaths.TechnicalDesignApprovePromptPath,
+            Workflow.PhaseId.ReleaseApproval => promptPaths.ReleaseApprovalApprovePromptPath,
+            _ => null
+        };
+
+        return candidate is not null && File.Exists(candidate) ? candidate : null;
+    }
+
+    private static string FindWorkspaceRoot(UserStoryFilePaths paths)
+    {
+        var userStoriesRoot = Path.GetDirectoryName(paths.RootDirectory)
+            ?? throw new InvalidOperationException("User story directory root is invalid.");
+        var specsRoot = Path.GetDirectoryName(userStoriesRoot)
+            ?? throw new InvalidOperationException("Specs root is invalid.");
+        return Path.GetDirectoryName(specsRoot)
+            ?? throw new InvalidOperationException("Workspace root is invalid.");
     }
 
     private static IReadOnlyCollection<string> BuildRegressionTargets(Workflow.WorkflowRun workflowRun)

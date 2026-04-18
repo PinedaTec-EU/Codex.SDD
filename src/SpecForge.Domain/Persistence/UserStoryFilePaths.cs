@@ -22,6 +22,7 @@ public sealed class UserStoryFilePaths
         PhasesDirectoryPath = Path.Combine(rootDirectory, "phases");
         BranchFilePath = Path.Combine(rootDirectory, "branch.yaml");
         RestartsDirectoryPath = Path.Combine(rootDirectory, "restarts");
+        AttachmentsDirectoryPath = Path.Combine(rootDirectory, "attachments");
     }
 
     public static UserStoryFilePaths FromWorkspaceRoot(string workspaceRoot, string usId)
@@ -58,6 +59,8 @@ public sealed class UserStoryFilePaths
     public string BranchFilePath { get; }
 
     public string RestartsDirectoryPath { get; }
+
+    public string AttachmentsDirectoryPath { get; }
 
     public string GetPhaseArtifactPath(PhaseId phaseId, int version = 1)
     {

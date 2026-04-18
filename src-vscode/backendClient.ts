@@ -64,6 +64,8 @@ export interface WorkflowPhaseDetails {
   readonly isCurrent: boolean;
   readonly state: string;
   readonly artifactPath: string | null;
+  readonly executePromptPath: string | null;
+  readonly approvePromptPath: string | null;
 }
 
 export interface CurrentPhaseControls {
@@ -84,12 +86,18 @@ export interface TimelineEventDetails {
   readonly artifacts: readonly string[];
 }
 
+export interface AttachmentDetails {
+  readonly name: string;
+  readonly path: string;
+}
+
 export interface UserStoryWorkflowDetails {
   readonly usId: string;
   readonly title: string;
   readonly category: string;
   readonly status: string;
   readonly currentPhase: string;
+  readonly directoryPath: string;
   readonly workBranch: string | null;
   readonly mainArtifactPath: string;
   readonly timelinePath: string;
@@ -97,6 +105,8 @@ export interface UserStoryWorkflowDetails {
   readonly phases: readonly WorkflowPhaseDetails[];
   readonly controls: CurrentPhaseControls;
   readonly events: readonly TimelineEventDetails[];
+  readonly attachmentsDirectoryPath: string;
+  readonly attachments: readonly AttachmentDetails[];
 }
 
 export interface SpecForgeBackendClient {

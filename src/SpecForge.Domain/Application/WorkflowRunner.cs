@@ -52,6 +52,7 @@ public sealed class WorkflowRunner
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
         Directory.CreateDirectory(paths.RootDirectory);
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
+        Directory.CreateDirectory(paths.AttachmentsDirectoryPath);
 
         var workflowRun = new WorkflowRun(usId, ComputeSourceHash(sourceText), WorkflowDefinition.CanonicalV1);
 
@@ -242,7 +243,8 @@ public sealed class WorkflowRunner
             workflowRun.UsId,
             workflowRun.CurrentPhase,
             paths.MainArtifactPath,
-            BuildPreviousArtifactMap(paths, workflowRun.CurrentPhase));
+            BuildPreviousArtifactMap(paths, workflowRun.CurrentPhase),
+            BuildAttachmentPaths(paths));
         var result = await phaseExecutionProvider.ExecuteAsync(executionContext, cancellationToken);
 
         await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
@@ -267,6 +269,18 @@ public sealed class WorkflowRunner
         }
 
         return result;
+    }
+
+    private static IReadOnlyCollection<string> BuildAttachmentPaths(UserStoryFilePaths paths)
+    {
+        if (!Directory.Exists(paths.AttachmentsDirectoryPath))
+        {
+            return [];
+        }
+
+        return Directory.GetFiles(paths.AttachmentsDirectoryPath, "*", SearchOption.TopDirectoryOnly)
+            .OrderBy(static path => path, StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static string NextAvailableArtifactPath(UserStoryFilePaths paths, PhaseId phaseId)
