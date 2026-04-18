@@ -23,6 +23,7 @@ This repository consumes shared skills from `../ai-skills-shared`.
 ## Local Rules
 
 - In local development, runtime environment variables must come from the `.env` file referenced by `.vscode/launch.json`. Do not duplicate those variables in `launchSettings.json`, `tasks.json`, or tracked configuration files unless there is an exceptional and explicit need.
+- From this repository onward, each completed task or subtask must be closed with a functional git commit that maps clearly to the delivered change. The commit message must include the corresponding `done` outcome so the repository history can be traced back to the task checklist.
 
 ## Priority Order
 
