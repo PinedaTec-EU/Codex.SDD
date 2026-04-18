@@ -553,6 +553,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       outline: 2px solid rgba(114, 241, 184, 0.52);
       outline-offset: 2px;
     }
+    .phase-node.disabled.selected {
+      outline: 2px solid rgba(255, 255, 255, 0.28);
+      outline-offset: 2px;
+    }
     .phase-node.current {
       background: linear-gradient(180deg, rgba(24, 49, 82, 0.96), rgba(10, 20, 32, 0.98));
       border-color: rgba(92, 181, 255, 0.45);
