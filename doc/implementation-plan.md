@@ -119,8 +119,8 @@ Entregables:
 15. ✅ introducir categoría explícita de US con catálogo configurable del repo
 16. ✅ agrupar el explorer de VS Code por categoría de US
 17. ✅ introducir un proyecto mínimo de tests TypeScript para la extensión
-18. [ ] ampliar UX con graph view y detalle de fase más rico
-19. [ ] añadir editor/inspector de prompts más rico desde la extensión
+18. ✅ ampliar UX con graph view y detalle de fase más rico
+19. [ ] completar editor/inspector de prompts más rico desde la extensión
 20. [ ] enriquecer el ciclo de vida de ramas con integración Git/PR real
 
 ## Riesgos a vigilar
@@ -186,6 +186,7 @@ No bloquea el MVP:
 - [ ] workflows personalizables y perfiles avanzados de agentes
 - [ ] mostrar también US finalizadas mediante un switch explícito en la UI
 - [ ] añadir buscador de US/workflows sobre la vista lateral
+- [ ] enlace con herramientas de ticketing (Jira, etc)
 
 Subtarea recién resuelta:
 
@@ -216,6 +217,7 @@ Subtareas recién resueltas:
 - ✅ fijar que el foco inicial de la UX esté en las US activas; el histórico y la búsqueda quedan post-MVP
 - ✅ permitir adjuntar ficheros a una US desde la workflow view y abrirlos desde esa misma pantalla
 - ✅ exponer botones para abrir los prompts `execute` y `approve` de la fase seleccionada cuando existan
+- [ ] completar inspección/edición rica de prompts desde la extensión con diff o prompt efectivo visible
 
 Subtareas pendientes de cerrar antes de considerar el MVP completo:
 
