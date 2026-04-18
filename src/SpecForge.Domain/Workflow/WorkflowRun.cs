@@ -105,6 +105,8 @@ public sealed class WorkflowRun
                 $"Regression from '{CurrentPhase}' to '{targetPhase}' is not allowed.");
         }
 
+        approvedPhases.RemoveWhere(phase => phase >= targetPhase);
+
         CurrentPhase = targetPhase;
         Status = Definition.RequiresApproval(targetPhase)
             ? UserStoryStatus.WaitingUser

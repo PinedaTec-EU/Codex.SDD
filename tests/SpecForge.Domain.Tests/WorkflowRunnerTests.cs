@@ -61,6 +61,34 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal("main", loadedRun.Branch!.BaseBranch);
     }
 
+    [Fact]
+    public async Task RequestRegressionAsync_FromReviewToTechnicalDesign_PersistsStateAndTimeline()
+    {
+        var runner = new WorkflowRunner();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var result = await runner.RequestRegressionAsync(workspaceRoot, "US-0001", PhaseId.TechnicalDesign, "Review found a design gap");
+
+        Assert.Equal("technical-design", result.CurrentPhase);
+        Assert.Equal("waiting-user", result.Status);
+
+        var loadedRun = await new UserStoryFileStore().LoadAsync(
+            UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
+        Assert.Equal(PhaseId.TechnicalDesign, loadedRun.CurrentPhase);
+        Assert.False(loadedRun.IsPhaseApproved(PhaseId.TechnicalDesign));
+
+        var timelinePath = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
+        var timeline = await File.ReadAllTextAsync(timelinePath);
+        Assert.Contains("`phase_regressed`", timeline);
+        Assert.Contains("Review found a design gap", timeline);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(workspaceRoot))

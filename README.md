@@ -21,7 +21,7 @@ Implemented today:
 
 Not implemented yet:
 
-- real LLM-driven phase execution
+- safe restart-from-source workflow
 - full PR integration
 - rich VS Code phase details and graph UI
 
@@ -174,7 +174,7 @@ The extension currently provides:
 
 Current limitation:
 
-- the extension can initialize and open repo prompts, but it still does not provide a richer prompt editor, diffing, or effective prompt inspection UX
+- the extension can initialize repo prompts and request regressions, but it still does not provide a richer prompt editor, diffing, or effective prompt inspection UX
 
 ### Running the extension locally
 
@@ -224,13 +224,35 @@ Typical contents:
 - [x] refresh the explorer and open generated artifacts after workflow actions
 - [x] add approval and user-story detail actions to the extension
 - [x] add an OpenAI-compatible provider layer usable with OpenAI or Ollama
-- [ ] plug real providers/agents into phase execution
-- [ ] export versioned prompts per phase into `.specs/prompts/`
-- [ ] require repo prompt initialization before executing real providers
-- [ ] compose effective per-phase prompts from repo templates plus runtime context
+- [x] export versioned prompts per phase into `.specs/prompts/`
+- [x] require repo prompt initialization before executing real providers
+- [x] compose effective per-phase prompts from repo templates plus runtime context
+- [x] expose explicit phase regression through domain, MCP, and VS Code
+- [ ] implement safe restart from source and finalize branch lifecycle rules
 - [ ] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration
 - [ ] support customizable workflows and agent profiles
+
+## MVP Roadmap
+
+The current target is an MVP, not a feature-complete product.
+
+### MVP scope
+
+- [x] create and import user stories
+- [x] persist workflow state and artifacts under `.specs/`
+- [x] advance the canonical phase workflow with approvals
+- [x] expose the workflow through a local MCP backend
+- [x] support repo-initialized prompts and an OpenAI-compatible provider path
+- [x] support explicit regression to an earlier valid phase
+- [ ] support safe restart from the original source
+
+### Post-MVP
+
+- [ ] graph visualization and richer workflow observability
+- [ ] prompt diffing and effective prompt inspection UX
+- [ ] GitHub PR / issue integration
+- [ ] customizable workflows and agent profiles
 
 ## Development
 

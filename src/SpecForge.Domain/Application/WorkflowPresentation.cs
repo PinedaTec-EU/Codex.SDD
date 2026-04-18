@@ -25,4 +25,16 @@ public static class WorkflowPresentation
         UserStoryStatus.Completed => "completed",
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, null)
     };
+
+    public static PhaseId ParsePhaseSlug(string phaseSlug) => phaseSlug switch
+    {
+        "capture" => PhaseId.Capture,
+        "refinement" => PhaseId.Refinement,
+        "technical-design" => PhaseId.TechnicalDesign,
+        "implementation" => PhaseId.Implementation,
+        "review" => PhaseId.Review,
+        "release-approval" => PhaseId.ReleaseApproval,
+        "pr-preparation" => PhaseId.PrPreparation,
+        _ => throw new ArgumentOutOfRangeException(nameof(phaseSlug), phaseSlug, "Unknown phase slug.")
+    };
 }

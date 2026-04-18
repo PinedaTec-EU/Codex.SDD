@@ -114,6 +114,11 @@ static async Task<JsonNode> HandleToolCallAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
             baseBranch: GetOptional(arguments, "baseBranch")),
+        "request_regression" => await applicationService.RequestRegressionAsync(
+            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+            usId: GetRequired(arguments, "usId"),
+            targetPhase: GetRequired(arguments, "targetPhase"),
+            reason: GetOptional(arguments, "reason")),
         _ => throw new InvalidOperationException($"Tool '{toolName}' is not supported.")
     };
 
@@ -146,7 +151,8 @@ static JsonObject BuildToolsList()
             Tool("get_user_story_summary", "Get the operational summary of a user story."),
             Tool("get_current_phase", "Get the current phase and advanceability of a user story."),
             Tool("generate_next_phase", "Advance to the next linear phase and generate its artifact."),
-            Tool("approve_phase", "Approve the current phase and create the work branch if required.")
+            Tool("approve_phase", "Approve the current phase and create the work branch if required."),
+            Tool("request_regression", "Regress a user story to an earlier valid phase.")
         }
     };
 }

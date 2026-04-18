@@ -80,6 +80,38 @@ public sealed class WorkflowRunner
         }
     }
 
+    public async Task<RequestRegressionResult> RequestRegressionAsync(
+        string workspaceRoot,
+        string usId,
+        PhaseId targetPhase,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        workflowRun.RequestRegression(targetPhase);
+        await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+
+        var summary = $"Workflow regressed to phase `{WorkflowPresentation.ToPhaseSlug(targetPhase)}`.";
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            summary = $"{summary} Reason: {reason.Trim()}.";
+        }
+
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "phase_regressed",
+            "user",
+            workflowRun.CurrentPhase,
+            summary,
+            cancellationToken);
+
+        return new RequestRegressionResult(
+            workflowRun.UsId,
+            WorkflowPresentation.ToStatusSlug(workflowRun.Status),
+            WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase));
+    }
+
     public async Task<ContinuePhaseResult> ContinuePhaseAsync(
         string workspaceRoot,
         string usId,

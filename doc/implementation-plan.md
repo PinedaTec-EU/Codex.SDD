@@ -37,7 +37,7 @@ Entregables:
 - ✅ `generate_next_phase`
 - ✅ `approve_phase`
 - ✅ `request_regression`
-- ✅ `restart_user_story_from_source`
+- [ ] `restart_user_story_from_source`
 - ✅ integración de creación de rama dentro de `approve_phase`
 
 ### ✅ Paso 4. Implementar el núcleo del workflow engine
@@ -98,7 +98,7 @@ Entregables:
 - ✅ detalle de fase seleccionada
 - ✅ acciones contextuales por fase
 - ✅ feedback claro de errores y bloqueos
-- ✅ base para futura graph view del workflow
+- ✅ base mínima para futura graph view del workflow
 
 ## Orden recomendado después de esta US
 
@@ -113,8 +113,10 @@ Entregables:
 9. ✅ inicializar el repo con prompts obligatorios y `config.yaml`
 10. ✅ exigir prompts requeridos en la ejecución de fases reales
 11. ✅ componer prompts efectivos por fase usando contexto runtime
-12. [ ] ampliar UX con graph view y detalle de fase más rico
-13. ✅ añadir UX de inicialización y edición rápida de prompts desde la extensión
+12. ✅ exponer `request_regression` de punta a punta en dominio, MCP y extensión
+13. [ ] implementar reinicio seguro desde fuente y estrategia de branch naming asociada
+14. [ ] ampliar UX con graph view y detalle de fase más rico
+15. [ ] añadir editor/inspector de prompts más rico desde la extensión
 
 ## Riesgos a vigilar
 
@@ -140,7 +142,31 @@ La fase 5 queda resuelta en su alcance mínimo:
 3. la ejecución de fases ya genera artefactos reales derivados del estado
 4. la UX mínima ya ofrece detalle, acciones contextuales y feedback básico
 
-El siguiente salto ya no es introducir MCP, porque ya existe un servidor MCP real mínimo. El bloque de providers reales ya está operativo con prompts versionados por repo. Lo siguiente es ampliar la UX, hacer más rica la observabilidad del workflow y profundizar las integraciones laterales.
+El siguiente salto no es introducir más infraestructura base. El backend MCP mínimo ya existe y el provider OpenAI-compatible con prompts versionados por repo ya está operativo. Lo pendiente para alcanzar un MVP utilizable es cerrar los huecos del workflow explícito y hacer visible ese alcance real en la documentación y la UX.
+
+## Roadmap MVP
+
+Objetivo:
+
+- entregar un MVP funcional para ejecutar un workflow SDD secuencial dentro de VS Code con estado persistido, checkpoints humanos y backend local interoperable
+
+Incluye en el MVP:
+
+- ✅ creación e importación de US
+- ✅ avance lineal de fases con aprobación donde aplica
+- ✅ persistencia local en `.specs/`
+- ✅ backend MCP mínimo
+- ✅ prompts versionados por repo y provider OpenAI-compatible
+- ✅ regresión explícita de fase desde UI y backend
+- [ ] reinicio seguro de una US desde la fuente
+- ✅ roadmap operativo coherente entre `doc/` y `README`
+
+No bloquea el MVP:
+
+- [ ] graph view del workflow
+- [ ] panel de detalle rico con diff, timeline navegable o inspección de prompt efectivo
+- [ ] integración real con PR/issues
+- [ ] workflows personalizables y perfiles avanzados de agentes
 
 Subtarea recién resuelta:
 
@@ -153,6 +179,13 @@ Subtareas recién resueltas:
 - ✅ hacer que el engine falle si el repo no está inicializado o faltan prompts requeridos
 - ✅ cargar y componer el prompt efectivo desde artefactos versionados del repo
 - ✅ usar ese prompt efectivo desde el provider OpenAI-compatible para OpenAI y Ollama
+- ✅ exponer `request_regression` en dominio, aplicación, MCP y extensión
+- ✅ invalidar aprobaciones obsoletas al regresar a una fase anterior
+
+Subtareas pendientes de cerrar antes de considerar el MVP completo:
+
+- [ ] implementar `restart_user_story_from_source`
+- [ ] cerrar la decisión de branch naming y ciclo de vida de `branch.yaml`
 
 Artefactos de persistencia ya concretados o en concreción:
 

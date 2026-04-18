@@ -36,6 +36,30 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         Assert.Equal("active", summary.Status);
     }
 
+    [Fact]
+    public async Task RequestRegressionAsync_UsesPhaseSlugAndReturnsUpdatedState()
+    {
+        var runner = new WorkflowRunner();
+        var applicationService = new SpecForgeApplicationService();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "Initial source");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var result = await applicationService.RequestRegressionAsync(
+            workspaceRoot,
+            "US-0001",
+            "technical-design",
+            "Review requested regression");
+
+        Assert.Equal("US-0001", result.UsId);
+        Assert.Equal("technical-design", result.CurrentPhase);
+        Assert.Equal("waiting-user", result.Status);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(workspaceRoot))

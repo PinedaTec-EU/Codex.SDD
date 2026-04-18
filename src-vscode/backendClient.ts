@@ -32,6 +32,12 @@ export interface InitializeRepoPromptsResult {
   readonly skippedFiles: readonly string[];
 }
 
+export interface RequestRegressionResult {
+  readonly usId: string;
+  readonly currentPhase: string;
+  readonly status: string;
+}
+
 export interface SpecForgeBackendClient {
   listUserStories(): Promise<readonly UserStorySummary[]>;
   getUserStorySummary(usId: string): Promise<UserStorySummary>;
@@ -40,6 +46,7 @@ export interface SpecForgeBackendClient {
   initializeRepoPrompts(overwrite?: boolean): Promise<InitializeRepoPromptsResult>;
   continuePhase(usId: string): Promise<ContinuePhaseResult>;
   approveCurrentPhase(usId: string, baseBranch?: string): Promise<UserStorySummary>;
+  requestRegression(usId: string, targetPhase: string, reason?: string): Promise<RequestRegressionResult>;
   dispose(): void;
 }
 
@@ -143,6 +150,20 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     }
 
     return this.callTool<UserStorySummary>("approve_phase", argumentsPayload);
+  }
+
+  public async requestRegression(usId: string, targetPhase: string, reason?: string): Promise<RequestRegressionResult> {
+    const argumentsPayload: Record<string, string> = {
+      workspaceRoot: this.workspaceRoot,
+      usId,
+      targetPhase
+    };
+
+    if (reason && reason.trim().length > 0) {
+      argumentsPayload.reason = reason;
+    }
+
+    return this.callTool<RequestRegressionResult>("request_regression", argumentsPayload);
   }
 
   public dispose(): void {

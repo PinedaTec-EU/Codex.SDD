@@ -9,6 +9,10 @@ import {
 
 export type UserStoryTreeItemKind = "userStory" | "repoPromptSetup" | "repoPromptTemplates";
 const backendClients = new Map<string, SpecForgeBackendClient>();
+const REGRESSION_TARGETS: Record<string, readonly string[]> = {
+  review: ["implementation", "technical-design", "refinement"],
+  "release-approval": ["implementation", "technical-design", "refinement"]
+};
 
 export class UserStoryTreeItem extends vscode.TreeItem {
   public readonly contextValue: UserStoryTreeItemKind = "userStory";
@@ -252,6 +256,62 @@ export async function approveCurrentPhase(summary?: UserStorySummary): Promise<v
     const updatedSummary = await getBackendClient(workspaceRoot).approveCurrentPhase(summary.usId, baseBranch);
     void vscode.window.showInformationMessage(
       `${updatedSummary.usId} approved. Current phase remains ${updatedSummary.currentPhase} until you continue the workflow.`
+    );
+  } catch (error) {
+    void vscode.window.showErrorMessage(asErrorMessage(error));
+  }
+}
+
+export async function requestRegression(summary?: UserStorySummary): Promise<void> {
+  if (!summary) {
+    void vscode.window.showInformationMessage("Select a user story first.");
+    return;
+  }
+
+  const workspaceRoot = getWorkspaceRoot();
+  if (!workspaceRoot) {
+    void vscode.window.showWarningMessage("Open a workspace folder before requesting a regression.");
+    return;
+  }
+
+  const allowedTargets = REGRESSION_TARGETS[summary.currentPhase] ?? [];
+  if (allowedTargets.length === 0) {
+    void vscode.window.showWarningMessage(
+      `${summary.currentPhase} does not currently allow explicit regression from the extension.`
+    );
+    return;
+  }
+
+  const targetPhase = await vscode.window.showQuickPick(
+    allowedTargets.map((phase) => ({
+      label: phase,
+      description: `Regress ${summary.usId} to ${phase}`
+    })),
+    {
+      ignoreFocusOut: true,
+      title: `Request regression for ${summary.usId}`,
+      placeHolder: "Choose the target phase"
+    }
+  );
+
+  if (!targetPhase) {
+    return;
+  }
+
+  const reason = await vscode.window.showInputBox({
+    prompt: "Reason for regression",
+    ignoreFocusOut: true,
+    validateInput: (value) => value.trim().length > 0 ? undefined : "Reason is required."
+  });
+
+  if (!reason) {
+    return;
+  }
+
+  try {
+    const result = await getBackendClient(workspaceRoot).requestRegression(summary.usId, targetPhase.label, reason);
+    void vscode.window.showInformationMessage(
+      `${summary.usId} regressed to ${result.currentPhase} with status ${result.status}.`
     );
   } catch (error) {
     void vscode.window.showErrorMessage(asErrorMessage(error));

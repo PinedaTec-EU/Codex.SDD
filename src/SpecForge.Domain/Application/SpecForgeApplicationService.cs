@@ -151,6 +151,17 @@ public sealed class SpecForgeApplicationService
         return new ApprovalResult(summary.UsId, summary.Status, summary.CurrentPhase, baseBranch, summary.WorkBranch);
     }
 
+    public Task<RequestRegressionResult> RequestRegressionAsync(
+        string workspaceRoot,
+        string usId,
+        string targetPhase,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        var phaseId = WorkflowPresentation.ParsePhaseSlug(targetPhase);
+        return workflowRunner.RequestRegressionAsync(workspaceRoot, usId, phaseId, reason, cancellationToken);
+    }
+
     private static async Task<string> ReadTitleAsync(string filePath, CancellationToken cancellationToken)
     {
         var lines = await File.ReadAllLinesAsync(filePath, cancellationToken);

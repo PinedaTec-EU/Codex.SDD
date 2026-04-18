@@ -77,6 +77,7 @@ public sealed class WorkflowRunTests
 
         Assert.Equal(PhaseId.TechnicalDesign, run.CurrentPhase);
         Assert.Equal(UserStoryStatus.WaitingUser, run.Status);
+        Assert.False(run.IsPhaseApproved(PhaseId.TechnicalDesign));
     }
 
     [Fact]
@@ -88,6 +89,19 @@ public sealed class WorkflowRunTests
         var act = () => run.RequestRegression(PhaseId.Refinement);
 
         Assert.Throws<WorkflowDomainException>(act);
+    }
+
+    [Fact]
+    public void RequestRegression_ClearsApprovalsFromTargetPhaseOnward()
+    {
+        var run = CreateRun();
+        AdvanceToReleaseApproval(run);
+
+        run.RequestRegression(PhaseId.Refinement);
+
+        Assert.False(run.IsPhaseApproved(PhaseId.Refinement));
+        Assert.False(run.IsPhaseApproved(PhaseId.TechnicalDesign));
+        Assert.Equal(UserStoryStatus.WaitingUser, run.Status);
     }
 
     private static WorkflowRun CreateRun()
@@ -107,6 +121,12 @@ public sealed class WorkflowRunTests
     private static void AdvanceToReview(WorkflowRun run)
     {
         AdvanceToImplementation(run);
+        run.GenerateNextPhase();
+    }
+
+    private static void AdvanceToReleaseApproval(WorkflowRun run)
+    {
+        AdvanceToReview(run);
         run.GenerateNextPhase();
     }
 }

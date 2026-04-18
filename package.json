@@ -21,6 +21,7 @@
     "onCommand:specForge.openMainArtifact",
     "onCommand:specForge.continuePhase",
     "onCommand:specForge.approveCurrentPhase",
+    "onCommand:specForge.requestRegression",
     "onCommand:specForge.showUserStoryDetails"
   ],
   "main": "./dist/extension.js",
@@ -74,6 +75,10 @@
       {
         "command": "specForge.approveCurrentPhase",
         "title": "Approve Current Phase"
+      },
+      {
+        "command": "specForge.requestRegression",
+        "title": "Request Regression"
       },
       {
         "command": "specForge.showUserStoryDetails",
@@ -133,6 +138,11 @@
           "command": "specForge.approveCurrentPhase",
           "when": "view == specForge.userStories && viewItem == specForge.userStory",
           "group": "inline"
+        },
+        {
+          "command": "specForge.requestRegression",
+          "when": "view == specForge.userStories && viewItem == specForge.userStory",
+          "group": "navigation"
         },
         {
           "command": "specForge.showUserStoryDetails",
