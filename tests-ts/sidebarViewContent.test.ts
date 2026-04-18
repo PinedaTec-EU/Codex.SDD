@@ -15,9 +15,9 @@ test("buildSidebarHtml shows the bootstrap block when prompts are missing before
 
   assert.match(html, /Initialize prompts before the first user story/);
   assert.match(html, /Bootstrap Prompts/);
-  assert.match(html, /aria-label="Initialize repo prompts"/);
-  assert.match(html, /aria-label="Initialize repo prompts before creating a user story"/);
-  assert.match(html, /data-command="showCreateForm"[\s\S]*disabled/);
+  assert.doesNotMatch(html, /aria-label="Initialize repo prompts"/);
+  assert.doesNotMatch(html, /data-command="showCreateForm"/);
+  assert.doesNotMatch(html, /Workflow backlog/);
 });
 
 test("buildSidebarHtml shows a single prominent create action when prompts are initialized and there are no user stories", () => {
@@ -33,8 +33,8 @@ test("buildSidebarHtml shows a single prominent create action when prompts are i
 
   assert.match(html, /Create your first user story/);
   assert.match(html, /Create User Story/);
-  assert.match(html, /aria-label="Reinitialize repo prompts"/);
-  assert.match(html, /aria-label="Create new user story"/);
+  assert.doesNotMatch(html, /aria-label="Reinitialize repo prompts"/);
+  assert.doesNotMatch(html, /aria-label="Create new user story"/);
   assert.doesNotMatch(html, /Workflow backlog/);
 });
 

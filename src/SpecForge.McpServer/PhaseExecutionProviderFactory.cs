@@ -1,5 +1,6 @@
 using SpecForge.Domain.Application;
 using SpecForge.OpenAICompatible;
+using System.Net;
 
 namespace SpecForge.McpServer;
 
@@ -29,7 +30,9 @@ internal static class PhaseExecutionProviderFactory
     private static IPhaseExecutionProvider CreateOpenAiCompatibleProvider()
     {
         var baseUrl = GetRequiredEnvironmentVariable(BaseUrlEnvVar);
-        var apiKey = GetRequiredEnvironmentVariable(ApiKeyEnvVar);
+        var apiKey = IsLocalOpenAiCompatibleEndpoint(baseUrl)
+            ? Environment.GetEnvironmentVariable(ApiKeyEnvVar) ?? string.Empty
+            : GetRequiredEnvironmentVariable(ApiKeyEnvVar);
         var model = GetRequiredEnvironmentVariable(ModelEnvVar);
         var systemPrompt = Environment.GetEnvironmentVariable(SystemPromptEnvVar) ??
                            "You generate markdown artifacts for SpecForge workflow phases. Return only markdown.";
@@ -52,5 +55,18 @@ internal static class PhaseExecutionProviderFactory
         }
 
         return value;
+    }
+
+    private static bool IsLocalOpenAiCompatibleEndpoint(string baseUrl)
+    {
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var parsed))
+        {
+            return false;
+        }
+
+        return parsed.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+               || parsed.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+               || parsed.Host.Equals("0.0.0.0", StringComparison.OrdinalIgnoreCase)
+               || parsed.Host.Equals(IPAddress.IPv6Loopback.ToString(), StringComparison.OrdinalIgnoreCase);
     }
 }

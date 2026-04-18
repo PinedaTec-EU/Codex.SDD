@@ -33,7 +33,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             throw new ArgumentException("BaseUrl is required.", nameof(options));
         }
 
-        if (string.IsNullOrWhiteSpace(options.ApiKey))
+        if (RequiresApiKey(options.BaseUrl) && string.IsNullOrWhiteSpace(options.ApiKey))
         {
             throw new ArgumentException("ApiKey is required.", nameof(options));
         }
@@ -108,7 +108,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             Content = new StringContent(requestBody, Encoding.UTF8, "application/json")
         };
 
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.ApiKey);
+        if (!string.IsNullOrWhiteSpace(options.ApiKey))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.ApiKey);
+        }
+
         return request;
     }
 
@@ -196,6 +200,19 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine("- Return only the markdown artifact for the current phase.");
 
         return new EffectivePrompt(systemPrompt, builder.ToString().Trim());
+    }
+
+    private static bool RequiresApiKey(string baseUrl)
+    {
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var parsed))
+        {
+            return true;
+        }
+
+        return !parsed.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+               && !parsed.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+               && !parsed.Host.Equals("0.0.0.0", StringComparison.OrdinalIgnoreCase)
+               && !parsed.Host.Equals("::1", StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed record EffectivePrompt(string SystemPrompt, string UserPrompt);

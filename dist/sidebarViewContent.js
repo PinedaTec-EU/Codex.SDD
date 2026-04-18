@@ -14,17 +14,21 @@ function buildSidebarHtml(model) {
     const promptsBootstrapMarkup = !model.promptsInitialized
         ? buildPromptsBootstrapMarkup(model.userStories.length === 0)
         : "";
-    if (model.userStories.length === 0 && !model.showCreateForm && model.promptsInitialized) {
+    if (model.userStories.length === 0 && !model.showCreateForm && !model.promptsInitialized) {
         return wrapHtml(`
       ${buildSettingsWarningMarkup(model)}
       ${promptsBootstrapMarkup}
+    `);
+    }
+    if (model.userStories.length === 0 && !model.showCreateForm && model.promptsInitialized) {
+        return wrapHtml(`
+      ${buildSettingsWarningMarkup(model)}
       <section class="empty-state hero">
         <div class="hero-header">
           <div>
             <p class="eyebrow">SpecForge.AI</p>
             <h1>Create your first user story</h1>
           </div>
-          ${buildCompactActions(model)}
         </div>
         <p class="copy">No faded text-buttons, no scattered prompts. Start here and the sidebar opens the full intake form in place.</p>
         <button class="primary-action" data-command="showCreateForm">Create User Story</button>

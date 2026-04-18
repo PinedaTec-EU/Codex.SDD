@@ -77,6 +77,46 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_LocalEndpointWithoutApiKey_OmitsAuthorizationHeader()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var handler = new CapturingFakeHttpMessageHandler();
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            new OpenAiCompatibleProviderOptions(
+                BaseUrl: "http://localhost:11434/v1",
+                ApiKey: string.Empty,
+                Model: "llama3.1"));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Refinement,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            AttachmentPaths: []);
+
+        var result = await provider.ExecuteAsync(context);
+
+        Assert.Equal("openai-compatible", result.ExecutionKind);
+        Assert.Null(handler.LastRequest!.Headers.Authorization);
+    }
+
+    [Fact]
+    public void Constructor_RemoteEndpointWithoutApiKey_Throws()
+    {
+        var httpClient = new HttpClient(new CapturingFakeHttpMessageHandler());
+
+        var error = Assert.Throws<ArgumentException>(() => new OpenAiCompatiblePhaseExecutionProvider(
+            httpClient,
+            new OpenAiCompatibleProviderOptions(
+                BaseUrl: "https://api.example.test/v1",
+                ApiKey: string.Empty,
+                Model: "gpt-test")));
+
+        Assert.Contains("ApiKey is required", error.Message);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WithoutInitializedPromptSet_ThrowsClearError()
     {
         Directory.CreateDirectory(Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001"));
