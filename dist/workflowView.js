@@ -6,15 +6,19 @@ const phaseNodeWidth = 220;
 const phaseNodeHeight = 116;
 const phaseActionOffsetX = 16;
 const phaseActionTopOffset = 18;
+const leftColumnX = 20;
+const rightColumnX = 400;
+const topRowY = 40;
+const rowSpacingY = 200;
 const desktopPhasePositions = {
-    "capture": { left: 18, top: 38 },
-    "clarification": { left: 392, top: 150 },
-    "refinement": { left: 392, top: 342 },
-    "technical-design": { left: 392, top: 552 },
-    "implementation": { left: 18, top: 562 },
-    "review": { left: 18, top: 752 },
-    "release-approval": { left: 392, top: 876 },
-    "pr-preparation": { left: 18, top: 992 }
+    "capture": { left: leftColumnX, top: topRowY },
+    "clarification": { left: rightColumnX, top: topRowY },
+    "refinement": { left: rightColumnX, top: topRowY + rowSpacingY },
+    "technical-design": { left: rightColumnX, top: topRowY + 2 * rowSpacingY },
+    "implementation": { left: leftColumnX, top: topRowY + 3 * rowSpacingY },
+    "review": { left: leftColumnX, top: topRowY + 4 * rowSpacingY },
+    "release-approval": { left: rightColumnX, top: topRowY + 5 * rowSpacingY },
+    "pr-preparation": { left: leftColumnX, top: topRowY + 6 * rowSpacingY }
 };
 const mobilePhasePositions = {
     "capture": { left: 0, top: 16 },
