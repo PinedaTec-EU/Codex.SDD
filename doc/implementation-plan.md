@@ -114,6 +114,7 @@ Entregables:
 10. ✅ exigir prompts requeridos en la ejecución de fases reales
 11. ✅ componer prompts efectivos por fase usando contexto runtime
 12. [ ] ampliar UX con graph view y detalle de fase más rico
+13. [ ] añadir UX de inicialización y edición rápida de prompts desde la extensión
 
 ## Riesgos a vigilar
 
@@ -140,6 +141,10 @@ La fase 5 queda resuelta en su alcance mínimo:
 4. la UX mínima ya ofrece detalle, acciones contextuales y feedback básico
 
 El siguiente salto ya no es introducir MCP, porque ya existe un servidor MCP real mínimo. El bloque de providers reales ya está operativo con prompts versionados por repo. Lo siguiente es ampliar la UX, hacer más rica la observabilidad del workflow y profundizar las integraciones laterales.
+
+Subtarea activa:
+
+- [ ] añadir en la extensión comandos y affordances para inicializar `.specs/prompts/`, detectar repos no inicializados y abrir los templates desde la UI
 
 Subtareas recién resueltas:
 
