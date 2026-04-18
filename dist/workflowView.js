@@ -2,6 +2,35 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildWorkflowHtml = buildWorkflowHtml;
 exports.escapeHtml = escapeHtml;
+const desktopGraphHeight = 1260;
+const mobileGraphHeight = 1360;
+const desktopPhasePositions = {
+    "capture": { left: 18, top: 38 },
+    "refinement": { left: 392, top: 142 },
+    "technical-design": { left: 392, top: 332 },
+    "implementation": { left: 18, top: 436 },
+    "review": { left: 18, top: 626 },
+    "release-approval": { left: 392, top: 730 },
+    "pr-preparation": { left: 18, top: 834 }
+};
+const mobilePhasePositions = {
+    "capture": { left: 0, top: 16 },
+    "refinement": { left: 176, top: 138 },
+    "technical-design": { left: 176, top: 338 },
+    "implementation": { left: 0, top: 538 },
+    "review": { left: 0, top: 738 },
+    "release-approval": { left: 176, top: 938 },
+    "pr-preparation": { left: 0, top: 1138 }
+};
+const phaseAnchorMap = buildPhaseAnchorMap(desktopPhasePositions);
+function buildPhasePositionCss(positions) {
+    return Object.entries(positions)
+        .map(([phaseId, position]) => `.phase-node.${phaseId} { left: ${position.left}px; top: ${position.top}px; }`)
+        .join("\n");
+}
+function buildPhaseAnchorMap(positions) {
+    return Object.fromEntries(Object.entries(positions).map(([phaseId, position]) => [phaseId, { x: position.left + 220, y: position.top + 58 }]));
+}
 function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
     const settingsWarning = !state.settingsConfigured && state.settingsMessage
@@ -56,9 +85,15 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         .map((target) => `<button data-command="regress" data-phase-id="${escapeHtmlAttribute(target)}">Regress to ${escapeHtml(target)}</button>`)
         .join("");
     const playbackButtons = `
-    <button data-command="play"${playbackState === "playing" || !state.settingsConfigured ? " disabled" : ""}>Play</button>
-    <button data-command="pause"${playbackState !== "playing" ? " disabled" : ""}>Pause</button>
-    <button data-command="stop"${playbackState === "idle" ? " disabled" : ""}>Stop</button>
+    <button class="icon-button icon-button--primary" data-command="play" aria-label="Play workflow"${playbackState === "playing" || !state.settingsConfigured ? " disabled" : ""}>
+      ${playIcon()}
+    </button>
+    <button class="icon-button" data-command="pause" aria-label="Pause workflow"${playbackState !== "playing" ? " disabled" : ""}>
+      ${pauseIcon()}
+    </button>
+    <button class="icon-button icon-button--danger" data-command="stop" aria-label="Stop workflow"${playbackState === "idle" ? " disabled" : ""}>
+      ${stopIcon()}
+    </button>
   `;
     const auditRows = workflow.events.length > 0
         ? workflow.events.map((event) => `
@@ -209,6 +244,34 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       justify-content: flex-end;
       max-width: 540px;
     }
+    .icon-button {
+      width: 58px;
+      height: 58px;
+      padding: 0;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .icon-button--primary {
+      width: 74px;
+      height: 74px;
+      box-shadow: 0 10px 28px rgba(31, 216, 155, 0.28);
+    }
+    .icon-button--danger {
+      background: linear-gradient(180deg, rgba(255, 139, 139, 0.2), rgba(40, 18, 18, 0.92));
+      border-color: rgba(255, 139, 139, 0.26);
+    }
+    .icon-button svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
+    }
+    .icon-button--primary svg {
+      width: 30px;
+      height: 30px;
+      margin-left: 2px;
+    }
     .control-strip button, .detail-actions button, .attachment-item, .settings-warning button {
       border: 1px solid rgba(114, 241, 184, 0.18);
       border-radius: 14px;
@@ -268,7 +331,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .graph-stage {
       position: relative;
-      min-height: 1080px;
+      min-height: ${desktopGraphHeight}px;
       z-index: 2;
     }
     .graph-links {
@@ -299,7 +362,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .phase-graph {
       position: relative;
-      min-height: 1080px;
+      min-height: ${desktopGraphHeight}px;
     }
     .phase-node {
       position: absolute;
@@ -346,13 +409,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       background: linear-gradient(180deg, rgba(22, 28, 38, 0.88), rgba(10, 14, 20, 0.96));
       opacity: 0.9;
     }
-    .phase-node.capture { left: 18px; top: 38px; }
-    .phase-node.refinement { left: 392px; top: 142px; }
-    .phase-node.technical-design { left: 392px; top: 286px; }
-    .phase-node.implementation { left: 18px; top: 430px; }
-    .phase-node.review { left: 18px; top: 566px; }
-    .phase-node.release-approval { left: 392px; top: 698px; }
-    .phase-node.pr-preparation { left: 18px; top: 830px; }
+    ${buildPhasePositionCss(desktopPhasePositions)}
     .phase-node-header {
       display: flex;
       justify-content: space-between;
@@ -530,7 +587,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         min-height: auto;
       }
       .graph-stage, .phase-graph {
-        min-height: 1080px;
+        min-height: ${desktopGraphHeight}px;
       }
     }
     @media (max-width: 760px) {
@@ -544,15 +601,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         width: 188px;
       }
       .graph-stage, .phase-graph {
-        min-height: 1180px;
+        min-height: ${mobileGraphHeight}px;
       }
-      .phase-node.capture { left: 0; top: 16px; }
-      .phase-node.refinement { left: 176px; top: 138px; }
-      .phase-node.technical-design { left: 176px; top: 282px; }
-      .phase-node.implementation { left: 0; top: 426px; }
-      .phase-node.review { left: 0; top: 562px; }
-      .phase-node.release-approval { left: 176px; top: 694px; }
-      .phase-node.pr-preparation { left: 0; top: 826px; }
+      ${buildPhasePositionCss(mobilePhasePositions)}
     }
   </style>
 </head>
@@ -574,11 +625,12 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         </div>
         <div class="control-strip">
           ${playbackButtons}
-          ${workflow.controls.canContinue ? `<button data-command="continue"${!state.settingsConfigured ? " disabled" : ""}>Continue</button>` : ""}
           ${workflow.controls.canApprove ? `<button data-command="approve">Approve</button>` : ""}
           ${workflow.controls.canRestartFromSource ? `<button data-command="restart">Restart</button>` : ""}
           ${regressionButtons}
-          <button data-command="openArtifact" data-path="${escapeHtmlAttribute(workflow.mainArtifactPath)}">Open US</button>
+          <button class="icon-button" data-command="openArtifact" data-path="${escapeHtmlAttribute(workflow.mainArtifactPath)}" aria-label="Open user story">
+            ${fileIcon()}
+          </button>
         </div>
       </div>
     </section>
@@ -662,7 +714,7 @@ function buildPhaseGraph(phases, selectedPhaseId) {
   `).join("");
     return `
     <div class="phase-graph" aria-label="Workflow graph">
-      <svg class="graph-links" viewBox="0 0 700 1000" preserveAspectRatio="none" aria-hidden="true">
+      <svg class="graph-links" viewBox="0 0 700 ${desktopGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
         ${links}
       </svg>
       ${nodes}
@@ -684,15 +736,34 @@ function graphPath(fromPhaseId, toPhaseId) {
     const controlOffset = Math.max(48, Math.abs(to.x - from.x) * 0.36);
     return `M ${from.x} ${from.y} C ${from.x + controlOffset} ${from.y}, ${to.x - controlOffset} ${to.y}, ${to.x} ${to.y}`;
 }
-const phaseAnchorMap = {
-    "capture": { x: 238, y: 96 },
-    "refinement": { x: 392, y: 200 },
-    "technical-design": { x: 392, y: 344 },
-    "implementation": { x: 238, y: 488 },
-    "review": { x: 238, y: 624 },
-    "release-approval": { x: 392, y: 756 },
-    "pr-preparation": { x: 238, y: 888 }
-};
+function playIcon() {
+    return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M8 5.14v13.72c0 .72.78 1.17 1.4.8l10.2-6.86a.94.94 0 0 0 0-1.6L9.4 4.34A.94.94 0 0 0 8 5.14Z"></path>
+    </svg>
+  `;
+}
+function pauseIcon() {
+    return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M7 5.5A1.5 1.5 0 0 1 8.5 4h1A1.5 1.5 0 0 1 11 5.5v13A1.5 1.5 0 0 1 9.5 20h-1A1.5 1.5 0 0 1 7 18.5v-13Zm6 0A1.5 1.5 0 0 1 14.5 4h1A1.5 1.5 0 0 1 17 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-1A1.5 1.5 0 0 1 13 18.5v-13Z"></path>
+    </svg>
+  `;
+}
+function stopIcon() {
+    return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M7 7.5A1.5 1.5 0 0 1 8.5 6h7A1.5 1.5 0 0 1 17 7.5v7a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 7 14.5v-7Z"></path>
+    </svg>
+  `;
+}
+function fileIcon() {
+    return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M7.5 3A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V9.2a2.5 2.5 0 0 0-.73-1.77l-3.7-3.7A2.5 2.5 0 0 0 12.8 3H7.5Zm5.3 1.75c.2 0 .39.08.53.22l3.7 3.7c.14.14.22.33.22.53v9.3c0 .41-.34.75-.75.75h-9a.75.75 0 0 1-.75-.75v-13c0-.41.34-.75.75-.75h5.3Zm-3.55 6.5h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1 0-1.5Zm0 3.5h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1 0-1.5Z"></path>
+    </svg>
+  `;
+}
 function escapeHtml(value) {
     return value
         .replaceAll("&", "&amp;")
