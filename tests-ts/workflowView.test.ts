@@ -62,6 +62,8 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /Workflow Constellation/);
   assert.match(html, /phase-graph/);
   assert.match(html, /phase-node refinement current selected/);
+  assert.match(html, /currentFlow/);
+  assert.match(html, /currentPulse/);
   assert.match(html, /Generated refinement artifact\./);
   assert.match(html, /## Refinement/);
   assert.match(html, /Open Artifact/);

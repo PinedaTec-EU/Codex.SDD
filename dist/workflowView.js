@@ -216,12 +216,15 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       stroke-width: 4;
       stroke-linecap: round;
       filter: drop-shadow(0 0 12px rgba(114, 241, 184, 0.24));
+      transition: stroke 180ms ease, opacity 180ms ease;
     }
     .graph-links path.completed {
       stroke: rgba(114, 241, 184, 0.72);
     }
     .graph-links path.current {
       stroke: rgba(92, 181, 255, 0.92);
+      stroke-dasharray: 16 12;
+      animation: currentFlow 1.8s linear infinite;
     }
     .graph-links path.pending {
       stroke: rgba(255, 255, 255, 0.1);
@@ -244,6 +247,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       box-shadow: 0 18px 28px rgba(0, 0, 0, 0.24);
       transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
       overflow: hidden;
+      animation: nodeRise 420ms ease both;
     }
     .phase-node::before {
       content: "";
@@ -264,6 +268,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       background: linear-gradient(180deg, rgba(24, 49, 82, 0.96), rgba(10, 20, 32, 0.98));
       border-color: rgba(92, 181, 255, 0.45);
       box-shadow: 0 20px 34px rgba(48, 120, 255, 0.16);
+      animation: nodeRise 420ms ease both, currentPulse 2.8s ease-in-out infinite;
     }
     .phase-node.completed {
       background: linear-gradient(180deg, rgba(18, 44, 34, 0.96), rgba(10, 20, 17, 0.98));
@@ -351,6 +356,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       background: rgba(92, 181, 255, 0.14);
       color: #90d2ff;
     }
+    .phase-node.selected .phase-index {
+      box-shadow: 0 0 0 8px rgba(114, 241, 184, 0.08);
+    }
     .detail-panel {
       padding: 22px;
       display: grid;
@@ -403,6 +411,28 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .muted {
       opacity: 0.7;
+    }
+    @keyframes currentFlow {
+      from { stroke-dashoffset: 0; }
+      to { stroke-dashoffset: -56; }
+    }
+    @keyframes currentPulse {
+      0%, 100% {
+        box-shadow: 0 20px 34px rgba(48, 120, 255, 0.16), 0 0 0 0 rgba(92, 181, 255, 0.12);
+      }
+      50% {
+        box-shadow: 0 24px 42px rgba(48, 120, 255, 0.22), 0 0 0 12px rgba(92, 181, 255, 0.04);
+      }
+    }
+    @keyframes nodeRise {
+      from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.985);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
     }
     @media (max-width: 1160px) {
       .layout {
@@ -532,7 +562,7 @@ function buildPhaseGraph(phases, selectedPhaseId) {
   `).join("");
     return `
     <div class="phase-graph" aria-label="Workflow graph">
-      <svg class="graph-links" viewBox="0 0 700 640" preserveAspectRatio="none">
+      <svg class="graph-links" viewBox="0 0 700 640" preserveAspectRatio="none" aria-hidden="true">
         ${links}
       </svg>
       ${nodes}
