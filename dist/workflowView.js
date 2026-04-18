@@ -4,6 +4,19 @@ exports.buildWorkflowHtml = buildWorkflowHtml;
 exports.escapeHtml = escapeHtml;
 function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
+    const settingsWarning = !state.settingsConfigured && state.settingsMessage
+        ? `
+      <section class="settings-warning panel">
+        <div class="settings-warning__icon" aria-hidden="true">⚠</div>
+        <div class="settings-warning__content">
+          <p class="eyebrow warning">Configuration Required</p>
+          <h2>SpecForge.AI settings are incomplete</h2>
+          <p class="panel-copy warning-copy">${escapeHtml(state.settingsMessage)}</p>
+        </div>
+        <button data-command="openSettings">Configure Settings</button>
+      </section>
+    `
+        : "";
     const phaseGraph = buildPhaseGraph(workflow.phases, selectedPhase.phaseId);
     const artifactSection = selectedPhase.artifactPath
         ? `
@@ -43,7 +56,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         .map((target) => `<button data-command="regress" data-phase-id="${escapeHtmlAttribute(target)}">Regress to ${escapeHtml(target)}</button>`)
         .join("");
     const playbackButtons = `
-    <button data-command="play"${playbackState === "playing" ? " disabled" : ""}>Play</button>
+    <button data-command="play"${playbackState === "playing" || !state.settingsConfigured ? " disabled" : ""}>Play</button>
     <button data-command="pause"${playbackState !== "playing" ? " disabled" : ""}>Pause</button>
     <button data-command="stop"${playbackState === "idle" ? " disabled" : ""}>Stop</button>
   `;
@@ -157,6 +170,35 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       color: #7ff0a5;
       border-color: rgba(127, 240, 165, 0.24);
     }
+    .settings-warning {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 16px;
+      padding: 18px 20px;
+      border-color: rgba(255, 208, 84, 0.34);
+      background:
+        linear-gradient(180deg, rgba(66, 48, 10, 0.96), rgba(28, 22, 8, 0.98)),
+        rgba(12, 18, 24, 0.92);
+    }
+    .settings-warning__icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      background: rgba(255, 211, 92, 0.18);
+      color: #ffd75a;
+      display: grid;
+      place-items: center;
+      font-size: 1.35rem;
+      font-weight: 900;
+      box-shadow: 0 0 0 8px rgba(255, 211, 92, 0.06);
+    }
+    .warning-copy {
+      margin-bottom: 0;
+      opacity: 0.92;
+    }
+    .eyebrow.warning {
+      color: #ffd75a;
+    }
     .token.accent {
       background: rgba(114, 241, 184, 0.12);
       color: var(--accent);
@@ -167,7 +209,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       justify-content: flex-end;
       max-width: 540px;
     }
-    .control-strip button, .detail-actions button, .attachment-item {
+    .control-strip button, .detail-actions button, .attachment-item, .settings-warning button {
       border: 1px solid rgba(114, 241, 184, 0.18);
       border-radius: 14px;
       padding: 10px 14px;
@@ -177,7 +219,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
       transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
     }
-    .control-strip button:hover, .detail-actions button:hover, .attachment-item:hover {
+    .control-strip button:hover, .detail-actions button:hover, .attachment-item:hover, .settings-warning button:hover {
       transform: translateY(-1px);
       border-color: rgba(114, 241, 184, 0.38);
       background: linear-gradient(180deg, rgba(114, 241, 184, 0.24), rgba(18, 33, 28, 0.94));
@@ -516,6 +558,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
 </head>
 <body>
   <div class="shell">
+    ${settingsWarning}
     <section class="panel hero">
       <div class="hero-head">
         <div>
@@ -531,7 +574,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         </div>
         <div class="control-strip">
           ${playbackButtons}
-          ${workflow.controls.canContinue ? `<button data-command="continue">Continue</button>` : ""}
+          ${workflow.controls.canContinue ? `<button data-command="continue"${!state.settingsConfigured ? " disabled" : ""}>Continue</button>` : ""}
           ${workflow.controls.canApprove ? `<button data-command="approve">Approve</button>` : ""}
           ${workflow.controls.canRestartFromSource ? `<button data-command="restart">Restart</button>` : ""}
           ${regressionButtons}

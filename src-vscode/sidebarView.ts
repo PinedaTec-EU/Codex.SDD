@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import type { UserStorySummary } from "./backendClient";
+import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSettings";
 import { DEFAULT_USER_STORY_CATEGORIES, nextUserStoryIdFromSummaries, parseYamlSequence } from "./explorerModel";
 import { getOrCreateBackendClient } from "./specsExplorer";
 import { buildSidebarHtml } from "./sidebarViewContent";
@@ -10,6 +11,7 @@ type SidebarMessage =
   | { readonly command: "showCreateForm" }
   | { readonly command: "hideCreateForm" }
   | { readonly command: "initializeRepoPrompts" }
+  | { readonly command: "openSettings" }
   | { readonly command: "openPromptTemplates" }
   | { readonly command: "openWorkflow"; readonly usId?: string }
   | { readonly command: "submitCreateForm"; readonly title?: string; readonly kind?: string; readonly category?: string; readonly sourceText?: string };
@@ -64,6 +66,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         return;
       case "openPromptTemplates":
         await vscode.commands.executeCommand("specForge.openPromptTemplates");
+        return;
+      case "openSettings":
+        await openSpecForgeSettingsAsync();
         return;
       case "submitCreateForm":
         await this.submitCreateFormAsync(message);
@@ -142,10 +147,13 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
     const workspaceRoot = getWorkspaceRoot();
     if (!workspaceRoot) {
+      const settingsStatus = getSpecForgeSettingsStatus(getSpecForgeSettings());
       this.webviewView.webview.html = buildSidebarHtml({
         hasWorkspace: false,
         showCreateForm: false,
         promptsInitialized: false,
+        settingsConfigured: settingsStatus.executionConfigured,
+        settingsMessage: settingsStatus.message,
         categories: [],
         userStories: []
       });
@@ -158,10 +166,13 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       : [];
     const categories = await getUserStoryCategoriesAsync(workspaceRoot);
     const promptsInitialized = await hasInitializedRepoPromptsAsync(workspaceRoot);
+    const settingsStatus = getSpecForgeSettingsStatus(getSpecForgeSettings());
     this.webviewView.webview.html = buildSidebarHtml({
       hasWorkspace: true,
       showCreateForm: this.showCreateForm,
       promptsInitialized,
+      settingsConfigured: settingsStatus.executionConfigured,
+      settingsMessage: settingsStatus.message,
       categories,
       userStories
     });
@@ -179,6 +190,8 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         hasWorkspace: true,
         showCreateForm: false,
         promptsInitialized: false,
+        settingsConfigured: false,
+        settingsMessage: "SpecForge.AI settings could not be evaluated.",
         categories: [],
         userStories: []
       });
@@ -238,4 +251,8 @@ function asErrorMessage(error: unknown): string {
   }
 
   return "Unknown sidebar error.";
+}
+
+async function openSpecForgeSettingsAsync(): Promise<void> {
+  await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
 }

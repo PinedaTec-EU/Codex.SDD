@@ -37,6 +37,7 @@ exports.SidebarViewProvider = void 0;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const vscode = __importStar(require("vscode"));
+const extensionSettings_1 = require("./extensionSettings");
 const explorerModel_1 = require("./explorerModel");
 const specsExplorer_1 = require("./specsExplorer");
 const sidebarViewContent_1 = require("./sidebarViewContent");
@@ -85,6 +86,9 @@ class SidebarViewProvider {
                 return;
             case "openPromptTemplates":
                 await vscode.commands.executeCommand("specForge.openPromptTemplates");
+                return;
+            case "openSettings":
+                await openSpecForgeSettingsAsync();
                 return;
             case "submitCreateForm":
                 await this.submitCreateFormAsync(message);
@@ -146,10 +150,13 @@ class SidebarViewProvider {
         }
         const workspaceRoot = getWorkspaceRoot();
         if (!workspaceRoot) {
+            const settingsStatus = (0, extensionSettings_1.getSpecForgeSettingsStatus)((0, extensionSettings_1.getSpecForgeSettings)());
             this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
                 hasWorkspace: false,
                 showCreateForm: false,
                 promptsInitialized: false,
+                settingsConfigured: settingsStatus.executionConfigured,
+                settingsMessage: settingsStatus.message,
                 categories: [],
                 userStories: []
             });
@@ -161,10 +168,13 @@ class SidebarViewProvider {
             : [];
         const categories = await getUserStoryCategoriesAsync(workspaceRoot);
         const promptsInitialized = await hasInitializedRepoPromptsAsync(workspaceRoot);
+        const settingsStatus = (0, extensionSettings_1.getSpecForgeSettingsStatus)((0, extensionSettings_1.getSpecForgeSettings)());
         this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
             hasWorkspace: true,
             showCreateForm: this.showCreateForm,
             promptsInitialized,
+            settingsConfigured: settingsStatus.executionConfigured,
+            settingsMessage: settingsStatus.message,
             categories,
             userStories
         });
@@ -181,6 +191,8 @@ class SidebarViewProvider {
                 hasWorkspace: true,
                 showCreateForm: false,
                 promptsInitialized: false,
+                settingsConfigured: false,
+                settingsMessage: "SpecForge.AI settings could not be evaluated.",
                 categories: [],
                 userStories: []
             });
@@ -232,5 +244,8 @@ function asErrorMessage(error) {
         return error.message;
     }
     return "Unknown sidebar error.";
+}
+async function openSpecForgeSettingsAsync() {
+    await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
 }
 //# sourceMappingURL=sidebarView.js.map

@@ -13,6 +13,7 @@ function buildSidebarHtml(model) {
     }
     if (model.userStories.length === 0 && !model.showCreateForm) {
         return wrapHtml(`
+      ${buildSettingsWarningMarkup(model)}
       <section class="empty-state hero">
         <div class="hero-header">
           <div>
@@ -89,6 +90,7 @@ function buildSidebarHtml(model) {
       </section>
     `;
     return wrapHtml(`
+    ${buildSettingsWarningMarkup(model)}
     ${formMarkup}
     <section class="story-list">
       <div class="section-header">
@@ -101,6 +103,22 @@ function buildSidebarHtml(model) {
       ${storiesMarkup}
     </section>
   `);
+}
+function buildSettingsWarningMarkup(model) {
+    if (model.settingsConfigured || !model.settingsMessage) {
+        return "";
+    }
+    return `
+    <section class="settings-warning">
+      <div class="settings-warning__icon" aria-hidden="true">⚠</div>
+      <div class="settings-warning__content">
+        <p class="eyebrow warning">Configuration Required</p>
+        <h2>SpecForge.AI settings are incomplete</h2>
+        <p class="copy">${escapeHtml(model.settingsMessage)}</p>
+      </div>
+      <button class="warning-action" data-command="openSettings">Configure Settings</button>
+    </section>
+  `;
 }
 function buildPromptActionButton(promptsInitialized) {
     const title = promptsInitialized
@@ -142,6 +160,32 @@ function wrapHtml(content) {
       background: rgba(14, 20, 26, 0.92);
       box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
     }
+    .settings-warning {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 14px;
+      padding: 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 208, 84, 0.34);
+      background: linear-gradient(180deg, rgba(54, 42, 8, 0.96), rgba(31, 24, 7, 0.98));
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+      margin-bottom: 14px;
+    }
+    .settings-warning__icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: rgba(255, 211, 92, 0.2);
+      color: #ffd75a;
+      display: grid;
+      place-items: center;
+      font-size: 1.3rem;
+      font-weight: 900;
+      box-shadow: 0 0 0 8px rgba(255, 211, 92, 0.06);
+    }
+    .settings-warning__content {
+      min-width: 0;
+    }
     .hero-header {
       display: flex;
       justify-content: space-between;
@@ -162,6 +206,9 @@ function wrapHtml(content) {
       font-size: 0.72rem;
       color: #72f1b8;
     }
+    .eyebrow.warning {
+      color: #ffd75a;
+    }
     h1, h2 {
       margin: 0;
       line-height: 1.05;
@@ -181,7 +228,7 @@ function wrapHtml(content) {
     .empty-state.hero .primary-action {
       margin-top: 18px;
     }
-    .primary-action, .ghost-action, .story-card, .icon-action {
+    .primary-action, .ghost-action, .story-card, .icon-action, .warning-action {
       width: 100%;
       border-radius: 14px;
       border: 1px solid rgba(114, 241, 184, 0.18);
@@ -199,6 +246,14 @@ function wrapHtml(content) {
       padding: 10px 12px;
       background: rgba(255, 255, 255, 0.04);
       color: inherit;
+    }
+    .warning-action {
+      grid-column: 1 / -1;
+      padding: 12px 14px;
+      background: linear-gradient(180deg, rgba(255, 211, 92, 0.24), rgba(84, 58, 8, 0.96));
+      color: #fff6d8;
+      font-weight: 700;
+      margin-top: 4px;
     }
     .icon-action {
       width: 38px;

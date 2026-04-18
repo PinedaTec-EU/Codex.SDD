@@ -38,6 +38,7 @@ exports.refreshWorkflowViews = refreshWorkflowViews;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const vscode = __importStar(require("vscode"));
+const extensionSettings_1 = require("./extensionSettings");
 const workflowView_1 = require("./workflowView");
 const panels = new Map();
 async function openWorkflowView(workspaceRoot, summary, getBackendClient, callbacks) {
@@ -107,10 +108,13 @@ class WorkflowPanelController {
             ?? workflow.phases[0];
         this.selectedPhaseId = selectedPhase.phaseId;
         const selectedArtifactContent = await readArtifactContentAsync(selectedPhase.artifactPath);
+        const settingsStatus = (0, extensionSettings_1.getSpecForgeSettingsStatus)((0, extensionSettings_1.getSpecForgeSettings)());
         this.panel.title = `${workflow.usId} workflow`;
         this.panel.webview.html = (0, workflowView_1.buildWorkflowHtml)(workflow, {
             selectedPhaseId: this.selectedPhaseId,
-            selectedArtifactContent
+            selectedArtifactContent,
+            settingsConfigured: settingsStatus.executionConfigured,
+            settingsMessage: settingsStatus.message
         }, this.playbackState);
     }
     async handleMessageAsync(message) {
@@ -128,10 +132,17 @@ class WorkflowPanelController {
                     await openTextDocument(message.path);
                 }
                 return;
+            case "openSettings":
+                await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
+                return;
             case "attachFiles":
                 await this.attachFilesAsync();
                 return;
             case "continue":
+                if (!this.isExecutionConfigured()) {
+                    await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
+                    return;
+                }
                 await this.continueCurrentPhaseAsync();
                 return;
             case "approve":
@@ -146,6 +157,10 @@ class WorkflowPanelController {
                 }
                 return;
             case "play":
+                if (!this.isExecutionConfigured()) {
+                    await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
+                    return;
+                }
                 this.playbackState = "playing";
                 if (!this.autoplayPromise) {
                     this.autoplayPromise = this.runAutoplayAsync().finally(() => {
@@ -176,6 +191,9 @@ class WorkflowPanelController {
         };
         await this.callbacks.refreshExplorer();
         await this.refreshAsync();
+    }
+    isExecutionConfigured() {
+        return (0, extensionSettings_1.getSpecForgeSettingsStatus)((0, extensionSettings_1.getSpecForgeSettings)()).executionConfigured;
     }
     async attachFilesAsync() {
         const selection = await vscode.window.showOpenDialog({

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getSpecForgeSettings = getSpecForgeSettings;
 exports.readSpecForgeSettings = readSpecForgeSettings;
 exports.buildBackendEnvironment = buildBackendEnvironment;
+exports.getSpecForgeSettingsStatus = getSpecForgeSettingsStatus;
 function getSpecForgeSettings() {
     const vscode = require("vscode");
     return readSpecForgeSettings(vscode.workspace.getConfiguration("specForge"));
@@ -31,6 +32,29 @@ function buildBackendEnvironment(settings) {
         env.SPECFORGE_OPENAI_MODEL = settings.model;
     }
     return env;
+}
+function getSpecForgeSettingsStatus(settings) {
+    if (settings.provider === "deterministic") {
+        return {
+            executionConfigured: true,
+            message: null
+        };
+    }
+    const missingFields = [
+        settings.baseUrl ? null : "base URL",
+        settings.apiKey ? null : "API key",
+        settings.model ? null : "model"
+    ].filter((value) => value !== null);
+    if (settings.provider === "openai-compatible" && missingFields.length === 0) {
+        return {
+            executionConfigured: true,
+            message: null
+        };
+    }
+    return {
+        executionConfigured: false,
+        message: `SpecForge.AI is not configured for the current provider. Missing ${missingFields.join(", ")}.`
+    };
 }
 function normalizeOptional(value) {
     const trimmed = value?.trim();

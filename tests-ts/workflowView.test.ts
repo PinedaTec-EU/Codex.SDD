@@ -67,7 +67,9 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
     ]
   }, {
     selectedPhaseId: "refinement",
-    selectedArtifactContent: "## Refinement\nBody"
+    selectedArtifactContent: "## Refinement\nBody",
+    settingsConfigured: true,
+    settingsMessage: null
   }, "idle");
 
   assert.match(html, /US-0001 · Workflow view/);
@@ -83,4 +85,52 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /Open Approve Prompt/);
   assert.match(html, /Attach Files/);
   assert.match(html, /api-notes\.md/);
+});
+
+test("buildWorkflowHtml shows configuration warning and disables execution controls when settings are incomplete", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0001",
+    title: "Workflow view",
+    category: "workflow",
+    status: "active",
+    currentPhase: "capture",
+    directoryPath: "/tmp/us.US-0001",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [{
+      phaseId: "capture",
+      title: "Capture",
+      order: 0,
+      requiresApproval: false,
+      isApproved: false,
+      isCurrent: true,
+      state: "current",
+      artifactPath: null,
+      executePromptPath: null,
+      approvePromptPath: null
+    }],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "capture",
+    selectedArtifactContent: null,
+    settingsConfigured: false,
+    settingsMessage: "SpecForge.AI is not configured for the current provider. Missing base URL, API key, model."
+  }, "idle");
+
+  assert.match(html, /SpecForge\.AI settings are incomplete/);
+  assert.match(html, /Configure Settings/);
+  assert.match(html, /<button data-command="play" disabled>/);
+  assert.match(html, /<button data-command="continue" disabled>/);
 });

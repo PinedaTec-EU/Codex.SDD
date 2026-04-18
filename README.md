@@ -194,6 +194,7 @@ The extension currently provides:
 - explicit `feature` / `bug` / `hotfix` selection when creating or importing a US
 - explicit category selection from the repo category catalog when creating or importing a US
 - extension settings for provider, connection, API key, model, watcher, and attention notifications
+- visible configuration warnings with a direct link to extension settings when the active provider is not fully configured
 - auto-refresh watcher over `.specs/us/**` when enabled
 - lightweight TypeScript tests for explorer grouping, detail rendering, MCP client payload/parsing, and extension command wiring
 
@@ -202,6 +203,7 @@ Current limitation:
 - `stop` is best-effort: it cancels the local MCP backend process for the workspace, but it is not yet a durable job-control protocol
 - the extension still does not provide a richer prompt editor, diffing, or effective prompt inspection UX
 - the sidebar does not yet expose completed user stories through a visibility switch or search; for the MVP it stays focused on active work
+- workflow execution controls such as `Play` and `Continue` remain disabled until the active provider configuration is complete
 
 ### Workflow readability
 

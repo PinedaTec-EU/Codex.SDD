@@ -7,6 +7,8 @@ test("buildSidebarHtml shows a single prominent create action when there are no 
     hasWorkspace: true,
     showCreateForm: false,
     promptsInitialized: false,
+    settingsConfigured: true,
+    settingsMessage: null,
     categories: ["workflow", "ux"],
     userStories: []
   });
@@ -24,6 +26,8 @@ test("buildSidebarHtml renders the embedded creation form inside the sidebar", (
     hasWorkspace: true,
     showCreateForm: true,
     promptsInitialized: false,
+    settingsConfigured: true,
+    settingsMessage: null,
     categories: ["workflow", "ux"],
     userStories: []
   });
@@ -39,6 +43,8 @@ test("buildSidebarHtml exposes a compact prompt reset action when repo prompts a
     hasWorkspace: true,
     showCreateForm: false,
     promptsInitialized: true,
+    settingsConfigured: true,
+    settingsMessage: null,
     categories: ["workflow"],
     userStories: [{
       usId: "US-0001",
@@ -62,6 +68,8 @@ test("buildSidebarHtml wraps the create action in its own card when stories alre
     hasWorkspace: true,
     showCreateForm: false,
     promptsInitialized: false,
+    settingsConfigured: true,
+    settingsMessage: null,
     categories: ["workflow"],
     userStories: [{
       usId: "US-0001",
@@ -78,4 +86,21 @@ test("buildSidebarHtml wraps the create action in its own card when stories alre
   assert.match(html, /Start another user story/);
   assert.match(html, /Keep the backlog focused on active work/);
   assert.doesNotMatch(html, /compact-actions/);
+});
+
+test("buildSidebarHtml exposes a visible settings warning when execution is not configured", () => {
+  const html = buildSidebarHtml({
+    hasWorkspace: true,
+    showCreateForm: false,
+    promptsInitialized: false,
+    settingsConfigured: false,
+    settingsMessage: "SpecForge.AI is not configured for the current provider. Missing base URL, API key, model.",
+    categories: [],
+    userStories: []
+  });
+
+  assert.match(html, /Configuration Required/);
+  assert.match(html, /SpecForge\.AI settings are incomplete/);
+  assert.match(html, /Configure Settings/);
+  assert.match(html, /⚠/);
 });

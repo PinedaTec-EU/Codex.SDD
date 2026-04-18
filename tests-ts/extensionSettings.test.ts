@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildBackendEnvironment, readSpecForgeSettings } from "../src-vscode/extensionSettings";
+import { buildBackendEnvironment, getSpecForgeSettingsStatus, readSpecForgeSettings } from "../src-vscode/extensionSettings";
 
 test("readSpecForgeSettings normalizes optional strings and preserves toggles", () => {
   const values = new Map<string, unknown>([
@@ -41,5 +41,33 @@ test("buildBackendEnvironment maps extension settings to provider environment va
     SPECFORGE_OPENAI_BASE_URL: "https://api.example.test/v1",
     SPECFORGE_OPENAI_API_KEY: "secret",
     SPECFORGE_OPENAI_MODEL: "gpt-test"
+  });
+});
+
+test("getSpecForgeSettingsStatus requires connection fields for openai-compatible providers", () => {
+  assert.deepEqual(getSpecForgeSettingsStatus({
+    provider: "openai-compatible",
+    baseUrl: null,
+    apiKey: "secret",
+    model: null,
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true
+  }), {
+    executionConfigured: false,
+    message: "SpecForge.AI is not configured for the current provider. Missing base URL, model."
+  });
+});
+
+test("getSpecForgeSettingsStatus treats deterministic provider as configured", () => {
+  assert.deepEqual(getSpecForgeSettingsStatus({
+    provider: "deterministic",
+    baseUrl: null,
+    apiKey: null,
+    model: null,
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true
+  }), {
+    executionConfigured: true,
+    message: null
   });
 });

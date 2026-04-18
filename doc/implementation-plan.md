@@ -170,6 +170,7 @@ Incluye en el MVP:
 - ✅ proyecto mínimo de tests TypeScript para lógica pura de la extensión
 - ✅ vista principal de workflow abierta desde el explorer con detalle por fase y auditoría
 - ✅ settings de extensión para provider, conexión y watcher
+- ✅ warning visible en la extensión cuando falta configurar el provider activo, con acceso directo a settings
 - ✅ watcher opcional con notificaciones de atención y controles `play/pause/stop`
 - ✅ sidebar de extensión con CTA único en vacío y formulario embebido para crear US
 - ✅ distinción visible en la UI y en la documentación entre fases automáticas y checkpoints del usuario

@@ -7,6 +7,11 @@ export interface SpecForgeSettings {
   readonly attentionNotificationsEnabled: boolean;
 }
 
+export interface SpecForgeSettingsStatus {
+  readonly executionConfigured: boolean;
+  readonly message: string | null;
+}
+
 export function getSpecForgeSettings(): SpecForgeSettings {
   const vscode = require("vscode") as typeof import("vscode");
   return readSpecForgeSettings(vscode.workspace.getConfiguration("specForge"));
@@ -41,6 +46,33 @@ export function buildBackendEnvironment(settings: SpecForgeSettings): NodeJS.Pro
   }
 
   return env;
+}
+
+export function getSpecForgeSettingsStatus(settings: SpecForgeSettings): SpecForgeSettingsStatus {
+  if (settings.provider === "deterministic") {
+    return {
+      executionConfigured: true,
+      message: null
+    };
+  }
+
+  const missingFields = [
+    settings.baseUrl ? null : "base URL",
+    settings.apiKey ? null : "API key",
+    settings.model ? null : "model"
+  ].filter((value): value is string => value !== null);
+
+  if (settings.provider === "openai-compatible" && missingFields.length === 0) {
+    return {
+      executionConfigured: true,
+      message: null
+    };
+  }
+
+  return {
+    executionConfigured: false,
+    message: `SpecForge.AI is not configured for the current provider. Missing ${missingFields.join(", ")}.`
+  };
 }
 
 interface ConfigurationReader {
