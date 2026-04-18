@@ -41,12 +41,20 @@ exports.openPromptTemplates = openPromptTemplates;
 exports.openMainArtifact = openMainArtifact;
 exports.continuePhase = continuePhase;
 exports.approveCurrentPhase = approveCurrentPhase;
+exports.requestRegression = requestRegression;
+exports.restartUserStoryFromSource = restartUserStoryFromSource;
 exports.disposeBackendClients = disposeBackendClients;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const vscode = __importStar(require("vscode"));
 const backendClient_1 = require("./backendClient");
+const explorerModel_1 = require("./explorerModel");
 const backendClients = new Map();
+const REGRESSION_TARGETS = {
+    review: ["implementation", "technical-design", "refinement"],
+    "release-approval": ["implementation", "technical-design", "refinement"]
+};
+const USER_STORY_KINDS = ["feature", "bug", "hotfix"];
 class UserStoryTreeItem extends vscode.TreeItem {
     summary;
     contextValue = "userStory";
@@ -63,6 +71,17 @@ class UserStoryTreeItem extends vscode.TreeItem {
     }
 }
 exports.UserStoryTreeItem = UserStoryTreeItem;
+class UserStoryCategoryTreeItem extends vscode.TreeItem {
+    category;
+    contextValue = "userStoryCategory";
+    constructor(category, count) {
+        super(category, vscode.TreeItemCollapsibleState.Expanded);
+        this.category = category;
+        this.description = `${count} US`;
+        this.tooltip = `User stories in category ${category}`;
+        this.iconPath = new vscode.ThemeIcon("folder-library");
+    }
+}
 class RepoPromptSetupTreeItem extends vscode.TreeItem {
     contextValue = "repoPromptSetup";
     constructor() {
@@ -98,9 +117,19 @@ class SpecsExplorerProvider {
     getTreeItem(element) {
         return element;
     }
-    async getChildren() {
+    async getChildren(element) {
         const workspaceRoot = getWorkspaceRoot();
         if (!workspaceRoot) {
+            return [];
+        }
+        const summaries = await getBackendClient(workspaceRoot).listUserStories();
+        if (element instanceof UserStoryCategoryTreeItem) {
+            return summaries
+                .filter((summary) => (0, explorerModel_1.normalizeCategory)(summary.category) === element.category)
+                .sort(explorerModel_1.compareUserStories)
+                .map((summary) => new UserStoryTreeItem(summary));
+        }
+        if (element instanceof UserStoryTreeItem) {
             return [];
         }
         const items = [];
@@ -110,8 +139,20 @@ class SpecsExplorerProvider {
         else {
             items.push(new RepoPromptSetupTreeItem());
         }
-        const summaries = await getBackendClient(workspaceRoot).listUserStories();
-        items.push(...summaries.map((summary) => new UserStoryTreeItem(summary)));
+        const grouped = new Map();
+        for (const summary of summaries) {
+            const category = (0, explorerModel_1.normalizeCategory)(summary.category);
+            const bucket = grouped.get(category);
+            if (bucket) {
+                bucket.push(summary);
+            }
+            else {
+                grouped.set(category, [summary]);
+            }
+        }
+        for (const category of [...grouped.keys()].sort((left, right) => left.localeCompare(right))) {
+            items.push(new UserStoryCategoryTreeItem(category, grouped.get(category).length));
+        }
         return items;
     }
 }
@@ -130,6 +171,14 @@ async function createUserStoryFromInput() {
     if (!title) {
         return;
     }
+    const kind = await pickUserStoryKind();
+    if (!kind) {
+        return;
+    }
+    const category = await pickUserStoryCategory(workspaceRoot);
+    if (!category) {
+        return;
+    }
     const sourceText = await vscode.window.showInputBox({
         prompt: "User story objective or initial source text",
         ignoreFocusOut: true,
@@ -139,7 +188,7 @@ async function createUserStoryFromInput() {
         return;
     }
     const usId = await nextUserStoryId(workspaceRoot);
-    const result = await getBackendClient(workspaceRoot).createUserStory(usId, title, sourceText);
+    const result = await getBackendClient(workspaceRoot).createUserStory(usId, title, kind, category, sourceText);
     await openTextDocument(result.mainArtifactPath);
 }
 async function importUserStoryFromMarkdown() {
@@ -164,8 +213,16 @@ async function importUserStoryFromMarkdown() {
     const sourceText = await fs.promises.readFile(sourceUri.fsPath, "utf8");
     const firstHeading = sourceText.split(/\r?\n/).find((line) => line.startsWith("# ")) ?? "# Imported user story";
     const title = firstHeading.replace(/^#\s+/, "").trim();
+    const kind = await pickUserStoryKind();
+    if (!kind) {
+        return;
+    }
+    const category = await pickUserStoryCategory(workspaceRoot);
+    if (!category) {
+        return;
+    }
     const usId = await nextUserStoryId(workspaceRoot);
-    const result = await getBackendClient(workspaceRoot).importUserStory(usId, sourceUri.fsPath, title);
+    const result = await getBackendClient(workspaceRoot).importUserStory(usId, sourceUri.fsPath, title, kind, category);
     await openTextDocument(result.mainArtifactPath);
 }
 async function initializeRepoPrompts() {
@@ -255,8 +312,111 @@ async function approveCurrentPhase(summary) {
         void vscode.window.showErrorMessage(asErrorMessage(error));
     }
 }
+async function requestRegression(summary) {
+    if (!summary) {
+        void vscode.window.showInformationMessage("Select a user story first.");
+        return;
+    }
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+        void vscode.window.showWarningMessage("Open a workspace folder before requesting a regression.");
+        return;
+    }
+    const allowedTargets = REGRESSION_TARGETS[summary.currentPhase] ?? [];
+    if (allowedTargets.length === 0) {
+        void vscode.window.showWarningMessage(`${summary.currentPhase} does not currently allow explicit regression from the extension.`);
+        return;
+    }
+    const targetPhase = await vscode.window.showQuickPick(allowedTargets.map((phase) => ({
+        label: phase,
+        description: `Regress ${summary.usId} to ${phase}`
+    })), {
+        ignoreFocusOut: true,
+        title: `Request regression for ${summary.usId}`,
+        placeHolder: "Choose the target phase"
+    });
+    if (!targetPhase) {
+        return;
+    }
+    const reason = await vscode.window.showInputBox({
+        prompt: "Reason for regression",
+        ignoreFocusOut: true,
+        validateInput: (value) => value.trim().length > 0 ? undefined : "Reason is required."
+    });
+    if (!reason) {
+        return;
+    }
+    try {
+        const result = await getBackendClient(workspaceRoot).requestRegression(summary.usId, targetPhase.label, reason);
+        void vscode.window.showInformationMessage(`${summary.usId} regressed to ${result.currentPhase} with status ${result.status}.`);
+    }
+    catch (error) {
+        void vscode.window.showErrorMessage(asErrorMessage(error));
+    }
+}
+async function restartUserStoryFromSource(summary) {
+    if (!summary) {
+        void vscode.window.showInformationMessage("Select a user story first.");
+        return;
+    }
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+        void vscode.window.showWarningMessage("Open a workspace folder before restarting a user story.");
+        return;
+    }
+    const reason = await vscode.window.showInputBox({
+        prompt: "Reason for restart from source",
+        ignoreFocusOut: true,
+        validateInput: (value) => value.trim().length > 0 ? undefined : "Reason is required."
+    });
+    if (!reason) {
+        return;
+    }
+    try {
+        const result = await getBackendClient(workspaceRoot).restartUserStoryFromSource(summary.usId, reason);
+        if (result.generatedArtifactPath) {
+            await openTextDocument(result.generatedArtifactPath);
+        }
+        void vscode.window.showInformationMessage(`${summary.usId} restarted from source at ${result.currentPhase} with status ${result.status}.`);
+    }
+    catch (error) {
+        void vscode.window.showErrorMessage(asErrorMessage(error));
+    }
+}
 function getWorkspaceRoot() {
     return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+async function pickUserStoryKind() {
+    const selection = await vscode.window.showQuickPick(USER_STORY_KINDS.map((kind) => ({
+        label: kind,
+        description: `Create or import a ${kind} user story`
+    })), {
+        ignoreFocusOut: true,
+        title: "User story kind",
+        placeHolder: "Choose the branch kind for this user story"
+    });
+    return selection?.label;
+}
+async function pickUserStoryCategory(workspaceRoot) {
+    const categories = await getUserStoryCategoriesAsync(workspaceRoot);
+    const selection = await vscode.window.showQuickPick(categories.map((category) => ({
+        label: category,
+        description: `Assign category ${category}`
+    })), {
+        ignoreFocusOut: true,
+        title: "User story category",
+        placeHolder: "Choose the category used to group this user story"
+    });
+    return selection?.label;
+}
+async function getUserStoryCategoriesAsync(workspaceRoot) {
+    const configPath = path.join(workspaceRoot, ".specs", "config.yaml");
+    if (!await pathExistsAsync(configPath)) {
+        return explorerModel_1.DEFAULT_USER_STORY_CATEGORIES;
+    }
+    const yaml = await fs.promises.readFile(configPath, "utf8");
+    const categories = (0, explorerModel_1.parseYamlSequence)(yaml, "categories");
+    return categories.length === 0 ? explorerModel_1.DEFAULT_USER_STORY_CATEGORIES : categories;
 }
 async function hasInitializedRepoPromptsAsync(workspaceRoot) {
     const hasConfig = await pathExistsAsync(path.join(workspaceRoot, ".specs", "config.yaml"));
@@ -265,12 +425,7 @@ async function hasInitializedRepoPromptsAsync(workspaceRoot) {
 }
 async function nextUserStoryId(workspaceRoot) {
     const summaries = await getBackendClient(workspaceRoot).listUserStories();
-    const maxValue = summaries
-        .map((summary) => /^US-(\d+)$/.exec(summary.usId))
-        .filter((match) => match !== null)
-        .map((match) => Number.parseInt(match[1], 10))
-        .reduce((currentMax, value) => Math.max(currentMax, value), 0);
-    return `US-${String(maxValue + 1).padStart(4, "0")}`;
+    return (0, explorerModel_1.nextUserStoryIdFromSummaries)(summaries);
 }
 async function openTextDocument(filePath) {
     const document = await vscode.workspace.openTextDocument(filePath);

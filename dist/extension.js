@@ -60,6 +60,12 @@ function activate(context) {
     }), vscode.commands.registerCommand("specForge.approveCurrentPhase", async (summary) => {
         await (0, specsExplorer_1.approveCurrentPhase)(summary);
         explorerProvider.refresh();
+    }), vscode.commands.registerCommand("specForge.requestRegression", async (summary) => {
+        await (0, specsExplorer_1.requestRegression)(summary);
+        explorerProvider.refresh();
+    }), vscode.commands.registerCommand("specForge.restartUserStoryFromSource", async (summary) => {
+        await (0, specsExplorer_1.restartUserStoryFromSource)(summary);
+        explorerProvider.refresh();
     }), vscode.commands.registerCommand("specForge.continuePhase", async (summary) => {
         await (0, specsExplorer_1.continuePhase)(summary);
         explorerProvider.refresh();

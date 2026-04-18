@@ -80,20 +80,24 @@ class StdioMcpBackendClient {
             usId
         });
     }
-    async createUserStory(usId, title, sourceText) {
+    async createUserStory(usId, title, kind, category, sourceText) {
         return this.callTool("create_us_from_chat", {
             workspaceRoot: this.workspaceRoot,
             usId,
             title,
+            kind,
+            category,
             sourceText
         });
     }
-    async importUserStory(usId, sourcePath, title) {
+    async importUserStory(usId, sourcePath, title, kind, category) {
         return this.callTool("import_us_from_markdown", {
             workspaceRoot: this.workspaceRoot,
             usId,
             sourcePath,
-            title
+            title,
+            kind,
+            category
         });
     }
     async initializeRepoPrompts(overwrite = false) {
@@ -117,6 +121,27 @@ class StdioMcpBackendClient {
             argumentsPayload.baseBranch = baseBranch;
         }
         return this.callTool("approve_phase", argumentsPayload);
+    }
+    async requestRegression(usId, targetPhase, reason) {
+        const argumentsPayload = {
+            workspaceRoot: this.workspaceRoot,
+            usId,
+            targetPhase
+        };
+        if (reason && reason.trim().length > 0) {
+            argumentsPayload.reason = reason;
+        }
+        return this.callTool("request_regression", argumentsPayload);
+    }
+    async restartUserStoryFromSource(usId, reason) {
+        const argumentsPayload = {
+            workspaceRoot: this.workspaceRoot,
+            usId
+        };
+        if (reason && reason.trim().length > 0) {
+            argumentsPayload.reason = reason;
+        }
+        return this.callTool("restart_user_story_from_source", argumentsPayload);
     }
     dispose() {
         this.process.kill();
