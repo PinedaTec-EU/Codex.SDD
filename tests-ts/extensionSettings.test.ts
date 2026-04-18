@@ -58,6 +58,34 @@ test("getSpecForgeSettingsStatus requires connection fields for openai-compatibl
   });
 });
 
+test("getSpecForgeSettingsStatus allows local openai-compatible endpoints without an api key", () => {
+  assert.deepEqual(getSpecForgeSettingsStatus({
+    provider: "openai-compatible",
+    baseUrl: "http://localhost:11434/v1",
+    apiKey: null,
+    model: "llama3.1",
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true
+  }), {
+    executionConfigured: true,
+    message: null
+  });
+});
+
+test("getSpecForgeSettingsStatus still requires an api key for remote openai-compatible endpoints", () => {
+  assert.deepEqual(getSpecForgeSettingsStatus({
+    provider: "openai-compatible",
+    baseUrl: "https://api.example.test/v1",
+    apiKey: null,
+    model: "gpt-test",
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true
+  }), {
+    executionConfigured: false,
+    message: "SpecForge.AI is not configured for the current provider. Missing API key."
+  });
+});
+
 test("getSpecForgeSettingsStatus requires a real model-backed provider instead of the deterministic fallback", () => {
   assert.deepEqual(getSpecForgeSettingsStatus({
     provider: "deterministic",

@@ -56,9 +56,10 @@ export function getSpecForgeSettingsStatus(settings: SpecForgeSettings): SpecFor
     };
   }
 
+  const requiresApiKey = !isLocalOpenAiCompatibleEndpoint(settings.baseUrl);
   const missingFields = [
     settings.baseUrl ? null : "base URL",
-    settings.apiKey ? null : "API key",
+    requiresApiKey && !settings.apiKey ? "API key" : null,
     settings.model ? null : "model"
   ].filter((value): value is string => value !== null);
 
@@ -82,4 +83,20 @@ interface ConfigurationReader {
 function normalizeOptional(value: string | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function isLocalOpenAiCompatibleEndpoint(baseUrl: string | null): boolean {
+  if (!baseUrl) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(baseUrl);
+    return parsed.hostname === "localhost"
+      || parsed.hostname === "127.0.0.1"
+      || parsed.hostname === "::1"
+      || parsed.hostname === "0.0.0.0";
+  } catch {
+    return false;
+  }
 }

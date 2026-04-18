@@ -40,9 +40,10 @@ function getSpecForgeSettingsStatus(settings) {
             message: "SpecForge.AI needs an SLM/LLM execution provider before workflow stages can run. Select an OpenAI-compatible provider and configure base URL, API key, and model."
         };
     }
+    const requiresApiKey = !isLocalOpenAiCompatibleEndpoint(settings.baseUrl);
     const missingFields = [
         settings.baseUrl ? null : "base URL",
-        settings.apiKey ? null : "API key",
+        requiresApiKey && !settings.apiKey ? "API key" : null,
         settings.model ? null : "model"
     ].filter((value) => value !== null);
     if (settings.provider === "openai-compatible" && missingFields.length === 0) {
@@ -59,5 +60,20 @@ function getSpecForgeSettingsStatus(settings) {
 function normalizeOptional(value) {
     const trimmed = value?.trim();
     return trimmed ? trimmed : null;
+}
+function isLocalOpenAiCompatibleEndpoint(baseUrl) {
+    if (!baseUrl) {
+        return false;
+    }
+    try {
+        const parsed = new URL(baseUrl);
+        return parsed.hostname === "localhost"
+            || parsed.hostname === "127.0.0.1"
+            || parsed.hostname === "::1"
+            || parsed.hostname === "0.0.0.0";
+    }
+    catch {
+        return false;
+    }
 }
 //# sourceMappingURL=extensionSettings.js.map
