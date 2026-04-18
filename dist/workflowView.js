@@ -51,6 +51,23 @@ function formatDuration(durationMs) {
     const seconds = ((durationMs % 60_000) / 1_000).toFixed(1);
     return `${minutes}m ${seconds}s`;
 }
+function formatMetricNumber(value) {
+    return new Intl.NumberFormat("en-US").format(value);
+}
+function formatTokensPerSecond(outputTokens, durationMs) {
+    if (durationMs <= 0) {
+        return "n/a";
+    }
+    return `${(outputTokens / (durationMs / 1_000)).toFixed(1)} tok/s`;
+}
+function renderExecutionMetric(label, value, tone) {
+    return `
+    <div class="metric-card metric-card--${escapeHtmlAttribute(tone)}">
+      <span class="metric-card__label">${escapeHtml(label)}</span>
+      <span class="metric-card__value">${escapeHtml(value)}</span>
+    </div>
+  `;
+}
 function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
     const settingsWarning = !state.settingsConfigured && state.settingsMessage
@@ -76,10 +93,21 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         .at(-1) ?? null;
     const selectedPhaseMetrics = selectedPhaseEvent
         ? [
-            selectedPhaseEvent.durationMs !== null ? `<span class="badge">duration:${escapeHtml(formatDuration(selectedPhaseEvent.durationMs))}</span>` : "",
-            selectedPhaseEvent.usage ? `<span class="badge">in:${escapeHtml(String(selectedPhaseEvent.usage.inputTokens))}</span>` : "",
-            selectedPhaseEvent.usage ? `<span class="badge">out:${escapeHtml(String(selectedPhaseEvent.usage.outputTokens))}</span>` : "",
-            selectedPhaseEvent.usage ? `<span class="badge">total:${escapeHtml(String(selectedPhaseEvent.usage.totalTokens))}</span>` : ""
+            selectedPhaseEvent.durationMs !== null
+                ? renderExecutionMetric("Duration", formatDuration(selectedPhaseEvent.durationMs), "elapsed")
+                : "",
+            selectedPhaseEvent.usage
+                ? renderExecutionMetric("Input Tokens", formatMetricNumber(selectedPhaseEvent.usage.inputTokens), "prompt")
+                : "",
+            selectedPhaseEvent.usage
+                ? renderExecutionMetric("Output Tokens", formatMetricNumber(selectedPhaseEvent.usage.outputTokens), "completion")
+                : "",
+            selectedPhaseEvent.usage
+                ? renderExecutionMetric("Total Tokens", formatMetricNumber(selectedPhaseEvent.usage.totalTokens), "combined")
+                : "",
+            selectedPhaseEvent.usage && selectedPhaseEvent.durationMs !== null
+                ? renderExecutionMetric("Response Speed", formatTokensPerSecond(selectedPhaseEvent.usage.outputTokens, selectedPhaseEvent.durationMs), "throughput")
+                : ""
         ].filter(Boolean).join("")
         : "";
     const artifactSection = selectedPhase.artifactPath
@@ -227,10 +255,31 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       align-items: center;
     }
     .detail-metrics {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
       margin-top: 14px;
+    }
+    .metric-card {
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(92, 181, 255, 0.16);
+      background: linear-gradient(180deg, rgba(18, 34, 52, 0.92), rgba(9, 16, 24, 0.98));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+    .metric-card__label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(146, 205, 255, 0.76);
+    }
+    .metric-card__value {
+      display: block;
+      font-size: 1.02rem;
+      font-weight: 700;
+      color: #eef7ff;
     }
     .hero-meta {
       margin-top: 14px;

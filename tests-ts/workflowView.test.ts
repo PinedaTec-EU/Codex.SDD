@@ -91,10 +91,16 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /Open Approve Prompt/);
   assert.match(html, /Attach Files/);
   assert.match(html, /api-notes\.md/);
-  assert.match(html, /duration:4\.88 s/);
-  assert.match(html, /in:321/);
-  assert.match(html, /out:144/);
-  assert.match(html, /total:465/);
+  assert.match(html, /Duration/);
+  assert.match(html, /4\.88 s/);
+  assert.match(html, /Input Tokens/);
+  assert.match(html, />321</);
+  assert.match(html, /Output Tokens/);
+  assert.match(html, />144</);
+  assert.match(html, /Total Tokens/);
+  assert.match(html, />465</);
+  assert.match(html, /Response Speed/);
+  assert.match(html, /29\.5 tok\/s/);
 });
 
 test("buildWorkflowHtml shows configuration warning and disables execution controls when settings are incomplete", () => {
