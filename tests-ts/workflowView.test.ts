@@ -334,6 +334,92 @@ test("buildWorkflowHtml renders clarification questions and embedded answer inpu
   assert.match(html, /submitClarificationAnswers/);
 });
 
+test("buildWorkflowHtml disables clarification and draws a direct capture to refinement link when clarification was skipped", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0005",
+    title: "Direct refinement flow",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0005",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "clarification",
+        title: "Clarification",
+        order: 1,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: "/tmp/clarification.execute.md",
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 2,
+        requiresApproval: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/01-refinement.md",
+        executePromptPath: "/tmp/refinement.execute.md",
+        approvePromptPath: "/tmp/refinement.approve.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "refinement_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [
+      {
+        timestampUtc: "2026-04-18T10:00:00Z",
+        code: "phase_completed",
+        actor: "system",
+        phase: "refinement",
+        summary: "Generated refinement artifact.",
+        artifacts: ["/tmp/01-refinement.md"],
+        usage: null,
+        durationMs: null
+      }
+    ],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "refinement",
+    selectedArtifactContent: "## Refinement\nBody",
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /phase-node clarification disabled/);
+  assert.match(html, /phase-tag disabled">disabled</);
+  assert.match(html, /<path class="disabled" d="M 238 96 C 292 96, 338 208, 392 208"><\/path>/);
+  assert.match(html, /<path class="completed" d="M 238 96 C 292 96, 338 400, 392 400"><\/path>/);
+});
+
 test("buildWorkflowHtml spaces same-column phases far enough apart to avoid overlap", () => {
   const html = buildWorkflowHtml({
     usId: "US-0002",
@@ -463,8 +549,8 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /\.phase-node\.clarification \{ left: 206px; top: 150px; \}/);
-  assert.match(html, /\.phase-node\.technical-design \{ left: 392px; top: 452px; \}/);
+  assert.match(html, /\.phase-node\.clarification \{ left: 392px; top: 150px; \}/);
+  assert.match(html, /\.phase-node\.technical-design \{ left: 392px; top: 552px; \}/);
   assert.match(html, /\.phase-node\.implementation \{ left: 18px; top: 562px; \}/);
   assert.match(html, /\.phase-node\.review \{ left: 18px; top: 752px; \}/);
   assert.match(html, /viewBox="0 0 700 1204"/);

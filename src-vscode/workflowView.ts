@@ -15,11 +15,16 @@ const phaseNodeHeight = 116;
 const phaseActionOffsetX = 16;
 const phaseActionTopOffset = 18;
 
+const leftColumnX = 20;
+const rightColumnX = 400;
+const topRowY = 40;
+const rowSpacingY = 90;
+
 const desktopPhasePositions: Record<string, PhasePosition> = {
   "capture": { left: 18, top: 38 },
-  "clarification": { left: 206, top: 150 },
-  "refinement": { left: 392, top: 262 },
-  "technical-design": { left: 392, top: 452 },
+  "clarification": { left: 392, top: 150 },
+  "refinement": { left: 392, top: 342 },
+  "technical-design": { left: 392, top: 552 },
   "implementation": { left: 18, top: 562 },
   "review": { left: 18, top: 752 },
   "release-approval": { left: 392, top: 876 },
@@ -130,22 +135,22 @@ export function buildWorkflowHtml(
     .at(-1) ?? null;
   const selectedPhaseMetrics = selectedPhaseEvent
     ? [
-        selectedPhaseEvent.durationMs !== null
-          ? renderExecutionMetric("Duration", formatDuration(selectedPhaseEvent.durationMs), "elapsed")
-          : "",
-        selectedPhaseEvent.usage
-          ? renderExecutionMetric(
-            "Input/Output Tokens",
-            `${formatMetricNumber(selectedPhaseEvent.usage.inputTokens)} / ${formatMetricNumber(selectedPhaseEvent.usage.outputTokens)}`,
-            "prompt")
-          : "",
-        selectedPhaseEvent.usage
-          ? renderExecutionMetric("Total Tokens", formatMetricNumber(selectedPhaseEvent.usage.totalTokens), "combined")
-          : "",
-        selectedPhaseEvent.usage && selectedPhaseEvent.durationMs !== null
-          ? renderExecutionMetric("Response Speed", formatTokensPerSecond(selectedPhaseEvent.usage.outputTokens, selectedPhaseEvent.durationMs), "throughput")
-          : ""
-      ].filter(Boolean).join("")
+      selectedPhaseEvent.durationMs !== null
+        ? renderExecutionMetric("Duration", formatDuration(selectedPhaseEvent.durationMs), "elapsed")
+        : "",
+      selectedPhaseEvent.usage
+        ? renderExecutionMetric(
+          "Input/Output Tokens",
+          `${formatMetricNumber(selectedPhaseEvent.usage.inputTokens)} / ${formatMetricNumber(selectedPhaseEvent.usage.outputTokens)}`,
+          "prompt")
+        : "",
+      selectedPhaseEvent.usage
+        ? renderExecutionMetric("Total Tokens", formatMetricNumber(selectedPhaseEvent.usage.totalTokens), "combined")
+        : "",
+      selectedPhaseEvent.usage && selectedPhaseEvent.durationMs !== null
+        ? renderExecutionMetric("Response Speed", formatTokensPerSecond(selectedPhaseEvent.usage.outputTokens, selectedPhaseEvent.durationMs), "throughput")
+        : ""
+    ].filter(Boolean).join("")
     : "";
   const artifactSection = selectedPhase.artifactPath
     ? `
@@ -193,7 +198,7 @@ export function buildWorkflowHtml(
         </div>
         ${workflow.clarification.reason ? `<p class="clarification-reason">${escapeHtml(workflow.clarification.reason)}</p>` : ""}
         ${workflow.clarification.items.length > 0
-          ? `
+      ? `
             <div class="clarification-list">
               ${workflow.clarification.items.map((item) => `
                 <label class="clarification-item">
@@ -213,7 +218,7 @@ export function buildWorkflowHtml(
               </button>
             </div>
           `
-          : "<p class=\"muted\">No clarification questions are currently registered for this user story.</p>"}
+      : "<p class=\"muted\">No clarification questions are currently registered for this user story.</p>"}
       </div>
     `
     : "";
@@ -538,6 +543,11 @@ export function buildWorkflowHtml(
     .graph-links path.pending {
       stroke: rgba(255, 255, 255, 0.1);
     }
+    .graph-links path.disabled {
+      stroke: rgba(255, 255, 255, 0.08);
+      opacity: 0.45;
+      filter: none;
+    }
     .phase-graph {
       position: relative;
       width: ${desktopGraphWidth}px;
@@ -591,6 +601,16 @@ export function buildWorkflowHtml(
     .phase-node.pending {
       background: linear-gradient(180deg, rgba(22, 28, 38, 0.88), rgba(10, 14, 20, 0.96));
       opacity: 0.9;
+    }
+    .phase-node.disabled {
+      background: linear-gradient(180deg, rgba(18, 22, 29, 0.68), rgba(10, 14, 20, 0.88));
+      border-color: rgba(255, 255, 255, 0.05);
+      opacity: 0.58;
+      box-shadow: none;
+    }
+    .phase-node.disabled .phase-status-dot {
+      background: rgba(255, 255, 255, 0.14);
+      box-shadow: none;
     }
     ${buildPhasePositionCss(desktopPhasePositions)}
     .phase-node-header {
@@ -663,6 +683,10 @@ export function buildWorkflowHtml(
     .phase-tag.active {
       background: rgba(92, 181, 255, 0.14);
       color: #90d2ff;
+    }
+    .phase-tag.disabled {
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.52);
     }
     .phase-node-actions {
       position: absolute;
@@ -1046,13 +1070,13 @@ export function buildWorkflowHtml(
           ${artifactSection}
         </section>
         ${clarificationSection
-          ? `
+      ? `
             <section class="detail-card">
               <h3>Clarification</h3>
               ${clarificationSection}
             </section>
           `
-          : ""}
+      : ""}
         <section class="detail-card">
           <h3>Phase Prompts</h3>
           ${promptSection}
@@ -1104,6 +1128,7 @@ function buildPhaseGraph(
   playbackState: "idle" | "playing" | "paused" | "stopping"
 ): string {
   const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
+  const clarificationVisited = hasClarificationHistory(workflow);
   const rejectCommand = currentPhase && workflow.controls.regressionTargets.length > 0
     ? { command: "regress", phaseId: workflow.controls.regressionTargets[0], label: `Regress to ${workflow.controls.regressionTargets[0]}` }
     : workflow.controls.canRestartFromSource
@@ -1113,25 +1138,15 @@ function buildPhaseGraph(
   const executingTargetPhaseId = playbackState === "playing" && currentPhaseIndex >= 0 && currentPhaseIndex < workflow.phases.length - 1
     ? workflow.phases[currentPhaseIndex + 1].phaseId
     : null;
+  const links = buildGraphLinks(workflow, clarificationVisited, executingTargetPhaseId, desktopPhasePositions, phaseNodeWidth);
+  const mobileLinks = buildGraphLinks(workflow, clarificationVisited, executingTargetPhaseId, mobilePhasePositions, mobilePhaseNodeWidth);
 
-  const links = workflow.phases
-    .slice(0, -1)
-    .map((phase, index) => {
-      const nextPhase = workflow.phases[index + 1];
-      return `<path class="${linkClass(nextPhase, executingTargetPhaseId)}" d="${graphPath(phase.phaseId, nextPhase.phaseId, desktopPhasePositions, phaseNodeWidth)}"></path>`;
-    })
-    .join("");
-  const mobileLinks = workflow.phases
-    .slice(0, -1)
-    .map((phase, index) => {
-      const nextPhase = workflow.phases[index + 1];
-      return `<path class="${linkClass(nextPhase, executingTargetPhaseId)}" d="${graphPath(phase.phaseId, nextPhase.phaseId, mobilePhasePositions, mobilePhaseNodeWidth)}"></path>`;
-    })
-    .join("");
-
-  const nodes = workflow.phases.map((phase) => `
+  const nodes = workflow.phases.map((phase) => {
+    const disabled = isPhaseDisabled(phase.phaseId, clarificationVisited, currentPhase.phaseId);
+    const displayState = disabled ? "disabled" : phase.state;
+    return `
     <button
-      class="phase-node ${escapeHtmlAttribute(phase.phaseId)} ${phase.state}${phase.phaseId === selectedPhaseId ? " selected" : ""}"
+      class="phase-node ${escapeHtmlAttribute(phase.phaseId)} ${displayState}${phase.phaseId === selectedPhaseId ? " selected" : ""}"
       data-command="selectPhase"
       data-phase-id="${escapeHtmlAttribute(phase.phaseId)}">
       <div class="phase-node-header">
@@ -1141,12 +1156,13 @@ function buildPhaseGraph(
       <h3>${escapeHtml(phase.title)}</h3>
       <div class="phase-slug">${escapeHtml(phase.phaseId)}</div>
       <div class="phase-tags">
-        <span class="phase-tag ${phase.isCurrent ? "active" : ""}">${escapeHtml(phase.state)}</span>
+        <span class="phase-tag ${disabled ? "disabled" : phase.isCurrent ? "active" : ""}">${escapeHtml(displayState)}</span>
         ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
         ${phase.isApproved ? `<span class="phase-tag">approved</span>` : ""}
       </div>
     </button>
-  `).join("");
+  `;
+  }).join("");
 
   const nodeActions = currentPhase
     ? `
@@ -1169,6 +1185,56 @@ function buildPhaseGraph(
       ${nodeActions}
     </div>
   `;
+}
+
+function buildGraphLinks(
+  workflow: UserStoryWorkflowDetails,
+  clarificationVisited: boolean,
+  executingTargetPhaseId: string | null,
+  positions: Record<string, PhasePosition>,
+  nodeWidth: number
+): string {
+  const phaseById = new Map(workflow.phases.map((phase) => [phase.phaseId, phase]));
+  const edges: Array<{ fromPhaseId: string; toPhaseId: string; className: string }> = [];
+
+  for (let index = 0; index < workflow.phases.length - 1; index++) {
+    const fromPhase = workflow.phases[index];
+    const toPhase = workflow.phases[index + 1];
+    const disabled = (fromPhase.phaseId === "capture" && toPhase.phaseId === "clarification" && !clarificationVisited)
+      || (fromPhase.phaseId === "clarification" && !clarificationVisited);
+    edges.push({
+      fromPhaseId: fromPhase.phaseId,
+      toPhaseId: toPhase.phaseId,
+      className: disabled ? "disabled" : linkClass(toPhase, executingTargetPhaseId)
+    });
+  }
+
+  if (!clarificationVisited) {
+    const refinement = phaseById.get("refinement");
+    if (refinement) {
+      edges.push({
+        fromPhaseId: "capture",
+        toPhaseId: "refinement",
+        className: linkClass(refinement, executingTargetPhaseId)
+      });
+    }
+  }
+
+  return edges
+    .map((edge) => `<path class="${edge.className}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth)}"></path>`)
+    .join("");
+}
+
+function hasClarificationHistory(workflow: UserStoryWorkflowDetails): boolean {
+  return workflow.currentPhase === "clarification"
+    || workflow.clarification !== null
+    || workflow.events.some((event) => event.phase === "clarification");
+}
+
+function isPhaseDisabled(phaseId: string, clarificationVisited: boolean, currentPhaseId: string): boolean {
+  return phaseId === "clarification"
+    && !clarificationVisited
+    && currentPhaseId !== "clarification";
 }
 
 function linkClass(targetPhase: WorkflowPhaseDetails, executingTargetPhaseId: string | null): string {
