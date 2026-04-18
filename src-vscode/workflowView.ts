@@ -37,6 +37,9 @@ const mobilePhasePositions: Record<string, PhasePosition> = {
 
 const desktopGraphHeight = computeGraphHeight(desktopPhasePositions, phaseNodeHeight, 96);
 const mobileGraphHeight = computeGraphHeight(mobilePhasePositions, phaseNodeHeight, 96);
+const desktopGraphWidth = computeGraphWidth(desktopPhasePositions, phaseNodeWidth, 88);
+const mobilePhaseNodeWidth = 188;
+const mobileGraphWidth = computeGraphWidth(mobilePhasePositions, mobilePhaseNodeWidth, 88);
 
 function buildPhasePositionCss(positions: Record<string, PhasePosition>): string {
   return Object.entries(positions)
@@ -54,6 +57,11 @@ function buildPhaseActionPositionCss(positions: Record<string, PhasePosition>, n
 function computeGraphHeight(positions: Record<string, PhasePosition>, nodeHeight: number, bottomPadding: number): number {
   const maxTop = Math.max(...Object.values(positions).map((position) => position.top));
   return maxTop + nodeHeight + bottomPadding;
+}
+
+function computeGraphWidth(positions: Record<string, PhasePosition>, nodeWidth: number, rightPadding: number): number {
+  const maxLeft = Math.max(...Object.values(positions).map((position) => position.left));
+  return maxLeft + nodeWidth + rightPadding;
 }
 
 function formatDuration(durationMs: number): string {
@@ -286,32 +294,32 @@ export function buildWorkflowHtml(
     }
     .detail-metrics {
       display: flex;
-      gap: 8px;
-      margin-top: 12px;
+      gap: 6px;
+      margin-top: 10px;
       overflow-x: auto;
       padding-bottom: 2px;
       flex-wrap: nowrap;
     }
     .metric-card {
-      flex: 0 0 min(210px, calc((100% - 24px) / 4));
-      min-width: 168px;
-      padding: 9px 12px;
-      border-radius: 14px;
+      flex: 0 0 min(172px, calc((100% - 18px) / 4));
+      min-width: 138px;
+      padding: 7px 10px;
+      border-radius: 12px;
       border: 1px solid rgba(114, 241, 184, 0.18);
       background: linear-gradient(180deg, rgba(18, 44, 34, 0.94), rgba(9, 20, 17, 0.98));
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
     }
     .metric-card__label {
       display: block;
-      margin-bottom: 4px;
-      font-size: 0.66rem;
-      letter-spacing: 0.06em;
+      margin-bottom: 3px;
+      font-size: 0.58rem;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
       color: rgba(114, 241, 184, 0.74);
     }
     .metric-card__value {
       display: block;
-      font-size: 0.9rem;
+      font-size: 0.78rem;
       font-weight: 700;
       line-height: 1.15;
       color: #f2fff9;
@@ -459,6 +467,7 @@ export function buildWorkflowHtml(
     }
     .graph-stage {
       position: relative;
+      min-width: ${desktopGraphWidth}px;
       min-height: ${desktopGraphHeight}px;
       z-index: 2;
     }
@@ -496,7 +505,12 @@ export function buildWorkflowHtml(
     }
     .phase-graph {
       position: relative;
+      width: ${desktopGraphWidth}px;
+      min-width: ${desktopGraphWidth}px;
       min-height: ${desktopGraphHeight}px;
+    }
+    .graph-links--mobile {
+      display: none;
     }
     .phase-node {
       position: absolute;
@@ -871,6 +885,7 @@ export function buildWorkflowHtml(
         min-height: auto;
       }
       .graph-stage, .phase-graph {
+        min-width: ${desktopGraphWidth}px;
         min-height: ${desktopGraphHeight}px;
       }
     }
@@ -882,17 +897,25 @@ export function buildWorkflowHtml(
         padding: 16px;
       }
       .phase-node {
-        width: 188px;
+        width: ${mobilePhaseNodeWidth}px;
       }
       .phase-node-actions {
         transform: scale(0.94);
         transform-origin: top left;
       }
       .graph-stage, .phase-graph {
+        width: ${mobileGraphWidth}px;
+        min-width: ${mobileGraphWidth}px;
         min-height: ${mobileGraphHeight}px;
       }
+      .graph-links--desktop {
+        display: none;
+      }
+      .graph-links--mobile {
+        display: block;
+      }
       ${buildPhasePositionCss(mobilePhasePositions)}
-      ${buildPhaseActionPositionCss(mobilePhasePositions, 188)}
+      ${buildPhaseActionPositionCss(mobilePhasePositions, mobilePhaseNodeWidth)}
     }
   </style>
 </head>
@@ -995,7 +1018,14 @@ function buildPhaseGraph(
     .slice(0, -1)
     .map((phase, index) => {
       const nextPhase = workflow.phases[index + 1];
-      return `<path class="${linkClass(nextPhase, executingTargetPhaseId)}" d="${graphPath(phase.phaseId, nextPhase.phaseId)}"></path>`;
+      return `<path class="${linkClass(nextPhase, executingTargetPhaseId)}" d="${graphPath(phase.phaseId, nextPhase.phaseId, desktopPhasePositions, phaseNodeWidth)}"></path>`;
+    })
+    .join("");
+  const mobileLinks = workflow.phases
+    .slice(0, -1)
+    .map((phase, index) => {
+      const nextPhase = workflow.phases[index + 1];
+      return `<path class="${linkClass(nextPhase, executingTargetPhaseId)}" d="${graphPath(phase.phaseId, nextPhase.phaseId, mobilePhasePositions, mobilePhaseNodeWidth)}"></path>`;
     })
     .join("");
 
@@ -1029,8 +1059,11 @@ function buildPhaseGraph(
 
   return `
     <div class="phase-graph" aria-label="Workflow graph">
-      <svg class="graph-links" viewBox="0 0 700 ${desktopGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
+      <svg class="graph-links graph-links--desktop" viewBox="0 0 ${desktopGraphWidth} ${desktopGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
         ${links}
+      </svg>
+      <svg class="graph-links graph-links--mobile" viewBox="0 0 ${mobileGraphWidth} ${mobileGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
+        ${mobileLinks}
       </svg>
       ${nodes}
       ${nodeActions}
@@ -1050,16 +1083,21 @@ function linkClass(targetPhase: WorkflowPhaseDetails, executingTargetPhaseId: st
   return targetPhase.state === "completed" ? "completed" : "pending";
 }
 
-function graphPath(fromPhaseId: string, toPhaseId: string): string {
-  const fromPosition = desktopPhasePositions[fromPhaseId];
-  const toPosition = desktopPhasePositions[toPhaseId];
+function graphPath(
+  fromPhaseId: string,
+  toPhaseId: string,
+  positions: Record<string, PhasePosition>,
+  nodeWidth: number
+): string {
+  const fromPosition = positions[fromPhaseId];
+  const toPosition = positions[toPhaseId];
   if (!fromPosition || !toPosition) {
     return "";
   }
 
   const { fromSide, toSide } = resolveAnchorSides(fromPosition, toPosition);
-  const from = getAnchorPoint(fromPosition, fromSide);
-  const to = getAnchorPoint(toPosition, toSide);
+  const from = getAnchorPoint(fromPosition, fromSide, nodeWidth);
+  const to = getAnchorPoint(toPosition, toSide, nodeWidth);
   const horizontalDirection = to.x >= from.x ? 1 : -1;
   const verticalDirection = to.y >= from.y ? 1 : -1;
   const horizontalOffset = Math.max(54, Math.abs(to.x - from.x) * 0.32);
@@ -1087,16 +1125,16 @@ function resolveAnchorSides(from: PhasePosition, to: PhasePosition): { fromSide:
     : { fromSide: "top", toSide: "bottom" };
 }
 
-function getAnchorPoint(position: PhasePosition, side: AnchorSide): { x: number; y: number } {
+function getAnchorPoint(position: PhasePosition, side: AnchorSide, nodeWidth: number): { x: number; y: number } {
   switch (side) {
     case "left":
       return { x: position.left, y: position.top + phaseNodeHeight / 2 };
     case "right":
-      return { x: position.left + phaseNodeWidth, y: position.top + phaseNodeHeight / 2 };
+      return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight / 2 };
     case "top":
-      return { x: position.left + phaseNodeWidth / 2, y: position.top };
+      return { x: position.left + nodeWidth / 2, y: position.top };
     case "bottom":
-      return { x: position.left + phaseNodeWidth / 2, y: position.top + phaseNodeHeight };
+      return { x: position.left + nodeWidth / 2, y: position.top + phaseNodeHeight };
   }
 }
 
