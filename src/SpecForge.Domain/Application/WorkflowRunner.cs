@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using SpecForge.Domain.Persistence;
 using SpecForge.Domain.Workflow;
 
@@ -8,6 +9,10 @@ namespace SpecForge.Domain.Application;
 
 public sealed class WorkflowRunner
 {
+    private static readonly Regex PlaceholderSourceRegex = new(
+        @"\b(sample(\s+us)?|placeholder|todo|tbd|lorem ipsum)\b|^\s*\.\.\.\s*$",
+        RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Compiled);
+
     private readonly UserStoryFileStore fileStore;
     private readonly IPhaseExecutionProvider phaseExecutionProvider;
     private readonly RepositoryCategoryCatalog repositoryCategoryCatalog;
@@ -149,6 +154,7 @@ public sealed class WorkflowRunner
         }
 
         var currentSourceText = await ReadSourceTextFromUserStoryAsync(paths.MainArtifactPath, cancellationToken);
+        EnsureSourceIsReadyForRefinement(currentSourceText);
         var currentSourceHash = ComputeSourceHash(currentSourceText);
         if (string.Equals(existingRun.SourceHash, currentSourceHash, StringComparison.Ordinal))
         {
@@ -203,6 +209,22 @@ public sealed class WorkflowRunner
     {
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        if (workflowRun.CurrentPhase == PhaseId.Capture)
+        {
+            var sourceText = await ReadSourceTextFromUserStoryAsync(paths.MainArtifactPath, cancellationToken);
+            var assessment = AssessSourceReadinessForRefinement(sourceText);
+            if (!assessment.IsReady)
+            {
+                await AppendTimelineEventAsync(
+                    paths.TimelineFilePath,
+                    "capture_rejected_insufficient_source",
+                    "system",
+                    workflowRun.CurrentPhase,
+                    assessment.Summary,
+                    cancellationToken);
+                throw new WorkflowDomainException(assessment.Summary);
+            }
+        }
 
         workflowRun.GenerateNextPhase();
 
@@ -429,6 +451,7 @@ public sealed class WorkflowRunner
     }
 
     private sealed record ArtifactGenerationResult(string ArtifactPath, TokenUsage? Usage, long DurationMs);
+    private sealed record SourceReadinessAssessment(bool IsReady, string Summary);
 
     private static string BuildInitialTimeline(string usId, string title)
     {
@@ -501,6 +524,29 @@ public sealed class WorkflowRunner
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(sourceText));
         return $"sha256:{Convert.ToHexStringLower(bytes)}";
+    }
+
+    private static void EnsureSourceIsReadyForRefinement(string sourceText)
+    {
+        var assessment = AssessSourceReadinessForRefinement(sourceText);
+        if (!assessment.IsReady)
+        {
+            throw new WorkflowDomainException(assessment.Summary);
+        }
+    }
+
+    private static SourceReadinessAssessment AssessSourceReadinessForRefinement(string sourceText)
+    {
+        var normalized = sourceText.Trim();
+        var containsPlaceholder = PlaceholderSourceRegex.IsMatch(normalized);
+        if (!containsPlaceholder)
+        {
+            return new SourceReadinessAssessment(true, string.Empty);
+        }
+
+        return new SourceReadinessAssessment(
+            false,
+            "Capture cannot advance to refinement because the user story source is too thin. Replace sample or placeholder text and add concrete business behavior, actors, data, and expected outcomes in `us.md` before running Play again.");
     }
 
     private static void ValidateRequired(string value, string paramName)

@@ -40,6 +40,44 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ContinuePhaseAsync_FromCapture_WithInsufficientSource_RejectsAndStaysAtCapture()
+    {
+        var runner = new WorkflowRunner();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "sample US");
+
+        var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
+            runner.ContinuePhaseAsync(workspaceRoot, "US-0001"));
+
+        Assert.Contains("source is too thin", error.Message);
+
+        var loadedRun = await new UserStoryFileStore().LoadAsync(
+            UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
+        Assert.Equal(PhaseId.Capture, loadedRun.CurrentPhase);
+
+        var timelinePath = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
+        var timeline = await File.ReadAllTextAsync(timelinePath);
+        Assert.Contains("`capture_rejected_insufficient_source`", timeline);
+    }
+
+    [Fact]
+    public async Task ContinuePhaseAsync_FromCapture_WithShortButConcreteSource_AllowsRefinement()
+    {
+        var runner = new WorkflowRunner();
+        await runner.CreateUserStoryAsync(
+            workspaceRoot,
+            "US-0001",
+            "Test story",
+            "feature",
+            "workflow",
+            "Allow users to export approved invoices to CSV with date filters and totals.");
+
+        var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal(PhaseId.Refinement, result.CurrentPhase);
+        Assert.NotNull(result.GeneratedArtifactPath);
+    }
+
+    [Fact]
     public async Task ApproveCurrentPhaseAsync_ThenContinuePhaseAsync_GeneratesTechnicalDesign()
     {
         var runner = new WorkflowRunner();
