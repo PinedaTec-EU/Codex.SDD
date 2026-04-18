@@ -43,6 +43,7 @@ exports.continuePhase = continuePhase;
 exports.approveCurrentPhase = approveCurrentPhase;
 exports.requestRegression = requestRegression;
 exports.restartUserStoryFromSource = restartUserStoryFromSource;
+exports.getOrCreateBackendClient = getOrCreateBackendClient;
 exports.disposeBackendClients = disposeBackendClients;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
@@ -64,8 +65,8 @@ class UserStoryTreeItem extends vscode.TreeItem {
         this.description = `${summary.currentPhase} · ${summary.status}`;
         this.tooltip = summary.title;
         this.command = {
-            command: "specForge.openMainArtifact",
-            title: "Open Main Artifact",
+            command: "specForge.openWorkflowView",
+            title: "Open Workflow View",
             arguments: [summary]
         };
     }
@@ -436,6 +437,9 @@ function getBackendClient(workspaceRoot) {
         backendClients.set(workspaceRoot, client);
     }
     return client;
+}
+function getOrCreateBackendClient(workspaceRoot) {
+    return getBackendClient(workspaceRoot);
 }
 function disposeBackendClients() {
     for (const client of backendClients.values()) {

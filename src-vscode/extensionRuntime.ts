@@ -11,6 +11,7 @@ export interface ExtensionActions {
   importUserStoryFromMarkdown(): Promise<void>;
   initializeRepoPrompts(): Promise<void>;
   openPromptTemplates(): Promise<void>;
+  openWorkflowView(summary: unknown): Promise<void>;
   openMainArtifact(summary: unknown): Promise<void>;
   showUserStoryDetails(summary: unknown): Promise<void>;
   approveCurrentPhase(summary: unknown): Promise<void>;
@@ -54,6 +55,9 @@ export function activateExtension(
     }),
     host.registerCommand("specForge.openPromptTemplates", async () => {
       await actions.openPromptTemplates();
+    }),
+    host.registerCommand("specForge.openWorkflowView", async (summary) => {
+      await actions.openWorkflowView(summary);
     }),
     host.registerCommand("specForge.openMainArtifact", async (summary) => {
       await actions.openMainArtifact(summary);

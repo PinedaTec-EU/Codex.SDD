@@ -16,6 +16,8 @@ function activateExtension(context, host, explorerProvider, actions) {
         explorerProvider.refresh();
     }), host.registerCommand("specForge.openPromptTemplates", async () => {
         await actions.openPromptTemplates();
+    }), host.registerCommand("specForge.openWorkflowView", async (summary) => {
+        await actions.openWorkflowView(summary);
     }), host.registerCommand("specForge.openMainArtifact", async (summary) => {
         await actions.openMainArtifact(summary);
     }), host.registerCommand("specForge.showUserStoryDetails", async (summary) => {

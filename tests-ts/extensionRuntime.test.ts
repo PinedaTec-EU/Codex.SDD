@@ -58,6 +58,9 @@ function createHarness() {
     async openPromptTemplates() {
       actionCalls.push("openPromptTemplates");
     },
+    async openWorkflowView(summary) {
+      actionCalls.push(`openWorkflowView:${String(summary)}`);
+    },
     async openMainArtifact(summary) {
       actionCalls.push(`openMainArtifact:${String(summary)}`);
     },
@@ -107,12 +110,13 @@ test("activateExtension registers the tree provider and all expected commands", 
     "specForge.initializeRepoPrompts",
     "specForge.openMainArtifact",
     "specForge.openPromptTemplates",
+    "specForge.openWorkflowView",
     "specForge.refreshUserStories",
     "specForge.requestRegression",
     "specForge.restartUserStoryFromSource",
     "specForge.showUserStoryDetails"
   ]);
-  assert.equal(harness.context.subscriptions.length, 12);
+  assert.equal(harness.context.subscriptions.length, 13);
 });
 
 test("mutating commands refresh the explorer after the action completes", async () => {
@@ -144,12 +148,14 @@ test("read-only commands do not refresh and forward the provided summary", async
   activateExtension(harness.context, harness.host, harness.explorerProvider, harness.actions);
 
   await harness.registeredCommands.get("specForge.openPromptTemplates")?.();
+  await harness.registeredCommands.get("specForge.openWorkflowView")?.("US-0001");
   await harness.registeredCommands.get("specForge.openMainArtifact")?.("US-0002");
   await harness.registeredCommands.get("specForge.showUserStoryDetails")?.("US-0003");
   await harness.registeredCommands.get("specForge.refreshUserStories")?.();
 
   assert.deepEqual(harness.actionCalls, [
     "openPromptTemplates",
+    "openWorkflowView:US-0001",
     "openMainArtifact:US-0002",
     "showUserStoryDetails:US-0003"
   ]);

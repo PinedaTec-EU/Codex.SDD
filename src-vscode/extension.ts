@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { showUserStoryDetails } from "./detailsPanel";
 import { activateExtension, deactivateExtension, type ExtensionActions, type ExtensionHost } from "./extensionRuntime";
+import { openWorkflowView } from "./workflowPanel";
 import {
   SpecsExplorerProvider,
   approveCurrentPhase,
@@ -9,6 +10,7 @@ import {
   disposeBackendClients,
   initializeRepoPrompts,
   importUserStoryFromMarkdown,
+  getOrCreateBackendClient,
   openPromptTemplates,
   openMainArtifact,
   restartUserStoryFromSource,
@@ -40,6 +42,14 @@ function createExtensionActions(): ExtensionActions {
     importUserStoryFromMarkdown,
     initializeRepoPrompts,
     openPromptTemplates,
+    openWorkflowView: async (summary) => {
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot || !summary || typeof summary !== "object" || !("usId" in summary)) {
+        return;
+      }
+
+      await openWorkflowView(workspaceRoot, summary as any, getOrCreateBackendClient(workspaceRoot));
+    },
     openMainArtifact,
     showUserStoryDetails,
     approveCurrentPhase,

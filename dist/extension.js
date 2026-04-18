@@ -38,6 +38,7 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const detailsPanel_1 = require("./detailsPanel");
 const extensionRuntime_1 = require("./extensionRuntime");
+const workflowPanel_1 = require("./workflowPanel");
 const specsExplorer_1 = require("./specsExplorer");
 function activate(context) {
     const explorerProvider = new specsExplorer_1.SpecsExplorerProvider();
@@ -58,6 +59,13 @@ function createExtensionActions() {
         importUserStoryFromMarkdown: specsExplorer_1.importUserStoryFromMarkdown,
         initializeRepoPrompts: specsExplorer_1.initializeRepoPrompts,
         openPromptTemplates: specsExplorer_1.openPromptTemplates,
+        openWorkflowView: async (summary) => {
+            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (!workspaceRoot || !summary || typeof summary !== "object" || !("usId" in summary)) {
+                return;
+            }
+            await (0, workflowPanel_1.openWorkflowView)(workspaceRoot, summary, (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot));
+        },
         openMainArtifact: specsExplorer_1.openMainArtifact,
         showUserStoryDetails: detailsPanel_1.showUserStoryDetails,
         approveCurrentPhase: specsExplorer_1.approveCurrentPhase,

@@ -30,8 +30,8 @@ export class UserStoryTreeItem extends vscode.TreeItem {
     this.description = `${summary.currentPhase} · ${summary.status}`;
     this.tooltip = summary.title;
     this.command = {
-      command: "specForge.openMainArtifact",
-      title: "Open Main Artifact",
+      command: "specForge.openWorkflowView",
+      title: "Open Workflow View",
       arguments: [summary]
     };
   }
@@ -486,6 +486,10 @@ function getBackendClient(workspaceRoot: string): SpecForgeBackendClient {
   }
 
   return client;
+}
+
+export function getOrCreateBackendClient(workspaceRoot: string): SpecForgeBackendClient {
+  return getBackendClient(workspaceRoot);
 }
 
 export function disposeBackendClients(): void {

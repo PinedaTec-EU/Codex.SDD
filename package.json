@@ -18,6 +18,7 @@
     "onCommand:specForge.importUserStory",
     "onCommand:specForge.initializeRepoPrompts",
     "onCommand:specForge.openPromptTemplates",
+    "onCommand:specForge.openWorkflowView",
     "onCommand:specForge.openMainArtifact",
     "onCommand:specForge.continuePhase",
     "onCommand:specForge.approveCurrentPhase",
@@ -64,6 +65,10 @@
       {
         "command": "specForge.openPromptTemplates",
         "title": "Open Prompt Templates"
+      },
+      {
+        "command": "specForge.openWorkflowView",
+        "title": "Open Workflow View"
       },
       {
         "command": "specForge.openMainArtifact",
@@ -130,9 +135,14 @@
           "group": "inline"
         },
         {
+          "command": "specForge.openWorkflowView",
+          "when": "view == specForge.userStories && viewItem == specForge.userStory",
+          "group": "inline@1"
+        },
+        {
           "command": "specForge.openMainArtifact",
           "when": "view == specForge.userStories && viewItem == specForge.userStory",
-          "group": "inline"
+          "group": "inline@2"
         },
         {
           "command": "specForge.continuePhase",

@@ -22,6 +22,7 @@
     "src-vscode/extensionRuntime.ts",
     "src-vscode/explorerModel.ts",
     "src-vscode/detailsView.ts",
+    "src-vscode/workflowView.ts",
     "src-vscode/backendClient.ts"
   ]
 }
