@@ -52,12 +52,25 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     `
         : "";
     const phaseGraph = buildPhaseGraph(workflow, selectedPhase.phaseId);
+    const isMarkdownArtifact = Boolean(selectedPhase.artifactPath?.toLowerCase().endsWith(".md"));
+    const artifactPreviewHtml = isMarkdownArtifact
+        ? renderMarkdownToHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")
+        : null;
     const artifactSection = selectedPhase.artifactPath
         ? `
-      <div class="detail-actions">
+      <div class="detail-actions detail-actions--artifact">
+        <div class="artifact-tabs" role="tablist" aria-label="Artifact view">
+          <button class="artifact-tab is-active" type="button" role="tab" aria-selected="true" data-tab-group="artifact" data-tab-target="preview">Preview</button>
+          <button class="artifact-tab" type="button" role="tab" aria-selected="false" data-tab-group="artifact" data-tab-target="raw">Raw</button>
+        </div>
         <button data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.artifactPath)}">Open Artifact</button>
       </div>
-      <pre class="artifact-preview">${escapeHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")}</pre>
+      <div class="artifact-tab-panel is-active" data-tab-panel="artifact:preview">
+        ${artifactPreviewHtml ? `<div class="markdown-preview">${artifactPreviewHtml}</div>` : `<pre class="artifact-preview">${escapeHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")}</pre>`}
+      </div>
+      <div class="artifact-tab-panel" data-tab-panel="artifact:raw">
+        <pre class="artifact-preview">${escapeHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")}</pre>
+      </div>
     `
         : "<p class=\"muted\">No artifact is persisted for this phase.</p>";
     const promptButtons = [
@@ -554,6 +567,43 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
+      align-items: center;
+    }
+    .detail-actions--artifact {
+      justify-content: space-between;
+    }
+    .artifact-tabs {
+      display: inline-flex;
+      gap: 6px;
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .artifact-tab {
+      border: 0;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.68);
+      cursor: pointer;
+      font-size: 0.82rem;
+      transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+    }
+    .artifact-tab:hover {
+      color: rgba(255, 255, 255, 0.9);
+      transform: translateY(-1px);
+    }
+    .artifact-tab.is-active {
+      background: rgba(92, 181, 255, 0.16);
+      color: #a8dcff;
+      box-shadow: inset 0 0 0 1px rgba(92, 181, 255, 0.16);
+    }
+    .artifact-tab-panel {
+      display: none;
+    }
+    .artifact-tab-panel.is-active {
+      display: block;
     }
     .attachment-list {
       display: grid;
@@ -582,6 +632,100 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       white-space: pre-wrap;
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
       max-height: 320px;
+    }
+    .markdown-preview {
+      padding: 18px;
+      border-radius: 16px;
+      background: rgba(4, 10, 16, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      overflow: auto;
+      max-height: 520px;
+      line-height: 1.6;
+    }
+    .markdown-preview > :first-child {
+      margin-top: 0;
+    }
+    .markdown-preview > :last-child {
+      margin-bottom: 0;
+    }
+    .markdown-preview h1,
+    .markdown-preview h2,
+    .markdown-preview h3,
+    .markdown-preview h4,
+    .markdown-preview h5,
+    .markdown-preview h6 {
+      margin: 1.25em 0 0.5em;
+      line-height: 1.2;
+    }
+    .markdown-preview p,
+    .markdown-preview ul,
+    .markdown-preview ol,
+    .markdown-preview blockquote,
+    .markdown-preview table,
+    .markdown-preview pre,
+    .markdown-preview hr {
+      margin: 0 0 1em;
+    }
+    .markdown-preview ul,
+    .markdown-preview ol {
+      padding-left: 1.4rem;
+    }
+    .markdown-preview li + li {
+      margin-top: 0.28rem;
+    }
+    .markdown-preview code {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 0.14rem 0.36rem;
+      border-radius: 6px;
+      font-size: 0.92em;
+    }
+    .markdown-preview pre {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      padding: 14px;
+      overflow: auto;
+    }
+    .markdown-preview pre code {
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+    }
+    .markdown-preview blockquote {
+      border-left: 3px solid rgba(114, 241, 184, 0.34);
+      padding-left: 14px;
+      color: rgba(255, 255, 255, 0.76);
+    }
+    .markdown-preview hr {
+      border: 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .markdown-preview a {
+      color: #8fd9ff;
+    }
+    .markdown-preview table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .markdown-preview thead {
+      background: rgba(92, 181, 255, 0.1);
+    }
+    .markdown-preview th,
+    .markdown-preview td {
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .markdown-preview tbody tr:nth-child(even) {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .markdown-preview tbody tr:last-child td {
+      border-bottom: 0;
     }
     .audit-stream {
       display: flex;
@@ -734,6 +878,24 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         });
       });
     }
+    for (const tab of document.querySelectorAll("[data-tab-group][data-tab-target]")) {
+      tab.addEventListener("click", () => {
+        const group = tab.dataset.tabGroup;
+        const target = tab.dataset.tabTarget;
+        if (!group || !target) {
+          return;
+        }
+
+        for (const candidate of document.querySelectorAll(\`[data-tab-group="\${group}"]\`)) {
+          candidate.classList.toggle("is-active", candidate === tab);
+          candidate.setAttribute("aria-selected", candidate === tab ? "true" : "false");
+        }
+
+        for (const panel of document.querySelectorAll(\`[data-tab-panel^="\${group}:"]\`)) {
+          panel.classList.toggle("is-active", panel.dataset.tabPanel === \`\${group}:\${target}\`);
+        }
+      });
+    }
   </script>
 </body>
 </html>`;
@@ -863,6 +1025,158 @@ function fileIcon() {
       <path d="M7.5 3A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V9.2a2.5 2.5 0 0 0-.73-1.77l-3.7-3.7A2.5 2.5 0 0 0 12.8 3H7.5Zm5.3 1.75c.2 0 .39.08.53.22l3.7 3.7c.14.14.22.33.22.53v9.3c0 .41-.34.75-.75.75h-9a.75.75 0 0 1-.75-.75v-13c0-.41.34-.75.75-.75h5.3Zm-3.55 6.5h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1 0-1.5Zm0 3.5h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1 0-1.5Z"></path>
     </svg>
   `;
+}
+function renderMarkdownToHtml(markdown) {
+    const normalized = markdown.replace(/\r\n/g, "\n").trim();
+    if (normalized.length === 0) {
+        return "<p>Artifact content unavailable.</p>";
+    }
+    const lines = normalized.split("\n");
+    const html = [];
+    let index = 0;
+    while (index < lines.length) {
+        const line = lines[index];
+        if (!line.trim()) {
+            index++;
+            continue;
+        }
+        if (/^```/.test(line.trim())) {
+            const language = line.trim().slice(3).trim();
+            index++;
+            const codeLines = [];
+            while (index < lines.length && !/^```/.test(lines[index].trim())) {
+                codeLines.push(lines[index]);
+                index++;
+            }
+            if (index < lines.length) {
+                index++;
+            }
+            html.push(`<pre><code${language ? ` data-language="${escapeHtmlAttribute(language)}"` : ""}>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+            continue;
+        }
+        if (/^#{1,6}\s/.test(line)) {
+            const match = /^(#{1,6})\s+(.*)$/.exec(line);
+            if (match) {
+                const level = match[1].length;
+                html.push(`<h${level}>${renderInlineMarkdown(match[2])}</h${level}>`);
+            }
+            index++;
+            continue;
+        }
+        if (/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(line)) {
+            html.push("<hr />");
+            index++;
+            continue;
+        }
+        if (isMarkdownTable(lines, index)) {
+            const { html: tableHtml, nextIndex } = renderMarkdownTable(lines, index);
+            html.push(tableHtml);
+            index = nextIndex;
+            continue;
+        }
+        if (/^\s*>\s?/.test(line)) {
+            const quoteLines = [];
+            while (index < lines.length && /^\s*>\s?/.test(lines[index])) {
+                quoteLines.push(lines[index].replace(/^\s*>\s?/, ""));
+                index++;
+            }
+            html.push(`<blockquote>${renderMarkdownToHtml(quoteLines.join("\n"))}</blockquote>`);
+            continue;
+        }
+        if (/^\s*[-*+]\s+/.test(line)) {
+            const { html: listHtml, nextIndex } = renderMarkdownList(lines, index, false);
+            html.push(listHtml);
+            index = nextIndex;
+            continue;
+        }
+        if (/^\s*\d+\.\s+/.test(line)) {
+            const { html: listHtml, nextIndex } = renderMarkdownList(lines, index, true);
+            html.push(listHtml);
+            index = nextIndex;
+            continue;
+        }
+        const paragraphLines = [];
+        while (index < lines.length && lines[index].trim()) {
+            if (/^```/.test(lines[index].trim())
+                || /^#{1,6}\s/.test(lines[index])
+                || /^\s*>\s?/.test(lines[index])
+                || /^\s*[-*+]\s+/.test(lines[index])
+                || /^\s*\d+\.\s+/.test(lines[index])
+                || /^\s*([-*_])(?:\s*\1){2,}\s*$/.test(lines[index])
+                || isMarkdownTable(lines, index)) {
+                break;
+            }
+            paragraphLines.push(lines[index].trim());
+            index++;
+        }
+        html.push(`<p>${renderInlineMarkdown(paragraphLines.join(" "))}</p>`);
+    }
+    return html.join("\n");
+}
+function renderMarkdownList(lines, startIndex, ordered) {
+    const items = [];
+    let index = startIndex;
+    const pattern = ordered ? /^\s*\d+\.\s+(.*)$/ : /^\s*[-*+]\s+(.*)$/;
+    while (index < lines.length) {
+        const match = pattern.exec(lines[index]);
+        if (!match) {
+            break;
+        }
+        items.push(`<li>${renderInlineMarkdown(match[1].trim())}</li>`);
+        index++;
+    }
+    return {
+        html: `<${ordered ? "ol" : "ul"}>${items.join("")}</${ordered ? "ol" : "ul"}>`,
+        nextIndex: index
+    };
+}
+function isMarkdownTable(lines, index) {
+    if (index + 1 >= lines.length) {
+        return false;
+    }
+    const header = lines[index].trim();
+    const separator = lines[index + 1].trim();
+    return header.includes("|") && /^\|?[\s:-]+(?:\|[\s:-]+)+\|?$/.test(separator);
+}
+function renderMarkdownTable(lines, startIndex) {
+    const headerCells = splitMarkdownTableRow(lines[startIndex]);
+    let index = startIndex + 2;
+    const bodyRows = [];
+    while (index < lines.length && lines[index].trim().includes("|") && !/^\s*$/.test(lines[index])) {
+        const rowCells = splitMarkdownTableRow(lines[index]);
+        bodyRows.push(`<tr>${rowCells.map((cell) => `<td>${renderInlineMarkdown(cell)}</td>`).join("")}</tr>`);
+        index++;
+    }
+    return {
+        html: `
+      <table>
+        <thead><tr>${headerCells.map((cell) => `<th>${renderInlineMarkdown(cell)}</th>`).join("")}</tr></thead>
+        <tbody>${bodyRows.join("")}</tbody>
+      </table>
+    `,
+        nextIndex: index
+    };
+}
+function splitMarkdownTableRow(row) {
+    return row
+        .trim()
+        .replace(/^\|/, "")
+        .replace(/\|$/, "")
+        .split("|")
+        .map((cell) => cell.trim());
+}
+function renderInlineMarkdown(text) {
+    let html = escapeHtml(text);
+    html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+    html = html.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)/g, (_match, label, href) => {
+        const safeHref = escapeHtmlAttribute(href);
+        return `<a href="${safeHref}">${label}</a>`;
+    });
+    html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/__([^_]+)__/g, "<strong>$1</strong>");
+    html = html.replace(/(^|[\s(])\*([^*]+)\*(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>");
+    html = html.replace(/(^|[\s(])_([^_]+)_(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>");
+    return html;
 }
 function escapeHtml(value) {
     return value
