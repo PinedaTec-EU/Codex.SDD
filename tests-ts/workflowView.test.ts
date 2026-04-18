@@ -93,10 +93,8 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /api-notes\.md/);
   assert.match(html, /Duration/);
   assert.match(html, /4\.88 s/);
-  assert.match(html, /Input Tokens/);
-  assert.match(html, />321</);
-  assert.match(html, /Output Tokens/);
-  assert.match(html, />144</);
+  assert.match(html, /Input\/Output Tokens/);
+  assert.match(html, />321 \/ 144</);
   assert.match(html, /Total Tokens/);
   assert.match(html, />465</);
   assert.match(html, /Response Speed/);

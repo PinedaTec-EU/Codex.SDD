@@ -97,10 +97,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
                 ? renderExecutionMetric("Duration", formatDuration(selectedPhaseEvent.durationMs), "elapsed")
                 : "",
             selectedPhaseEvent.usage
-                ? renderExecutionMetric("Input Tokens", formatMetricNumber(selectedPhaseEvent.usage.inputTokens), "prompt")
-                : "",
-            selectedPhaseEvent.usage
-                ? renderExecutionMetric("Output Tokens", formatMetricNumber(selectedPhaseEvent.usage.outputTokens), "completion")
+                ? renderExecutionMetric("Input/Output Tokens", `${formatMetricNumber(selectedPhaseEvent.usage.inputTokens)} / ${formatMetricNumber(selectedPhaseEvent.usage.outputTokens)}`, "prompt")
                 : "",
             selectedPhaseEvent.usage
                 ? renderExecutionMetric("Total Tokens", formatMetricNumber(selectedPhaseEvent.usage.totalTokens), "combined")
@@ -255,12 +252,16 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       align-items: center;
     }
     .detail-metrics {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      display: flex;
       gap: 10px;
       margin-top: 14px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      flex-wrap: nowrap;
     }
     .metric-card {
+      flex: 0 0 min(280px, calc((100% - 30px) / 4));
+      min-width: 220px;
       padding: 12px 14px;
       border-radius: 16px;
       border: 1px solid rgba(114, 241, 184, 0.18);
