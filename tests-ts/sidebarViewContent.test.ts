@@ -6,6 +6,7 @@ test("buildSidebarHtml shows the bootstrap block when prompts are missing before
   const html = buildSidebarHtml({
     hasWorkspace: true,
     showCreateForm: false,
+    busyMessage: null,
     promptsInitialized: false,
     settingsConfigured: true,
     settingsMessage: null,
@@ -24,6 +25,7 @@ test("buildSidebarHtml shows a single prominent create action when prompts are i
   const html = buildSidebarHtml({
     hasWorkspace: true,
     showCreateForm: false,
+    busyMessage: null,
     promptsInitialized: true,
     settingsConfigured: true,
     settingsMessage: null,
@@ -42,6 +44,7 @@ test("buildSidebarHtml renders the embedded creation form inside the sidebar", (
   const html = buildSidebarHtml({
     hasWorkspace: true,
     showCreateForm: true,
+    busyMessage: null,
     promptsInitialized: true,
     settingsConfigured: true,
     settingsMessage: null,
@@ -59,6 +62,7 @@ test("buildSidebarHtml exposes a compact prompt reset action when repo prompts a
   const html = buildSidebarHtml({
     hasWorkspace: true,
     showCreateForm: false,
+    busyMessage: null,
     promptsInitialized: true,
     settingsConfigured: true,
     settingsMessage: null,
@@ -85,6 +89,7 @@ test("buildSidebarHtml uses compact actions instead of a separate create card wh
   const html = buildSidebarHtml({
     hasWorkspace: true,
     showCreateForm: false,
+    busyMessage: null,
     promptsInitialized: true,
     settingsConfigured: true,
     settingsMessage: null,
@@ -111,6 +116,7 @@ test("buildSidebarHtml shows a bootstrap block above the backlog when prompts ar
   const html = buildSidebarHtml({
     hasWorkspace: true,
     showCreateForm: false,
+    busyMessage: null,
     promptsInitialized: false,
     settingsConfigured: true,
     settingsMessage: null,
@@ -136,6 +142,7 @@ test("buildSidebarHtml exposes a visible settings warning when execution is not 
   const html = buildSidebarHtml({
     hasWorkspace: true,
     showCreateForm: false,
+    busyMessage: null,
     promptsInitialized: false,
     settingsConfigured: false,
     settingsMessage: "SpecForge.AI is not configured for the current provider. Missing base URL, API key, model.",
@@ -153,6 +160,7 @@ test("buildSidebarHtml surfaces the model warning when the deterministic fallbac
   const html = buildSidebarHtml({
     hasWorkspace: true,
     showCreateForm: false,
+    busyMessage: null,
     promptsInitialized: false,
     settingsConfigured: false,
     settingsMessage: "SpecForge.AI needs an SLM/LLM execution provider before workflow stages can run. Select an OpenAI-compatible provider and configure base URL, API key, and model.",
@@ -171,4 +179,21 @@ test("buildSidebarHtml surfaces the model warning when the deterministic fallbac
 
   assert.match(html, /SLM\/LLM execution provider/);
   assert.match(html, /Configure Settings/);
+});
+
+test("buildSidebarHtml shows a busy indicator and disables actions while a sidebar operation is running", () => {
+  const html = buildSidebarHtml({
+    hasWorkspace: true,
+    showCreateForm: false,
+    busyMessage: "Bootstrapping repo prompts...",
+    promptsInitialized: false,
+    settingsConfigured: true,
+    settingsMessage: null,
+    categories: ["workflow"],
+    userStories: []
+  });
+
+  assert.match(html, /Working/);
+  assert.match(html, /Bootstrapping repo prompts\.\.\./);
+  assert.match(html, /const busy = true/);
 });

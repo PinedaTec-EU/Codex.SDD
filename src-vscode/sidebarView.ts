@@ -19,6 +19,7 @@ type SidebarMessage =
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
   private webviewView: vscode.WebviewView | undefined;
   private showCreateForm = false;
+  private busyMessage: string | null = null;
 
   public constructor(
     private readonly extensionUri: vscode.Uri,
@@ -44,6 +45,10 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async handleMessageAsync(message: SidebarMessage): Promise<void> {
+    if (this.busyMessage) {
+      return;
+    }
+
     switch (message.command) {
       case "showCreateForm":
         this.showCreateForm = true;
@@ -61,8 +66,10 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         await this.openWorkflowAsync(message.usId);
         return;
       case "initializeRepoPrompts":
-        await this.initializeRepoPromptsFromSidebarAsync();
-        await this.safeRenderAsync();
+        await this.runBusyActionAsync("Bootstrapping repo prompts...", async () => {
+          await this.initializeRepoPromptsFromSidebarAsync();
+          await this.safeRenderAsync();
+        });
         return;
       case "openPromptTemplates":
         await vscode.commands.executeCommand("specForge.openPromptTemplates");
@@ -71,8 +78,22 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         await openSpecForgeSettingsAsync();
         return;
       case "submitCreateForm":
-        await this.submitCreateFormAsync(message);
+        await this.runBusyActionAsync("Creating user story...", async () => {
+          await this.submitCreateFormAsync(message);
+        });
         return;
+    }
+  }
+
+  private async runBusyActionAsync(message: string, action: () => Promise<void>): Promise<void> {
+    this.busyMessage = message;
+    await this.safeRenderAsync();
+
+    try {
+      await action();
+    } finally {
+      this.busyMessage = null;
+      await this.safeRenderAsync();
     }
   }
 
@@ -151,6 +172,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       this.webviewView.webview.html = buildSidebarHtml({
         hasWorkspace: false,
         showCreateForm: false,
+        busyMessage: this.busyMessage,
         promptsInitialized: false,
         settingsConfigured: settingsStatus.executionConfigured,
         settingsMessage: settingsStatus.message,
@@ -170,6 +192,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     this.webviewView.webview.html = buildSidebarHtml({
       hasWorkspace: true,
       showCreateForm: this.showCreateForm,
+      busyMessage: this.busyMessage,
       promptsInitialized,
       settingsConfigured: settingsStatus.executionConfigured,
       settingsMessage: settingsStatus.message,
@@ -189,6 +212,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       this.webviewView.webview.html = buildSidebarHtml({
         hasWorkspace: true,
         showCreateForm: false,
+        busyMessage: this.busyMessage,
         promptsInitialized: false,
         settingsConfigured: false,
         settingsMessage: "SpecForge.AI settings could not be evaluated.",

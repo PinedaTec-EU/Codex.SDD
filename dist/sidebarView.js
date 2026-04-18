@@ -46,6 +46,7 @@ class SidebarViewProvider {
     onDidCreateUserStory;
     webviewView;
     showCreateForm = false;
+    busyMessage = null;
     constructor(extensionUri, onDidCreateUserStory) {
         this.extensionUri = extensionUri;
         this.onDidCreateUserStory = onDidCreateUserStory;
@@ -65,6 +66,9 @@ class SidebarViewProvider {
         return this.safeRenderAsync();
     }
     async handleMessageAsync(message) {
+        if (this.busyMessage) {
+            return;
+        }
         switch (message.command) {
             case "showCreateForm":
                 this.showCreateForm = true;
@@ -81,8 +85,10 @@ class SidebarViewProvider {
                 await this.openWorkflowAsync(message.usId);
                 return;
             case "initializeRepoPrompts":
-                await this.initializeRepoPromptsFromSidebarAsync();
-                await this.safeRenderAsync();
+                await this.runBusyActionAsync("Bootstrapping repo prompts...", async () => {
+                    await this.initializeRepoPromptsFromSidebarAsync();
+                    await this.safeRenderAsync();
+                });
                 return;
             case "openPromptTemplates":
                 await vscode.commands.executeCommand("specForge.openPromptTemplates");
@@ -91,8 +97,21 @@ class SidebarViewProvider {
                 await openSpecForgeSettingsAsync();
                 return;
             case "submitCreateForm":
-                await this.submitCreateFormAsync(message);
+                await this.runBusyActionAsync("Creating user story...", async () => {
+                    await this.submitCreateFormAsync(message);
+                });
                 return;
+        }
+    }
+    async runBusyActionAsync(message, action) {
+        this.busyMessage = message;
+        await this.safeRenderAsync();
+        try {
+            await action();
+        }
+        finally {
+            this.busyMessage = null;
+            await this.safeRenderAsync();
         }
     }
     async submitCreateFormAsync(message) {
@@ -154,6 +173,7 @@ class SidebarViewProvider {
             this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
                 hasWorkspace: false,
                 showCreateForm: false,
+                busyMessage: this.busyMessage,
                 promptsInitialized: false,
                 settingsConfigured: settingsStatus.executionConfigured,
                 settingsMessage: settingsStatus.message,
@@ -172,6 +192,7 @@ class SidebarViewProvider {
         this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
             hasWorkspace: true,
             showCreateForm: this.showCreateForm,
+            busyMessage: this.busyMessage,
             promptsInitialized,
             settingsConfigured: settingsStatus.executionConfigured,
             settingsMessage: settingsStatus.message,
@@ -190,6 +211,7 @@ class SidebarViewProvider {
             this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
                 hasWorkspace: true,
                 showCreateForm: false,
+                busyMessage: this.busyMessage,
                 promptsInitialized: false,
                 settingsConfigured: false,
                 settingsMessage: "SpecForge.AI settings could not be evaluated.",

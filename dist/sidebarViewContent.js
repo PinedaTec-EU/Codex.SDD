@@ -2,26 +2,31 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildSidebarHtml = buildSidebarHtml;
 function buildSidebarHtml(model) {
+    const busyIndicatorMarkup = buildBusyIndicatorMarkup(model);
+    const isBusy = model.busyMessage !== null;
     if (!model.hasWorkspace) {
         return wrapHtml(`
+      ${busyIndicatorMarkup}
       <section class="empty-state">
         <p class="eyebrow">SpecForge.AI</p>
         <h1>Open a workspace to start.</h1>
         <p class="copy">The sidebar needs a workspace folder to persist user stories under <code>.specs/</code>.</p>
       </section>
-    `);
+    `, isBusy);
     }
     const promptsBootstrapMarkup = !model.promptsInitialized
         ? buildPromptsBootstrapMarkup(model.userStories.length === 0)
         : "";
     if (model.userStories.length === 0 && !model.showCreateForm && !model.promptsInitialized) {
         return wrapHtml(`
+      ${busyIndicatorMarkup}
       ${buildSettingsWarningMarkup(model)}
       ${promptsBootstrapMarkup}
-    `);
+    `, isBusy);
     }
     if (model.userStories.length === 0 && !model.showCreateForm && model.promptsInitialized) {
         return wrapHtml(`
+      ${busyIndicatorMarkup}
       ${buildSettingsWarningMarkup(model)}
       <section class="empty-state hero">
         <div class="hero-header">
@@ -33,7 +38,7 @@ function buildSidebarHtml(model) {
         <p class="copy">No faded text-buttons, no scattered prompts. Start here and the sidebar opens the full intake form in place.</p>
         <button class="primary-action" data-command="showCreateForm">Create User Story</button>
       </section>
-    `);
+    `, isBusy);
     }
     const storyGroups = groupStories(model.userStories);
     const storiesMarkup = storyGroups.map((group) => `
@@ -87,6 +92,7 @@ function buildSidebarHtml(model) {
     `
         : "";
     return wrapHtml(`
+    ${busyIndicatorMarkup}
     ${buildSettingsWarningMarkup(model)}
     ${promptsBootstrapMarkup}
     ${formMarkup}
@@ -100,7 +106,7 @@ function buildSidebarHtml(model) {
       </div>
       ${storiesMarkup || "<p class=\"copy story-list__empty\">Bootstrap the repo prompts to start creating user stories from the sidebar.</p>"}
     </section>
-  `);
+  `, isBusy);
 }
 function buildSettingsWarningMarkup(model) {
     if (model.settingsConfigured || !model.settingsMessage) {
@@ -115,6 +121,20 @@ function buildSettingsWarningMarkup(model) {
         <p class="copy">${escapeHtml(model.settingsMessage)}</p>
       </div>
       <button class="warning-action" data-command="openSettings">Configure Settings</button>
+    </section>
+  `;
+}
+function buildBusyIndicatorMarkup(model) {
+    if (!model.busyMessage) {
+        return "";
+    }
+    return `
+    <section class="busy-indicator" role="status" aria-live="polite">
+      <div class="busy-indicator__spinner" aria-hidden="true"></div>
+      <div class="busy-indicator__content">
+        <p class="eyebrow">Working</p>
+        <p class="copy">${escapeHtml(model.busyMessage)}</p>
+      </div>
     </section>
   `;
 }
@@ -169,7 +189,7 @@ function buildPromptsBootstrapMarkup(isFirstRun) {
     </section>
   `;
 }
-function wrapHtml(content) {
+function wrapHtml(content, busy) {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -197,6 +217,29 @@ function wrapHtml(content) {
     }
     .bootstrap-card {
       margin-bottom: 14px;
+    }
+    .busy-indicator {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(114, 241, 184, 0.24);
+      background: linear-gradient(180deg, rgba(16, 38, 31, 0.96), rgba(12, 24, 20, 0.98));
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+    }
+    .busy-indicator__spinner {
+      width: 18px;
+      height: 18px;
+      margin-top: 4px;
+      border-radius: 50%;
+      border: 2px solid rgba(114, 241, 184, 0.2);
+      border-top-color: #72f1b8;
+      animation: spin 900ms linear infinite;
+    }
+    .busy-indicator__content .copy {
+      margin-top: 2px;
     }
     .settings-warning {
       display: grid;
@@ -271,6 +314,10 @@ function wrapHtml(content) {
       border-radius: 14px;
       border: 1px solid rgba(114, 241, 184, 0.18);
       cursor: pointer;
+    }
+    button:disabled, input:disabled, select:disabled, textarea:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
     .primary-action {
       padding: 14px 16px;
@@ -394,14 +441,26 @@ function wrapHtml(content) {
       font-size: 0.8rem;
       color: rgba(255, 255, 255, 0.62);
     }
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
   </style>
 </head>
 <body>
   ${content}
   <script>
     const vscode = acquireVsCodeApi();
+    const busy = ${busy ? "true" : "false"};
     for (const element of document.querySelectorAll("[data-command]")) {
+      if (busy && element instanceof HTMLButtonElement) {
+        element.disabled = true;
+      }
       element.addEventListener("click", () => {
+        if (busy) {
+          return;
+        }
         vscode.postMessage({
           command: element.dataset.command,
           usId: element.dataset.usId
@@ -410,8 +469,14 @@ function wrapHtml(content) {
     }
     const form = document.getElementById("create-user-story-form");
     if (form) {
+      for (const field of form.querySelectorAll("input, select, textarea, button")) {
+        field.disabled = busy;
+      }
       form.addEventListener("submit", (event) => {
         event.preventDefault();
+        if (busy) {
+          return;
+        }
         const data = new FormData(form);
         vscode.postMessage({
           command: "submitCreateForm",
