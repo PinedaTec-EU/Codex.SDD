@@ -10,12 +10,12 @@ const desktopGraphHeight = 1260;
 const mobileGraphHeight = 1360;
 const desktopPhasePositions = {
     "capture": { left: 18, top: 38 },
-    "refinement": { left: 392, top: 142 },
-    "technical-design": { left: 392, top: 332 },
-    "implementation": { left: 18, top: 522 },
-    "review": { left: 18, top: 712 },
-    "release-approval": { left: 392, top: 902 },
-    "pr-preparation": { left: 18, top: 1092 }
+    "refinement": { left: 392, top: 162 },
+    "technical-design": { left: 392, top: 352 },
+    "implementation": { left: 18, top: 462 },
+    "review": { left: 18, top: 652 },
+    "release-approval": { left: 392, top: 776 },
+    "pr-preparation": { left: 18, top: 892 }
 };
 const mobilePhasePositions = {
     "capture": { left: 0, top: 16 },
@@ -59,18 +59,12 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     const artifactSection = selectedPhase.artifactPath
         ? `
       <div class="detail-actions detail-actions--artifact">
-        <div class="artifact-tabs" role="tablist" aria-label="Artifact view">
-          <button class="artifact-tab is-active" type="button" role="tab" aria-selected="true" data-tab-group="artifact" data-tab-target="preview">Preview</button>
-          <button class="artifact-tab" type="button" role="tab" aria-selected="false" data-tab-group="artifact" data-tab-target="raw">Raw</button>
+        <div class="artifact-view-label">
+          <span class="badge">Preview</span>
         </div>
         <button data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.artifactPath)}">Open Artifact</button>
       </div>
-      <div class="artifact-tab-panel is-active" data-tab-panel="artifact:preview">
-        ${artifactPreviewHtml ? `<div class="markdown-preview">${artifactPreviewHtml}</div>` : `<pre class="artifact-preview">${escapeHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")}</pre>`}
-      </div>
-      <div class="artifact-tab-panel" data-tab-panel="artifact:raw">
-        <pre class="artifact-preview">${escapeHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")}</pre>
-      </div>
+      ${artifactPreviewHtml ? `<div class="markdown-preview">${artifactPreviewHtml}</div>` : `<pre class="artifact-preview">${escapeHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")}</pre>`}
     `
         : "<p class=\"muted\">No artifact is persisted for this phase.</p>";
     const promptButtons = [
@@ -572,38 +566,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .detail-actions--artifact {
       justify-content: space-between;
     }
-    .artifact-tabs {
+    .artifact-view-label {
       display: inline-flex;
-      gap: 6px;
-      padding: 4px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      background: rgba(255, 255, 255, 0.03);
-    }
-    .artifact-tab {
-      border: 0;
-      border-radius: 999px;
-      padding: 8px 14px;
-      background: transparent;
-      color: rgba(255, 255, 255, 0.68);
-      cursor: pointer;
-      font-size: 0.82rem;
-      transition: background 140ms ease, color 140ms ease, transform 140ms ease;
-    }
-    .artifact-tab:hover {
-      color: rgba(255, 255, 255, 0.9);
-      transform: translateY(-1px);
-    }
-    .artifact-tab.is-active {
-      background: rgba(92, 181, 255, 0.16);
-      color: #a8dcff;
-      box-shadow: inset 0 0 0 1px rgba(92, 181, 255, 0.16);
-    }
-    .artifact-tab-panel {
-      display: none;
-    }
-    .artifact-tab-panel.is-active {
-      display: block;
+      align-items: center;
     }
     .attachment-list {
       display: grid;
@@ -876,24 +841,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           phaseId: element.dataset.phaseId,
           path: element.dataset.path
         });
-      });
-    }
-    for (const tab of document.querySelectorAll("[data-tab-group][data-tab-target]")) {
-      tab.addEventListener("click", () => {
-        const group = tab.dataset.tabGroup;
-        const target = tab.dataset.tabTarget;
-        if (!group || !target) {
-          return;
-        }
-
-        for (const candidate of document.querySelectorAll(\`[data-tab-group="\${group}"]\`)) {
-          candidate.classList.toggle("is-active", candidate === tab);
-          candidate.setAttribute("aria-selected", candidate === tab ? "true" : "false");
-        }
-
-        for (const panel of document.querySelectorAll(\`[data-tab-panel^="\${group}:"]\`)) {
-          panel.classList.toggle("is-active", panel.dataset.tabPanel === \`\${group}:\${target}\`);
-        }
       });
     }
   </script>

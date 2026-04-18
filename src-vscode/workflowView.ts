@@ -15,17 +15,14 @@ const phaseNodeHeight = 116;
 const phaseActionOffsetX = 16;
 const phaseActionTopOffset = 18;
 
-const desktopGraphHeight = 1260;
-const mobileGraphHeight = 1360;
-
 const desktopPhasePositions: Record<string, PhasePosition> = {
   "capture": { left: 18, top: 38 },
-  "refinement": { left: 392, top: 142 },
-  "technical-design": { left: 392, top: 332 },
-  "implementation": { left: 18, top: 522 },
-  "review": { left: 18, top: 712 },
-  "release-approval": { left: 392, top: 902 },
-  "pr-preparation": { left: 18, top: 1092 }
+  "refinement": { left: 392, top: 162 },
+  "technical-design": { left: 392, top: 352 },
+  "implementation": { left: 18, top: 462 },
+  "review": { left: 18, top: 652 },
+  "release-approval": { left: 392, top: 776 },
+  "pr-preparation": { left: 18, top: 892 }
 };
 
 const mobilePhasePositions: Record<string, PhasePosition> = {
@@ -38,6 +35,9 @@ const mobilePhasePositions: Record<string, PhasePosition> = {
   "pr-preparation": { left: 0, top: 1138 }
 };
 
+const desktopGraphHeight = computeGraphHeight(desktopPhasePositions, phaseNodeHeight, 96);
+const mobileGraphHeight = computeGraphHeight(mobilePhasePositions, phaseNodeHeight, 96);
+
 function buildPhasePositionCss(positions: Record<string, PhasePosition>): string {
   return Object.entries(positions)
     .map(([phaseId, position]) => `.phase-node.${phaseId} { left: ${position.left}px; top: ${position.top}px; }`)
@@ -49,6 +49,11 @@ function buildPhaseActionPositionCss(positions: Record<string, PhasePosition>, n
     .map(([phaseId, position]) =>
       `.phase-node-actions.${phaseId} { left: ${position.left + nodeWidth + phaseActionOffsetX}px; top: ${position.top + phaseActionTopOffset}px; }`)
     .join("\n");
+}
+
+function computeGraphHeight(positions: Record<string, PhasePosition>, nodeHeight: number, bottomPadding: number): number {
+  const maxTop = Math.max(...Object.values(positions).map((position) => position.top));
+  return maxTop + nodeHeight + bottomPadding;
 }
 
 export function buildWorkflowHtml(
