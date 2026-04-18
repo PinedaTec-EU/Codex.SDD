@@ -193,6 +193,12 @@ function wrapHtml(content: string): string {
       color: rgba(255, 255, 255, 0.74);
       line-height: 1.5;
     }
+    .prompt-card .primary-action,
+    .prompt-card .ghost-action,
+    .action-card .primary-action,
+    .empty-state.hero .primary-action {
+      margin-top: 18px;
+    }
     .primary-action, .ghost-action, .story-card {
       width: 100%;
       border-radius: 14px;
