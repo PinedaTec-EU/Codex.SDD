@@ -14,6 +14,7 @@ type SidebarMessage =
   | { readonly command: "openSettings" }
   | { readonly command: "openPromptTemplates" }
   | { readonly command: "openWorkflow"; readonly usId?: string }
+  | { readonly command: "deleteUserStory"; readonly usId?: string }
   | { readonly command: "submitCreateForm"; readonly title?: string; readonly kind?: string; readonly category?: string; readonly sourceText?: string };
 
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
@@ -64,6 +65,13 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         }
 
         await this.openWorkflowAsync(message.usId);
+        return;
+      case "deleteUserStory":
+        if (!message.usId) {
+          return;
+        }
+
+        await this.deleteUserStoryAsync(message.usId);
         return;
       case "initializeRepoPrompts":
         await this.runBusyActionAsync("Bootstrapping repo prompts...", async () => {
@@ -133,6 +141,17 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
     const summary = await getOrCreateBackendClient(workspaceRoot).getUserStorySummary(usId);
     await vscode.commands.executeCommand("specForge.openWorkflowView", summary);
+  }
+
+  private async deleteUserStoryAsync(usId: string): Promise<void> {
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+      return;
+    }
+
+    const summary = await getOrCreateBackendClient(workspaceRoot).getUserStorySummary(usId);
+    await vscode.commands.executeCommand("specForge.deleteUserStory", summary);
+    await this.onDidCreateUserStory();
   }
 
   private async initializeRepoPromptsFromSidebarAsync(): Promise<void> {

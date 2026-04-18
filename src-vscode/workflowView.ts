@@ -154,6 +154,9 @@ export function buildWorkflowHtml(
       ${stopIcon()}
     </button>
   `;
+  const resetButton = `
+    <button data-command="restart"${!workflow.controls.canRestartFromSource ? " disabled" : ""}>Reset</button>
+  `;
 
   const auditRows = workflow.events.length > 0
     ? workflow.events.map((event) => `
@@ -847,6 +850,7 @@ export function buildWorkflowHtml(
         </div>
         <div class="control-strip">
           ${playbackButtons}
+          ${resetButton}
           <button class="icon-button" data-command="openArtifact" data-path="${escapeHtmlAttribute(workflow.mainArtifactPath)}" aria-label="Open user story">
             ${fileIcon()}
           </button>

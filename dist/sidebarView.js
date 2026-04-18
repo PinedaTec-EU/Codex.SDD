@@ -84,6 +84,12 @@ class SidebarViewProvider {
                 }
                 await this.openWorkflowAsync(message.usId);
                 return;
+            case "deleteUserStory":
+                if (!message.usId) {
+                    return;
+                }
+                await this.deleteUserStoryAsync(message.usId);
+                return;
             case "initializeRepoPrompts":
                 await this.runBusyActionAsync("Bootstrapping repo prompts...", async () => {
                     await this.initializeRepoPromptsFromSidebarAsync();
@@ -145,6 +151,15 @@ class SidebarViewProvider {
         }
         const summary = await (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot).getUserStorySummary(usId);
         await vscode.commands.executeCommand("specForge.openWorkflowView", summary);
+    }
+    async deleteUserStoryAsync(usId) {
+        const workspaceRoot = getWorkspaceRoot();
+        if (!workspaceRoot) {
+            return;
+        }
+        const summary = await (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot).getUserStorySummary(usId);
+        await vscode.commands.executeCommand("specForge.deleteUserStory", summary);
+        await this.onDidCreateUserStory();
     }
     async initializeRepoPromptsFromSidebarAsync() {
         const workspaceRoot = getWorkspaceRoot();

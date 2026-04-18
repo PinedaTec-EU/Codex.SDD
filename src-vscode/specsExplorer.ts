@@ -7,6 +7,7 @@ import {
   type UserStorySummary
 } from "./backendClient";
 import { getSpecForgeSettings } from "./extensionSettings";
+import { closeWorkflowView } from "./workflowPanel";
 import {
   compareUserStories,
   DEFAULT_USER_STORY_CATEGORIES,
@@ -409,6 +410,45 @@ export async function restartUserStoryFromSource(summary?: UserStorySummary): Pr
     void vscode.window.showInformationMessage(
       `${summary.usId} restarted from source at ${result.currentPhase} with status ${result.status}.`
     );
+  } catch (error) {
+    void vscode.window.showErrorMessage(asErrorMessage(error));
+  }
+}
+
+export async function deleteUserStory(summary?: UserStorySummary): Promise<void> {
+  if (!summary) {
+    void vscode.window.showInformationMessage("Select a user story first.");
+    return;
+  }
+
+  const workspaceRoot = getWorkspaceRoot();
+  if (!workspaceRoot) {
+    void vscode.window.showWarningMessage("Open a workspace folder before deleting a user story.");
+    return;
+  }
+
+  const confirmLabel = "Delete User Story";
+  const selection = await vscode.window.showWarningMessage(
+    `Delete ${summary.usId}? This removes its files and timeline from .specs/us.`,
+    { modal: true, detail: summary.directoryPath },
+    confirmLabel
+  );
+
+  if (selection !== confirmLabel) {
+    return;
+  }
+
+  const storiesRoot = path.join(workspaceRoot, ".specs", "us") + path.sep;
+  const targetPath = path.resolve(summary.directoryPath);
+  if (!targetPath.startsWith(storiesRoot)) {
+    void vscode.window.showErrorMessage(`Refusing to delete '${summary.usId}' because its path is outside .specs/us.`);
+    return;
+  }
+
+  try {
+    closeWorkflowView(workspaceRoot, summary.usId);
+    await fs.promises.rm(targetPath, { recursive: true, force: false });
+    void vscode.window.showInformationMessage(`${summary.usId} deleted.`);
   } catch (error) {
     void vscode.window.showErrorMessage(asErrorMessage(error));
   }

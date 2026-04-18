@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.openWorkflowView = openWorkflowView;
 exports.refreshWorkflowViews = refreshWorkflowViews;
+exports.closeWorkflowView = closeWorkflowView;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const vscode = __importStar(require("vscode"));
@@ -55,6 +56,9 @@ async function refreshWorkflowViews() {
     for (const panel of panels.values()) {
         await panel.refreshAsync();
     }
+}
+function closeWorkflowView(workspaceRoot, usId) {
+    panels.get(`${workspaceRoot}:${usId}`)?.dispose();
 }
 class WorkflowPanelController {
     workspaceRoot;
@@ -98,6 +102,9 @@ class WorkflowPanelController {
     async showAsync() {
         this.panel.reveal(vscode.ViewColumn.Active);
         await this.refreshAsync();
+    }
+    dispose() {
+        this.panel.dispose();
     }
     async refreshAsync() {
         const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);

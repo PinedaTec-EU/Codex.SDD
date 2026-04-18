@@ -108,6 +108,7 @@ test("buildSidebarHtml uses compact actions instead of a separate create card wh
 
   assert.match(html, /compact-actions/);
   assert.match(html, /aria-label="Create new user story"/);
+  assert.match(html, /aria-label="Delete US-0001"/);
   assert.doesNotMatch(html, /Start another user story/);
   assert.doesNotMatch(html, /Keep the backlog focused on active work/);
 });

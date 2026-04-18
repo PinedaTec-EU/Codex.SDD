@@ -31,6 +31,9 @@ function activateExtension(context, host, explorerProvider, actions) {
     }), host.registerCommand("specForge.restartUserStoryFromSource", async (summary) => {
         await actions.restartUserStoryFromSource(summary);
         explorerProvider.refresh();
+    }), host.registerCommand("specForge.deleteUserStory", async (summary) => {
+        await actions.deleteUserStory(summary);
+        explorerProvider.refresh();
     }), host.registerCommand("specForge.continuePhase", async (summary) => {
         await actions.continuePhase(summary);
         explorerProvider.refresh();

@@ -51,6 +51,10 @@ export async function refreshWorkflowViews(): Promise<void> {
   }
 }
 
+export function closeWorkflowView(workspaceRoot: string, usId: string): void {
+  panels.get(`${workspaceRoot}:${usId}`)?.dispose();
+}
+
 class WorkflowPanelController {
   private readonly panel: vscode.WebviewPanel;
   private selectedPhaseId: string;
@@ -99,6 +103,10 @@ class WorkflowPanelController {
   public async showAsync(): Promise<void> {
     this.panel.reveal(vscode.ViewColumn.Active);
     await this.refreshAsync();
+  }
+
+  public dispose(): void {
+    this.panel.dispose();
   }
 
   public async refreshAsync(): Promise<void> {

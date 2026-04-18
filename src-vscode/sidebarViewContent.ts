@@ -60,11 +60,21 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
     <section class="story-group">
       <div class="group-header">${escapeHtml(group.category)}</div>
       ${group.items.map((summary) => `
-        <button class="story-card" data-command="openWorkflow" data-us-id="${escapeHtmlAttr(summary.usId)}">
-          <span class="story-card__id">${escapeHtml(summary.usId)}</span>
-          <strong>${escapeHtml(summary.title)}</strong>
-          <span class="story-card__meta">${escapeHtml(summary.currentPhase)} · ${escapeHtml(summary.status)}</span>
-        </button>
+        <div class="story-row">
+          <button class="story-card" data-command="openWorkflow" data-us-id="${escapeHtmlAttr(summary.usId)}">
+            <span class="story-card__id">${escapeHtml(summary.usId)}</span>
+            <strong>${escapeHtml(summary.title)}</strong>
+            <span class="story-card__meta">${escapeHtml(summary.currentPhase)} · ${escapeHtml(summary.status)}</span>
+          </button>
+          <button
+            class="icon-action icon-action--danger story-delete"
+            data-command="deleteUserStory"
+            data-us-id="${escapeHtmlAttr(summary.usId)}"
+            title="Delete ${escapeHtmlAttr(summary.usId)}"
+            aria-label="Delete ${escapeHtmlAttr(summary.usId)}">
+            <span aria-hidden="true">🗑</span>
+          </button>
+        </div>
       `).join("")}
     </section>
   `).join("");
@@ -385,6 +395,14 @@ function wrapHtml(content: string, busy: boolean): string {
       background: rgba(114, 241, 184, 0.12);
       border-color: rgba(114, 241, 184, 0.34);
     }
+    .icon-action--danger {
+      color: #ff9b9b;
+      border-color: rgba(255, 139, 139, 0.18);
+    }
+    .icon-action--danger:hover {
+      background: rgba(255, 139, 139, 0.12);
+      border-color: rgba(255, 139, 139, 0.34);
+    }
     .icon-action:disabled {
       opacity: 0.45;
       cursor: not-allowed;
@@ -442,6 +460,15 @@ function wrapHtml(content: string, busy: boolean): string {
     .story-group + .story-group {
       margin-top: 14px;
     }
+    .story-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .story-row + .story-row {
+      margin-top: 8px;
+    }
     .group-header {
       margin-bottom: 8px;
       text-transform: uppercase;
@@ -457,8 +484,8 @@ function wrapHtml(content: string, busy: boolean): string {
       display: grid;
       gap: 4px;
     }
-    .story-card + .story-card {
-      margin-top: 8px;
+    .story-delete {
+      align-self: center;
     }
     .story-card__id {
       font-family: ui-monospace, "SF Mono", Menlo, monospace;

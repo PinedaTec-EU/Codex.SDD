@@ -18,7 +18,8 @@ import {
   openPromptTemplates,
   openMainArtifact,
   restartUserStoryFromSource,
-  requestRegression
+  requestRegression,
+  deleteUserStory
 } from "./specsExplorer";
 
 let previousAttentionSnapshot = new Map<string, string>();
@@ -105,6 +106,7 @@ function createExtensionActions(explorerProvider: { refresh(): void }): Extensio
     approveCurrentPhase,
     requestRegression,
     restartUserStoryFromSource,
+    deleteUserStory,
     continuePhase,
     disposeBackendClients,
     showOutput: async () => {

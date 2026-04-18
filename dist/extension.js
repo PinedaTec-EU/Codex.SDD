@@ -110,6 +110,7 @@ function createExtensionActions(explorerProvider) {
         approveCurrentPhase: specsExplorer_1.approveCurrentPhase,
         requestRegression: specsExplorer_1.requestRegression,
         restartUserStoryFromSource: specsExplorer_1.restartUserStoryFromSource,
+        deleteUserStory: specsExplorer_1.deleteUserStory,
         continuePhase: specsExplorer_1.continuePhase,
         disposeBackendClients: specsExplorer_1.disposeBackendClients,
         showOutput: async () => {
