@@ -3,6 +3,26 @@
     "inputs": [],
     "tasks": [
         {
+            "label": "Compile VS Code Extension",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "run",
+                "compile"
+            ],
+            "problemMatcher": [
+                "$tsc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
             "label": "build",
             "command": "dotnet",
             "type": "process",
