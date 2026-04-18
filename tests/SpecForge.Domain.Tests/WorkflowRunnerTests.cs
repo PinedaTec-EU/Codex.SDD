@@ -181,6 +181,38 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public void TimelineMarkdownParser_ParseEvents_ExtractsTokenUsageAndDuration()
+    {
+        const string timeline = """
+# Timeline · US-0001 · Test story
+
+## Eventos
+
+### 2026-04-18T09:10:00Z · `phase_completed`
+
+- Actor: `system`
+- Fase: `refinement`
+- Resumen: Generated artifact for phase `refinement`.
+- Artefactos:
+  - .specs/us/us.US-0001/phases/01-refinement.md
+- Tokens:
+  - input: `486`
+  - output: `1644`
+  - total: `2130`
+- Duración: `18765` ms
+""";
+
+        var events = TimelineMarkdownParser.ParseEvents(timeline);
+
+        var timelineEvent = Assert.Single(events);
+        Assert.NotNull(timelineEvent.Usage);
+        Assert.Equal(486, timelineEvent.Usage!.InputTokens);
+        Assert.Equal(1644, timelineEvent.Usage.OutputTokens);
+        Assert.Equal(2130, timelineEvent.Usage.TotalTokens);
+        Assert.Equal(18765, timelineEvent.DurationMs);
+    }
+
+    [Fact]
     public async Task ContinuePhaseAsync_WithProviderUsage_PersistsTokenUsageInResultAndTimeline()
     {
         var runner = new WorkflowRunner(new UsageCapturingPhaseExecutionProvider());
@@ -199,6 +231,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Contains("input: `321`", timeline);
         Assert.Contains("output: `123`", timeline);
         Assert.Contains("total: `444`", timeline);
+        Assert.Contains("- Duración:", timeline);
     }
 
     public void Dispose()

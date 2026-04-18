@@ -186,7 +186,8 @@ public sealed class WorkflowRunner
             summary,
             cancellationToken,
             generatedArtifactPath,
-            generation.Usage);
+            generation.Usage,
+            generation.DurationMs);
 
         return new RestartUserStoryResult(
             restartedRun.UsId,

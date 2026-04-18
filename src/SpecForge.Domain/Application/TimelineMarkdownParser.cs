@@ -108,8 +108,14 @@ public static partial class TimelineMarkdownParser
                 var tokenLine = trimmed.Trim();
                 if (tokenLine.StartsWith("- ", StringComparison.Ordinal))
                 {
-                    usage = ParseTokenUsageLine(usage, tokenLine[2..].Trim());
-                    continue;
+                    var tokenContent = tokenLine[2..].Trim();
+                    if (IsTokenUsageLine(tokenContent))
+                    {
+                        usage = ParseTokenUsageLine(usage, tokenContent);
+                        continue;
+                    }
+
+                    readingTokens = false;
                 }
 
                 if (!string.IsNullOrWhiteSpace(trimmed))
@@ -176,6 +182,11 @@ public static partial class TimelineMarkdownParser
             _ => usage
         };
     }
+
+    private static bool IsTokenUsageLine(string line) =>
+        line.StartsWith("input:", StringComparison.Ordinal) ||
+        line.StartsWith("output:", StringComparison.Ordinal) ||
+        line.StartsWith("total:", StringComparison.Ordinal);
 
     private static long? ParseDurationMs(string line)
     {
