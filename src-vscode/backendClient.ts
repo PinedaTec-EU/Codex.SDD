@@ -92,6 +92,8 @@ export interface TimelineEventDetails {
   readonly phase: string | null;
   readonly summary: string | null;
   readonly artifacts: readonly string[];
+  readonly usage: TokenUsage | null;
+  readonly durationMs: number | null;
 }
 
 export interface AttachmentDetails {

@@ -40,6 +40,17 @@ function computeGraphHeight(positions, nodeHeight, bottomPadding) {
     const maxTop = Math.max(...Object.values(positions).map((position) => position.top));
     return maxTop + nodeHeight + bottomPadding;
 }
+function formatDuration(durationMs) {
+    if (durationMs < 1_000) {
+        return `${durationMs} ms`;
+    }
+    if (durationMs < 60_000) {
+        return `${(durationMs / 1_000).toFixed(durationMs >= 10_000 ? 1 : 2)} s`;
+    }
+    const minutes = Math.floor(durationMs / 60_000);
+    const seconds = ((durationMs % 60_000) / 1_000).toFixed(1);
+    return `${minutes}m ${seconds}s`;
+}
 function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
     const settingsWarning = !state.settingsConfigured && state.settingsMessage
@@ -60,6 +71,17 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     const artifactPreviewHtml = isMarkdownArtifact
         ? renderMarkdownToHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")
         : null;
+    const selectedPhaseEvent = workflow.events
+        .filter((event) => event.phase === selectedPhase.phaseId)
+        .at(-1) ?? null;
+    const selectedPhaseMetrics = selectedPhaseEvent
+        ? [
+            selectedPhaseEvent.durationMs !== null ? `<span class="badge">duration:${escapeHtml(formatDuration(selectedPhaseEvent.durationMs))}</span>` : "",
+            selectedPhaseEvent.usage ? `<span class="badge">in:${escapeHtml(String(selectedPhaseEvent.usage.inputTokens))}</span>` : "",
+            selectedPhaseEvent.usage ? `<span class="badge">out:${escapeHtml(String(selectedPhaseEvent.usage.outputTokens))}</span>` : "",
+            selectedPhaseEvent.usage ? `<span class="badge">total:${escapeHtml(String(selectedPhaseEvent.usage.totalTokens))}</span>` : ""
+        ].filter(Boolean).join("")
+        : "";
     const artifactSection = selectedPhase.artifactPath
         ? `
       <div class="detail-actions detail-actions--artifact">
@@ -200,6 +222,12 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       gap: 10px;
       flex-wrap: wrap;
       align-items: center;
+    }
+    .detail-metrics {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
     }
     .hero-meta {
       margin-top: 14px;
@@ -816,6 +844,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
             ${selectedPhase.requiresApproval ? `<span class="token">approval required</span>` : ""}
             ${selectedPhase.isApproved ? `<span class="token success">approved</span>` : ""}
           </div>
+          ${selectedPhaseMetrics ? `<div class="detail-metrics">${selectedPhaseMetrics}</div>` : ""}
         </section>
         <section class="detail-card">
           <h3>Artifact</h3>

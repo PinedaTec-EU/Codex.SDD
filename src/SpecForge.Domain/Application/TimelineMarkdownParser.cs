@@ -23,7 +23,10 @@ public static partial class TimelineMarkdownParser
         string? phase = null;
         string? summary = null;
         var artifacts = new List<string>();
+        TokenUsage? usage = null;
+        long? durationMs = null;
         var readingArtifacts = false;
+        var readingTokens = false;
 
         void FlushCurrent()
         {
@@ -38,7 +41,9 @@ public static partial class TimelineMarkdownParser
                 actor,
                 phase,
                 summary,
-                artifacts.ToArray()));
+                artifacts.ToArray(),
+                usage,
+                durationMs));
 
             timestamp = null;
             code = null;
@@ -46,7 +51,10 @@ public static partial class TimelineMarkdownParser
             phase = null;
             summary = null;
             artifacts = [];
+            usage = null;
+            durationMs = null;
             readingArtifacts = false;
+            readingTokens = false;
         }
 
         foreach (var rawLine in lines)
@@ -69,6 +77,14 @@ public static partial class TimelineMarkdownParser
             if (trimmed.StartsWith("- Artefactos:", StringComparison.Ordinal))
             {
                 readingArtifacts = true;
+                readingTokens = false;
+                continue;
+            }
+
+            if (trimmed.StartsWith("- Tokens:", StringComparison.Ordinal))
+            {
+                readingTokens = true;
+                readingArtifacts = false;
                 continue;
             }
 
@@ -87,6 +103,21 @@ public static partial class TimelineMarkdownParser
                 }
             }
 
+            if (readingTokens)
+            {
+                var tokenLine = trimmed.Trim();
+                if (tokenLine.StartsWith("- ", StringComparison.Ordinal))
+                {
+                    usage = ParseTokenUsageLine(usage, tokenLine[2..].Trim());
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(trimmed))
+                {
+                    readingTokens = false;
+                }
+            }
+
             if (trimmed.StartsWith("- Actor:", StringComparison.Ordinal))
             {
                 actor = ExtractInlineCode(trimmed);
@@ -102,6 +133,12 @@ public static partial class TimelineMarkdownParser
             if (trimmed.StartsWith("- Resumen:", StringComparison.Ordinal))
             {
                 summary = trimmed["- Resumen:".Length..].Trim();
+                continue;
+            }
+
+            if (trimmed.StartsWith("- Duración:", StringComparison.Ordinal) || trimmed.StartsWith("- Duration:", StringComparison.Ordinal))
+            {
+                durationMs = ParseDurationMs(trimmed);
             }
         }
 
@@ -113,6 +150,42 @@ public static partial class TimelineMarkdownParser
     {
         var match = InlineCodeRegex.Match(line);
         return match.Success ? match.Groups["value"].Value : null;
+    }
+
+    private static TokenUsage ParseTokenUsageLine(TokenUsage? current, string line)
+    {
+        var separatorIndex = line.IndexOf(':', StringComparison.Ordinal);
+        if (separatorIndex < 0)
+        {
+            return current ?? new TokenUsage(0, 0, 0);
+        }
+
+        var key = line[..separatorIndex].Trim();
+        var value = ExtractInlineCode(line[(separatorIndex + 1)..]) ?? line[(separatorIndex + 1)..].Trim();
+        if (!int.TryParse(value, out var parsedValue))
+        {
+          return current ?? new TokenUsage(0, 0, 0);
+        }
+
+        var usage = current ?? new TokenUsage(0, 0, 0);
+        return key switch
+        {
+            "input" => usage with { InputTokens = parsedValue },
+            "output" => usage with { OutputTokens = parsedValue },
+            "total" => usage with { TotalTokens = parsedValue },
+            _ => usage
+        };
+    }
+
+    private static long? ParseDurationMs(string line)
+    {
+        var value = ExtractInlineCode(line) ?? line[(line.IndexOf(':', StringComparison.Ordinal) + 1)..].Trim();
+        if (value.EndsWith("ms", StringComparison.OrdinalIgnoreCase))
+        {
+            value = value[..^2].Trim();
+        }
+
+        return long.TryParse(value, out var durationMs) ? durationMs : null;
     }
 
     [GeneratedRegex(@"^###\s+(?<timestamp>[^·]+?)\s+·\s+`(?<code>[^`]+)`$", RegexOptions.Compiled)]

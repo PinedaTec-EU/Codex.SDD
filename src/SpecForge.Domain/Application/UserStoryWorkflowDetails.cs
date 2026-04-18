@@ -43,7 +43,9 @@ public sealed record TimelineEventDetails(
     string? Actor,
     string? Phase,
     string? Summary,
-    IReadOnlyCollection<string> Artifacts);
+    IReadOnlyCollection<string> Artifacts,
+    TokenUsage? Usage,
+    long? DurationMs);
 
 public sealed record AttachmentDetails(
     string Name,

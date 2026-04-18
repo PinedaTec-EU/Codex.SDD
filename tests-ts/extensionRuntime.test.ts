@@ -79,6 +79,9 @@ function createHarness() {
     async continuePhase(summary) {
       actionCalls.push(`continuePhase:${String(summary)}`);
     },
+    async showOutput() {
+      actionCalls.push("showOutput");
+    },
     disposeBackendClients() {
       actionCalls.push("disposeBackendClients");
     }
@@ -114,9 +117,10 @@ test("activateExtension registers the tree provider and all expected commands", 
     "specForge.refreshUserStories",
     "specForge.requestRegression",
     "specForge.restartUserStoryFromSource",
+    "specForge.showOutput",
     "specForge.showUserStoryDetails"
   ]);
-  assert.equal(harness.context.subscriptions.length, 13);
+  assert.equal(harness.context.subscriptions.length, 14);
 });
 
 test("mutating commands refresh the explorer after the action completes", async () => {

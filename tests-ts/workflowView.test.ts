@@ -55,7 +55,13 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
         actor: "system",
         phase: "refinement",
         summary: "Generated refinement artifact.",
-        artifacts: ["/tmp/01-refinement.md"]
+        artifacts: ["/tmp/01-refinement.md"],
+        usage: {
+          inputTokens: 321,
+          outputTokens: 144,
+          totalTokens: 465
+        },
+        durationMs: 4876
       }
     ],
     attachmentsDirectoryPath: "/tmp/attachments",
@@ -79,12 +85,16 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /currentFlow/);
   assert.match(html, /currentPulse/);
   assert.match(html, /Generated refinement artifact\./);
-  assert.match(html, /## Refinement/);
+  assert.match(html, /<h2>Refinement<\/h2>/);
   assert.match(html, /Open Artifact/);
   assert.match(html, /Open Execute Prompt/);
   assert.match(html, /Open Approve Prompt/);
   assert.match(html, /Attach Files/);
   assert.match(html, /api-notes\.md/);
+  assert.match(html, /duration:4\.88 s/);
+  assert.match(html, /in:321/);
+  assert.match(html, /out:144/);
+  assert.match(html, /total:465/);
 });
 
 test("buildWorkflowHtml shows configuration warning and disables execution controls when settings are incomplete", () => {
@@ -131,8 +141,8 @@ test("buildWorkflowHtml shows configuration warning and disables execution contr
 
   assert.match(html, /SpecForge\.AI settings are incomplete/);
   assert.match(html, /Configure Settings/);
-  assert.match(html, /<button data-command="play" disabled>/);
-  assert.match(html, /<button data-command="continue" disabled>/);
+  assert.match(html, /data-command="play"[^>]*disabled/);
+  assert.doesNotMatch(html, /data-command="continue"/);
 });
 
 test("buildWorkflowHtml warns when the workflow is open without an SLM or LLM provider", () => {
@@ -178,8 +188,8 @@ test("buildWorkflowHtml warns when the workflow is open without an SLM or LLM pr
   }, "idle");
 
   assert.match(html, /SLM\/LLM execution provider/);
-  assert.match(html, /<button data-command="play" disabled>/);
-  assert.match(html, /<button data-command="continue" disabled>/);
+  assert.match(html, /data-command="play"[^>]*disabled/);
+  assert.doesNotMatch(html, /data-command="continue"/);
 });
 
 test("buildWorkflowHtml spaces same-column phases far enough apart to avoid overlap", () => {
@@ -298,8 +308,8 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /\.phase-node\.technical-design \{ left: 392px; top: 332px; \}/);
-  assert.match(html, /\.phase-node\.implementation \{ left: 18px; top: 436px; \}/);
-  assert.match(html, /\.phase-node\.review \{ left: 18px; top: 626px; \}/);
-  assert.match(html, /viewBox="0 0 700 1260"/);
+  assert.match(html, /\.phase-node\.technical-design \{ left: 392px; top: 352px; \}/);
+  assert.match(html, /\.phase-node\.implementation \{ left: 18px; top: 462px; \}/);
+  assert.match(html, /\.phase-node\.review \{ left: 18px; top: 652px; \}/);
+  assert.match(html, /viewBox="0 0 700 1104"/);
 });

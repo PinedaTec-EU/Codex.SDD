@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Diagnostics;
 using SpecForge.Domain.Persistence;
 using SpecForge.Domain.Workflow;
 
@@ -206,11 +207,13 @@ public sealed class WorkflowRunner
 
         string? artifactPath = null;
         TokenUsage? usage = null;
+        long? durationMs = null;
         if (HasArtifact(workflowRun.CurrentPhase))
         {
             var generation = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, cancellationToken);
             artifactPath = generation.ArtifactPath;
             usage = generation.Usage;
+            durationMs = generation.DurationMs;
             await AppendTimelineEventAsync(
                 paths.TimelineFilePath,
                 "phase_completed",
@@ -219,7 +222,8 @@ public sealed class WorkflowRunner
                 $"Generated artifact for phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}`.",
                 cancellationToken,
                 artifactPath,
-                usage);
+                usage,
+                durationMs);
         }
         else
         {
@@ -251,10 +255,12 @@ public sealed class WorkflowRunner
             paths.MainArtifactPath,
             BuildPreviousArtifactMap(paths, workflowRun.CurrentPhase),
             BuildAttachmentPaths(paths));
+        var stopwatch = Stopwatch.StartNew();
         var result = await phaseExecutionProvider.ExecuteAsync(executionContext, cancellationToken);
+        stopwatch.Stop();
 
         await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
-        return new ArtifactGenerationResult(artifactPath, result.Usage);
+        return new ArtifactGenerationResult(artifactPath, result.Usage, stopwatch.ElapsedMilliseconds);
     }
 
     private static IReadOnlyDictionary<PhaseId, string> BuildPreviousArtifactMap(UserStoryFilePaths paths, PhaseId currentPhase)
@@ -387,7 +393,8 @@ public sealed class WorkflowRunner
         string summary,
         CancellationToken cancellationToken,
         string? artifactPath = null,
-        TokenUsage? usage = null)
+        TokenUsage? usage = null,
+        long? durationMs = null)
     {
         var timestamp = DateTimeOffset.UtcNow.ToString("O");
         var builder = new StringBuilder()
@@ -412,10 +419,15 @@ public sealed class WorkflowRunner
                 .AppendLine($"  - total: `{usage.TotalTokens}`");
         }
 
+        if (durationMs is not null)
+        {
+            builder.AppendLine($"- Duración: `{durationMs}` ms");
+        }
+
         await File.AppendAllTextAsync(timelinePath, builder.ToString(), cancellationToken);
     }
 
-    private sealed record ArtifactGenerationResult(string ArtifactPath, TokenUsage? Usage);
+    private sealed record ArtifactGenerationResult(string ArtifactPath, TokenUsage? Usage, long DurationMs);
 
     private static string BuildInitialTimeline(string usId, string title)
     {
