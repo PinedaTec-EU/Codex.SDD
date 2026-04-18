@@ -195,6 +195,7 @@ Subtareas recién resueltas:
 - ✅ agrupar el explorer de VS Code por categoría de US
 - ✅ añadir tests TypeScript mínimos para parsing, agrupación y render seguro del panel de detalle
 - ✅ ampliar los tests TypeScript a agrupación del explorer y payload/parsing del cliente MCP
+- ✅ añadir un harness ligero de integración para el wiring de comandos de la extensión
 
 Subtareas pendientes de cerrar antes de considerar el MVP completo:
 

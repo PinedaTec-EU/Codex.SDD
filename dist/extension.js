@@ -37,41 +37,34 @@ exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const detailsPanel_1 = require("./detailsPanel");
+const extensionRuntime_1 = require("./extensionRuntime");
 const specsExplorer_1 = require("./specsExplorer");
 function activate(context) {
     const explorerProvider = new specsExplorer_1.SpecsExplorerProvider();
-    context.subscriptions.push(vscode.window.registerTreeDataProvider("specForge.userStories", explorerProvider), vscode.commands.registerCommand("specForge.refreshUserStories", () => {
-        explorerProvider.refresh();
-    }), vscode.commands.registerCommand("specForge.createUserStory", async () => {
-        await (0, specsExplorer_1.createUserStoryFromInput)();
-        explorerProvider.refresh();
-    }), vscode.commands.registerCommand("specForge.importUserStory", async () => {
-        await (0, specsExplorer_1.importUserStoryFromMarkdown)();
-        explorerProvider.refresh();
-    }), vscode.commands.registerCommand("specForge.initializeRepoPrompts", async () => {
-        await (0, specsExplorer_1.initializeRepoPrompts)();
-        explorerProvider.refresh();
-    }), vscode.commands.registerCommand("specForge.openPromptTemplates", async () => {
-        await (0, specsExplorer_1.openPromptTemplates)();
-    }), vscode.commands.registerCommand("specForge.openMainArtifact", async (summary) => {
-        await (0, specsExplorer_1.openMainArtifact)(summary);
-    }), vscode.commands.registerCommand("specForge.showUserStoryDetails", async (summary) => {
-        await (0, detailsPanel_1.showUserStoryDetails)(summary);
-    }), vscode.commands.registerCommand("specForge.approveCurrentPhase", async (summary) => {
-        await (0, specsExplorer_1.approveCurrentPhase)(summary);
-        explorerProvider.refresh();
-    }), vscode.commands.registerCommand("specForge.requestRegression", async (summary) => {
-        await (0, specsExplorer_1.requestRegression)(summary);
-        explorerProvider.refresh();
-    }), vscode.commands.registerCommand("specForge.restartUserStoryFromSource", async (summary) => {
-        await (0, specsExplorer_1.restartUserStoryFromSource)(summary);
-        explorerProvider.refresh();
-    }), vscode.commands.registerCommand("specForge.continuePhase", async (summary) => {
-        await (0, specsExplorer_1.continuePhase)(summary);
-        explorerProvider.refresh();
-    }));
+    (0, extensionRuntime_1.activateExtension)(context, createVsCodeHost(), explorerProvider, createExtensionActions());
 }
 function deactivate() {
-    (0, specsExplorer_1.disposeBackendClients)();
+    (0, extensionRuntime_1.deactivateExtension)(createExtensionActions());
+}
+function createVsCodeHost() {
+    return {
+        registerTreeDataProvider: (viewId, provider) => vscode.window.registerTreeDataProvider(viewId, provider),
+        registerCommand: (command, callback) => vscode.commands.registerCommand(command, callback)
+    };
+}
+function createExtensionActions() {
+    return {
+        createUserStoryFromInput: specsExplorer_1.createUserStoryFromInput,
+        importUserStoryFromMarkdown: specsExplorer_1.importUserStoryFromMarkdown,
+        initializeRepoPrompts: specsExplorer_1.initializeRepoPrompts,
+        openPromptTemplates: specsExplorer_1.openPromptTemplates,
+        openMainArtifact: specsExplorer_1.openMainArtifact,
+        showUserStoryDetails: detailsPanel_1.showUserStoryDetails,
+        approveCurrentPhase: specsExplorer_1.approveCurrentPhase,
+        requestRegression: specsExplorer_1.requestRegression,
+        restartUserStoryFromSource: specsExplorer_1.restartUserStoryFromSource,
+        continuePhase: specsExplorer_1.continuePhase,
+        disposeBackendClients: specsExplorer_1.disposeBackendClients
+    };
 }
 //# sourceMappingURL=extension.js.map

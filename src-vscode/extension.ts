@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { showUserStoryDetails } from "./detailsPanel";
+import { activateExtension, deactivateExtension, type ExtensionActions, type ExtensionHost } from "./extensionRuntime";
 import {
   SpecsExplorerProvider,
   approveCurrentPhase,
@@ -16,52 +17,35 @@ import {
 
 export function activate(context: vscode.ExtensionContext): void {
   const explorerProvider = new SpecsExplorerProvider();
-
-  context.subscriptions.push(
-    vscode.window.registerTreeDataProvider("specForge.userStories", explorerProvider),
-    vscode.commands.registerCommand("specForge.refreshUserStories", () => {
-      explorerProvider.refresh();
-    }),
-    vscode.commands.registerCommand("specForge.createUserStory", async () => {
-      await createUserStoryFromInput();
-      explorerProvider.refresh();
-    }),
-    vscode.commands.registerCommand("specForge.importUserStory", async () => {
-      await importUserStoryFromMarkdown();
-      explorerProvider.refresh();
-    }),
-    vscode.commands.registerCommand("specForge.initializeRepoPrompts", async () => {
-      await initializeRepoPrompts();
-      explorerProvider.refresh();
-    }),
-    vscode.commands.registerCommand("specForge.openPromptTemplates", async () => {
-      await openPromptTemplates();
-    }),
-    vscode.commands.registerCommand("specForge.openMainArtifact", async (summary) => {
-      await openMainArtifact(summary);
-    }),
-    vscode.commands.registerCommand("specForge.showUserStoryDetails", async (summary) => {
-      await showUserStoryDetails(summary);
-    }),
-    vscode.commands.registerCommand("specForge.approveCurrentPhase", async (summary) => {
-      await approveCurrentPhase(summary);
-      explorerProvider.refresh();
-    }),
-    vscode.commands.registerCommand("specForge.requestRegression", async (summary) => {
-      await requestRegression(summary);
-      explorerProvider.refresh();
-    }),
-    vscode.commands.registerCommand("specForge.restartUserStoryFromSource", async (summary) => {
-      await restartUserStoryFromSource(summary);
-      explorerProvider.refresh();
-    }),
-    vscode.commands.registerCommand("specForge.continuePhase", async (summary) => {
-      await continuePhase(summary);
-      explorerProvider.refresh();
-    })
-  );
+  activateExtension(context, createVsCodeHost(), explorerProvider, createExtensionActions());
 }
 
 export function deactivate(): void {
-  disposeBackendClients();
+  deactivateExtension(createExtensionActions());
+}
+
+function createVsCodeHost(): ExtensionHost {
+  return {
+    registerTreeDataProvider: (viewId, provider) => vscode.window.registerTreeDataProvider(
+      viewId,
+      provider as unknown as vscode.TreeDataProvider<unknown>
+    ),
+    registerCommand: (command, callback) => vscode.commands.registerCommand(command, callback)
+  };
+}
+
+function createExtensionActions(): ExtensionActions {
+  return {
+    createUserStoryFromInput,
+    importUserStoryFromMarkdown,
+    initializeRepoPrompts,
+    openPromptTemplates,
+    openMainArtifact,
+    showUserStoryDetails,
+    approveCurrentPhase,
+    requestRegression,
+    restartUserStoryFromSource,
+    continuePhase,
+    disposeBackendClients
+  };
 }
