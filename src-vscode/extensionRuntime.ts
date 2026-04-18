@@ -18,6 +18,7 @@ export interface ExtensionActions {
   requestRegression(summary: unknown): Promise<void>;
   restartUserStoryFromSource(summary: unknown): Promise<void>;
   continuePhase(summary: unknown): Promise<void>;
+  showOutput(): Promise<void>;
   disposeBackendClients(): void;
 }
 
@@ -80,6 +81,9 @@ export function activateExtension(
     host.registerCommand("specForge.continuePhase", async (summary) => {
       await actions.continuePhase(summary);
       explorerProvider.refresh();
+    }),
+    host.registerCommand("specForge.showOutput", async () => {
+      await actions.showOutput();
     })
   );
 }

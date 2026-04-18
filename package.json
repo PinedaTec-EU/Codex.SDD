@@ -24,7 +24,8 @@
     "onCommand:specForge.approveCurrentPhase",
     "onCommand:specForge.requestRegression",
     "onCommand:specForge.restartUserStoryFromSource",
-    "onCommand:specForge.showUserStoryDetails"
+    "onCommand:specForge.showUserStoryDetails",
+    "onCommand:specForge.showOutput"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -94,6 +95,10 @@
       {
         "command": "specForge.showUserStoryDetails",
         "title": "Show User Story Details"
+      },
+      {
+        "command": "specForge.showOutput",
+        "title": "Show SpecForge Output"
       }
     ],
     "configuration": {

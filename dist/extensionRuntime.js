@@ -34,6 +34,8 @@ function activateExtension(context, host, explorerProvider, actions) {
     }), host.registerCommand("specForge.continuePhase", async (summary) => {
         await actions.continuePhase(summary);
         explorerProvider.refresh();
+    }), host.registerCommand("specForge.showOutput", async () => {
+        await actions.showOutput();
     }));
 }
 function deactivateExtension(actions) {

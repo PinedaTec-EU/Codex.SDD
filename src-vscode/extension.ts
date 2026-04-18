@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { showUserStoryDetails } from "./detailsPanel";
 import { activateExtension, deactivateExtension, type ExtensionActions, type ExtensionHost } from "./extensionRuntime";
 import { getSpecForgeSettings } from "./extensionSettings";
+import { getSpecForgeOutputChannel, showSpecForgeOutput } from "./outputChannel";
 import { openWorkflowView, refreshWorkflowViews } from "./workflowPanel";
 import { SidebarViewProvider } from "./sidebarView";
 import {
@@ -24,6 +25,7 @@ let previousAttentionSnapshot = new Map<string, string>();
 
 export function activate(context: vscode.ExtensionContext): void {
   configureBackendHostRoot(context.extensionUri.fsPath);
+  context.subscriptions.push(getSpecForgeOutputChannel());
   const sidebarProvider = new SidebarViewProvider(context.extensionUri, async () => {
     await refreshWorkspaceUiAsync();
   });
@@ -104,7 +106,10 @@ function createExtensionActions(explorerProvider: { refresh(): void }): Extensio
     requestRegression,
     restartUserStoryFromSource,
     continuePhase,
-    disposeBackendClients
+    disposeBackendClients,
+    showOutput: async () => {
+      showSpecForgeOutput(false);
+    }
   };
 }
 

@@ -9,6 +9,7 @@ import {
 } from "./backendClientModel";
 import type { SpecForgeSettings } from "./extensionSettings";
 import { buildBackendEnvironment } from "./extensionSettings";
+import { appendSpecForgeLog } from "./outputChannel";
 
 export interface UserStorySummary {
   readonly usId: string;
@@ -146,6 +147,7 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     this.workspaceRoot = workspaceRoot;
     this.hostRoot = hostRoot;
     const serverProjectPath = buildServerProjectPath(hostRoot);
+    appendSpecForgeLog(`Starting MCP backend for '${path.basename(workspaceRoot)}' using '${serverProjectPath}'.`);
     this.process = spawn(
       "dotnet",
       ["run", "--project", serverProjectPath],
@@ -170,10 +172,12 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
         return;
       }
 
+      appendSpecForgeLog(`MCP stderr: ${message}`);
       this.rejectPendingRequests(message);
     });
 
-    this.process.on("exit", () => {
+    this.process.on("exit", (code, signal) => {
+      appendSpecForgeLog(`MCP backend exited with code ${code ?? "null"} and signal ${signal ?? "null"}.`);
       if (!this.disposed) {
         this.rejectPendingRequests("SpecForge MCP backend exited while a request was in progress.");
       }
@@ -268,6 +272,7 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     }
 
     this.disposed = true;
+    appendSpecForgeLog("Disposing MCP backend client.");
     this.rejectPendingRequests("SpecForge MCP backend was stopped.");
     this.process.kill();
   }
@@ -277,6 +282,7 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
       return;
     }
 
+    appendSpecForgeLog("Initializing MCP session.");
     await this.sendRequestAsync("initialize", {
       protocolVersion: "2024-11-05",
       capabilities: {},
@@ -288,15 +294,24 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
 
     await this.sendNotificationAsync("notifications/initialized", {});
     this.initialized = true;
+    appendSpecForgeLog("MCP session initialized.");
   }
 
   private async callTool<T>(toolName: string, args: Record<string, unknown>): Promise<T> {
     await this.ensureInitializedAsync();
-    const result = await this.sendRequestAsync("tools/call", {
-      name: toolName,
-      arguments: args
-    });
-    return parseToolContent<T>(toolName, result);
+    const startedAt = Date.now();
+    appendSpecForgeLog(`Calling tool '${toolName}' with ${JSON.stringify(args)}.`);
+    try {
+      const result = await this.sendRequestAsync("tools/call", {
+        name: toolName,
+        arguments: args
+      });
+      appendSpecForgeLog(`Tool '${toolName}' completed in ${Date.now() - startedAt} ms.`);
+      return parseToolContent<T>(toolName, result);
+    } catch (error) {
+      appendSpecForgeLog(`Tool '${toolName}' failed after ${Date.now() - startedAt} ms: ${asErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   private async sendNotificationAsync(method: string, params: unknown): Promise<void> {
@@ -425,4 +440,12 @@ async function writeAsync(stream: NodeJS.WritableStream, payload: Buffer): Promi
       resolve();
     });
   });
+}
+
+function asErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unknown backend client error.";
 }

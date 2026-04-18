@@ -39,12 +39,14 @@ const vscode = __importStar(require("vscode"));
 const detailsPanel_1 = require("./detailsPanel");
 const extensionRuntime_1 = require("./extensionRuntime");
 const extensionSettings_1 = require("./extensionSettings");
+const outputChannel_1 = require("./outputChannel");
 const workflowPanel_1 = require("./workflowPanel");
 const sidebarView_1 = require("./sidebarView");
 const specsExplorer_1 = require("./specsExplorer");
 let previousAttentionSnapshot = new Map();
 function activate(context) {
     (0, specsExplorer_1.configureBackendHostRoot)(context.extensionUri.fsPath);
+    context.subscriptions.push((0, outputChannel_1.getSpecForgeOutputChannel)());
     const sidebarProvider = new sidebarView_1.SidebarViewProvider(context.extensionUri, async () => {
         await refreshWorkspaceUiAsync();
     });
@@ -109,7 +111,10 @@ function createExtensionActions(explorerProvider) {
         requestRegression: specsExplorer_1.requestRegression,
         restartUserStoryFromSource: specsExplorer_1.restartUserStoryFromSource,
         continuePhase: specsExplorer_1.continuePhase,
-        disposeBackendClients: specsExplorer_1.disposeBackendClients
+        disposeBackendClients: specsExplorer_1.disposeBackendClients,
+        showOutput: async () => {
+            (0, outputChannel_1.showSpecForgeOutput)(false);
+        }
     };
 }
 async function notifyAttentionChangesAsync() {
