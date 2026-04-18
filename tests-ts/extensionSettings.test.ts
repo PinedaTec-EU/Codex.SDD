@@ -58,7 +58,7 @@ test("getSpecForgeSettingsStatus requires connection fields for openai-compatibl
   });
 });
 
-test("getSpecForgeSettingsStatus treats deterministic provider as configured", () => {
+test("getSpecForgeSettingsStatus requires a real model-backed provider instead of the deterministic fallback", () => {
   assert.deepEqual(getSpecForgeSettingsStatus({
     provider: "deterministic",
     baseUrl: null,
@@ -67,7 +67,7 @@ test("getSpecForgeSettingsStatus treats deterministic provider as configured", (
     watcherEnabled: true,
     attentionNotificationsEnabled: true
   }), {
-    executionConfigured: true,
-    message: null
+    executionConfigured: false,
+    message: "SpecForge.AI needs an SLM/LLM execution provider before workflow stages can run. Select an OpenAI-compatible provider and configure base URL, API key, and model."
   });
 });

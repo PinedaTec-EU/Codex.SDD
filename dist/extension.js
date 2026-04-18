@@ -63,7 +63,7 @@ function activate(context) {
         if (workspaceRoot) {
             (0, specsExplorer_1.resetBackendClient)(workspaceRoot);
         }
-        sidebarProvider.refresh();
+        void refreshWorkspaceUiAsync();
     }));
 }
 function deactivate() {

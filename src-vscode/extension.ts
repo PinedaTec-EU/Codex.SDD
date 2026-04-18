@@ -48,7 +48,7 @@ export function activate(context: vscode.ExtensionContext): void {
         resetBackendClient(workspaceRoot);
       }
 
-      sidebarProvider.refresh();
+      void refreshWorkspaceUiAsync();
     })
   );
 }

@@ -51,8 +51,8 @@ export function buildBackendEnvironment(settings: SpecForgeSettings): NodeJS.Pro
 export function getSpecForgeSettingsStatus(settings: SpecForgeSettings): SpecForgeSettingsStatus {
   if (settings.provider === "deterministic") {
     return {
-      executionConfigured: true,
-      message: null
+      executionConfigured: false,
+      message: "SpecForge.AI needs an SLM/LLM execution provider before workflow stages can run. Select an OpenAI-compatible provider and configure base URL, API key, and model."
     };
   }
 

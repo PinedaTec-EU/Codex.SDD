@@ -135,6 +135,53 @@ test("buildWorkflowHtml shows configuration warning and disables execution contr
   assert.match(html, /<button data-command="continue" disabled>/);
 });
 
+test("buildWorkflowHtml warns when the workflow is open without an SLM or LLM provider", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0002",
+    title: "Workflow view",
+    category: "workflow",
+    status: "active",
+    currentPhase: "capture",
+    directoryPath: "/tmp/us.US-0002",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [{
+      phaseId: "capture",
+      title: "Capture",
+      order: 0,
+      requiresApproval: false,
+      isApproved: false,
+      isCurrent: true,
+      state: "current",
+      artifactPath: null,
+      executePromptPath: null,
+      approvePromptPath: null
+    }],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "capture",
+    selectedArtifactContent: null,
+    settingsConfigured: false,
+    settingsMessage: "SpecForge.AI needs an SLM/LLM execution provider before workflow stages can run. Select an OpenAI-compatible provider and configure base URL, API key, and model."
+  }, "idle");
+
+  assert.match(html, /SLM\/LLM execution provider/);
+  assert.match(html, /<button data-command="play" disabled>/);
+  assert.match(html, /<button data-command="continue" disabled>/);
+});
+
 test("buildWorkflowHtml spaces same-column phases far enough apart to avoid overlap", () => {
   const html = buildWorkflowHtml({
     usId: "US-0002",
@@ -252,7 +299,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
   }, "idle");
 
   assert.match(html, /\.phase-node\.technical-design \{ left: 392px; top: 332px; \}/);
-  assert.match(html, /\.phase-node\.implementation \{ left: 18px; top: 522px; \}/);
-  assert.match(html, /\.phase-node\.review \{ left: 18px; top: 712px; \}/);
+  assert.match(html, /\.phase-node\.implementation \{ left: 18px; top: 436px; \}/);
+  assert.match(html, /\.phase-node\.review \{ left: 18px; top: 626px; \}/);
   assert.match(html, /viewBox="0 0 700 1260"/);
 });

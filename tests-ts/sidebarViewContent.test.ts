@@ -104,3 +104,27 @@ test("buildSidebarHtml exposes a visible settings warning when execution is not 
   assert.match(html, /Configure Settings/);
   assert.match(html, /⚠/);
 });
+
+test("buildSidebarHtml surfaces the model warning when the deterministic fallback is active", () => {
+  const html = buildSidebarHtml({
+    hasWorkspace: true,
+    showCreateForm: false,
+    promptsInitialized: false,
+    settingsConfigured: false,
+    settingsMessage: "SpecForge.AI needs an SLM/LLM execution provider before workflow stages can run. Select an OpenAI-compatible provider and configure base URL, API key, and model.",
+    categories: [],
+    userStories: [{
+      usId: "US-0001",
+      title: "Workflow graph",
+      category: "workflow",
+      currentPhase: "capture",
+      status: "active",
+      mainArtifactPath: "/tmp/us.md",
+      directoryPath: "/tmp/us.US-0001",
+      workBranch: null
+    }]
+  });
+
+  assert.match(html, /SLM\/LLM execution provider/);
+  assert.match(html, /Configure Settings/);
+});
