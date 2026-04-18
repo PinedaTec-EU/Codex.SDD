@@ -8,6 +8,7 @@ import {
   disposeBackendClients,
   initializeRepoPrompts,
   importUserStoryFromMarkdown,
+  openPromptTemplates,
   openMainArtifact
 } from "./specsExplorer";
 
@@ -30,6 +31,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("specForge.initializeRepoPrompts", async () => {
       await initializeRepoPrompts();
       explorerProvider.refresh();
+    }),
+    vscode.commands.registerCommand("specForge.openPromptTemplates", async () => {
+      await openPromptTemplates();
     }),
     vscode.commands.registerCommand("specForge.openMainArtifact", async (summary) => {
       await openMainArtifact(summary);

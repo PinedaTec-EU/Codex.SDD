@@ -17,6 +17,7 @@
     "onCommand:specForge.createUserStory",
     "onCommand:specForge.importUserStory",
     "onCommand:specForge.initializeRepoPrompts",
+    "onCommand:specForge.openPromptTemplates",
     "onCommand:specForge.openMainArtifact",
     "onCommand:specForge.continuePhase",
     "onCommand:specForge.approveCurrentPhase",
@@ -59,6 +60,10 @@
         "title": "Initialize Repo Prompts"
       },
       {
+        "command": "specForge.openPromptTemplates",
+        "title": "Open Prompt Templates"
+      },
+      {
         "command": "specForge.openMainArtifact",
         "title": "Open Main Artifact"
       },
@@ -96,9 +101,24 @@
           "command": "specForge.initializeRepoPrompts",
           "when": "view == specForge.userStories",
           "group": "navigation"
+        },
+        {
+          "command": "specForge.openPromptTemplates",
+          "when": "view == specForge.userStories",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
+        {
+          "command": "specForge.initializeRepoPrompts",
+          "when": "view == specForge.userStories && viewItem == specForge.repoPromptSetup",
+          "group": "inline"
+        },
+        {
+          "command": "specForge.openPromptTemplates",
+          "when": "view == specForge.userStories && viewItem == specForge.repoPromptTemplates",
+          "group": "inline"
+        },
         {
           "command": "specForge.openMainArtifact",
           "when": "view == specForge.userStories && viewItem == specForge.userStory",

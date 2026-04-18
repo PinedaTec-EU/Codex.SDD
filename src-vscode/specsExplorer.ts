@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as path from "node:path";
 import * as vscode from "vscode";
 import {
   createMcpBackendClient,
@@ -6,7 +7,7 @@ import {
   type UserStorySummary
 } from "./backendClient";
 
-export type UserStoryTreeItemKind = "userStory";
+export type UserStoryTreeItemKind = "userStory" | "repoPromptSetup" | "repoPromptTemplates";
 const backendClients = new Map<string, SpecForgeBackendClient>();
 
 export class UserStoryTreeItem extends vscode.TreeItem {
@@ -24,8 +25,38 @@ export class UserStoryTreeItem extends vscode.TreeItem {
   }
 }
 
-export class SpecsExplorerProvider implements vscode.TreeDataProvider<UserStoryTreeItem> {
-  private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<UserStoryTreeItem | undefined>();
+class RepoPromptSetupTreeItem extends vscode.TreeItem {
+  public readonly contextValue: UserStoryTreeItemKind = "repoPromptSetup";
+
+  public constructor() {
+    super("Repo Prompts Not Initialized", vscode.TreeItemCollapsibleState.None);
+    this.description = "required for real providers";
+    this.tooltip = "Initialize .specs/config.yaml and .specs/prompts/ for provider-backed phase execution.";
+    this.iconPath = new vscode.ThemeIcon("warning");
+    this.command = {
+      command: "specForge.initializeRepoPrompts",
+      title: "Initialize Repo Prompts"
+    };
+  }
+}
+
+class RepoPromptTemplatesTreeItem extends vscode.TreeItem {
+  public readonly contextValue: UserStoryTreeItemKind = "repoPromptTemplates";
+
+  public constructor() {
+    super("Open Prompt Templates", vscode.TreeItemCollapsibleState.None);
+    this.description = ".specs/prompts/";
+    this.tooltip = "Open the repo prompt manifest and templates.";
+    this.iconPath = new vscode.ThemeIcon("book");
+    this.command = {
+      command: "specForge.openPromptTemplates",
+      title: "Open Prompt Templates"
+    };
+  }
+}
+
+export class SpecsExplorerProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+  private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<vscode.TreeItem | undefined>();
 
   public readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 
@@ -33,18 +64,26 @@ export class SpecsExplorerProvider implements vscode.TreeDataProvider<UserStoryT
     this.onDidChangeTreeDataEmitter.fire(undefined);
   }
 
-  public getTreeItem(element: UserStoryTreeItem): vscode.TreeItem {
+  public getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
     return element;
   }
 
-  public async getChildren(): Promise<UserStoryTreeItem[]> {
+  public async getChildren(): Promise<vscode.TreeItem[]> {
     const workspaceRoot = getWorkspaceRoot();
     if (!workspaceRoot) {
       return [];
     }
 
+    const items: vscode.TreeItem[] = [];
+    if (await hasInitializedRepoPromptsAsync(workspaceRoot)) {
+      items.push(new RepoPromptTemplatesTreeItem());
+    } else {
+      items.push(new RepoPromptSetupTreeItem());
+    }
+
     const summaries = await getBackendClient(workspaceRoot).listUserStories();
-    return summaries.map((summary) => new UserStoryTreeItem(summary));
+    items.push(...summaries.map((summary) => new UserStoryTreeItem(summary)));
+    return items;
   }
 }
 
@@ -131,6 +170,22 @@ export async function initializeRepoPrompts(): Promise<void> {
   }
 }
 
+export async function openPromptTemplates(): Promise<void> {
+  const workspaceRoot = getWorkspaceRoot();
+  if (!workspaceRoot) {
+    void vscode.window.showWarningMessage("Open a workspace folder before opening prompt templates.");
+    return;
+  }
+
+  const manifestPath = path.join(workspaceRoot, ".specs", "prompts", "prompts.yaml");
+  if (!await pathExistsAsync(manifestPath)) {
+    void vscode.window.showWarningMessage("Repo prompts are not initialized yet.");
+    return;
+  }
+
+  await openTextDocument(manifestPath);
+}
+
 export async function openMainArtifact(summary?: UserStorySummary): Promise<void> {
   if (!summary) {
     void vscode.window.showInformationMessage("Select a user story first.");
@@ -207,6 +262,12 @@ function getWorkspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
+async function hasInitializedRepoPromptsAsync(workspaceRoot: string): Promise<boolean> {
+  const hasConfig = await pathExistsAsync(path.join(workspaceRoot, ".specs", "config.yaml"));
+  const hasManifest = await pathExistsAsync(path.join(workspaceRoot, ".specs", "prompts", "prompts.yaml"));
+  return hasConfig && hasManifest;
+}
+
 async function nextUserStoryId(workspaceRoot: string): Promise<string> {
   const summaries = await getBackendClient(workspaceRoot).listUserStories();
   const maxValue = summaries
@@ -220,6 +281,15 @@ async function nextUserStoryId(workspaceRoot: string): Promise<string> {
 async function openTextDocument(filePath: string): Promise<void> {
   const document = await vscode.workspace.openTextDocument(filePath);
   await vscode.window.showTextDocument(document, { preview: false });
+}
+
+async function pathExistsAsync(filePath: string): Promise<boolean> {
+  try {
+    await fs.promises.access(filePath, fs.constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function getBackendClient(workspaceRoot: string): SpecForgeBackendClient {
