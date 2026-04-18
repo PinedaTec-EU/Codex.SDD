@@ -1076,11 +1076,11 @@ function linkClass(targetPhase: WorkflowPhaseDetails, executingTargetPhaseId: st
     return "executing";
   }
 
-  if (targetPhase.isCurrent) {
-    return "current";
+  if (targetPhase.isCurrent || targetPhase.state === "completed") {
+    return "completed";
   }
 
-  return targetPhase.state === "completed" ? "completed" : "pending";
+  return "pending";
 }
 
 function graphPath(

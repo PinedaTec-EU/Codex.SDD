@@ -1031,10 +1031,10 @@ function linkClass(targetPhase, executingTargetPhaseId) {
     if (executingTargetPhaseId === targetPhase.phaseId) {
         return "executing";
     }
-    if (targetPhase.isCurrent) {
-        return "current";
+    if (targetPhase.isCurrent || targetPhase.state === "completed") {
+        return "completed";
     }
-    return targetPhase.state === "completed" ? "completed" : "pending";
+    return "pending";
 }
 function graphPath(fromPhaseId, toPhaseId, positions, nodeWidth) {
     const fromPosition = positions[fromPhaseId];
