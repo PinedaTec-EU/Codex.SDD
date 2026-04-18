@@ -29,6 +29,7 @@ public sealed class UserStoryFileStoreTests : IDisposable
         Assert.Contains("currentPhase: refinement", stateContent);
         Assert.Contains("approvedPhases:", stateContent);
         Assert.Contains("kind: feature", branchContent);
+        Assert.Contains("category: workflow", branchContent);
         Assert.Contains("baseBranch: main", branchContent);
         Assert.Contains("workBranch: feature/us-0001-test-story", branchContent);
         Assert.Contains("strategy: single-branch-per-user-story", branchContent);
@@ -54,6 +55,7 @@ public sealed class UserStoryFileStoreTests : IDisposable
         Assert.NotNull(loadedRun.Branch);
         Assert.Equal("main", loadedRun.Branch!.BaseBranch);
         Assert.Equal("feature", loadedRun.Branch.Kind);
+        Assert.Equal("workflow", loadedRun.Branch.Category);
     }
 
     [Fact]
@@ -82,7 +84,14 @@ public sealed class UserStoryFileStoreTests : IDisposable
     {
         var run = new WorkflowRun("US-0001", "sha256:abc", WorkflowDefinition.CanonicalV1);
         run.GenerateNextPhase();
-        run.ApproveCurrentPhase("main", "feature/us-0001-test-story", "feature", new DateTimeOffset(2026, 4, 18, 10, 0, 0, TimeSpan.Zero));
+        run.ApproveCurrentPhase(
+            "main",
+            "feature/us-0001-test-story",
+            "feature",
+            "workflow",
+            "Test story",
+            ".specs/us/us.US-0001/us.md",
+            new DateTimeOffset(2026, 4, 18, 10, 0, 0, TimeSpan.Zero));
         return run;
     }
 }

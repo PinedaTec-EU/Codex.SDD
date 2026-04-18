@@ -116,9 +116,11 @@ Entregables:
 12. ✅ exponer `request_regression` de punta a punta en dominio, MCP y extensión
 13. ✅ implementar reinicio seguro desde fuente
 14. ✅ cerrar estrategia base de branch naming para fase 1
-15. [ ] ampliar UX con graph view y detalle de fase más rico
-16. [ ] añadir editor/inspector de prompts más rico desde la extensión
-17. [ ] enriquecer el ciclo de vida de ramas con integración Git/PR real
+15. ✅ introducir categoría explícita de US con catálogo configurable del repo
+16. [ ] agrupar el explorer de VS Code por categoría de US
+17. [ ] ampliar UX con graph view y detalle de fase más rico
+18. [ ] añadir editor/inspector de prompts más rico desde la extensión
+19. [ ] enriquecer el ciclo de vida de ramas con integración Git/PR real
 
 ## Riesgos a vigilar
 
@@ -162,6 +164,7 @@ Incluye en el MVP:
 - ✅ regresión explícita de fase desde UI y backend
 - ✅ reinicio seguro de una US desde la fuente
 - ✅ branch naming explícito por `kind` con formato `<kind>/us-xxxx-short-slug`
+- ✅ categoría explícita de US con catálogo configurable desde `.specs/config.yaml`
 - ✅ roadmap operativo coherente entre `doc/` y `README`
 
 No bloquea el MVP:
@@ -186,9 +189,11 @@ Subtareas recién resueltas:
 - ✅ invalidar aprobaciones obsoletas al regresar a una fase anterior
 - ✅ implementar `restart_user_story_from_source` con archivo de artefactos y rama previa supersedida
 - ✅ fijar `kind` explícito en la US y naming de rama `<kind>/us-xxxx-short-slug`
+- ✅ introducir `category` explícita en la US y validarla contra el catálogo global del repo
 
 Subtareas pendientes de cerrar antes de considerar el MVP completo:
 
+- [ ] agrupar la UI por categoría de US
 - [ ] enriquecer el ciclo de vida de `branch.yaml` con metadatos Git/PR reales
 
 Artefactos de persistencia ya concretados o en concreción:

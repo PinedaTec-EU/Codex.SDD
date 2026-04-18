@@ -8,20 +8,23 @@ public sealed class SpecForgeApplicationService
     private readonly UserStoryFileStore fileStore;
     private readonly WorkflowRunner workflowRunner;
     private readonly RepositoryPromptInitializer repositoryPromptInitializer;
+    private readonly RepositoryCategoryCatalog repositoryCategoryCatalog;
 
     public SpecForgeApplicationService()
-        : this(new UserStoryFileStore(), new WorkflowRunner(), new RepositoryPromptInitializer())
+        : this(new UserStoryFileStore(), new WorkflowRunner(), new RepositoryPromptInitializer(), new RepositoryCategoryCatalog())
     {
     }
 
     public SpecForgeApplicationService(
         UserStoryFileStore fileStore,
         WorkflowRunner workflowRunner,
-        RepositoryPromptInitializer? repositoryPromptInitializer = null)
+        RepositoryPromptInitializer? repositoryPromptInitializer = null,
+        RepositoryCategoryCatalog? repositoryCategoryCatalog = null)
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
         this.workflowRunner = workflowRunner ?? throw new ArgumentNullException(nameof(workflowRunner));
         this.repositoryPromptInitializer = repositoryPromptInitializer ?? new RepositoryPromptInitializer();
+        this.repositoryCategoryCatalog = repositoryCategoryCatalog ?? new RepositoryCategoryCatalog();
     }
 
     public Task<InitializeRepoPromptsResult> InitializeRepoPromptsAsync(
@@ -35,10 +38,12 @@ public sealed class SpecForgeApplicationService
         string usId,
         string title,
         string kind,
+        string category,
         string sourceText,
         CancellationToken cancellationToken = default)
     {
-        var rootDirectory = await workflowRunner.CreateUserStoryAsync(workspaceRoot, usId, title, kind, sourceText, cancellationToken);
+        repositoryCategoryCatalog.EnsureCategoryIsAllowed(workspaceRoot, category);
+        var rootDirectory = await workflowRunner.CreateUserStoryAsync(workspaceRoot, usId, title, kind, category, sourceText, cancellationToken);
         return new CreateOrImportUserStoryResult(usId, rootDirectory, Path.Combine(rootDirectory, "us.md"));
     }
 
@@ -48,10 +53,11 @@ public sealed class SpecForgeApplicationService
         string sourcePath,
         string title,
         string kind,
+        string category,
         CancellationToken cancellationToken = default)
     {
         var sourceText = await File.ReadAllTextAsync(sourcePath, cancellationToken);
-        return await CreateUserStoryAsync(workspaceRoot, usId, title, kind, sourceText, cancellationToken);
+        return await CreateUserStoryAsync(workspaceRoot, usId, title, kind, category, sourceText, cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<UserStorySummary>> ListUserStoriesAsync(
@@ -93,13 +99,14 @@ public sealed class SpecForgeApplicationService
         CancellationToken cancellationToken)
     {
         var mainArtifactPath = Path.Combine(directory, "us.md");
-        var statePath = Path.Combine(directory, "state.yaml");
         var workflowRun = await fileStore.LoadAsync(directory, cancellationToken);
         var title = await ReadTitleAsync(mainArtifactPath, cancellationToken);
+        var metadata = await WorkflowRunner.ReadUserStoryMetadataAsync(mainArtifactPath, workflowRun.UsId, cancellationToken);
 
         return new UserStorySummary(
             workflowRun.UsId,
             title,
+            metadata.Category,
             directory,
             mainArtifactPath,
             WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),

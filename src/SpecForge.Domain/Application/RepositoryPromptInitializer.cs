@@ -63,6 +63,16 @@ public sealed class RepositoryPromptInitializer
         initialized: true
         promptMode: required
         promptManifest: .specs/prompts/prompts.yaml
+        categories:
+          - workflow
+          - ux
+          - prompts
+          - mcp
+          - providers
+          - branching
+          - review
+          - integrations
+          - infra
         """;
 
     private static string BuildPromptManifestYaml() =>

@@ -4,7 +4,15 @@ public sealed class WorkBranch
 {
     public const string SingleBranchPerUserStoryStrategy = "single-branch-per-user-story";
 
-    public WorkBranch(string baseBranch, string workBranch, string kind, DateTimeOffset createdAtUtc, string strategy = SingleBranchPerUserStoryStrategy)
+    public WorkBranch(
+        string baseBranch,
+        string workBranch,
+        string kind,
+        string category,
+        string? titleSnapshot,
+        string? sourceUsPath,
+        DateTimeOffset createdAtUtc,
+        string strategy = SingleBranchPerUserStoryStrategy)
     {
         if (string.IsNullOrWhiteSpace(baseBranch))
         {
@@ -21,9 +29,17 @@ public sealed class WorkBranch
             throw new ArgumentException("Kind is required.", nameof(kind));
         }
 
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            throw new ArgumentException("Category is required.", nameof(category));
+        }
+
         BaseBranch = baseBranch;
         WorkBranchName = workBranch;
         Kind = kind;
+        Category = category;
+        TitleSnapshot = titleSnapshot;
+        SourceUsPath = sourceUsPath;
         CreatedAtUtc = createdAtUtc;
         Strategy = strategy;
         Status = "active";
@@ -34,6 +50,12 @@ public sealed class WorkBranch
     public string WorkBranchName { get; }
 
     public string Kind { get; }
+
+    public string Category { get; }
+
+    public string? TitleSnapshot { get; }
+
+    public string? SourceUsPath { get; }
 
     public DateTimeOffset CreatedAtUtc { get; }
 

@@ -9,21 +9,26 @@ public sealed class WorkflowRunner
 {
     private readonly UserStoryFileStore fileStore;
     private readonly IPhaseExecutionProvider phaseExecutionProvider;
+    private readonly RepositoryCategoryCatalog repositoryCategoryCatalog;
 
     public WorkflowRunner()
-        : this(new UserStoryFileStore(), new DeterministicPhaseExecutionProvider())
+        : this(new UserStoryFileStore(), new DeterministicPhaseExecutionProvider(), new RepositoryCategoryCatalog())
     {
     }
 
     public WorkflowRunner(IPhaseExecutionProvider phaseExecutionProvider)
-        : this(new UserStoryFileStore(), phaseExecutionProvider)
+        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog())
     {
     }
 
-    internal WorkflowRunner(UserStoryFileStore fileStore, IPhaseExecutionProvider phaseExecutionProvider)
+    internal WorkflowRunner(
+        UserStoryFileStore fileStore,
+        IPhaseExecutionProvider phaseExecutionProvider,
+        RepositoryCategoryCatalog? repositoryCategoryCatalog = null)
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
         this.phaseExecutionProvider = phaseExecutionProvider ?? throw new ArgumentNullException(nameof(phaseExecutionProvider));
+        this.repositoryCategoryCatalog = repositoryCategoryCatalog ?? new RepositoryCategoryCatalog();
     }
 
     public async Task<string> CreateUserStoryAsync(
@@ -31,6 +36,7 @@ public sealed class WorkflowRunner
         string usId,
         string title,
         string kind,
+        string category,
         string sourceText,
         CancellationToken cancellationToken = default)
     {
@@ -38,8 +44,10 @@ public sealed class WorkflowRunner
         ValidateRequired(usId, nameof(usId));
         ValidateRequired(title, nameof(title));
         ValidateRequired(kind, nameof(kind));
+        ValidateRequired(category, nameof(category));
         ValidateRequired(sourceText, nameof(sourceText));
         ValidateUserStoryKind(kind);
+        repositoryCategoryCatalog.EnsureCategoryIsAllowed(workspaceRoot, category);
 
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
         Directory.CreateDirectory(paths.RootDirectory);
@@ -47,7 +55,7 @@ public sealed class WorkflowRunner
 
         var workflowRun = new WorkflowRun(usId, ComputeSourceHash(sourceText), WorkflowDefinition.CanonicalV1);
 
-        await File.WriteAllTextAsync(paths.MainArtifactPath, BuildUserStoryMarkdown(usId, title, kind, sourceText), cancellationToken);
+        await File.WriteAllTextAsync(paths.MainArtifactPath, BuildUserStoryMarkdown(usId, title, kind, category, sourceText), cancellationToken);
         await File.WriteAllTextAsync(paths.TimelineFilePath, BuildInitialTimeline(usId, title), cancellationToken);
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
         return paths.RootDirectory;
@@ -63,7 +71,14 @@ public sealed class WorkflowRunner
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         var metadata = await ReadUserStoryMetadataAsync(paths.MainArtifactPath, usId, cancellationToken);
         var workBranchName = BuildWorkBranchName(usId, metadata.Title, metadata.Kind);
-        workflowRun.ApproveCurrentPhase(baseBranch, workBranchName, metadata.Kind, DateTimeOffset.UtcNow);
+        workflowRun.ApproveCurrentPhase(
+            baseBranch,
+            workBranchName,
+            metadata.Kind,
+            metadata.Category,
+            metadata.Title,
+            paths.MainArtifactPath,
+            DateTimeOffset.UtcNow);
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
@@ -398,7 +413,7 @@ public sealed class WorkflowRunner
                Environment.NewLine;
     }
 
-    private static string BuildUserStoryMarkdown(string usId, string title, string kind, string sourceText)
+    private static string BuildUserStoryMarkdown(string usId, string title, string kind, string category, string sourceText)
     {
         return string.Join(
                    Environment.NewLine,
@@ -408,6 +423,7 @@ public sealed class WorkflowRunner
                        string.Empty,
                        "## Metadata",
                        $"- Kind: `{kind}`",
+                       $"- Category: `{category}`",
                        string.Empty,
                        "## Objetivo",
                        sourceText,
@@ -421,7 +437,7 @@ public sealed class WorkflowRunner
                Environment.NewLine;
     }
 
-    private static async Task<UserStoryMetadata> ReadUserStoryMetadataAsync(
+    internal static async Task<UserStoryMetadata> ReadUserStoryMetadataAsync(
         string userStoryPath,
         string usId,
         CancellationToken cancellationToken)
@@ -432,8 +448,9 @@ public sealed class WorkflowRunner
             .Replace($"{usId} - ", string.Empty, StringComparison.Ordinal)
             .Trim();
         var kind = ReadUserStoryKind(userStory);
+        var category = ReadUserStoryCategory(userStory);
         ValidateUserStoryKind(kind);
-        return new UserStoryMetadata(normalizedTitle, kind);
+        return new UserStoryMetadata(normalizedTitle, kind, category);
     }
 
     private static string ComputeSourceHash(string sourceText)
@@ -492,6 +509,25 @@ public sealed class WorkflowRunner
         return "feature";
     }
 
+    private static string ReadUserStoryCategory(string markdown)
+    {
+        using var reader = new StringReader(markdown);
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith("- Category:", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var value = trimmed["- Category:".Length..].Trim().Trim('`').ToLowerInvariant();
+            return string.IsNullOrWhiteSpace(value) ? "uncategorized" : value;
+        }
+
+        return "uncategorized";
+    }
+
     private static string BuildWorkBranchName(string usId, string title, string kind)
     {
         var slug = BuildShortSlug(title);
@@ -525,5 +561,5 @@ public sealed class WorkflowRunner
         return ascii.Length <= 48 ? ascii : ascii[..48].Trim('-');
     }
 
-    private sealed record UserStoryMetadata(string Title, string Kind);
+    internal sealed record UserStoryMetadata(string Title, string Kind, string Category);
 }

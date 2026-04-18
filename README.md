@@ -150,6 +150,7 @@ The .NET core already supports:
 
 - creating a user story root
 - persisting `state.yaml` and `branch.yaml`
+- validating explicit user-story categories against the repo catalog in `.specs/config.yaml`
 - advancing to the next valid phase
 - approving approval-required phases
 - creating the work branch metadata on refinement approval using `<kind>/us-xxxx-short-slug`
@@ -171,6 +172,7 @@ The extension currently provides:
 - `Open Main Artifact`
 - `Continue Phase`
 - explicit `feature` / `bug` / `hotfix` selection when creating or importing a US
+- explicit category selection from the repo category catalog when creating or importing a US
 
 Current limitation:
 
@@ -230,6 +232,8 @@ Typical contents:
 - [x] expose explicit phase regression through domain, MCP, and VS Code
 - [x] implement safe restart from source and archive superseded derived state
 - [x] derive branch names from explicit US kind plus short slug
+- [x] validate explicit US categories against a repo-configured catalog
+- [ ] group the VS Code explorer by user-story category
 - [ ] finalize richer branch lifecycle rules and Git/PR metadata
 - [ ] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration

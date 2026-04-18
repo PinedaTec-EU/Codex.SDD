@@ -12,12 +12,15 @@ internal static class BranchYamlSerializer
                    {
                        $"usId: {usId}",
                        $"kind: {branch.Kind}",
+                       $"category: {branch.Category}",
                        $"baseBranch: {branch.BaseBranch}",
                        $"workBranch: {branch.WorkBranchName}",
                        $"status: {branch.Status}",
                        $"createdAt: {branch.CreatedAtUtc:O}",
                        "createdFromPhase: refinement_approval",
-                       $"strategy: {branch.Strategy}"
+                       $"strategy: {branch.Strategy}",
+                       $"titleSnapshot: {branch.TitleSnapshot ?? string.Empty}",
+                       $"sourceUsPath: {branch.SourceUsPath ?? string.Empty}"
                    }) +
                Environment.NewLine;
     }
@@ -35,6 +38,9 @@ internal static class BranchYamlSerializer
             GetRequired(values, "baseBranch"),
             GetRequired(values, "workBranch"),
             GetOptional(values, "kind") ?? InferKindFromWorkBranch(GetRequired(values, "workBranch")),
+            GetOptional(values, "category") ?? "uncategorized",
+            GetOptional(values, "titleSnapshot"),
+            GetOptional(values, "sourceUsPath"),
             DateTimeOffset.Parse(GetRequired(values, "createdAt")),
             GetOptional(values, "strategy") ?? WorkBranch.SingleBranchPerUserStoryStrategy);
 

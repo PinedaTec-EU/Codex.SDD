@@ -14,6 +14,17 @@ const REGRESSION_TARGETS: Record<string, readonly string[]> = {
   "release-approval": ["implementation", "technical-design", "refinement"]
 };
 const USER_STORY_KINDS = ["feature", "bug", "hotfix"] as const;
+const DEFAULT_USER_STORY_CATEGORIES = [
+  "workflow",
+  "ux",
+  "prompts",
+  "mcp",
+  "providers",
+  "branching",
+  "review",
+  "integrations",
+  "infra"
+] as const;
 
 export class UserStoryTreeItem extends vscode.TreeItem {
   public readonly contextValue: UserStoryTreeItemKind = "userStory";
@@ -114,6 +125,11 @@ export async function createUserStoryFromInput(): Promise<void> {
     return;
   }
 
+  const category = await pickUserStoryCategory(workspaceRoot);
+  if (!category) {
+    return;
+  }
+
   const sourceText = await vscode.window.showInputBox({
     prompt: "User story objective or initial source text",
     ignoreFocusOut: true,
@@ -125,7 +141,7 @@ export async function createUserStoryFromInput(): Promise<void> {
   }
 
   const usId = await nextUserStoryId(workspaceRoot);
-  const result = await getBackendClient(workspaceRoot).createUserStory(usId, title, kind, sourceText);
+  const result = await getBackendClient(workspaceRoot).createUserStory(usId, title, kind, category, sourceText);
 
   await openTextDocument(result.mainArtifactPath);
 }
@@ -159,8 +175,12 @@ export async function importUserStoryFromMarkdown(): Promise<void> {
   if (!kind) {
     return;
   }
+  const category = await pickUserStoryCategory(workspaceRoot);
+  if (!category) {
+    return;
+  }
   const usId = await nextUserStoryId(workspaceRoot);
-  const result = await getBackendClient(workspaceRoot).importUserStory(usId, sourceUri.fsPath, title, kind);
+  const result = await getBackendClient(workspaceRoot).importUserStory(usId, sourceUri.fsPath, title, kind, category);
 
   await openTextDocument(result.mainArtifactPath);
 }
@@ -383,6 +403,72 @@ async function pickUserStoryKind(): Promise<string | undefined> {
   );
 
   return selection?.label;
+}
+
+async function pickUserStoryCategory(workspaceRoot: string): Promise<string | undefined> {
+  const categories = await getUserStoryCategoriesAsync(workspaceRoot);
+  const selection = await vscode.window.showQuickPick(
+    categories.map((category) => ({
+      label: category,
+      description: `Assign category ${category}`
+    })),
+    {
+      ignoreFocusOut: true,
+      title: "User story category",
+      placeHolder: "Choose the category used to group this user story"
+    }
+  );
+
+  return selection?.label;
+}
+
+async function getUserStoryCategoriesAsync(workspaceRoot: string): Promise<readonly string[]> {
+  const configPath = path.join(workspaceRoot, ".specs", "config.yaml");
+  if (!await pathExistsAsync(configPath)) {
+    return DEFAULT_USER_STORY_CATEGORIES;
+  }
+
+  const yaml = await fs.promises.readFile(configPath, "utf8");
+  const categories = parseYamlSequence(yaml, "categories");
+  return categories.length === 0 ? DEFAULT_USER_STORY_CATEGORIES : categories;
+}
+
+function parseYamlSequence(yaml: string, key: string): string[] {
+  const lines = yaml.replace(/\r\n/g, "\n").split("\n");
+  const result: string[] = [];
+  let insideSection = false;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+
+    if (!insideSection) {
+      if (line === `${key}:`) {
+        insideSection = true;
+      }
+
+      continue;
+    }
+
+    if (!line) {
+      continue;
+    }
+
+    if (!/^\s/.test(rawLine)) {
+      break;
+    }
+
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("- ")) {
+      continue;
+    }
+
+    const value = trimmed.slice(2).trim().toLowerCase();
+    if (value) {
+      result.push(value);
+    }
+  }
+
+  return [...new Set(result)].sort((left, right) => left.localeCompare(right));
 }
 
 async function hasInitializedRepoPromptsAsync(workspaceRoot: string): Promise<boolean> {

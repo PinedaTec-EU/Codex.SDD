@@ -68,6 +68,9 @@ public sealed class WorkflowRun
         string? baseBranch = null,
         string? workBranchName = null,
         string? workBranchKind = null,
+        string? workBranchCategory = null,
+        string? titleSnapshot = null,
+        string? sourceUsPath = null,
         DateTimeOffset? approvedAtUtc = null)
     {
         EnsureNotCompleted();
@@ -99,10 +102,18 @@ public sealed class WorkflowRun
                 throw new WorkflowDomainException("Work branch kind is required to approve refinement.");
             }
 
+            if (string.IsNullOrWhiteSpace(workBranchCategory))
+            {
+                throw new WorkflowDomainException("Work branch category is required to approve refinement.");
+            }
+
             Branch = new WorkBranch(
                 baseBranch,
                 workBranchName,
                 workBranchKind,
+                workBranchCategory,
+                titleSnapshot,
+                sourceUsPath,
                 approvedAtUtc ?? DateTimeOffset.UtcNow);
         }
 

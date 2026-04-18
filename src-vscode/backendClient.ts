@@ -4,6 +4,7 @@ import * as path from "node:path";
 export interface UserStorySummary {
   readonly usId: string;
   readonly title: string;
+  readonly category: string;
   readonly directoryPath: string;
   readonly mainArtifactPath: string;
   readonly currentPhase: string;
@@ -48,8 +49,8 @@ export interface RestartUserStoryResult {
 export interface SpecForgeBackendClient {
   listUserStories(): Promise<readonly UserStorySummary[]>;
   getUserStorySummary(usId: string): Promise<UserStorySummary>;
-  createUserStory(usId: string, title: string, kind: string, sourceText: string): Promise<CreateOrImportUserStoryResult>;
-  importUserStory(usId: string, sourcePath: string, title: string, kind: string): Promise<CreateOrImportUserStoryResult>;
+  createUserStory(usId: string, title: string, kind: string, category: string, sourceText: string): Promise<CreateOrImportUserStoryResult>;
+  importUserStory(usId: string, sourcePath: string, title: string, kind: string, category: string): Promise<CreateOrImportUserStoryResult>;
   initializeRepoPrompts(overwrite?: boolean): Promise<InitializeRepoPromptsResult>;
   continuePhase(usId: string): Promise<ContinuePhaseResult>;
   approveCurrentPhase(usId: string, baseBranch?: string): Promise<UserStorySummary>;
@@ -115,23 +116,25 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     });
   }
 
-  public async createUserStory(usId: string, title: string, kind: string, sourceText: string): Promise<CreateOrImportUserStoryResult> {
+  public async createUserStory(usId: string, title: string, kind: string, category: string, sourceText: string): Promise<CreateOrImportUserStoryResult> {
     return this.callTool<CreateOrImportUserStoryResult>("create_us_from_chat", {
       workspaceRoot: this.workspaceRoot,
       usId,
       title,
       kind,
+      category,
       sourceText
     });
   }
 
-  public async importUserStory(usId: string, sourcePath: string, title: string, kind: string): Promise<CreateOrImportUserStoryResult> {
+  public async importUserStory(usId: string, sourcePath: string, title: string, kind: string, category: string): Promise<CreateOrImportUserStoryResult> {
     return this.callTool<CreateOrImportUserStoryResult>("import_us_from_markdown", {
       workspaceRoot: this.workspaceRoot,
       usId,
       sourcePath,
       title,
-      kind
+      kind,
+      category
     });
   }
 

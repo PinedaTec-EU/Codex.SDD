@@ -22,6 +22,9 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.True(File.Exists(paths.PromptManifestPath));
         Assert.True(File.Exists(paths.SharedSystemPromptPath));
         Assert.True(File.Exists(paths.ReviewExecutePromptPath));
+        var configContent = await File.ReadAllTextAsync(paths.ConfigFilePath);
+        Assert.Contains("categories:", configContent);
+        Assert.Contains("- workflow", configContent);
     }
 
     [Fact]

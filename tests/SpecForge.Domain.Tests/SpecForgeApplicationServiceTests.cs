@@ -12,12 +12,13 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     {
         var runner = new WorkflowRunner();
         var applicationService = new SpecForgeApplicationService();
-        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "Initial source");
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
 
         var items = await applicationService.ListUserStoriesAsync(workspaceRoot);
 
         var summary = Assert.Single(items);
         Assert.Equal("US-0001", summary.UsId);
+        Assert.Equal("workflow", summary.Category);
         Assert.Equal("capture", summary.CurrentPhase);
         Assert.Equal("active", summary.Status);
     }
@@ -27,13 +28,14 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     {
         var runner = new WorkflowRunner();
         var applicationService = new SpecForgeApplicationService();
-        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "Initial source");
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
 
         var summary = await applicationService.GetUserStorySummaryAsync(workspaceRoot, "US-0001");
 
         Assert.Equal("feature/us-0001-story-one", summary.WorkBranch);
+        Assert.Equal("workflow", summary.Category);
         Assert.Equal("active", summary.Status);
     }
 
@@ -42,7 +44,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     {
         var runner = new WorkflowRunner();
         var applicationService = new SpecForgeApplicationService();
-        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "Initial source");
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
@@ -66,7 +68,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     {
         var runner = new WorkflowRunner();
         var applicationService = new SpecForgeApplicationService();
-        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "Initial source");
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");

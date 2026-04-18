@@ -57,12 +57,15 @@ No incluye:
 ```yaml
 usId: US-0001
 kind: feature
+category: workflow
 baseBranch: main
 workBranch: feature/us-0001-specforge-foundation
 status: active
 createdAt: 2026-04-17T10:30:00Z
 createdFromPhase: refinement_approval
 strategy: single-branch-per-user-story
+titleSnapshot: Agrupar specs explorer por categoria
+sourceUsPath: .specs/us/us.US-0001/us.md
 pullRequest:
   status: not_requested
   targetBaseBranch: main
@@ -99,6 +102,16 @@ Convención cerrada para fase 1:
 - `short-slug` deriva del título actual de la US
 - el slug mejora legibilidad, pero no es fuente de verdad
 - no se renombra automáticamente la rama si cambia el título de la US
+
+### `category`
+
+Categoría explícita de la US, derivada del catálogo del repo.
+
+Se usa para:
+
+- agrupar historias en la UI
+- mejorar trazabilidad funcional de la rama
+- evitar taxonomías libres y explosión de categorías
 
 ### `status`
 
@@ -143,6 +156,7 @@ Valores iniciales de `pullRequest.status`:
 - una US activa tiene como máximo un `branch.yaml` activo
 - no puede existir `workBranch` sin `baseBranch`
 - no puede existir `workBranch` sin `kind`
+- no puede existir `workBranch` sin `category`
 - `branch.yaml` no se crea antes de la aprobación inicial del refinement
 - si una US se reinicia desde fuente, el branch previo debe quedar marcado como `superseded` o `abandoned`, nunca reutilizado silenciosamente
 

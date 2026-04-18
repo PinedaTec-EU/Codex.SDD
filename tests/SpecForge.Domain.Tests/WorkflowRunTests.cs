@@ -33,7 +33,14 @@ public sealed class WorkflowRunTests
         var run = CreateRun();
         run.GenerateNextPhase();
 
-        run.ApproveCurrentPhase("main", "feature/us-0001-test-story", "feature", new DateTimeOffset(2026, 4, 18, 10, 0, 0, TimeSpan.Zero));
+        run.ApproveCurrentPhase(
+            "main",
+            "feature/us-0001-test-story",
+            "feature",
+            "workflow",
+            "Test story",
+            ".specs/us/us.US-0001/us.md",
+            new DateTimeOffset(2026, 4, 18, 10, 0, 0, TimeSpan.Zero));
 
         Assert.True(run.IsPhaseApproved(PhaseId.Refinement));
         Assert.Equal(UserStoryStatus.Active, run.Status);
@@ -41,6 +48,7 @@ public sealed class WorkflowRunTests
         Assert.Equal("main", run.Branch!.BaseBranch);
         Assert.Equal("feature/us-0001-test-story", run.Branch.WorkBranchName);
         Assert.Equal("feature", run.Branch.Kind);
+        Assert.Equal("workflow", run.Branch.Category);
     }
 
     [Fact]
@@ -60,7 +68,7 @@ public sealed class WorkflowRunTests
     {
         var run = CreateRun();
         run.GenerateNextPhase();
-        run.ApproveCurrentPhase("main", "feature/us-0001-test-story", "feature");
+        run.ApproveCurrentPhase("main", "feature/us-0001-test-story", "feature", "workflow", "Test story", ".specs/us/us.US-0001/us.md");
 
         run.GenerateNextPhase();
 
@@ -113,7 +121,7 @@ public sealed class WorkflowRunTests
     private static void AdvanceToImplementation(WorkflowRun run)
     {
         run.GenerateNextPhase();
-        run.ApproveCurrentPhase("main", "feature/us-0001-test-story", "feature");
+        run.ApproveCurrentPhase("main", "feature/us-0001-test-story", "feature", "workflow", "Test story", ".specs/us/us.US-0001/us.md");
         run.GenerateNextPhase();
         run.ApproveCurrentPhase();
         run.GenerateNextPhase();
