@@ -6,6 +6,7 @@ import {
   type SpecForgeBackendClient,
   type UserStorySummary
 } from "./backendClient";
+import { getSpecForgeSettings } from "./extensionSettings";
 import {
   compareUserStories,
   DEFAULT_USER_STORY_CATEGORIES,
@@ -481,7 +482,7 @@ async function pathExistsAsync(filePath: string): Promise<boolean> {
 function getBackendClient(workspaceRoot: string): SpecForgeBackendClient {
   let client = backendClients.get(workspaceRoot);
   if (!client) {
-    client = createMcpBackendClient(workspaceRoot);
+    client = createMcpBackendClient(workspaceRoot, getSpecForgeSettings());
     backendClients.set(workspaceRoot, client);
   }
 
@@ -490,6 +491,12 @@ function getBackendClient(workspaceRoot: string): SpecForgeBackendClient {
 
 export function getOrCreateBackendClient(workspaceRoot: string): SpecForgeBackendClient {
   return getBackendClient(workspaceRoot);
+}
+
+export function resetBackendClient(workspaceRoot: string): void {
+  const client = backendClients.get(workspaceRoot);
+  client?.dispose();
+  backendClients.delete(workspaceRoot);
 }
 
 export function disposeBackendClients(): void {

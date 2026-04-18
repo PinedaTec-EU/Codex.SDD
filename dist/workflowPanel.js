@@ -39,11 +39,11 @@ const fs = __importStar(require("node:fs"));
 const vscode = __importStar(require("vscode"));
 const workflowView_1 = require("./workflowView");
 const panels = new Map();
-async function openWorkflowView(workspaceRoot, summary, backendClient) {
+async function openWorkflowView(workspaceRoot, summary, getBackendClient, callbacks) {
     const panelId = `${workspaceRoot}:${summary.usId}`;
     let controller = panels.get(panelId);
     if (!controller) {
-        controller = new WorkflowPanelController(workspaceRoot, summary, backendClient);
+        controller = new WorkflowPanelController(workspaceRoot, summary, getBackendClient, callbacks);
         panels.set(panelId, controller);
     }
     await controller.showAsync();
@@ -56,13 +56,17 @@ async function refreshWorkflowViews() {
 class WorkflowPanelController {
     workspaceRoot;
     summary;
-    backendClient;
+    getBackendClient;
+    callbacks;
     panel;
     selectedPhaseId;
-    constructor(workspaceRoot, summary, backendClient) {
+    playbackState = "idle";
+    autoplayPromise = null;
+    constructor(workspaceRoot, summary, getBackendClient, callbacks) {
         this.workspaceRoot = workspaceRoot;
         this.summary = summary;
-        this.backendClient = backendClient;
+        this.getBackendClient = getBackendClient;
+        this.callbacks = callbacks;
         this.selectedPhaseId = summary.currentPhase;
         this.panel = vscode.window.createWebviewPanel("specForge.workflowView", `${summary.usId} workflow`, vscode.ViewColumn.Active, {
             enableScripts: true,
@@ -72,7 +76,14 @@ class WorkflowPanelController {
             panels.delete(this.key);
         });
         this.panel.webview.onDidReceiveMessage(async (message) => {
-            await this.handleMessageAsync(message);
+            try {
+                await this.handleMessageAsync(message);
+            }
+            catch (error) {
+                this.playbackState = "paused";
+                await this.refreshAsync();
+                void vscode.window.showErrorMessage(asErrorMessage(error));
+            }
         });
     }
     get key() {
@@ -83,7 +94,7 @@ class WorkflowPanelController {
         await this.refreshAsync();
     }
     async refreshAsync() {
-        const workflow = await this.backendClient.getUserStoryWorkflow(this.summary.usId);
+        const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
         this.summary = {
             ...this.summary,
             currentPhase: workflow.currentPhase,
@@ -99,7 +110,7 @@ class WorkflowPanelController {
         this.panel.webview.html = (0, workflowView_1.buildWorkflowHtml)(workflow, {
             selectedPhaseId: this.selectedPhaseId,
             selectedArtifactContent
-        });
+        }, this.playbackState);
     }
     async handleMessageAsync(message) {
         switch (message.command) {
@@ -115,26 +126,124 @@ class WorkflowPanelController {
                 }
                 return;
             case "continue":
-                await vscode.commands.executeCommand("specForge.continuePhase", this.summary);
-                await this.refreshAsync();
+                await this.continueCurrentPhaseAsync();
                 return;
             case "approve":
-                await vscode.commands.executeCommand("specForge.approveCurrentPhase", this.summary);
-                await this.refreshAsync();
+                await this.approveCurrentPhaseAsync();
                 return;
             case "restart":
-                await vscode.commands.executeCommand("specForge.restartUserStoryFromSource", this.summary);
-                await this.refreshAsync();
+                await this.restartCurrentWorkflowAsync();
                 return;
             case "regress":
                 if (message.phaseId) {
-                    await vscode.commands.executeCommand("specForge.requestRegression", {
-                        ...this.summary,
-                        currentPhase: this.summary.currentPhase
-                    });
-                    await this.refreshAsync();
+                    await this.requestRegressionAsync(message.phaseId);
                 }
                 return;
+            case "play":
+                this.playbackState = "playing";
+                if (!this.autoplayPromise) {
+                    this.autoplayPromise = this.runAutoplayAsync().finally(() => {
+                        this.autoplayPromise = null;
+                    });
+                }
+                await this.refreshAsync();
+                return;
+            case "pause":
+                this.playbackState = "paused";
+                await this.refreshAsync();
+                return;
+            case "stop":
+                this.playbackState = "stopping";
+                this.callbacks.stopBackend(this.workspaceRoot);
+                await this.callbacks.refreshExplorer();
+                this.playbackState = "idle";
+                await this.refreshAsync();
+                return;
+        }
+    }
+    async continueCurrentPhaseAsync() {
+        const result = await this.getBackendClient().continuePhase(this.summary.usId);
+        this.summary = {
+            ...this.summary,
+            currentPhase: result.currentPhase,
+            status: result.status
+        };
+        await this.callbacks.refreshExplorer();
+        await this.refreshAsync();
+    }
+    async approveCurrentPhaseAsync() {
+        let baseBranch;
+        if (this.summary.currentPhase === "refinement") {
+            baseBranch = await vscode.window.showInputBox({
+                prompt: "Base branch used to create the work branch",
+                value: "main",
+                ignoreFocusOut: true,
+                validateInput: (value) => value.trim().length > 0 ? undefined : "Base branch is required."
+            });
+            if (!baseBranch) {
+                return;
+            }
+        }
+        this.summary = await this.getBackendClient().approveCurrentPhase(this.summary.usId, baseBranch);
+        await this.callbacks.refreshExplorer();
+        await this.refreshAsync();
+    }
+    async requestRegressionAsync(targetPhase) {
+        const reason = await vscode.window.showInputBox({
+            prompt: `Reason for regression to ${targetPhase}`,
+            ignoreFocusOut: true,
+            validateInput: (value) => value.trim().length > 0 ? undefined : "Reason is required."
+        });
+        if (!reason) {
+            return;
+        }
+        const result = await this.getBackendClient().requestRegression(this.summary.usId, targetPhase, reason);
+        this.summary = {
+            ...this.summary,
+            currentPhase: result.currentPhase,
+            status: result.status
+        };
+        await this.callbacks.refreshExplorer();
+        await this.refreshAsync();
+    }
+    async restartCurrentWorkflowAsync() {
+        const reason = await vscode.window.showInputBox({
+            prompt: "Reason for restart from source",
+            ignoreFocusOut: true,
+            validateInput: (value) => value.trim().length > 0 ? undefined : "Reason is required."
+        });
+        if (!reason) {
+            return;
+        }
+        const result = await this.getBackendClient().restartUserStoryFromSource(this.summary.usId, reason);
+        this.summary = {
+            ...this.summary,
+            currentPhase: result.currentPhase,
+            status: result.status
+        };
+        await this.callbacks.refreshExplorer();
+        await this.refreshAsync();
+    }
+    async runAutoplayAsync() {
+        try {
+            while (this.playbackState === "playing") {
+                const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+                if (!workflow.controls.canContinue) {
+                    this.playbackState = "paused";
+                    this.callbacks.notifyAttention(`${workflow.usId} requires attention at ${workflow.currentPhase}.`);
+                    await this.refreshAsync();
+                    return;
+                }
+                await this.continueCurrentPhaseAsync();
+            }
+        }
+        catch (error) {
+            if (this.playbackState === "stopping") {
+                return;
+            }
+            this.playbackState = "paused";
+            await this.refreshAsync();
+            void vscode.window.showErrorMessage(asErrorMessage(error));
         }
     }
 }
@@ -152,5 +261,11 @@ async function readArtifactContentAsync(artifactPath) {
 async function openTextDocument(filePath) {
     const document = await vscode.workspace.openTextDocument(filePath);
     await vscode.window.showTextDocument(document, { preview: false });
+}
+function asErrorMessage(error) {
+    if (error instanceof Error) {
+        return error.message;
+    }
+    return "Unknown workflow view error.";
 }
 //# sourceMappingURL=workflowPanel.js.map

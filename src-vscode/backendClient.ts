@@ -6,6 +6,8 @@ import {
   buildRestartUserStoryArguments,
   parseToolContent
 } from "./backendClientModel";
+import type { SpecForgeSettings } from "./extensionSettings";
+import { buildBackendEnvironment } from "./extensionSettings";
 
 export interface UserStorySummary {
   readonly usId: string;
@@ -107,11 +109,12 @@ export interface SpecForgeBackendClient {
   approveCurrentPhase(usId: string, baseBranch?: string): Promise<UserStorySummary>;
   requestRegression(usId: string, targetPhase: string, reason?: string): Promise<RequestRegressionResult>;
   restartUserStoryFromSource(usId: string, reason?: string): Promise<RestartUserStoryResult>;
+  cancelActiveOperations(): void;
   dispose(): void;
 }
 
-export function createMcpBackendClient(workspaceRoot: string): SpecForgeBackendClient {
-  return new StdioMcpBackendClient(workspaceRoot);
+export function createMcpBackendClient(workspaceRoot: string, settings: SpecForgeSettings): SpecForgeBackendClient {
+  return new StdioMcpBackendClient(workspaceRoot, settings);
 }
 
 class StdioMcpBackendClient implements SpecForgeBackendClient {
@@ -121,8 +124,9 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
   private readonly workspaceRoot: string;
   private nextRequestId = 1;
   private initialized = false;
+  private disposed = false;
 
-  public constructor(workspaceRoot: string) {
+  public constructor(workspaceRoot: string, settings: SpecForgeSettings) {
     this.workspaceRoot = workspaceRoot;
     const serverProjectPath = path.join(workspaceRoot, "src", "SpecForge.McpServer", "SpecForge.McpServer.csproj");
     this.process = spawn(
@@ -130,7 +134,11 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
       ["run", "--project", serverProjectPath],
       {
         cwd: workspaceRoot,
-        stdio: "pipe"
+        stdio: "pipe",
+        env: {
+          ...process.env,
+          ...buildBackendEnvironment(settings)
+        }
       }
     );
 
@@ -145,11 +153,13 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
         return;
       }
 
-      for (const request of this.pending.values()) {
-        request.reject(new Error(message));
-      }
+      this.rejectPendingRequests(message);
+    });
 
-      this.pending.clear();
+    this.process.on("exit", () => {
+      if (!this.disposed) {
+        this.rejectPendingRequests("SpecForge MCP backend exited while a request was in progress.");
+      }
     });
   }
 
@@ -231,7 +241,17 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     );
   }
 
+  public cancelActiveOperations(): void {
+    this.dispose();
+  }
+
   public dispose(): void {
+    if (this.disposed) {
+      return;
+    }
+
+    this.disposed = true;
+    this.rejectPendingRequests("SpecForge MCP backend was stopped.");
     this.process.kill();
   }
 
@@ -273,6 +293,10 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
   }
 
   private async sendRequestAsync(method: string, params: unknown): Promise<any> {
+    if (this.disposed) {
+      throw new Error("SpecForge MCP backend client is disposed.");
+    }
+
     const id = this.nextRequestId++;
     const payload = {
       jsonrpc: "2.0",
@@ -348,6 +372,14 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     }
 
     pending.resolve(message.result);
+  }
+
+  private rejectPendingRequests(message: string): void {
+    for (const request of this.pending.values()) {
+      request.reject(new Error(message));
+    }
+
+    this.pending.clear();
   }
 }
 

@@ -56,7 +56,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   }, {
     selectedPhaseId: "refinement",
     selectedArtifactContent: "## Refinement\nBody"
-  });
+  }, "idle");
 
   assert.match(html, /US-0001 · Workflow view/);
   assert.match(html, /Refinement/);

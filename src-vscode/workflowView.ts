@@ -5,7 +5,11 @@ export interface WorkflowViewState {
   readonly selectedArtifactContent: string | null;
 }
 
-export function buildWorkflowHtml(workflow: UserStoryWorkflowDetails, state: WorkflowViewState): string {
+export function buildWorkflowHtml(
+  workflow: UserStoryWorkflowDetails,
+  state: WorkflowViewState,
+  playbackState: "idle" | "playing" | "paused" | "stopping"
+): string {
   const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
   const artifactSection = selectedPhase.artifactPath
     ? `
@@ -36,6 +40,11 @@ export function buildWorkflowHtml(workflow: UserStoryWorkflowDetails, state: Wor
   const regressionButtons = workflow.controls.regressionTargets
     .map((target) => `<button data-command="regress" data-phase-id="${escapeHtmlAttribute(target)}">Regress to ${escapeHtml(target)}</button>`)
     .join("");
+  const playbackButtons = `
+    <button data-command="play"${playbackState === "playing" ? " disabled" : ""}>Play</button>
+    <button data-command="pause"${playbackState !== "playing" ? " disabled" : ""}>Pause</button>
+    <button data-command="stop"${playbackState === "idle" ? " disabled" : ""}>Stop</button>
+  `;
 
   const auditRows = workflow.events.length > 0
     ? workflow.events.map((event) => `
@@ -168,6 +177,10 @@ export function buildWorkflowHtml(workflow: UserStoryWorkflowDetails, state: Wor
       color: var(--vscode-button-foreground);
       cursor: pointer;
     }
+    .control-strip button:disabled, .detail-actions button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
     .detail-actions {
       margin: 14px 0;
     }
@@ -220,9 +233,11 @@ export function buildWorkflowHtml(workflow: UserStoryWorkflowDetails, state: Wor
         <span class="token">${escapeHtml(workflow.status)}</span>
         <span class="token">${escapeHtml(workflow.currentPhase)}</span>
         <span class="token">${escapeHtml(workflow.workBranch ?? "branch:not-created")}</span>
+        <span class="token">runner:${escapeHtml(playbackState)}</span>
       </div>
     </div>
     <div class="control-strip">
+      ${playbackButtons}
       ${workflow.controls.canContinue ? `<button data-command="continue">Continue</button>` : ""}
       ${workflow.controls.canApprove ? `<button data-command="approve">Approve</button>` : ""}
       ${workflow.controls.canRestartFromSource ? `<button data-command="restart">Restart</button>` : ""}

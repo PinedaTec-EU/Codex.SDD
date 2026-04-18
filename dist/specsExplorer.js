@@ -44,11 +44,13 @@ exports.approveCurrentPhase = approveCurrentPhase;
 exports.requestRegression = requestRegression;
 exports.restartUserStoryFromSource = restartUserStoryFromSource;
 exports.getOrCreateBackendClient = getOrCreateBackendClient;
+exports.resetBackendClient = resetBackendClient;
 exports.disposeBackendClients = disposeBackendClients;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const vscode = __importStar(require("vscode"));
 const backendClient_1 = require("./backendClient");
+const extensionSettings_1 = require("./extensionSettings");
 const explorerModel_1 = require("./explorerModel");
 const backendClients = new Map();
 const REGRESSION_TARGETS = {
@@ -433,13 +435,18 @@ async function pathExistsAsync(filePath) {
 function getBackendClient(workspaceRoot) {
     let client = backendClients.get(workspaceRoot);
     if (!client) {
-        client = (0, backendClient_1.createMcpBackendClient)(workspaceRoot);
+        client = (0, backendClient_1.createMcpBackendClient)(workspaceRoot, (0, extensionSettings_1.getSpecForgeSettings)());
         backendClients.set(workspaceRoot, client);
     }
     return client;
 }
 function getOrCreateBackendClient(workspaceRoot) {
     return getBackendClient(workspaceRoot);
+}
+function resetBackendClient(workspaceRoot) {
+    const client = backendClients.get(workspaceRoot);
+    client?.dispose();
+    backendClients.delete(workspaceRoot);
 }
 function disposeBackendClients() {
     for (const client of backendClients.values()) {

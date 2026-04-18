@@ -173,6 +173,10 @@ The extension currently provides:
 
 - a `SpecForge` activity bar view
 - a `User Stories` tree sourced from `.specs/us/`
+- a workflow webview opened directly from a user story click
+- per-phase detail inside the workflow view with artifact preview
+- inline audit stream sourced from `timeline.md`
+- play / pause / stop controls for workflow execution
 - `Create User Story`
 - `Import User Story`
 - `Initialize Repo Prompts`
@@ -181,11 +185,14 @@ The extension currently provides:
 - `Continue Phase`
 - explicit `feature` / `bug` / `hotfix` selection when creating or importing a US
 - explicit category selection from the repo category catalog when creating or importing a US
+- extension settings for provider, connection, API key, model, watcher, and attention notifications
+- auto-refresh watcher over `.specs/us/**` when enabled
 - lightweight TypeScript tests for explorer grouping, detail rendering, MCP client payload/parsing, and extension command wiring
 
 Current limitation:
 
-- the extension can initialize repo prompts and request regressions, but it still does not provide a richer prompt editor, diffing, or effective prompt inspection UX
+- `stop` is best-effort: it cancels the local MCP backend process for the workspace, but it is not yet a durable job-control protocol
+- the extension still does not provide a richer prompt editor, diffing, or effective prompt inspection UX
 
 ### Running the extension locally
 
@@ -193,6 +200,17 @@ Current limitation:
 2. Run `npm run compile`.
 3. Start the extension from the VS Code Extension Development Host workflow.
 4. Use the `SpecForge` activity bar view.
+
+### Extension settings
+
+The extension contributes these settings:
+
+- `specForge.execution.provider`
+- `specForge.execution.baseUrl`
+- `specForge.execution.apiKey`
+- `specForge.execution.model`
+- `specForge.ui.enableWatcher`
+- `specForge.ui.notifyOnAttention`
 
 ## Persistence Model
 
@@ -243,6 +261,9 @@ Typical contents:
 - [x] derive branch names from explicit US kind plus short slug
 - [x] validate explicit US categories against a repo-configured catalog
 - [x] group the VS Code explorer by user-story category
+- [x] open user stories into a workflow view with phase detail and timeline audit
+- [x] add extension settings for provider connection and watcher behavior
+- [x] add watcher-driven refresh, attention notifications, and playback controls with best-effort stop
 - [ ] finalize richer branch lifecycle rules and Git/PR metadata
 - [ ] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration

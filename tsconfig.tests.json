@@ -19,6 +19,7 @@
   "include": [
     "tests-ts/**/*.ts",
     "src-vscode/backendClientModel.ts",
+    "src-vscode/extensionSettings.ts",
     "src-vscode/extensionRuntime.ts",
     "src-vscode/explorerModel.ts",
     "src-vscode/detailsView.ts",

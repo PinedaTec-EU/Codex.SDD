@@ -95,6 +95,45 @@
         "title": "Show User Story Details"
       }
     ],
+    "configuration": {
+      "title": "SpecForge",
+      "properties": {
+        "specForge.execution.provider": {
+          "type": "string",
+          "default": "deterministic",
+          "enum": [
+            "deterministic",
+            "openai-compatible"
+          ],
+          "description": "Phase execution provider used by the local MCP backend."
+        },
+        "specForge.execution.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Base URL for the OpenAI-compatible provider."
+        },
+        "specForge.execution.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key passed to the OpenAI-compatible provider."
+        },
+        "specForge.execution.model": {
+          "type": "string",
+          "default": "",
+          "description": "Model name used by the OpenAI-compatible provider."
+        },
+        "specForge.ui.enableWatcher": {
+          "type": "boolean",
+          "default": true,
+          "description": "Refresh the explorer and workflow view automatically when .specs files change."
+        },
+        "specForge.ui.notifyOnAttention": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notifications when a user story becomes waiting-user, blocked, or completed."
+        }
+      }
+    },
     "menus": {
       "view/title": [
         {

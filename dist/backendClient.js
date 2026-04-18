@@ -37,8 +37,9 @@ exports.createMcpBackendClient = createMcpBackendClient;
 const node_child_process_1 = require("node:child_process");
 const path = __importStar(require("node:path"));
 const backendClientModel_1 = require("./backendClientModel");
-function createMcpBackendClient(workspaceRoot) {
-    return new StdioMcpBackendClient(workspaceRoot);
+const extensionSettings_1 = require("./extensionSettings");
+function createMcpBackendClient(workspaceRoot, settings) {
+    return new StdioMcpBackendClient(workspaceRoot, settings);
 }
 class StdioMcpBackendClient {
     process;
@@ -47,12 +48,17 @@ class StdioMcpBackendClient {
     workspaceRoot;
     nextRequestId = 1;
     initialized = false;
-    constructor(workspaceRoot) {
+    disposed = false;
+    constructor(workspaceRoot, settings) {
         this.workspaceRoot = workspaceRoot;
         const serverProjectPath = path.join(workspaceRoot, "src", "SpecForge.McpServer", "SpecForge.McpServer.csproj");
         this.process = (0, node_child_process_1.spawn)("dotnet", ["run", "--project", serverProjectPath], {
             cwd: workspaceRoot,
-            stdio: "pipe"
+            stdio: "pipe",
+            env: {
+                ...process.env,
+                ...(0, extensionSettings_1.buildBackendEnvironment)(settings)
+            }
         });
         this.process.stdout.on("data", (chunk) => {
             this.bufferChunks.push(chunk);
@@ -63,10 +69,12 @@ class StdioMcpBackendClient {
             if (!message) {
                 return;
             }
-            for (const request of this.pending.values()) {
-                request.reject(new Error(message));
+            this.rejectPendingRequests(message);
+        });
+        this.process.on("exit", () => {
+            if (!this.disposed) {
+                this.rejectPendingRequests("SpecForge MCP backend exited while a request was in progress.");
             }
-            this.pending.clear();
         });
     }
     async listUserStories() {
@@ -128,7 +136,15 @@ class StdioMcpBackendClient {
     async restartUserStoryFromSource(usId, reason) {
         return this.callTool("restart_user_story_from_source", (0, backendClientModel_1.buildRestartUserStoryArguments)(this.workspaceRoot, usId, reason));
     }
+    cancelActiveOperations() {
+        this.dispose();
+    }
     dispose() {
+        if (this.disposed) {
+            return;
+        }
+        this.disposed = true;
+        this.rejectPendingRequests("SpecForge MCP backend was stopped.");
         this.process.kill();
     }
     async ensureInitializedAsync() {
@@ -163,6 +179,9 @@ class StdioMcpBackendClient {
         await this.writePayloadAsync(JSON.stringify(payload));
     }
     async sendRequestAsync(method, params) {
+        if (this.disposed) {
+            throw new Error("SpecForge MCP backend client is disposed.");
+        }
         const id = this.nextRequestId++;
         const payload = {
             jsonrpc: "2.0",
@@ -224,6 +243,12 @@ class StdioMcpBackendClient {
             return;
         }
         pending.resolve(message.result);
+    }
+    rejectPendingRequests(message) {
+        for (const request of this.pending.values()) {
+            request.reject(new Error(message));
+        }
+        this.pending.clear();
     }
 }
 async function writeAsync(stream, payload) {

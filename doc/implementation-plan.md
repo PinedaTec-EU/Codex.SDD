@@ -168,6 +168,9 @@ Incluye en el MVP:
 - ✅ categoría explícita de US con catálogo configurable desde `.specs/config.yaml`
 - ✅ roadmap operativo coherente entre `doc/` y `README`
 - ✅ proyecto mínimo de tests TypeScript para lógica pura de la extensión
+- ✅ vista principal de workflow abierta desde el explorer con detalle por fase y auditoría
+- ✅ settings de extensión para provider, conexión y watcher
+- ✅ watcher opcional con notificaciones de atención y controles `play/pause/stop`
 
 No bloquea el MVP:
 
@@ -196,6 +199,10 @@ Subtareas recién resueltas:
 - ✅ añadir tests TypeScript mínimos para parsing, agrupación y render seguro del panel de detalle
 - ✅ ampliar los tests TypeScript a agrupación del explorer y payload/parsing del cliente MCP
 - ✅ añadir un harness ligero de integración para el wiring de comandos de la extensión
+- ✅ abrir cada US del explorer en una workflow view central con detalle por fase y auditoría visible
+- ✅ exponer settings de extensión para provider, conexión OpenAI-compatible, API key, modelo y watcher
+- ✅ refrescar automáticamente desde cambios en `.specs/us/**` cuando el watcher está habilitado
+- ✅ añadir controles `play/pause/stop` con `stop` best-effort sobre el backend MCP local
 
 Subtareas pendientes de cerrar antes de considerar el MVP completo:
 
