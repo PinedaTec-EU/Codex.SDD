@@ -137,8 +137,10 @@ public sealed class SpecForgeApplicationService
                     clarification.Reason,
                     clarification.Items.Select(item => new ClarificationQuestionAnswerDetails(item.Index, item.Question, item.Answer)).ToArray()),
             TimelineMarkdownParser.ParseEvents(rawTimeline),
+            paths.ContextDirectoryPath,
+            BuildFileDetails(paths.ContextDirectoryPath),
             paths.AttachmentsDirectoryPath,
-            BuildAttachmentDetails(paths));
+            BuildFileDetails(paths.AttachmentsDirectoryPath));
     }
 
     private async Task<UserStorySummary> GetUserStorySummaryFromDirectoryAsync(
@@ -286,16 +288,16 @@ public sealed class SpecForgeApplicationService
             .ToArray();
     }
 
-    private static IReadOnlyCollection<AttachmentDetails> BuildAttachmentDetails(UserStoryFilePaths paths)
+    private static IReadOnlyCollection<UserStoryFileDetails> BuildFileDetails(string directoryPath)
     {
-        if (!Directory.Exists(paths.AttachmentsDirectoryPath))
+        if (!Directory.Exists(directoryPath))
         {
             return [];
         }
 
-        return Directory.GetFiles(paths.AttachmentsDirectoryPath, "*", SearchOption.TopDirectoryOnly)
+        return Directory.GetFiles(directoryPath, "*", SearchOption.TopDirectoryOnly)
             .OrderBy(static path => path, StringComparer.Ordinal)
-            .Select(static path => new AttachmentDetails(Path.GetFileName(path), path))
+            .Select(static path => new UserStoryFileDetails(Path.GetFileName(path), path))
             .ToArray();
     }
 

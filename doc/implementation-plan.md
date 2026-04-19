@@ -177,7 +177,8 @@ Incluye en el MVP:
 - ✅ acción compacta en la cabecera de la sidebar para inicializar o rebootstrap de prompts versionados del repo
 - ✅ visibilidad inicial centrada en US/workflows activos en la sidebar y vistas principales
 - ✅ acceso desde la workflow view a los prompts asociados de la fase seleccionada
-- ✅ anexos de archivos en la workflow view reutilizados como contexto runtime de la US
+- ✅ separación entre `context files` y `user story info` dentro de una US
+- ✅ solo los `context files` se reutilizan como contexto runtime del modelo
 - ✅ starred por usuario sobre una US con persistencia en disco y autoapertura al reabrir VS Code
 
 No bloquea el MVP:

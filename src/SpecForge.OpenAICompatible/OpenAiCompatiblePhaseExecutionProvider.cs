@@ -175,12 +175,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             }
         }
 
-        if (context.AttachmentPaths.Count > 0)
+        if (context.ContextFilePaths.Count > 0)
         {
-            builder.AppendLine("## User Story Attachments");
+            builder.AppendLine("## Context Files");
             builder.AppendLine();
 
-            foreach (var attachmentPath in context.AttachmentPaths.OrderBy(static path => path, StringComparer.Ordinal))
+            foreach (var attachmentPath in context.ContextFilePaths.OrderBy(static path => path, StringComparer.Ordinal))
             {
                 var attachmentContent = await File.ReadAllTextAsync(attachmentPath, cancellationToken);
                 builder

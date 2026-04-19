@@ -8,4 +8,4 @@ public sealed record PhaseExecutionContext(
     PhaseId PhaseId,
     string UserStoryPath,
     IReadOnlyDictionary<PhaseId, string> PreviousArtifactPaths,
-    IReadOnlyCollection<string> AttachmentPaths);
+    IReadOnlyCollection<string> ContextFilePaths);

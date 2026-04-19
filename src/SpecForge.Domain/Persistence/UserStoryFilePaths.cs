@@ -22,6 +22,7 @@ public sealed class UserStoryFilePaths
         PhasesDirectoryPath = Path.Combine(rootDirectory, "phases");
         BranchFilePath = Path.Combine(rootDirectory, "branch.yaml");
         RestartsDirectoryPath = Path.Combine(rootDirectory, "restarts");
+        ContextDirectoryPath = Path.Combine(rootDirectory, "context");
         AttachmentsDirectoryPath = Path.Combine(rootDirectory, "attachments");
     }
 
@@ -59,6 +60,8 @@ public sealed class UserStoryFilePaths
     public string BranchFilePath { get; }
 
     public string RestartsDirectoryPath { get; }
+
+    public string ContextDirectoryPath { get; }
 
     public string AttachmentsDirectoryPath { get; }
 

@@ -15,8 +15,10 @@ public sealed record UserStoryWorkflowDetails(
     CurrentPhaseControls Controls,
     ClarificationSessionDetails? Clarification,
     IReadOnlyCollection<TimelineEventDetails> Events,
+    string ContextFilesDirectoryPath,
+    IReadOnlyCollection<UserStoryFileDetails> ContextFiles,
     string AttachmentsDirectoryPath,
-    IReadOnlyCollection<AttachmentDetails> Attachments);
+    IReadOnlyCollection<UserStoryFileDetails> Attachments);
 
 public sealed record WorkflowPhaseDetails(
     string PhaseId,
@@ -59,6 +61,6 @@ public sealed record ClarificationQuestionAnswerDetails(
     string Question,
     string? Answer);
 
-public sealed record AttachmentDetails(
+public sealed record UserStoryFileDetails(
     string Name,
     string Path);

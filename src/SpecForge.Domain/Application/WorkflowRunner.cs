@@ -349,7 +349,7 @@ public sealed class WorkflowRunner
             workflowRun.CurrentPhase,
             paths.MainArtifactPath,
             BuildPreviousArtifactMap(paths, workflowRun.CurrentPhase),
-            BuildAttachmentPaths(paths));
+            BuildContextFilePaths(paths));
         var stopwatch = Stopwatch.StartNew();
         var result = await phaseExecutionProvider.ExecuteAsync(executionContext, cancellationToken);
         stopwatch.Stop();
@@ -378,14 +378,14 @@ public sealed class WorkflowRunner
         return result;
     }
 
-    private static IReadOnlyCollection<string> BuildAttachmentPaths(UserStoryFilePaths paths)
+    private static IReadOnlyCollection<string> BuildContextFilePaths(UserStoryFilePaths paths)
     {
-        if (!Directory.Exists(paths.AttachmentsDirectoryPath))
+        if (!Directory.Exists(paths.ContextDirectoryPath))
         {
             return [];
         }
 
-        return Directory.GetFiles(paths.AttachmentsDirectoryPath, "*", SearchOption.TopDirectoryOnly)
+        return Directory.GetFiles(paths.ContextDirectoryPath, "*", SearchOption.TopDirectoryOnly)
             .OrderBy(static path => path, StringComparer.Ordinal)
             .ToArray();
     }

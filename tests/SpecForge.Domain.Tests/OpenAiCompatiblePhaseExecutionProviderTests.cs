@@ -30,7 +30,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             PhaseId: PhaseId.Refinement,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
-            AttachmentPaths: []);
+            ContextFilePaths: []);
 
         var result = await provider.ExecuteAsync(context);
 
@@ -51,10 +51,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteAsync_IncludesAttachmentContentsInRuntimeContext()
+    public async Task ExecuteAsync_IncludesContextFileContentsInRuntimeContext()
     {
         await PrepareInitializedWorkspaceAsync();
-        var attachmentDirectory = Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "attachments");
+        var attachmentDirectory = Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "context");
         Directory.CreateDirectory(attachmentDirectory);
         var attachmentPath = Path.Combine(attachmentDirectory, "notes.md");
         await File.WriteAllTextAsync(attachmentPath, "# Notes\nUseful attachment");
@@ -71,11 +71,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             PhaseId: PhaseId.Refinement,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
-            AttachmentPaths: [attachmentPath]);
+            ContextFilePaths: [attachmentPath]);
 
         await provider.ExecuteAsync(context);
 
-        Assert.Contains("## User Story Attachments", handler.LastBody);
+        Assert.Contains("## Context Files", handler.LastBody);
         Assert.Contains("notes.md", handler.LastBody);
         Assert.Contains("Useful attachment", handler.LastBody);
     }
@@ -97,7 +97,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             PhaseId: PhaseId.Refinement,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
-            AttachmentPaths: []);
+            ContextFilePaths: []);
 
         var result = await provider.ExecuteAsync(context);
 
@@ -139,7 +139,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             PhaseId: PhaseId.Refinement,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
-            AttachmentPaths: []);
+            ContextFilePaths: []);
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ExecuteAsync(context));
 
