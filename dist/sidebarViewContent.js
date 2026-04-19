@@ -47,7 +47,7 @@ function buildSidebarHtml(model) {
     <section class="story-group">
       <div class="group-header">${escapeHtml(group.category)}</div>
       ${group.items.map((summary) => `
-        <div class="story-row">
+        <div class="story-row story-row--shell">
           <button class="story-card${shouldRenderPhaseRail(summary.status) ? ` story-card--active story-card--phase-${escapeHtmlAttr(summary.currentPhase)} story-card--status-${escapeHtmlAttr(phaseRailStatus(summary.status))}` : ""}" data-command="openWorkflow" data-us-id="${escapeHtmlAttr(summary.usId)}">
             ${shouldRenderPhaseRail(summary.status)
         ? `
@@ -573,6 +573,15 @@ function wrapHtml(content, busy) {
       gap: 8px;
       align-items: stretch;
     }
+    .story-row--shell {
+      padding: 10px;
+      border-radius: 24px;
+      border: 1px solid rgba(114, 241, 184, 0.12);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.01)),
+        rgba(14, 20, 26, 0.92);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+    }
     .story-row + .story-row {
       margin-top: 8px;
     }
@@ -591,6 +600,7 @@ function wrapHtml(content, busy) {
       display: grid;
       grid-template-columns: 1fr;
       overflow: hidden;
+      min-height: 100%;
     }
     .story-card__content {
       display: grid;
@@ -666,10 +676,12 @@ function wrapHtml(content, busy) {
       border-right-color: rgba(114, 241, 184, 0.26);
     }
     .story-delete {
-      align-self: center;
+      align-self: stretch;
+      height: 100%;
     }
     .story-star {
-      align-self: center;
+      align-self: stretch;
+      height: 100%;
     }
     .story-star--active {
       color: #ffd75a;
