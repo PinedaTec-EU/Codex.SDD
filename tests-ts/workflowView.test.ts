@@ -107,8 +107,10 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /Add Files/);
   assert.match(html, /Context Files/);
   assert.match(html, /User Story Info/);
-  assert.match(html, /Move to US Info/);
-  assert.match(html, /Move to Context/);
+  assert.match(html, /data-file-drop-zone/);
+  assert.match(html, /data-drop-kind="context"/);
+  assert.match(html, /data-drop-kind="attachment"/);
+  assert.match(html, /draggable="true"/);
   assert.match(html, /service\.cs/);
   assert.match(html, /api-notes\.md/);
   assert.match(html, /Duration/);
@@ -120,6 +122,8 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /Response Speed/);
   assert.match(html, /29\.5 tok\/s/);
   assert.doesNotMatch(html, /<h3>Workflow Files<\/h3>/);
+  assert.match(html, /attachment-item--dragging/);
+  assert.match(html, /command: "setFileKind"/);
 });
 
 test("buildWorkflowHtml shows configuration warning and disables execution controls when settings are incomplete", () => {

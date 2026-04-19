@@ -442,7 +442,7 @@ export function buildWorkflowHtml(
       <button data-command="attachFiles" data-kind="context" data-attach-files-button>Add Files</button>
     </div>
     <div class="file-groups">
-      <section class="file-group">
+      <section class="file-group" data-file-drop-zone data-drop-kind="context">
         <div class="file-group__header">
           <h4>Context Files</h4>
           <p>Injected into the model runtime when phases execute.</p>
@@ -451,17 +451,16 @@ export function buildWorkflowHtml(
           ? `<div class="attachment-list">
               ${contextFiles.map((attachment) => `
                 <div class="file-item">
-                  <button class="attachment-item" data-command="openAttachment" data-path="${escapeHtmlAttribute(attachment.path)}">
+                  <button class="attachment-item" draggable="true" data-file-path="${escapeHtmlAttribute(attachment.path)}" data-file-kind="context" data-command="openAttachment" data-path="${escapeHtmlAttribute(attachment.path)}">
                     <strong>${escapeHtml(attachment.name)}</strong>
                     <span>${escapeHtml(attachment.path)}</span>
                   </button>
-                  <button class="file-kind-action" data-command="setFileKind" data-path="${escapeHtmlAttribute(attachment.path)}" data-kind="attachment">Move to US Info</button>
                 </div>
               `).join("")}
             </div>`
           : "<p class=\"muted\">No context files are attached to this workflow yet.</p>"}
       </section>
-      <section class="file-group">
+      <section class="file-group" data-file-drop-zone data-drop-kind="attachment">
         <div class="file-group__header">
           <h4>User Story Info</h4>
           <p>Kept with the user story, but excluded from the model prompt by default.</p>
@@ -470,11 +469,10 @@ export function buildWorkflowHtml(
           ? `<div class="attachment-list">
               ${workflow.attachments.map((attachment) => `
                 <div class="file-item">
-                  <button class="attachment-item" data-command="openAttachment" data-path="${escapeHtmlAttribute(attachment.path)}">
+                  <button class="attachment-item" draggable="true" data-file-path="${escapeHtmlAttribute(attachment.path)}" data-file-kind="attachment" data-command="openAttachment" data-path="${escapeHtmlAttribute(attachment.path)}">
                     <strong>${escapeHtml(attachment.name)}</strong>
                     <span>${escapeHtml(attachment.path)}</span>
                   </button>
-                  <button class="file-kind-action" data-command="setFileKind" data-path="${escapeHtmlAttribute(attachment.path)}" data-kind="context">Move to Context</button>
                 </div>
               `).join("")}
             </div>`
@@ -807,6 +805,7 @@ export function buildWorkflowHtml(
     }
     .workflow-files-dialog__close {
       flex: 0 0 auto;
+      min-width: 88px;
     }
     .icon-button {
       width: 58px;
@@ -836,7 +835,7 @@ export function buildWorkflowHtml(
       height: 30px;
       margin-left: 2px;
     }
-    .control-strip button, .detail-actions button, .attachment-item, .settings-warning button {
+    .control-strip button, .detail-actions button, .attachment-item, .settings-warning button, .workflow-files-dialog__close {
       border: 1px solid rgba(114, 241, 184, 0.18);
       border-radius: 14px;
       padding: 10px 14px;
@@ -846,12 +845,12 @@ export function buildWorkflowHtml(
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
       transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
     }
-    .control-strip button:hover, .detail-actions button:hover, .attachment-item:hover, .settings-warning button:hover {
+    .control-strip button:hover, .detail-actions button:hover, .attachment-item:hover, .settings-warning button:hover, .workflow-files-dialog__close:hover {
       transform: translateY(-1px);
       border-color: rgba(114, 241, 184, 0.38);
       background: linear-gradient(180deg, rgba(114, 241, 184, 0.24), rgba(18, 33, 28, 0.94));
     }
-    .control-strip button:disabled, .detail-actions button:disabled {
+    .control-strip button:disabled, .detail-actions button:disabled, .workflow-files-dialog__close:disabled {
       opacity: 0.46;
       cursor: not-allowed;
       transform: none;
@@ -1350,6 +1349,16 @@ export function buildWorkflowHtml(
     .file-group {
       display: grid;
       gap: 10px;
+      padding: 12px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.018);
+      transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+    }
+    .file-group.file-group--drop-target {
+      border-color: rgba(114, 241, 184, 0.34);
+      background: rgba(114, 241, 184, 0.06);
+      box-shadow: inset 0 0 0 1px rgba(114, 241, 184, 0.08);
     }
     .file-group__header {
       display: grid;
@@ -1381,6 +1390,13 @@ export function buildWorkflowHtml(
       text-align: left;
       display: grid;
       gap: 4px;
+    }
+    .attachment-item[data-file-path] {
+      cursor: grab;
+    }
+    .attachment-item.attachment-item--dragging {
+      opacity: 0.48;
+      transform: scale(0.985);
     }
     .attachment-item span {
       opacity: 0.62;
@@ -1855,6 +1871,66 @@ export function buildWorkflowHtml(
         toggleWorkflowFiles(false);
       }
     });
+
+    let draggedFile = null;
+    for (const element of document.querySelectorAll("[data-file-path][data-file-kind]")) {
+      element.addEventListener("dragstart", (event) => {
+        draggedFile = {
+          path: element.dataset.filePath,
+          kind: element.dataset.fileKind
+        };
+        element.classList.add("attachment-item--dragging");
+        event.dataTransfer?.setData("text/plain", draggedFile.path ?? "");
+        if (event.dataTransfer) {
+          event.dataTransfer.effectAllowed = "move";
+        }
+      });
+
+      element.addEventListener("dragend", () => {
+        element.classList.remove("attachment-item--dragging");
+        draggedFile = null;
+        for (const zone of document.querySelectorAll("[data-file-drop-zone]")) {
+          zone.classList.remove("file-group--drop-target");
+        }
+      });
+    }
+
+    for (const zone of document.querySelectorAll("[data-file-drop-zone][data-drop-kind]")) {
+      zone.addEventListener("dragover", (event) => {
+        if (!draggedFile) {
+          return;
+        }
+
+        event.preventDefault();
+        zone.classList.add("file-group--drop-target");
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = "move";
+        }
+      });
+
+      zone.addEventListener("dragleave", () => {
+        zone.classList.remove("file-group--drop-target");
+      });
+
+      zone.addEventListener("drop", (event) => {
+        if (!draggedFile) {
+          return;
+        }
+
+        event.preventDefault();
+        zone.classList.remove("file-group--drop-target");
+        const nextKind = zone.dataset.dropKind;
+        if (!nextKind || nextKind === draggedFile.kind || !draggedFile.path) {
+          return;
+        }
+
+        vscode.postMessage({
+          command: "setFileKind",
+          path: draggedFile.path,
+          kind: nextKind
+        });
+      });
+    }
 
     const clarificationSubmit = document.getElementById("submit-clarification-answers");
     if (clarificationSubmit) {
