@@ -82,7 +82,8 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /US-0001 · Workflow view/);
   assert.match(html, /Workflow Constellation/);
   assert.match(html, /phase-graph/);
-  assert.match(html, /phase-node refinement current selected/);
+  assert.match(html, /phase-node refinement phase-tone-waiting-user selected/);
+  assert.match(html, /phase-tag phase-tag--waiting-user">waiting-user</);
   assert.match(html, /currentFlow/);
   assert.match(html, /currentPulse/);
   assert.match(html, /Generated refinement artifact\./);
@@ -449,6 +450,74 @@ test("buildWorkflowHtml highlights waiting-user and runner paused hero tokens as
 
   assert.match(html, /token token--attention">waiting-user</);
   assert.match(html, /token token--attention">runner:paused</);
+  assert.match(html, /phase-node clarification phase-tone-paused selected/);
+  assert.match(html, /phase-tag phase-tag--paused">paused</);
+});
+
+test("buildWorkflowHtml reuses sidebar status colors in graph nodes and hero tokens", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0012",
+    title: "Shared phase semantics",
+    category: "workflow",
+    status: "blocked",
+    currentPhase: "technical-design",
+    directoryPath: "/tmp/us.US-0012",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "technical-design",
+        title: "Technical Design",
+        order: 1,
+        requiresApproval: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: "provider_error",
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "technical-design",
+    selectedArtifactContent: null,
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /\.token\.token--active/);
+  assert.match(html, /\.token\.token--paused/);
+  assert.match(html, /\.token\.token--blocked/);
+  assert.match(html, /token token--blocked">blocked</);
+  assert.match(html, /phase-node technical-design phase-tone-blocked selected/);
+  assert.match(html, /phase-tag phase-tag--blocked">blocked</);
+  assert.match(html, /phase-node capture phase-tone-completed/);
 });
 
 test("buildWorkflowHtml warns when the workflow is open without an SLM or LLM provider", () => {
@@ -653,8 +722,8 @@ test("buildWorkflowHtml disables clarification and draws a direct capture to ref
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /phase-node clarification disabled/);
-  assert.match(html, /phase-tag disabled">disabled</);
+  assert.match(html, /phase-node clarification phase-tone-disabled/);
+  assert.match(html, /phase-tag phase-tag--disabled">disabled</);
   assert.match(html, /<path class="disabled" d="[^"]+"><\/path>/);
   assert.match(html, /<path class="completed" d="[^"]+"><\/path>/);
 });

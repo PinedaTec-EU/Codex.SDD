@@ -210,15 +210,76 @@ function buildExecutionOverlay(workflow, playbackState) {
   `;
 }
 function heroTokenClass(value) {
+    const tone = heroTokenTone(value);
+    return tone ? ` token--${tone}` : "";
+}
+function heroTokenTone(value) {
     switch (value) {
         case "waiting-user":
+        case "needs-user-input":
         case "runner:paused":
-            return " token--attention";
+            return "attention";
+        case "runner:stopping":
+            return "paused";
+        case "blocked":
+            return "blocked";
         case "completed":
-            return " success";
+            return "success";
+        case "active":
+        case "running":
+        case "executing":
+        case "in-progress":
+            return "active";
         default:
-            return "";
+            return null;
     }
+}
+function resolvePhaseVisualTone(workflowStatus, playbackState, phase, disabled) {
+    if (disabled) {
+        return "disabled";
+    }
+    if (phase.state === "completed") {
+        return "completed";
+    }
+    if (!phase.isCurrent) {
+        return "pending";
+    }
+    if (playbackState === "playing") {
+        return "active";
+    }
+    if (playbackState === "paused" || playbackState === "stopping") {
+        return "paused";
+    }
+    switch (workflowStatus) {
+        case "waiting-user":
+        case "needs-user-input":
+            return "waiting-user";
+        case "blocked":
+            return "blocked";
+        case "completed":
+            return "completed";
+        case "paused":
+        case "stopped":
+        case "stopping":
+            return "paused";
+        case "active":
+        case "running":
+        case "executing":
+        case "in-progress":
+        case "current":
+            return "active";
+        default:
+            return phase.state === "pending" ? "pending" : "active";
+    }
+}
+function phaseToneLabel(tone, fallbackState) {
+    if (tone === "active") {
+        return fallbackState === "current" ? "executing" : fallbackState;
+    }
+    if (tone === "disabled" || tone === "pending" || tone === "completed" || tone === "blocked") {
+        return tone;
+    }
+    return tone;
 }
 function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
@@ -526,6 +587,21 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       border-color: rgba(255, 213, 90, 0.34);
       box-shadow: 0 0 0 1px rgba(255, 213, 90, 0.06);
     }
+    .token.token--active {
+      background: rgba(92, 181, 255, 0.14);
+      color: #90d2ff;
+      border-color: rgba(92, 181, 255, 0.28);
+    }
+    .token.token--paused {
+      background: rgba(179, 187, 198, 0.14);
+      color: #d3d8df;
+      border-color: rgba(179, 187, 198, 0.24);
+    }
+    .token.token--blocked {
+      background: rgba(255, 120, 120, 0.14);
+      color: #ffb0b0;
+      border-color: rgba(255, 120, 120, 0.26);
+    }
     .control-strip {
       align-content: flex-start;
       justify-content: flex-end;
@@ -787,43 +863,70 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       outline: 2px solid rgba(114, 241, 184, 0.52);
       outline-offset: 2px;
     }
-    .phase-node.pending.selected {
+    .phase-node.phase-tone-pending.selected {
       outline: 2px solid rgba(255, 255, 255, 0.24);
       outline-offset: 2px;
     }
-    .phase-node.disabled.selected {
+    .phase-node.phase-tone-disabled.selected {
       outline: 2px solid rgba(255, 255, 255, 0.28);
       outline-offset: 2px;
     }
-    .phase-node.current.selected {
+    .phase-node.phase-tone-active.selected {
       outline: 2px solid rgba(92, 181, 255, 0.56);
       outline-offset: 2px;
     }
-    .phase-node.completed.selected {
+    .phase-node.phase-tone-waiting-user.selected {
+      outline: 2px solid rgba(255, 213, 90, 0.54);
+      outline-offset: 2px;
+    }
+    .phase-node.phase-tone-paused.selected {
+      outline: 2px solid rgba(179, 187, 198, 0.38);
+      outline-offset: 2px;
+    }
+    .phase-node.phase-tone-blocked.selected {
+      outline: 2px solid rgba(255, 120, 120, 0.46);
+      outline-offset: 2px;
+    }
+    .phase-node.phase-tone-completed.selected {
       outline: 2px solid rgba(114, 241, 184, 0.52);
       outline-offset: 2px;
     }
-    .phase-node.current {
+    .phase-node.phase-tone-active {
       background: linear-gradient(180deg, rgba(24, 49, 82, 0.96), rgba(10, 20, 32, 0.98));
       border-color: rgba(92, 181, 255, 0.45);
       box-shadow: 0 20px 34px rgba(48, 120, 255, 0.16);
       animation: nodeRise 420ms ease both, currentPulse 2.8s ease-in-out infinite;
     }
-    .phase-node.completed {
+    .phase-node.phase-tone-waiting-user {
+      background: linear-gradient(180deg, rgba(74, 56, 12, 0.96), rgba(24, 18, 7, 0.98));
+      border-color: rgba(255, 213, 90, 0.34);
+      box-shadow: 0 20px 34px rgba(154, 118, 24, 0.16);
+    }
+    .phase-node.phase-tone-paused {
+      background: linear-gradient(180deg, rgba(34, 39, 46, 0.94), rgba(16, 20, 27, 0.98));
+      border-color: rgba(179, 187, 198, 0.22);
+      box-shadow: 0 18px 30px rgba(84, 92, 104, 0.14);
+    }
+    .phase-node.phase-tone-blocked {
+      background: linear-gradient(180deg, rgba(54, 23, 23, 0.94), rgba(20, 10, 10, 0.98));
+      border-color: rgba(255, 120, 120, 0.28);
+      box-shadow: 0 18px 30px rgba(140, 38, 38, 0.16);
+    }
+    .phase-node.phase-tone-completed {
       background: linear-gradient(180deg, rgba(18, 44, 34, 0.96), rgba(10, 20, 17, 0.98));
       border-color: rgba(114, 241, 184, 0.24);
     }
-    .phase-node.pending {
+    .phase-node.phase-tone-pending {
       background: linear-gradient(180deg, rgba(22, 28, 38, 0.88), rgba(10, 14, 20, 0.96));
       opacity: 0.9;
     }
-    .phase-node.disabled {
+    .phase-node.phase-tone-disabled {
       background: linear-gradient(180deg, rgba(18, 22, 29, 0.68), rgba(10, 14, 20, 0.88));
       border-color: rgba(255, 255, 255, 0.05);
       opacity: 0.58;
       box-shadow: none;
     }
-    .phase-node.disabled .phase-status-dot {
+    .phase-node.phase-tone-disabled .phase-status-dot {
       background: rgba(255, 255, 255, 0.14);
       box-shadow: none;
     }
@@ -855,11 +958,23 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.04);
       margin-top: 4px;
     }
-    .phase-node.current .phase-status-dot {
+    .phase-node.phase-tone-active .phase-status-dot {
       background: #59bbff;
       box-shadow: 0 0 0 8px rgba(89, 187, 255, 0.12);
     }
-    .phase-node.completed .phase-status-dot {
+    .phase-node.phase-tone-waiting-user .phase-status-dot {
+      background: #ffd75a;
+      box-shadow: 0 0 0 8px rgba(255, 213, 90, 0.1);
+    }
+    .phase-node.phase-tone-paused .phase-status-dot {
+      background: #b3bbc6;
+      box-shadow: 0 0 0 8px rgba(179, 187, 198, 0.08);
+    }
+    .phase-node.phase-tone-blocked .phase-status-dot {
+      background: #ff8b8b;
+      box-shadow: 0 0 0 8px rgba(255, 139, 139, 0.08);
+    }
+    .phase-node.phase-tone-completed .phase-status-dot {
       background: var(--accent);
       box-shadow: 0 0 0 8px rgba(114, 241, 184, 0.1);
     }
@@ -895,11 +1010,27 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       background: rgba(255, 170, 84, 0.15);
       color: #ffc178;
     }
-    .phase-tag.active {
+    .phase-tag.phase-tag--active {
       background: rgba(92, 181, 255, 0.14);
       color: #90d2ff;
     }
-    .phase-tag.disabled {
+    .phase-tag.phase-tag--waiting-user {
+      background: rgba(255, 213, 90, 0.16);
+      color: #ffe17b;
+    }
+    .phase-tag.phase-tag--paused {
+      background: rgba(179, 187, 198, 0.14);
+      color: #d3d8df;
+    }
+    .phase-tag.phase-tag--blocked {
+      background: rgba(255, 120, 120, 0.14);
+      color: #ffb0b0;
+    }
+    .phase-tag.phase-tag--completed {
+      background: rgba(114, 241, 184, 0.14);
+      color: #99f2c6;
+    }
+    .phase-tag.phase-tag--disabled {
       background: rgba(255, 255, 255, 0.05);
       color: rgba(255, 255, 255, 0.52);
     }
@@ -1501,10 +1632,11 @@ function buildPhaseGraph(workflow, selectedPhaseId, playbackState) {
     const mobileLinks = buildGraphLinks(workflow, clarificationVisited, executingTargetPhaseId, mobilePhasePositions, mobilePhaseNodeWidth);
     const nodes = workflow.phases.map((phase) => {
         const disabled = isPhaseDisabled(phase.phaseId, clarificationVisited, currentPhase.phaseId);
-        const displayState = disabled ? "disabled" : phase.state;
+        const visualTone = resolvePhaseVisualTone(workflow.status, playbackState, phase, disabled);
+        const displayState = phaseToneLabel(visualTone, disabled ? "disabled" : phase.state);
         return `
     <button
-      class="phase-node ${escapeHtmlAttribute(phase.phaseId)} ${displayState}${phase.phaseId === selectedPhaseId ? " selected" : ""}"
+      class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phase.phaseId === selectedPhaseId ? " selected" : ""}"
       data-command="selectPhase"
       data-phase-id="${escapeHtmlAttribute(phase.phaseId)}">
       <div class="phase-node-header">
@@ -1514,7 +1646,7 @@ function buildPhaseGraph(workflow, selectedPhaseId, playbackState) {
       <h3>${escapeHtml(phase.title)}</h3>
       <div class="phase-slug">${escapeHtml(phase.phaseId)}</div>
       <div class="phase-tags">
-        <span class="phase-tag ${disabled ? "disabled" : phase.isCurrent ? "active" : ""}">${escapeHtml(displayState)}</span>
+        <span class="phase-tag phase-tag--${escapeHtmlAttribute(visualTone)}">${escapeHtml(displayState)}</span>
         ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
         ${phase.isApproved ? `<span class="phase-tag">approved</span>` : ""}
       </div>
