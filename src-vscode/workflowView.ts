@@ -1150,9 +1150,8 @@ function buildPhaseGraph(
     : workflow.controls.canRestartFromSource
       ? { command: "restart", phaseId: undefined, label: "Restart from source" }
       : null;
-  const currentPhaseIndex = workflow.phases.findIndex((phase) => phase.phaseId === currentPhase.phaseId);
-  const executingTargetPhaseId = playbackState === "playing" && currentPhaseIndex >= 0 && currentPhaseIndex < workflow.phases.length - 1
-    ? workflow.phases[currentPhaseIndex + 1].phaseId
+  const executingTargetPhaseId = playbackState === "playing"
+    ? getExecutingTargetPhaseId(workflow, clarificationVisited, currentPhase.phaseId)
     : null;
   const links = buildGraphLinks(workflow, clarificationVisited, executingTargetPhaseId, desktopPhasePositions, phaseNodeWidth);
   const mobileLinks = buildGraphLinks(workflow, clarificationVisited, executingTargetPhaseId, mobilePhasePositions, mobilePhaseNodeWidth);
@@ -1263,6 +1262,23 @@ function linkClass(targetPhase: WorkflowPhaseDetails, executingTargetPhaseId: st
   }
 
   return "pending";
+}
+
+function getExecutingTargetPhaseId(
+  workflow: UserStoryWorkflowDetails,
+  clarificationVisited: boolean,
+  currentPhaseId: string
+): string | null {
+  if (currentPhaseId === "capture" && !clarificationVisited) {
+    return workflow.phases.some((phase) => phase.phaseId === "refinement") ? "refinement" : null;
+  }
+
+  const currentPhaseIndex = workflow.phases.findIndex((phase) => phase.phaseId === currentPhaseId);
+  if (currentPhaseIndex < 0 || currentPhaseIndex >= workflow.phases.length - 1) {
+    return null;
+  }
+
+  return workflow.phases[currentPhaseIndex + 1].phaseId;
 }
 
 function graphPath(
