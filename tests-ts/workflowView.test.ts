@@ -99,6 +99,11 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /Open Artifact/);
   assert.match(html, /Open Execute Prompt/);
   assert.match(html, /Open Approve Prompt/);
+  assert.match(html, /data-open-workflow-files/);
+  assert.doesNotMatch(html, />Reset</);
+  assert.match(html, /Workflow-level files are grouped here instead of repeating them in every phase detail\./);
+  assert.match(html, /<h4>User Story<\/h4>/);
+  assert.match(html, /us\.md/);
   assert.match(html, /Add Files/);
   assert.match(html, /Context Files/);
   assert.match(html, /User Story Info/);
@@ -114,6 +119,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, />465</);
   assert.match(html, /Response Speed/);
   assert.match(html, /29\.5 tok\/s/);
+  assert.doesNotMatch(html, /<h3>Workflow Files<\/h3>/);
 });
 
 test("buildWorkflowHtml shows configuration warning and disables execution controls when settings are incomplete", () => {

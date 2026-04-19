@@ -73,6 +73,11 @@ function formatTokensPerSecond(outputTokens, durationMs) {
     }
     return `${(outputTokens / (durationMs / 1_000)).toFixed(1)} tok/s`;
 }
+function fileNameFromPath(filePath) {
+    const normalized = filePath.replace(/\\/g, "/");
+    const segments = normalized.split("/");
+    return segments.at(-1) ?? filePath;
+}
 function renderExecutionMetric(label, value, tone) {
     return `
     <div class="metric-card metric-card--${escapeHtmlAttribute(tone)}">
@@ -344,7 +349,21 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         ? `<div class="detail-actions">${promptButtons}</div>`
         : "<p class=\"muted\">This phase does not expose prompt templates from the current repo bootstrap.</p>";
     const contextFiles = workflow.contextFiles ?? [];
-    const attachmentsSection = `
+    const workflowFilesSection = `
+    <section class="file-group">
+      <div class="file-group__header">
+        <h4>User Story</h4>
+        <p>The main source file and clarification history for this workflow.</p>
+      </div>
+      <div class="attachment-list">
+        <div class="file-item">
+          <button class="attachment-item" data-command="openArtifact" data-path="${escapeHtmlAttribute(workflow.mainArtifactPath)}">
+            <strong>${escapeHtml(fileNameFromPath(workflow.mainArtifactPath))}</strong>
+            <span>${escapeHtml(workflow.mainArtifactPath)}</span>
+          </button>
+        </div>
+      </div>
+    </section>
     <div class="detail-actions detail-actions--files">
       <div class="file-kind-toggle" data-file-kind-toggle>
         <button class="file-kind-toggle__option file-kind-toggle__option--active" type="button" data-file-kind-option="context">Context</button>
@@ -470,9 +489,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     <button class="icon-button icon-button--danger" data-command="stop" aria-label="Stop workflow"${playbackState === "idle" ? " disabled" : ""}>
       ${stopIcon()}
     </button>
-  `;
-    const resetButton = `
-    <button data-command="restart"${!workflow.controls.canRestartFromSource ? " disabled" : ""}>Reset</button>
   `;
     const auditRows = workflow.events.length > 0
         ? workflow.events.map((event) => `
@@ -675,6 +691,49 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       align-content: flex-start;
       justify-content: flex-end;
       max-width: 540px;
+    }
+    .workflow-files-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(3, 7, 12, 0.72);
+      backdrop-filter: blur(10px);
+      z-index: 30;
+    }
+    .workflow-files-overlay.is-open {
+      display: flex;
+    }
+    .workflow-files-dialog {
+      width: min(860px, 100%);
+      max-height: min(80vh, 920px);
+      overflow: auto;
+      padding: 20px;
+      border-radius: 24px;
+      border: 1px solid rgba(114, 241, 184, 0.18);
+      background:
+        linear-gradient(180deg, rgba(16, 26, 32, 0.98), rgba(10, 16, 22, 0.98)),
+        rgba(12, 18, 24, 0.96);
+      box-shadow: 0 26px 52px rgba(0, 0, 0, 0.38);
+    }
+    .workflow-files-dialog__head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .workflow-files-dialog__head h2 {
+      margin: 4px 0 6px;
+    }
+    .workflow-files-dialog__head p {
+      margin: 0;
+      opacity: 0.72;
+    }
+    .workflow-files-dialog__close {
+      flex: 0 0 auto;
     }
     .icon-button {
       width: 58px;
@@ -1211,6 +1270,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       display: grid;
       gap: 18px;
     }
+    .workflow-files-shell {
+      display: grid;
+      gap: 16px;
+    }
     .file-group {
       display: grid;
       gap: 10px;
@@ -1551,6 +1614,14 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       .detail-actions--files {
         align-items: stretch;
       }
+      .workflow-files-overlay {
+        padding: 12px;
+        align-items: flex-start;
+      }
+      .workflow-files-dialog {
+        width: 100%;
+        max-height: calc(100vh - 24px);
+      }
       .file-item {
         grid-template-columns: 1fr;
       }
@@ -1566,6 +1637,23 @@ function buildWorkflowHtml(workflow, state, playbackState) {
   </style>
 </head>
 <body>
+  <div class="workflow-files-overlay" data-workflow-files-overlay hidden>
+    <div class="workflow-files-dialog panel" role="dialog" aria-modal="true" aria-labelledby="workflow-files-title">
+      <div class="workflow-files-dialog__head">
+        <div>
+          <p class="eyebrow">Workflow Files</p>
+          <h2 id="workflow-files-title">${escapeHtml(workflow.usId)} files and context</h2>
+          <p>Workflow-level files are grouped here instead of repeating them in every phase detail.</p>
+        </div>
+        <button class="workflow-files-dialog__close" type="button" data-close-workflow-files aria-label="Close workflow files">
+          Close
+        </button>
+      </div>
+      <div class="workflow-files-shell">
+        ${workflowFilesSection}
+      </div>
+    </div>
+  </div>
   <div class="shell">
     ${settingsWarning}
     <section class="panel hero">
@@ -1583,8 +1671,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         </div>
         <div class="control-strip">
           ${playbackButtons}
-          ${resetButton}
-          <button class="icon-button" data-command="openArtifact" data-path="${escapeHtmlAttribute(workflow.mainArtifactPath)}" aria-label="Open user story">
+          <button class="icon-button" type="button" data-open-workflow-files aria-label="Open workflow files">
             ${fileIcon()}
           </button>
         </div>
@@ -1627,10 +1714,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           ${promptSection}
         </section>
         <section class="detail-card">
-          <h3>Workflow Files</h3>
-          ${attachmentsSection}
-        </section>
-        <section class="detail-card">
           <h3>Audit Stream</h3>
           <div class="audit-stream">${auditRows}</div>
         </section>
@@ -1663,6 +1746,42 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         });
       }
     }
+
+    const workflowFilesOverlay = document.querySelector("[data-workflow-files-overlay]");
+    const toggleWorkflowFiles = (open) => {
+      if (!(workflowFilesOverlay instanceof HTMLElement)) {
+        return;
+      }
+
+      workflowFilesOverlay.hidden = !open;
+      workflowFilesOverlay.classList.toggle("is-open", open);
+    };
+
+    for (const element of document.querySelectorAll("[data-open-workflow-files]")) {
+      element.addEventListener("click", () => {
+        toggleWorkflowFiles(true);
+      });
+    }
+
+    for (const element of document.querySelectorAll("[data-close-workflow-files]")) {
+      element.addEventListener("click", () => {
+        toggleWorkflowFiles(false);
+      });
+    }
+
+    if (workflowFilesOverlay instanceof HTMLElement) {
+      workflowFilesOverlay.addEventListener("click", (event) => {
+        if (event.target === workflowFilesOverlay) {
+          toggleWorkflowFiles(false);
+        }
+      });
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        toggleWorkflowFiles(false);
+      }
+    });
 
     const clarificationSubmit = document.getElementById("submit-clarification-answers");
     if (clarificationSubmit) {
