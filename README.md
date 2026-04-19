@@ -82,6 +82,7 @@ The current design is intentionally split into layers:
   - `stdio` MCP server with `initialize`, `tools/list`, and `tools/call`
   - orchestration boundary between extension and backend execution
   - base for future provider abstraction and richer backend execution
+  - workflow file tools for listing, adding, and reclassifying `context files` versus `user story info`
 
 See the detailed design documents in:
 
@@ -192,6 +193,7 @@ The extension currently provides:
 - per-phase prompt access inside the workflow view when the selected phase exposes `execute` or `approve` templates
 - user-story file management inside the workflow view, split between `context files` and `user story info`
 - only `context files` are injected into provider-backed runtime context; `user story info` remains attached to the workflow without entering the model prompt by default
+- MCP tools to list, add, and reclassify workflow files so models can attach repo context without going through the VS Code UI
 - inline audit stream sourced from `timeline.md`
 - play / pause / stop controls for workflow execution
 - `Create User Story`

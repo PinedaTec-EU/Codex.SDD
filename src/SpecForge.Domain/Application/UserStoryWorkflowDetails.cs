@@ -64,3 +64,8 @@ public sealed record ClarificationQuestionAnswerDetails(
 public sealed record UserStoryFileDetails(
     string Name,
     string Path);
+
+public sealed record UserStoryFilesResult(
+    string UsId,
+    IReadOnlyCollection<UserStoryFileDetails> ContextFiles,
+    IReadOnlyCollection<UserStoryFileDetails> Attachments);

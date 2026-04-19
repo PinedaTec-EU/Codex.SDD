@@ -38,6 +38,9 @@ Entregables:
 - ✅ `approve_phase`
 - ✅ `request_regression`
 - ✅ `restart_user_story_from_source`
+- ✅ `list_user_story_files`
+- ✅ `add_user_story_files`
+- ✅ `set_user_story_file_kind`
 - ✅ integración de creación de rama dentro de `approve_phase`
 
 ### ✅ Paso 4. Implementar el núcleo del workflow engine
@@ -179,6 +182,7 @@ Incluye en el MVP:
 - ✅ acceso desde la workflow view a los prompts asociados de la fase seleccionada
 - ✅ separación entre `context files` y `user story info` dentro de una US
 - ✅ solo los `context files` se reutilizan como contexto runtime del modelo
+- ✅ gestión de `context files` y `user story info` también por MCP, no solo por la extensión
 - ✅ starred por usuario sobre una US con persistencia en disco y autoapertura al reabrir VS Code
 
 No bloquea el MVP:

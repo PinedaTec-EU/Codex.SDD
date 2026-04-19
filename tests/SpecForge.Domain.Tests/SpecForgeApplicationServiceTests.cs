@@ -95,6 +95,8 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        Directory.CreateDirectory(paths.ContextDirectoryPath);
+        await File.WriteAllTextAsync(Path.Combine(paths.ContextDirectoryPath, "service.cs"), "Context");
         Directory.CreateDirectory(paths.AttachmentsDirectoryPath);
         await File.WriteAllTextAsync(Path.Combine(paths.AttachmentsDirectoryPath, "notes.md"), "Attachment");
 
@@ -112,10 +114,58 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.ExecutePromptPath is not null && phase.ApprovePromptPath is not null);
         Assert.True(workflow.Controls.CanApprove);
         Assert.False(workflow.Controls.CanContinue);
+        Assert.Single(workflow.ContextFiles);
+        Assert.Equal(paths.ContextDirectoryPath, workflow.ContextFilesDirectoryPath);
         Assert.Single(workflow.Attachments);
         Assert.Equal(paths.AttachmentsDirectoryPath, workflow.AttachmentsDirectoryPath);
         Assert.Contains("`phase_completed`", workflow.RawTimeline);
         Assert.Contains(workflow.Events, timelineEvent => timelineEvent.Code == "phase_completed");
+    }
+
+    [Fact]
+    public async Task AddUserStoryFilesAsync_CopiesFilesIntoRequestedKind()
+    {
+        var runner = new WorkflowRunner();
+        var applicationService = new SpecForgeApplicationService();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+        var sourcePath = Path.Combine(workspaceRoot, "src", "service.cs");
+        Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+        await File.WriteAllTextAsync(sourcePath, "class Service {}");
+
+        var result = await applicationService.AddUserStoryFilesAsync(
+            workspaceRoot,
+            "US-0001",
+            [sourcePath],
+            "context");
+
+        var contextFile = Assert.Single(result.ContextFiles);
+        Assert.Equal("service.cs", contextFile.Name);
+        Assert.Empty(result.Attachments);
+        Assert.True(File.Exists(contextFile.Path));
+    }
+
+    [Fact]
+    public async Task SetUserStoryFileKindAsync_MovesFilesBetweenContextAndAttachments()
+    {
+        var runner = new WorkflowRunner();
+        var applicationService = new SpecForgeApplicationService();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        Directory.CreateDirectory(paths.AttachmentsDirectoryPath);
+        var attachmentPath = Path.Combine(paths.AttachmentsDirectoryPath, "notes.md");
+        await File.WriteAllTextAsync(attachmentPath, "Attachment");
+
+        var result = await applicationService.SetUserStoryFileKindAsync(
+            workspaceRoot,
+            "US-0001",
+            attachmentPath,
+            "context");
+
+        Assert.Empty(result.Attachments);
+        var contextFile = Assert.Single(result.ContextFiles);
+        Assert.Equal("notes.md", contextFile.Name);
+        Assert.True(File.Exists(contextFile.Path));
+        Assert.False(File.Exists(attachmentPath));
     }
 
     public void Dispose()

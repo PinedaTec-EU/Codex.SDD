@@ -335,6 +335,91 @@ Errores de negocio:
 - `us_not_found`
 - `restart_not_allowed`
 
+### `list_user_story_files`
+
+Propósito:
+
+- listar los ficheros persistidos de una US distinguiendo entre `context files` y `user story info`
+
+Input mínimo:
+
+```yaml
+usId: US-0001
+```
+
+Output mínimo:
+
+```yaml
+usId: US-0001
+contextFiles:
+  - name: service.cs
+    path: .specs/us/us.US-0001/context/service.cs
+attachments:
+  - name: api-notes.md
+    path: .specs/us/us.US-0001/attachments/api-notes.md
+```
+
+Errores de negocio:
+
+- `us_not_found`
+
+### `add_user_story_files`
+
+Propósito:
+
+- copiar ficheros del repo o del filesystem local dentro de una US como `context` o `attachment`
+
+Input mínimo:
+
+```yaml
+usId: US-0001
+kind: context
+sourcePaths:
+  - src/SpecForge.Domain/Application/WorkflowRunner.cs
+  - tests/SpecForge.Domain.Tests/WorkflowRunnerTests.cs
+```
+
+Notas:
+
+- `kind` admite `context` y `attachment`
+- las rutas relativas se resuelven contra `workspaceRoot`
+- solo los ficheros guardados como `context` entran por defecto en el runtime del modelo
+
+Output mínimo:
+
+- mismo shape que `list_user_story_files`
+
+Errores de negocio:
+
+- `us_not_found`
+- `source_file_not_found`
+- `invalid_file_kind`
+
+### `set_user_story_file_kind`
+
+Propósito:
+
+- mover un fichero ya persistido dentro de una US entre `context` y `attachment`
+
+Input mínimo:
+
+```yaml
+usId: US-0001
+filePath: .specs/us/us.US-0001/attachments/api-notes.md
+kind: context
+```
+
+Output mínimo:
+
+- mismo shape que `list_user_story_files`
+
+Errores de negocio:
+
+- `us_not_found`
+- `file_not_found`
+- `invalid_file_kind`
+- `file_not_owned_by_user_story`
+
 ## Errores transversales recomendados
 
 - `validation_error`

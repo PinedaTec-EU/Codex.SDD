@@ -383,7 +383,9 @@ Este workflow justifica como mínimo estas operaciones:
 - `approve_phase`
 - `request_regression`
 - `restart_user_story_from_source`
-- `create_work_branch`
+- `list_user_story_files`
+- `add_user_story_files`
+- `set_user_story_file_kind`
 
 ## Decisiones abiertas
 

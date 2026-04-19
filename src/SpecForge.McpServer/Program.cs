@@ -134,6 +134,19 @@ static async Task<JsonNode> HandleToolCallAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
             answers: GetStringArray(arguments, "answers")),
+        "list_user_story_files" => await applicationService.ListUserStoryFilesAsync(
+            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+            usId: GetRequired(arguments, "usId")),
+        "add_user_story_files" => await applicationService.AddUserStoryFilesAsync(
+            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+            usId: GetRequired(arguments, "usId"),
+            sourcePaths: GetStringArray(arguments, "sourcePaths"),
+            kind: GetRequired(arguments, "kind")),
+        "set_user_story_file_kind" => await applicationService.SetUserStoryFileKindAsync(
+            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+            usId: GetRequired(arguments, "usId"),
+            filePath: GetRequired(arguments, "filePath"),
+            kind: GetRequired(arguments, "kind")),
         _ => throw new InvalidOperationException($"Tool '{toolName}' is not supported.")
     };
 
@@ -170,7 +183,10 @@ static JsonObject BuildToolsList()
             Tool("approve_phase", "Approve the current phase and create the work branch if required."),
             Tool("request_regression", "Regress a user story to an earlier valid phase."),
             Tool("restart_user_story_from_source", "Restart a user story after the source has changed."),
-            Tool("submit_clarification_answers", "Store clarification answers inside the user story so clarification can re-run.")
+            Tool("submit_clarification_answers", "Store clarification answers inside the user story so clarification can re-run."),
+            Tool("list_user_story_files", "List context files and user-story files currently persisted for a user story."),
+            Tool("add_user_story_files", "Copy files into a user story as either context or user-story info."),
+            Tool("set_user_story_file_kind", "Move an existing user-story file between context and user-story info.")
         }
     };
 }
