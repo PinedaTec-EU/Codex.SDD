@@ -5,6 +5,7 @@ export interface SpecForgeSettings {
   readonly model: string | null;
   readonly watcherEnabled: boolean;
   readonly attentionNotificationsEnabled: boolean;
+  readonly contextSuggestionsEnabled: boolean;
 }
 
 export interface SpecForgeSettingsStatus {
@@ -24,7 +25,8 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
     apiKey: normalizeOptional(configuration.get<string>("execution.apiKey")),
     model: normalizeOptional(configuration.get<string>("execution.model")),
     watcherEnabled: configuration.get<boolean>("ui.enableWatcher", true),
-    attentionNotificationsEnabled: configuration.get<boolean>("ui.notifyOnAttention", true)
+    attentionNotificationsEnabled: configuration.get<boolean>("ui.notifyOnAttention", true),
+    contextSuggestionsEnabled: configuration.get<boolean>("features.enableContextSuggestions", true)
   };
 }
 

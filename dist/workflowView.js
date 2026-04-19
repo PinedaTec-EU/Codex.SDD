@@ -393,6 +393,39 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       </section>
     </div>
   `;
+    const clarificationSuggestionsSection = `
+    <div class="clarification-context">
+      <div class="clarification-context__copy">
+        <h4>Need more repo context?</h4>
+        <p>
+          If the model is blocked by missing repository knowledge, add code, tests, configs, or docs as
+          <strong> Context</strong>. Those files are injected into execution. <strong>US Info</strong> stays attached
+          to the story, but is not sent to the model by default.
+        </p>
+      </div>
+      <div class="detail-actions detail-actions--files detail-actions--clarification">
+        <button data-command="attachFiles" data-kind="context">Add Context Files</button>
+        ${state.contextSuggestions.length > 1
+        ? `<button data-add-suggested-context-files='${escapeHtmlAttribute(JSON.stringify(state.contextSuggestions.map((item) => item.path)))}'>Add All Suggested</button>`
+        : ""}
+      </div>
+      ${state.contextSuggestions.length > 0
+        ? `
+          <div class="clarification-suggestions">
+            ${state.contextSuggestions.map((suggestion) => `
+              <div class="clarification-suggestion">
+                <div class="clarification-suggestion__body">
+                  <strong>${escapeHtml(suggestion.relativePath)}</strong>
+                  <span>${escapeHtml(suggestion.reason)}</span>
+                </div>
+                <button data-command="addSuggestedContextFile" data-path="${escapeHtmlAttribute(suggestion.path)}">Add to Context</button>
+              </div>
+            `).join("")}
+          </div>
+        `
+        : `<p class="muted">No local context suggestions matched this clarification yet. You can still add files manually.</p>`}
+    </div>
+  `;
     const clarificationSection = selectedPhase.phaseId === "clarification" && workflow.clarification
         ? `
       <div class="clarification-shell">
@@ -423,6 +456,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
             </div>
           `
             : "<p class=\"muted\">No clarification questions are currently registered for this user story.</p>"}
+        ${clarificationSuggestionsSection}
       </div>
     `
         : "";
@@ -1240,6 +1274,50 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       display: grid;
       gap: 12px;
     }
+    .clarification-context {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: grid;
+      gap: 14px;
+    }
+    .clarification-context__copy h4 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+    .clarification-context__copy p {
+      margin: 0;
+      color: rgba(241, 246, 255, 0.78);
+      line-height: 1.55;
+    }
+    .detail-actions--clarification {
+      justify-content: flex-start;
+    }
+    .clarification-suggestions {
+      display: grid;
+      gap: 10px;
+    }
+    .clarification-suggestion {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(114, 241, 184, 0.12);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .clarification-suggestion__body {
+      display: grid;
+      gap: 4px;
+    }
+    .clarification-suggestion__body strong {
+      font-size: 0.96rem;
+    }
+    .clarification-suggestion__body span {
+      color: rgba(241, 246, 255, 0.7);
+      line-height: 1.4;
+    }
     .clarification-item {
       display: grid;
       gap: 8px;
@@ -1476,6 +1554,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       .file-item {
         grid-template-columns: 1fr;
       }
+      .clarification-suggestion {
+        grid-template-columns: 1fr;
+      }
       .file-kind-action {
         min-width: 0;
       }
@@ -1593,6 +1674,20 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         vscode.postMessage({
           command: "submitClarificationAnswers",
           answers
+        });
+      });
+    }
+
+    for (const element of document.querySelectorAll("[data-add-suggested-context-files]")) {
+      element.addEventListener("click", () => {
+        const rawPaths = element.getAttribute("data-add-suggested-context-files");
+        if (!rawPaths) {
+          return;
+        }
+
+        vscode.postMessage({
+          command: "addSuggestedContextFiles",
+          paths: JSON.parse(rawPaths)
         });
       });
     }

@@ -183,6 +183,8 @@ Incluye en el MVP:
 - ✅ separación entre `context files` y `user story info` dentro de una US
 - ✅ solo los `context files` se reutilizan como contexto runtime del modelo
 - ✅ gestión de `context files` y `user story info` también por MCP, no solo por la extensión
+- ✅ sugerencias locales de `context files` durante `clarification` con heurística y vecindad del repo
+- ✅ feature flag de extensión para activar o desactivar esas sugerencias, activado por defecto
 - ✅ starred por usuario sobre una US con persistencia en disco y autoapertura al reabrir VS Code
 
 No bloquea el MVP:
@@ -225,6 +227,8 @@ Subtareas recién resueltas:
 - ✅ permitir adjuntar ficheros a una US desde la workflow view y abrirlos desde esa misma pantalla
 - ✅ exponer botones para abrir los prompts `execute` y `approve` de la fase seleccionada cuando existan
 - ✅ permitir marcar una US como `starred` por usuario y reabrirla automáticamente en modo visual al volver al workspace
+- ✅ proponer al usuario añadir `context files` cuando una US entra en `clarification` por falta de contexto de repo
+- ✅ sugerir candidatos de `context files` usando heurística local y vecindad de archivos del repo
 - [ ] completar inspección/edición rica de prompts desde la extensión con diff o prompt efectivo visible
 
 Subtareas pendientes de cerrar antes de considerar el MVP completo:

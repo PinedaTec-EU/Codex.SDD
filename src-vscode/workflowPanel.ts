@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import type { SpecForgeBackendClient, UserStorySummary } from "./backendClient";
+import { suggestContextFiles } from "./contextSuggestions";
 import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSettings";
 import { appendSpecForgeLog, showSpecForgeOutput } from "./outputChannel";
 import { buildWorkflowHtml } from "./workflowView";
@@ -13,6 +14,8 @@ type WorkflowPanelCommand =
   | { readonly command: "openAttachment"; readonly path?: string }
   | { readonly command: "openSettings" }
   | { readonly command: "attachFiles"; readonly kind?: string }
+  | { readonly command: "addSuggestedContextFile"; readonly path?: string }
+  | { readonly command: "addSuggestedContextFiles"; readonly paths?: readonly string[] }
   | { readonly command: "setFileKind"; readonly path?: string; readonly kind?: string }
   | { readonly command: "continue" }
   | { readonly command: "approve" }
@@ -125,11 +128,17 @@ class WorkflowPanelController {
       ?? workflow.phases[0];
     this.selectedPhaseId = selectedPhase.phaseId;
     const selectedArtifactContent = await readArtifactContentAsync(selectedPhase.artifactPath);
-    const settingsStatus = getSpecForgeSettingsStatus(getSpecForgeSettings());
+    const sourceText = await readArtifactContentAsync(workflow.mainArtifactPath) ?? "";
+    const settings = getSpecForgeSettings();
+    const settingsStatus = getSpecForgeSettingsStatus(settings);
+    const contextSuggestions = settings.contextSuggestionsEnabled && workflow.currentPhase === "clarification"
+      ? await suggestContextFiles(this.workspaceRoot, workflow, sourceText)
+      : [];
     this.panel.title = `${workflow.usId} workflow`;
     this.panel.webview.html = buildWorkflowHtml(workflow, {
       selectedPhaseId: this.selectedPhaseId,
       selectedArtifactContent,
+      contextSuggestions,
       settingsConfigured: settingsStatus.executionConfigured,
       settingsMessage: settingsStatus.message
     }, this.playbackState);
@@ -155,6 +164,16 @@ class WorkflowPanelController {
         return;
       case "attachFiles":
         await this.attachFilesAsync(message.kind === "context" ? "context" : "attachment");
+        return;
+      case "addSuggestedContextFile":
+        if (message.path) {
+          await this.addContextFilesFromPathsAsync([message.path]);
+        }
+        return;
+      case "addSuggestedContextFiles":
+        if (message.paths && message.paths.length > 0) {
+          await this.addContextFilesFromPathsAsync(message.paths);
+        }
         return;
       case "setFileKind":
         if (message.path && (message.kind === "context" || message.kind === "attachment")) {
@@ -268,6 +287,35 @@ class WorkflowPanelController {
     void vscode.window.showInformationMessage(
       `${selection.length} file(s) added to ${kind === "context" ? "context" : "user story info"} for ${this.summary.usId}.`
     );
+  }
+
+  private async addContextFilesFromPathsAsync(paths: readonly string[]): Promise<void> {
+    const uniquePaths = Array.from(new Set(paths.map((filePath) => path.normalize(filePath))));
+    if (uniquePaths.length === 0) {
+      return;
+    }
+
+    const contextDirectoryPath = path.join(this.summary.directoryPath, "context");
+    await fs.promises.mkdir(contextDirectoryPath, { recursive: true });
+
+    let copiedFiles = 0;
+    for (const sourcePath of uniquePaths) {
+      const sourceStats = await fs.promises.stat(sourcePath).catch(() => null);
+      if (!sourceStats?.isFile()) {
+        continue;
+      }
+
+      const targetPath = await getNextAttachmentPathAsync(contextDirectoryPath, path.basename(sourcePath));
+      await fs.promises.copyFile(sourcePath, targetPath);
+      copiedFiles += 1;
+    }
+
+    await this.refreshAsync();
+    if (copiedFiles > 0) {
+      void vscode.window.showInformationMessage(
+        `${copiedFiles} suggested context file(s) added to ${this.summary.usId}.`
+      );
+    }
   }
 
   private async setFileKindAsync(filePath: string, targetKind: "context" | "attachment"): Promise<void> {

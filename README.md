@@ -194,6 +194,9 @@ The extension currently provides:
 - user-story file management inside the workflow view, split between `context files` and `user story info`
 - only `context files` are injected into provider-backed runtime context; `user story info` remains attached to the workflow without entering the model prompt by default
 - MCP tools to list, add, and reclassify workflow files so models can attach repo context without going through the VS Code UI
+- clarification guidance inside the workflow view inviting the user to add more repo context when the model gets blocked
+- local context-file suggestions during clarification using two default-enabled strategies: keyword heuristics and repo-neighborhood discovery
+- a feature flag to disable clarification context suggestions without removing manual context-file intake
 - inline audit stream sourced from `timeline.md`
 - play / pause / stop controls for workflow execution
 - `Create User Story`
@@ -242,6 +245,7 @@ The extension contributes these settings:
 - `specForge.execution.model`
 - `specForge.ui.enableWatcher`
 - `specForge.ui.notifyOnAttention`
+- `specForge.features.enableContextSuggestions`
 
 ## Persistence Model
 
@@ -305,6 +309,7 @@ This preference file currently stores the starred user story that should reopen 
 - [x] add watcher-driven refresh, attention notifications, and playback controls with best-effort stop
 - [x] keep the default navigation focused on active user stories and workflows for the MVP
 - [x] persist a per-user starred user story on disk and autoopen it when reopening the workspace
+- [x] suggest clarification-time context files through local heuristics and repo neighborhood, behind a default-enabled feature flag
 - [ ] finalize richer branch lifecycle rules and Git/PR metadata
 - [x] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration

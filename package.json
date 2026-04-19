@@ -142,6 +142,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show notifications when a user story becomes waiting-user, blocked, or completed."
+        },
+        "specForge.features.enableContextSuggestions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Suggest repository context files during clarification using local heuristics and repo neighborhood rules."
         }
       }
     },

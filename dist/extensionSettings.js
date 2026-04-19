@@ -15,7 +15,8 @@ function readSpecForgeSettings(configuration) {
         apiKey: normalizeOptional(configuration.get("execution.apiKey")),
         model: normalizeOptional(configuration.get("execution.model")),
         watcherEnabled: configuration.get("ui.enableWatcher", true),
-        attentionNotificationsEnabled: configuration.get("ui.notifyOnAttention", true)
+        attentionNotificationsEnabled: configuration.get("ui.notifyOnAttention", true),
+        contextSuggestionsEnabled: configuration.get("features.enableContextSuggestions", true)
     };
 }
 function buildBackendEnvironment(settings) {

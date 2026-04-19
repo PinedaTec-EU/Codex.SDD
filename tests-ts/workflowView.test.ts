@@ -82,6 +82,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   }, {
     selectedPhaseId: "refinement",
     selectedArtifactContent: "## Refinement\nBody",
+    contextSuggestions: [],
     settingsConfigured: true,
     settingsMessage: null
   }, "idle");
@@ -154,6 +155,7 @@ test("buildWorkflowHtml shows configuration warning and disables execution contr
   }, {
     selectedPhaseId: "capture",
     selectedArtifactContent: null,
+    contextSuggestions: [],
     settingsConfigured: false,
     settingsMessage: "SpecForge.AI is not configured for the current provider. Missing base URL, API key, model."
   }, "idle");
@@ -217,6 +219,7 @@ test("buildWorkflowHtml animates the next link while autoplay is running", () =>
   }, {
     selectedPhaseId: "capture",
     selectedArtifactContent: null,
+    contextSuggestions: [],
     settingsConfigured: true,
     settingsMessage: null
   }, "playing");
@@ -298,6 +301,7 @@ test("buildWorkflowHtml animates capture toward refinement when clarification is
   }, {
     selectedPhaseId: "capture",
     selectedArtifactContent: null,
+    contextSuggestions: [],
     settingsConfigured: true,
     settingsMessage: null
   }, "playing");
@@ -347,6 +351,7 @@ test("buildWorkflowHtml embeds a broad rotating execution message catalog for lo
   }, {
     selectedPhaseId: "implementation",
     selectedArtifactContent: null,
+    contextSuggestions: [],
     settingsConfigured: true,
     settingsMessage: null
   }, "playing");
@@ -402,6 +407,7 @@ test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
   }, {
     selectedPhaseId: "review",
     selectedArtifactContent: null,
+    contextSuggestions: [],
     settingsConfigured: true,
     settingsMessage: null
   }, "paused");
@@ -456,6 +462,7 @@ test("buildWorkflowHtml highlights waiting-user and runner paused hero tokens as
   }, {
     selectedPhaseId: "clarification",
     selectedArtifactContent: null,
+    contextSuggestions: [],
     settingsConfigured: true,
     settingsMessage: null
   }, "paused");
@@ -519,6 +526,7 @@ test("buildWorkflowHtml reuses sidebar status colors in graph nodes and hero tok
   }, {
     selectedPhaseId: "technical-design",
     selectedArtifactContent: null,
+    contextSuggestions: [],
     settingsConfigured: true,
     settingsMessage: null
   }, "idle");
@@ -571,6 +579,7 @@ test("buildWorkflowHtml warns when the workflow is open without an SLM or LLM pr
   }, {
     selectedPhaseId: "capture",
     selectedArtifactContent: null,
+    contextSuggestions: [],
     settingsConfigured: false,
     settingsMessage: "SpecForge.AI needs an SLM/LLM execution provider before workflow stages can run. Select an OpenAI-compatible provider and configure base URL, API key, and model."
   }, "idle");
@@ -641,6 +650,7 @@ test("buildWorkflowHtml renders clarification questions and embedded answer inpu
   }, {
     selectedPhaseId: "clarification",
     selectedArtifactContent: "## Decision\nneeds_clarification",
+    contextSuggestions: [],
     settingsConfigured: true,
     settingsMessage: null
   }, "idle");
@@ -652,6 +662,74 @@ test("buildWorkflowHtml renders clarification questions and embedded answer inpu
   assert.match(html, /A backoffice operator\./);
   assert.match(html, /Submit Answers/);
   assert.match(html, /submitClarificationAnswers/);
+});
+
+test("buildWorkflowHtml proposes manual and suggested context files during clarification", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0013",
+    title: "Clarification context",
+    category: "tests",
+    status: "waiting-user",
+    currentPhase: "clarification",
+    directoryPath: "/tmp/us.US-0013",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "clarification",
+        title: "Clarification",
+        order: 1,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/00-clarification.md",
+        executePromptPath: "/tmp/clarification.execute.md",
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: "clarification_pending_answers",
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: {
+      status: "needs_clarification",
+      tolerance: "balanced",
+      reason: "The request mentions tests but not the target module.",
+      items: []
+    },
+    events: [],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "clarification",
+    selectedArtifactContent: "## Decision\nneeds_clarification",
+    contextSuggestions: [
+      {
+        path: "/repo/tests/SpecForge.Domain.Tests/WorkflowRunnerTests.cs",
+        relativePath: "tests/SpecForge.Domain.Tests/WorkflowRunnerTests.cs",
+        reason: "Matches clarification keywords: tests, workflow.",
+        source: "heuristic",
+        score: 42
+      }
+    ],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /Need more repo context\?/);
+  assert.match(html, /Add Context Files/);
+  assert.match(html, /tests\/SpecForge\.Domain\.Tests\/WorkflowRunnerTests\.cs/);
+  assert.match(html, /Add to Context/);
+  assert.match(html, /Matches clarification keywords: tests, workflow\./);
 });
 
 test("buildWorkflowHtml disables clarification and draws a direct capture to refinement link when clarification was skipped", () => {
@@ -730,6 +808,7 @@ test("buildWorkflowHtml disables clarification and draws a direct capture to ref
   }, {
     selectedPhaseId: "refinement",
     selectedArtifactContent: "## Refinement\nBody",
+    contextSuggestions: [],
     settingsConfigured: true,
     settingsMessage: null
   }, "idle");
@@ -865,6 +944,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
   }, {
     selectedPhaseId: "implementation",
     selectedArtifactContent: null,
+    contextSuggestions: [],
     settingsConfigured: true,
     settingsMessage: null
   }, "idle");
