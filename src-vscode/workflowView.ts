@@ -1408,12 +1408,14 @@ export function buildWorkflowHtml(
     if (executionOverlay) {
       const messageElement = executionOverlay.querySelector("[data-execution-message]");
       const elapsedElement = executionOverlay.querySelector("[data-execution-elapsed]");
+      const graphStage = document.querySelector(".graph-stage");
       const messageCatalog = JSON.parse(executionOverlay.dataset.messages ?? "[]");
       const overlayKey = buildExecutionOverlayStateKey(
         executionOverlay.dataset.usId ?? "",
         executionOverlay.dataset.phaseId ?? "",
         executionOverlay.dataset.tone ?? ""
       );
+      const overlayTone = executionOverlay.dataset.tone ?? "";
       const showElapsed = executionOverlay.dataset.showElapsed === "true";
       const restoredState = restoreExecutionOverlayState(overlayKey, messageCatalog);
       const shuffledMessages = restoredState.messages;
@@ -1455,6 +1457,22 @@ export function buildWorkflowHtml(
         messageIndex,
         messages: shuffledMessages
       });
+
+      if (overlayTone !== "playing" && graphStage) {
+        document.addEventListener("pointerdown", (event) => {
+          const target = event.target;
+          if (!(target instanceof Node)) {
+            return;
+          }
+
+          if (executionOverlay.contains(target)) {
+            return;
+          }
+
+          executionOverlay.remove();
+          graphStage.classList.remove("graph-stage--overlay-active");
+        }, { once: true });
+      }
     }
 
     function shuffleMessages(messages) {

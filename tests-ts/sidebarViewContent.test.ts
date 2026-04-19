@@ -144,7 +144,33 @@ test("buildSidebarHtml keeps the phase rail for user stories that are still in p
   });
 
   assert.match(html, /story-card--active story-card--phase-technical-design/);
+  assert.match(html, /story-card--status-waiting-user/);
   assert.match(html, /<span class="story-card__phase-number">4<\/span>/);
+});
+
+test("buildSidebarHtml uses the paused phase rail tone when a story is paused by the user", () => {
+  const html = buildSidebarHtml({
+    hasWorkspace: true,
+    showCreateForm: false,
+    busyMessage: null,
+    promptsInitialized: true,
+    settingsConfigured: true,
+    settingsMessage: null,
+    starredUserStoryId: null,
+    categories: ["workflow"],
+    userStories: [{
+      usId: "US-0004",
+      title: "Paused story",
+      category: "workflow",
+      currentPhase: "implementation",
+      status: "paused",
+      mainArtifactPath: "/tmp/us.md",
+      directoryPath: "/tmp/us.US-0004",
+      workBranch: null
+    }],
+  });
+
+  assert.match(html, /story-card--status-paused/);
 });
 
 test("buildSidebarHtml hides the phase rail for completed user stories", () => {

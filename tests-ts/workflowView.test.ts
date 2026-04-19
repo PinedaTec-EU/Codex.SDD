@@ -217,6 +217,7 @@ test("buildWorkflowHtml animates the next link while autoplay is running", () =>
   assert.match(html, /restoreExecutionOverlayState/);
   assert.match(html, /persistExecutionOverlayState/);
   assert.match(html, /sessionStorage/);
+  assert.match(html, /if \(overlayTone !== "playing" && graphStage\)/);
 });
 
 test("buildWorkflowHtml animates capture toward refinement when clarification is not yet active", () => {
@@ -397,6 +398,8 @@ test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
   assert.match(html, /Playback is paused at the phase boundary/);
   assert.doesNotMatch(html, /<span class="execution-overlay__elapsed"/);
   assert.match(html, /data-show-elapsed="false"/);
+  assert.match(html, /graphStage\.classList\.remove\("graph-stage--overlay-active"\)/);
+  assert.match(html, /document\.addEventListener\("pointerdown"/);
 });
 
 test("buildWorkflowHtml highlights waiting-user and runner paused hero tokens as attention states", () => {
