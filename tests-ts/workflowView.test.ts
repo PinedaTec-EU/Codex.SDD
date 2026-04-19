@@ -124,6 +124,9 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.doesNotMatch(html, /<h3>Workflow Files<\/h3>/);
   assert.match(html, /attachment-item--dragging/);
   assert.match(html, /command: "setFileKind"/);
+  assert.match(html, /vscode\.getState\(\)/);
+  assert.match(html, /workflowFilesOpen/);
+  assert.match(html, /vscode\.setState\(/);
 });
 
 test("buildWorkflowHtml shows configuration warning and disables execution controls when settings are incomplete", () => {

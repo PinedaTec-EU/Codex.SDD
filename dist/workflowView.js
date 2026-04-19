@@ -1738,6 +1738,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
   </div>
   <script>
     const vscode = acquireVsCodeApi();
+    const viewState = vscode.getState() ?? {};
     for (const element of document.querySelectorAll("[data-command]")) {
       element.addEventListener("click", () => {
         vscode.postMessage({
@@ -1771,6 +1772,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
 
       workflowFilesOverlay.hidden = !open;
       workflowFilesOverlay.classList.toggle("is-open", open);
+      vscode.setState({
+        ...viewState,
+        workflowFilesOpen: open
+      });
     };
 
     for (const element of document.querySelectorAll("[data-open-workflow-files]")) {
@@ -1798,6 +1803,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         toggleWorkflowFiles(false);
       }
     });
+
+    if (viewState.workflowFilesOpen) {
+      toggleWorkflowFiles(true);
+    }
 
     let draggedFile = null;
     for (const element of document.querySelectorAll("[data-file-path][data-file-kind]")) {
