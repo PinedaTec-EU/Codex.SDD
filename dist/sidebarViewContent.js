@@ -582,6 +582,11 @@ function wrapHtml(content, busy) {
         rgba(14, 20, 26, 0.92);
       box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
     }
+    .story-row--shell > .story-card,
+    .story-row--shell > .icon-action {
+      border: 0;
+      box-shadow: none;
+    }
     .story-row + .story-row {
       margin-top: 8px;
     }
@@ -683,11 +688,31 @@ function wrapHtml(content, busy) {
       align-self: stretch;
       height: 100%;
     }
+    .story-row--shell > .icon-action {
+      width: 40px;
+      min-width: 40px;
+      border-radius: 14px;
+      background: transparent;
+      position: relative;
+    }
+    .story-row--shell > .icon-action::before {
+      content: "";
+      position: absolute;
+      left: -4px;
+      top: 8px;
+      bottom: 8px;
+      width: 1px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .story-row--shell > .icon-action:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .story-row--shell > .icon-action.icon-action--danger:hover {
+      background: rgba(255, 139, 139, 0.09);
+    }
     .story-star--active {
       color: #ffd75a;
-      border-color: rgba(255, 213, 90, 0.28);
-      background: linear-gradient(180deg, rgba(96, 73, 16, 0.96), rgba(44, 30, 6, 0.98));
-      box-shadow: 0 0 0 1px rgba(255, 213, 90, 0.06);
+      background: rgba(255, 213, 90, 0.1) !important;
     }
     .story-card__id {
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
