@@ -111,7 +111,7 @@ public sealed class RepositoryPromptInitializer
 
     private static string BuildSharedStylePrompt() =>
         """
-        Write in Spanish unless the repository artifacts are already in another language.
+        Write in English unless the repository artifacts are already in another language.
         Keep the output concise, technical, and structured with markdown headings.
         Avoid filler, motivational language, and broad product marketing phrasing.
         """;
@@ -134,7 +134,7 @@ public sealed class RepositoryPromptInitializer
         - if it is ready, say so explicitly and avoid inventing new questions
 
         Required sections:
-        - Estado
+        - State
         - Decision
         - Reason
         - Questions
@@ -158,17 +158,17 @@ public sealed class RepositoryPromptInitializer
 
         Required sections:
         - History Log
-        - Estado
-        - Resumen ejecutivo
-        - Objetivo refinado
-        - Alcance refinado
-        - Reglas funcionales
-        - Restricciones
-        - Ambigüedades detectadas
+        - State
+        - Executive Summary
+        - Refined Objective
+        - Refined Scope
+        - Functional Rules
+        - Constraints
+        - Detected Ambiguities
         - Red Team
         - Blue Team
-        - Criterios de aceptación refinados
-        - Preguntas para aprobación humana
+        - Refined Acceptance Criteria
+        - Human Approval Questions
         """;
 
     private static string BuildRefinementApprovePrompt() =>
@@ -190,18 +190,18 @@ public sealed class RepositoryPromptInitializer
         - keep the design implementable inside this repository
 
         Required sections:
-        - Estado
-        - Resumen técnico
-        - Objetivo técnico
-        - Componentes afectados
-        - Diseño propuesto
-        - Alternativas consideradas
-        - Riesgos técnicos
-        - Impacto esperado
-        - Estrategia de implementación
-        - Estrategia de validación
-        - Decisiones abiertas
-        - Aprobación requerida
+        - State
+        - Technical Summary
+        - Technical Objective
+        - Affected Components
+        - Proposed Design
+        - Alternatives Considered
+        - Technical Risks
+        - Expected Impact
+        - Implementation Strategy
+        - Validation Strategy
+        - Open Decisions
+        - Required Approval
         """;
 
     private static string BuildTechnicalDesignApprovePrompt() =>

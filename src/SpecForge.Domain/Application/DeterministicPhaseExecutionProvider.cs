@@ -27,7 +27,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         CancellationToken cancellationToken)
     {
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
-        var objective = ReadSection(userStory, "## Objetivo", "## Objective");
+        var objective = ReadSection(userStory, "## Objective", "## Objetivo");
         var clarification = UserStoryClarificationMarkdown.Parse(userStory);
         var hasAnswers = clarification is not null && clarification.Items.Any(item => !string.IsNullOrWhiteSpace(item.Answer));
         var looksPlaceholder = objective.Contains("sample", StringComparison.OrdinalIgnoreCase)
@@ -40,9 +40,9 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
             ? []
             : new[]
             {
-                "¿Qué actor o rol ejecuta esta funcionalidad?",
-                "¿Qué datos concretos entran y qué resultado observable debe salir?",
-                "¿Qué regla de negocio o criterio de aceptación debe cumplirse para considerar la US válida?"
+                "Which actor or role executes this functionality?",
+                "What concrete inputs come in, and what observable result must come out?",
+                "What business rule or acceptance criterion must be satisfied for this user story to be valid?"
             };
 
         return string.Join(
@@ -51,8 +51,8 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                    {
                        $"# Clarification · {context.UsId} · v01",
                        string.Empty,
-                       "## Estado",
-                       $"- Estado: `{(isReady ? "ready" : "pending_user_input")}`",
+                       "## State",
+                       $"- State: `{(isReady ? "ready" : "pending_user_input")}`",
                        string.Empty,
                        "## Decision",
                        isReady ? "ready_for_refinement" : "needs_clarification",
@@ -74,8 +74,8 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
     {
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
         var title = ReadHeading(userStory, fallback: context.UsId);
-        var objective = ReadSection(userStory, "## Objetivo", "## Objective");
-        var initialScope = ReadSection(userStory, "## Alcance inicial", "## Initial Scope");
+        var objective = ReadSection(userStory, "## Objective", "## Objetivo");
+        var initialScope = ReadSection(userStory, "## Initial Scope", "## Alcance inicial");
         var ambiguity = string.IsNullOrWhiteSpace(initialScope)
             ? "The initial scope does not yet distinguish clearly between in-scope and out-of-scope behavior."
             : "The scope is present, but edge cases and exclusions still need approval before design starts.";
@@ -89,40 +89,40 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                        "## History Log",
                        $"- `{DateTimeOffset.UtcNow:O}` · Initial refinement generated from `us.md`.",
                        string.Empty,
-                       "## Estado",
-                       "- Estado: `pending_approval`",
-                       "- Basado en: `us.md`",
+                       "## State",
+                       "- State: `pending_approval`",
+                       "- Based on: `us.md`",
                        string.Empty,
-                       "## Resumen ejecutivo",
+                       "## Executive Summary",
                        $"User story `{title}` has been normalized into a refinement-ready spec.",
                        string.Empty,
-                       "## Objetivo refinado",
+                       "## Refined Objective",
                        objective,
                        string.Empty,
-                       "## Alcance refinado",
+                       "## Refined Scope",
                        string.IsNullOrWhiteSpace(initialScope)
                            ? "- Include core workflow execution only.\n- Exclude advanced integrations until phase approval."
                            : initialScope,
                        string.Empty,
-                       "## Ambigüedades detectadas",
+                       "## Detected Ambiguities",
                        $"- {ambiguity}",
                        "- Final approval criteria still depend on explicit human validation.",
                        string.Empty,
                        "## Red Team",
-                       "### Riesgos",
+                       "### Risks",
                        $"- The current request may still hide implicit assumptions around `{title}`.",
                        "- Missing explicit exclusions could expand the implementation scope beyond the approved phase.",
                        string.Empty,
-                       "### Objeciones",
+                       "### Objections",
                        "- The US does not yet prove that every acceptance condition is testable.",
                        "- Some operational details may still be conflated with future roadmap items.",
                        string.Empty,
                        "## Blue Team",
-                       "### Ajustes recomendados",
+                       "### Recommended Adjustments",
                        "- Keep the approved scope constrained to the canonical workflow and visible persisted artifacts.",
                        "- Convert missing assumptions into explicit acceptance criteria before implementation continues.",
                        string.Empty,
-                       "### Refinement consolidado",
+                       "### Consolidated Refinement",
                        "The refinement is now structured for technical design with explicit risks, bounded scope, and approval checkpoints."
                    }) +
                Environment.NewLine;
@@ -135,8 +135,8 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         var refinement = await File.ReadAllTextAsync(
             GetRequiredPath(context, PhaseId.Refinement),
             cancellationToken);
-        var executiveSummary = ReadSection(refinement, "## Resumen ejecutivo");
-        var refinedObjective = ReadSection(refinement, "## Objetivo refinado");
+        var executiveSummary = ReadSection(refinement, "## Executive Summary", "## Resumen ejecutivo");
+        var refinedObjective = ReadSection(refinement, "## Refined Objective", "## Objetivo refinado");
 
         return string.Join(
                    Environment.NewLine,
@@ -144,32 +144,32 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                    {
                        $"# Technical Design · {context.UsId} · v01",
                        string.Empty,
-                       "## Estado",
-                       "- Estado: `pending_approval`",
-                       "- Basado en: `01-refinement.md`",
+                       "## State",
+                       "- State: `pending_approval`",
+                       "- Based on: `01-refinement.md`",
                        string.Empty,
-                       "## Resumen técnico",
+                       "## Technical Summary",
                        executiveSummary,
                        string.Empty,
-                       "## Objetivo técnico",
+                       "## Technical Objective",
                        refinedObjective,
                        string.Empty,
-                       "## Componentes afectados",
+                       "## Affected Components",
                        "- `SpecForge.Domain` for workflow rules and orchestration.",
                        "- `SpecForge.Runner.Cli` as local backend boundary.",
                        "- `src-vscode` for extension wiring and workspace UX.",
                        string.Empty,
-                       "## Diseño propuesto",
-                       "### Arquitectura",
+                       "## Proposed Design",
+                       "### Architecture",
                        "The extension delegates execution to a backend boundary, which routes to the application services and workflow runner.",
                        string.Empty,
-                       "### Flujo principal",
+                       "### Primary Flow",
                        "1. Load persisted user story state.",
                        "2. Validate the next allowed transition.",
                        "3. Generate or update the corresponding artifact.",
                        "4. Persist state, branch metadata, and timeline.",
                        string.Empty,
-                       "## Estrategia de implementación",
+                       "## Implementation Strategy",
                        "1. Keep all workflow invariants in the domain core.",
                        "2. Use application services as the stable backend surface.",
                        "3. Let the extension consume the backend through explicit commands."
@@ -184,7 +184,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         var technicalDesign = await File.ReadAllTextAsync(
             GetRequiredPath(context, PhaseId.TechnicalDesign),
             cancellationToken);
-        var objective = ReadSection(technicalDesign, "## Objetivo técnico");
+        var objective = ReadSection(technicalDesign, "## Technical Objective", "## Objetivo técnico");
 
         return string.Join(
                    Environment.NewLine,
@@ -192,19 +192,19 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                    {
                        $"# Implementation · {context.UsId} · v01",
                        string.Empty,
-                       "## Estado",
-                       "- Estado: `generated`",
-                       "- Basado en: `02-technical-design.md`",
+                       "## State",
+                       "- State: `generated`",
+                       "- Based on: `02-technical-design.md`",
                        string.Empty,
-                       "## Objetivo implementado",
+                       "## Implemented Objective",
                        objective,
                        string.Empty,
-                       "## Cambios previstos o ejecutados",
+                       "## Planned or Executed Changes",
                        "- Update workflow orchestration logic.",
                        "- Persist resulting state and derived artifacts.",
                        "- Expose the action through the selected backend boundary.",
                        string.Empty,
-                       "## Verificación prevista",
+                       "## Planned Verification",
                        "- Domain tests must cover the transition and persistence path.",
                        "- Extension feedback must reflect the generated artifact and new phase."
                    }) +
@@ -231,19 +231,19 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                    {
                        $"# Review · {context.UsId} · v01",
                        string.Empty,
-                       "## Estado",
-                       $"- Resultado: `{result}`",
+                       "## State",
+                       $"- Result: `{result}`",
                        string.Empty,
-                       "## Verificaciones realizadas",
+                       "## Checks Performed",
                        $"- [x] Refinement artifact present: `{refinementExists}`",
                        $"- [x] Technical design artifact present: `{technicalDesignExists}`",
                        $"- [x] Implementation artifact present: `{implementationExists}`",
                        string.Empty,
-                       "## Veredicto",
-                       $"- Resultado final: `{result}`",
-                       $"- Motivo principal: the workflow artifacts required for review are {(result == "pass" ? "present" : "incomplete")}.",
+                       "## Verdict",
+                       $"- Final result: `{result}`",
+                       $"- Primary reason: the workflow artifacts required for review are {(result == "pass" ? "present" : "incomplete")}.",
                        string.Empty,
-                       "## Recomendación",
+                       "## Recommendation",
                        $"- {recommendation}"
                    }) +
                Environment.NewLine;

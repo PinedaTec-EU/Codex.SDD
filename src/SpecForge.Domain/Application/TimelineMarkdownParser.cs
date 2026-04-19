@@ -74,7 +74,7 @@ public static partial class TimelineMarkdownParser
                 continue;
             }
 
-            if (trimmed.StartsWith("- Artefactos:", StringComparison.Ordinal))
+            if (trimmed.StartsWith("- Artifacts:", StringComparison.Ordinal) || trimmed.StartsWith("- Artefactos:", StringComparison.Ordinal))
             {
                 readingArtifacts = true;
                 readingTokens = false;
@@ -130,9 +130,15 @@ public static partial class TimelineMarkdownParser
                 continue;
             }
 
-            if (trimmed.StartsWith("- Fase:", StringComparison.Ordinal))
+            if (trimmed.StartsWith("- Phase:", StringComparison.Ordinal) || trimmed.StartsWith("- Fase:", StringComparison.Ordinal))
             {
                 phase = ExtractInlineCode(trimmed);
+                continue;
+            }
+
+            if (trimmed.StartsWith("- Summary:", StringComparison.Ordinal))
+            {
+                summary = trimmed["- Summary:".Length..].Trim();
                 continue;
             }
 

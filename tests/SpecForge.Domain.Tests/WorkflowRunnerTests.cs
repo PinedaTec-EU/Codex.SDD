@@ -128,7 +128,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal(PhaseId.TechnicalDesign, result.CurrentPhase);
         Assert.Equal(UserStoryStatus.WaitingUser, result.Status);
         var technicalDesignContent = await File.ReadAllTextAsync(result.GeneratedArtifactPath!);
-        Assert.Contains("## Componentes afectados", technicalDesignContent);
+        Assert.Contains("## Affected Components", technicalDesignContent);
         Assert.Contains("SpecForge.Runner.Cli", technicalDesignContent);
 
         var loadedRun = await new UserStoryFileStore().LoadAsync(
@@ -234,14 +234,14 @@ public sealed class WorkflowRunnerTests : IDisposable
         const string timeline = """
 # Timeline · US-0001 · Test story
 
-## Eventos
+## Events
 
 ### 2026-04-18T09:10:00Z · `phase_approved`
 
 - Actor: `user`
-- Fase: `refinement`
-- Resumen: Phase `refinement` approved.
-- Artefactos:
+- Phase: `refinement`
+- Summary: Phase `refinement` approved.
+- Artifacts:
   - .specs/us/us.US-0001/branch.yaml
 """;
 
@@ -262,20 +262,20 @@ public sealed class WorkflowRunnerTests : IDisposable
         const string timeline = """
 # Timeline · US-0001 · Test story
 
-## Eventos
+## Events
 
 ### 2026-04-18T09:10:00Z · `phase_completed`
 
 - Actor: `system`
-- Fase: `refinement`
-- Resumen: Generated artifact for phase `refinement`.
-- Artefactos:
+- Phase: `refinement`
+- Summary: Generated artifact for phase `refinement`.
+- Artifacts:
   - .specs/us/us.US-0001/phases/01-refinement.md
 - Tokens:
   - input: `486`
   - output: `1644`
   - total: `2130`
-- Duración: `18765` ms
+- Duration: `18765` ms
 """;
 
         var events = TimelineMarkdownParser.ParseEvents(timeline);
@@ -307,7 +307,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Contains("input: `321`", timeline);
         Assert.Contains("output: `123`", timeline);
         Assert.Contains("total: `444`", timeline);
-        Assert.Contains("- Duración:", timeline);
+        Assert.Contains("- Duration:", timeline);
     }
 
     public void Dispose()

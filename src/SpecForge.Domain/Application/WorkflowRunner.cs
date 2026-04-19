@@ -410,7 +410,7 @@ public sealed class WorkflowRunner
     private static async Task<string> ReadSourceTextFromUserStoryAsync(string userStoryPath, CancellationToken cancellationToken)
     {
         var userStory = await File.ReadAllTextAsync(userStoryPath, cancellationToken);
-        var objective = ReadMarkdownSection(userStory, "## Objetivo", "## Objective");
+        var objective = ReadMarkdownSection(userStory, "## Objective", "## Objetivo");
         return objective == "..." ? userStory.Trim() : objective;
     }
 
@@ -497,12 +497,12 @@ public sealed class WorkflowRunner
             .AppendLine($"### {timestamp} · `{eventCode}`")
             .AppendLine()
             .AppendLine($"- Actor: `{actor}`")
-            .AppendLine($"- Fase: `{WorkflowPresentation.ToPhaseSlug(phaseId)}`")
-            .AppendLine($"- Resumen: {summary}");
+            .AppendLine($"- Phase: `{WorkflowPresentation.ToPhaseSlug(phaseId)}`")
+            .AppendLine($"- Summary: {summary}");
 
         if (!string.IsNullOrWhiteSpace(artifactPath))
         {
-            builder.AppendLine("- Artefactos:")
+            builder.AppendLine("- Artifacts:")
                 .AppendLine($"  - `{artifactPath.Replace('\\', '/')}`");
         }
 
@@ -516,7 +516,7 @@ public sealed class WorkflowRunner
 
         if (durationMs is not null)
         {
-            builder.AppendLine($"- Duración: `{durationMs}` ms");
+            builder.AppendLine($"- Duration: `{durationMs}` ms");
         }
 
         await File.AppendAllTextAsync(timelinePath, builder.ToString(), cancellationToken);
@@ -535,20 +535,20 @@ public sealed class WorkflowRunner
                    {
                        $"# Timeline · {usId} · {title}",
                        string.Empty,
-                       "## Resumen",
+                       "## Summary",
                        string.Empty,
-                       "- Estado actual: `draft`",
-                       "- Fase actual: `capture`",
-                       "- Rama activa: `sin crear`",
-                       $"- Última actualización: `{timestamp}`",
+                       "- Current status: `draft`",
+                       "- Current phase: `capture`",
+                       "- Active branch: `not created`",
+                       $"- Last updated: `{timestamp}`",
                        string.Empty,
-                       "## Eventos",
+                       "## Events",
                        string.Empty,
                        $"### {timestamp} · `us_created`",
                        string.Empty,
                        "- Actor: `user`",
-                       "- Fase: `capture`",
-                       "- Resumen: Se creó la US inicial y se persistieron `us.md`, `state.yaml` y `timeline.md`."
+                       "- Phase: `capture`",
+                       "- Summary: The initial user story was created and `us.md`, `state.yaml`, and `timeline.md` were persisted."
                    }) +
                Environment.NewLine;
     }
@@ -565,13 +565,13 @@ public sealed class WorkflowRunner
                        $"- Kind: `{kind}`",
                        $"- Category: `{category}`",
                        string.Empty,
-                       "## Objetivo",
+                       "## Objective",
                        sourceText,
                        string.Empty,
-                       "## Alcance inicial",
-                       "- Incluye:",
+                       "## Initial Scope",
+                       "- Includes:",
                        "  - ...",
-                       "- No incluye:",
+                       "- Excludes:",
                        "  - ..."
                    }) +
                Environment.NewLine;
