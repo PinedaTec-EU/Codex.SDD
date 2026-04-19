@@ -210,6 +210,10 @@ test("buildWorkflowHtml animates the next link while autoplay is running", () =>
 
   assert.match(html, /graph-links path\.executing/);
   assert.match(html, /<path class="executing"/);
+  assert.match(html, /data-execution-overlay/);
+  assert.match(html, /Executing Capture/);
+  assert.match(html, /shuffleMessages/);
+  assert.match(html, /formatOverlayElapsed/);
 });
 
 test("buildWorkflowHtml animates capture toward refinement when clarification is not yet active", () => {
@@ -283,6 +287,109 @@ test("buildWorkflowHtml animates capture toward refinement when clarification is
 
   assert.match(html, /<path class="disabled"/);
   assert.match(html, /<path class="executing"/);
+});
+
+test("buildWorkflowHtml embeds a broad rotating execution message catalog for long runs", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0009",
+    title: "Long execution",
+    category: "workflow",
+    status: "active",
+    currentPhase: "implementation",
+    directoryPath: "/tmp/us.US-0009",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "implementation",
+        title: "Implementation",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "implementation",
+    selectedArtifactContent: null,
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "playing");
+
+  assert.match(html, /data-tone="playing"/);
+  assert.match(html, /data-execution-message/);
+  assert.match(html, /data-execution-elapsed/);
+  assert.match(html, /Trying to keep the patch surgical instead of theatrical\./);
+  assert.match(html, /Untangling edge cases before they untangle the plan\./);
+  assert.match(html, /Math\.random/);
+});
+
+test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0010",
+    title: "Paused execution",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "review",
+    directoryPath: "/tmp/us.US-0010",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "review",
+        title: "Review",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "review",
+    selectedArtifactContent: null,
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "paused");
+
+  assert.match(html, /execution-overlay execution-overlay--paused/);
+  assert.match(html, /Paused after Review/);
+  assert.match(html, /Playback is paused at the phase boundary/);
 });
 
 test("buildWorkflowHtml warns when the workflow is open without an SLM or LLM provider", () => {

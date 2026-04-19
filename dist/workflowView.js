@@ -81,6 +81,126 @@ function renderExecutionMetric(label, value, tone) {
     </div>
   `;
 }
+const genericExecutionMessages = [
+    "Untangling edge cases before they untangle the plan.",
+    "Cross-checking prior artifacts for contradictions.",
+    "Keeping the workflow honest while the provider thinks.",
+    "Looking for missing assumptions before they become bugs.",
+    "Trying not to wake unnecessary regressions.",
+    "Reconciling scope, artifacts, and branch intent.",
+    "Reading the room, the repo, and the acceptance criteria.",
+    "Negotiating with ambiguity so you do not have to.",
+    "Making sure the next artifact can survive review.",
+    "Inspecting context drift one breadcrumb at a time.",
+    "Mapping dependencies that were not obvious at capture time.",
+    "Trying to keep the branch name and the output aligned.",
+    "Double-checking the previous phase so this one lands cleanly.",
+    "Following the trail from user intent to persisted artifact.",
+    "Keeping the phase transition tidy while the clock keeps moving.",
+    "Looking for the fastest valid route through the workflow.",
+    "Stress-testing assumptions without bothering the human yet.",
+    "Making the next checkpoint less surprising than the last one."
+];
+const phaseExecutionMessages = {
+    capture: [
+        "Turning the initial ask into something the workflow can actually execute.",
+        "Pulling signal out of the first draft of the user story.",
+        "Sorting intent from noise before refinement takes over.",
+        "Trying to spot ambiguity while it is still cheap."
+    ],
+    clarification: [
+        "Preparing the awkward but necessary questions.",
+        "Looking for the one missing answer that blocks everything else.",
+        "Trying to convert vague scope into answerable prompts.",
+        "Holding the line until the user story becomes actionable."
+    ],
+    refinement: [
+        "Distilling the user story into a sharper refinement artifact.",
+        "Checking that acceptance criteria and constraints still agree.",
+        "Trying to leave fewer surprises for technical design.",
+        "Shaping the artifact so approval is about substance, not cleanup."
+    ],
+    "technical-design": [
+        "Lining up implementation choices before code starts moving.",
+        "Comparing design options without starting an architecture novel.",
+        "Trying to make the next code pass feel inevitable.",
+        "Tracing the impact radius before implementation gets bold."
+    ],
+    implementation: [
+        "Translating design intent into concrete repository changes.",
+        "Trying to keep the patch surgical instead of theatrical.",
+        "Looking for the smallest change that still moves the workflow forward.",
+        "Keeping one eye on tests while the code takes shape."
+    ],
+    review: [
+        "Reviewing the artifact like it did not come from our side.",
+        "Trying to catch the regression before it catches release.",
+        "Looking for the bug hiding behind a plausible diff.",
+        "Stress-testing the result against the original ask."
+    ],
+    "release-approval": [
+        "Preparing the output for a calmer release decision.",
+        "Checking that the workflow left a trail a human can trust.",
+        "Trying to make approval feel boring in the best possible way.",
+        "Making sure release does not inherit unresolved ambiguity."
+    ],
+    "pr-preparation": [
+        "Composing the final handoff for branch and PR readiness.",
+        "Trying to leave the branch in a shape future humans appreciate.",
+        "Packaging the outcome so review starts with context, not confusion.",
+        "Making the last mile look intentional."
+    ]
+};
+function buildExecutionOverlay(workflow, playbackState) {
+    if (playbackState === "idle") {
+        return "";
+    }
+    const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
+    const overlay = playbackState === "playing"
+        ? {
+            title: `Executing ${currentPhase.title}`,
+            phaseId: currentPhase.phaseId,
+            tone: "playing",
+            messages: [...(phaseExecutionMessages[currentPhase.phaseId] ?? []), ...genericExecutionMessages]
+        }
+        : playbackState === "paused"
+            ? {
+                title: `Paused after ${currentPhase.title}`,
+                phaseId: currentPhase.phaseId,
+                tone: "paused",
+                messages: [
+                    "The current phase finished, but SpecForge.AI will wait before launching the next one.",
+                    "Playback is paused at the phase boundary. Resume when you want the workflow moving again.",
+                    "Holding the line here so the next phase does not start on its own."
+                ]
+            }
+            : {
+                title: `Stopping after ${currentPhase.title}`,
+                phaseId: currentPhase.phaseId,
+                tone: "stopping",
+                messages: [
+                    "Stopping autoplay and asking the local runner to stand down.",
+                    "Trying to leave the in-flight work in a recoverable state.",
+                    "SpecForge.AI is winding down the current execution loop."
+                ]
+            };
+    return `
+    <div
+      class="execution-overlay execution-overlay--${escapeHtmlAttribute(overlay.tone)}"
+      data-execution-overlay
+      data-phase-id="${escapeHtmlAttribute(overlay.phaseId)}"
+      data-tone="${escapeHtmlAttribute(overlay.tone)}"
+      data-messages='${escapeHtmlAttribute(JSON.stringify(overlay.messages))}'>
+      <div class="execution-overlay__pulse" aria-hidden="true"></div>
+      <div class="execution-overlay__body">
+        <span class="execution-overlay__eyebrow">SpecForge.AI Runner</span>
+        <strong class="execution-overlay__title">${escapeHtml(overlay.title)}</strong>
+        <p class="execution-overlay__message" data-execution-message>${escapeHtml(overlay.messages[0] ?? "Processing workflow phase.")}</p>
+      </div>
+      <span class="execution-overlay__elapsed" data-execution-elapsed>00:00</span>
+    </div>
+  `;
+}
 function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
     const settingsWarning = !state.settingsConfigured && state.settingsMessage
@@ -97,6 +217,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     `
         : "";
     const phaseGraph = buildPhaseGraph(workflow, selectedPhase.phaseId, playbackState);
+    const executionOverlay = buildExecutionOverlay(workflow, playbackState);
     const isMarkdownArtifact = Boolean(selectedPhase.artifactPath?.toLowerCase().endsWith(".md"));
     const artifactPreviewHtml = isMarkdownArtifact
         ? renderMarkdownToHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")
@@ -475,6 +596,87 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       min-width: ${desktopGraphWidth}px;
       min-height: ${desktopGraphHeight}px;
       z-index: 2;
+    }
+    .execution-overlay {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      z-index: 12;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      max-width: min(420px, calc(100% - 24px));
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(92, 181, 255, 0.34);
+      background:
+        linear-gradient(180deg, rgba(18, 37, 56, 0.96), rgba(10, 18, 28, 0.98)),
+        rgba(10, 14, 20, 0.96);
+      box-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
+      backdrop-filter: blur(16px);
+    }
+    .execution-overlay--paused {
+      border-color: rgba(255, 205, 92, 0.34);
+      background:
+        linear-gradient(180deg, rgba(55, 42, 14, 0.96), rgba(24, 19, 8, 0.98)),
+        rgba(10, 14, 20, 0.96);
+    }
+    .execution-overlay--stopping {
+      border-color: rgba(255, 139, 139, 0.34);
+      background:
+        linear-gradient(180deg, rgba(52, 24, 24, 0.96), rgba(23, 11, 11, 0.98)),
+        rgba(10, 14, 20, 0.96);
+    }
+    .execution-overlay__pulse {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: #5cb5ff;
+      box-shadow: 0 0 0 0 rgba(92, 181, 255, 0.36);
+      flex: 0 0 auto;
+      animation: overlayPulse 1.8s ease-in-out infinite;
+    }
+    .execution-overlay--paused .execution-overlay__pulse {
+      background: #ffd75a;
+      box-shadow: none;
+      animation-duration: 2.4s;
+    }
+    .execution-overlay--stopping .execution-overlay__pulse {
+      background: #ff8b8b;
+      animation-duration: 1.2s;
+    }
+    .execution-overlay__body {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .execution-overlay__eyebrow {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: rgba(114, 241, 184, 0.92);
+    }
+    .execution-overlay__title {
+      font-size: 0.96rem;
+      color: #f2fff9;
+      line-height: 1.2;
+    }
+    .execution-overlay__message {
+      margin: 0;
+      min-height: 2.8em;
+      color: rgba(255, 255, 255, 0.78);
+      line-height: 1.4;
+    }
+    .execution-overlay__elapsed {
+      align-self: flex-start;
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 0.8rem;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      flex: 0 0 auto;
     }
     .graph-links {
       position: absolute;
@@ -960,6 +1162,16 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         transform: translateY(0) scale(1);
       }
     }
+    @keyframes overlayPulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(92, 181, 255, 0.34);
+      }
+      60% {
+        transform: scale(1.08);
+        box-shadow: 0 0 0 12px rgba(92, 181, 255, 0.02);
+      }
+    }
     @media (max-width: 1160px) {
       .layout {
         grid-template-columns: 1fr;
@@ -997,6 +1209,12 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       .graph-links--mobile {
         display: block;
       }
+      .execution-overlay {
+        left: 10px;
+        right: 10px;
+        top: 10px;
+        max-width: none;
+      }
       ${buildPhasePositionCss(mobilePhasePositions)}
       ${buildPhaseActionPositionCss(mobilePhasePositions, mobilePhaseNodeWidth)}
     }
@@ -1032,6 +1250,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         <h2 class="panel-title">Workflow Constellation</h2>
         <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and audit context.</p>
         <div class="graph-stage">
+          ${executionOverlay}
           ${phaseGraph}
         </div>
       </aside>
@@ -1097,6 +1316,59 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           answers
         });
       });
+    }
+
+    const executionOverlay = document.querySelector("[data-execution-overlay]");
+    if (executionOverlay) {
+      const messageElement = executionOverlay.querySelector("[data-execution-message]");
+      const elapsedElement = executionOverlay.querySelector("[data-execution-elapsed]");
+      const messageCatalog = JSON.parse(executionOverlay.dataset.messages ?? "[]");
+      const shuffledMessages = shuffleMessages(messageCatalog);
+      let messageIndex = 0;
+      let startedAt = Date.now();
+
+      if (messageElement && shuffledMessages.length > 0) {
+        messageElement.textContent = shuffledMessages[0];
+      }
+
+      if (elapsedElement) {
+        elapsedElement.textContent = "00:00";
+      }
+
+      if (messageElement && shuffledMessages.length > 1) {
+        window.setInterval(() => {
+          messageIndex = (messageIndex + 1) % shuffledMessages.length;
+          if (messageIndex === 0) {
+            const reshuffled = shuffleMessages(messageCatalog);
+            shuffledMessages.splice(0, shuffledMessages.length, ...reshuffled);
+          }
+          messageElement.textContent = shuffledMessages[messageIndex];
+        }, 3800);
+      }
+
+      if (elapsedElement) {
+        window.setInterval(() => {
+          elapsedElement.textContent = formatOverlayElapsed(Date.now() - startedAt);
+        }, 1000);
+      }
+    }
+
+    function shuffleMessages(messages) {
+      const pool = [...messages];
+      for (let index = pool.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        const current = pool[index];
+        pool[index] = pool[swapIndex];
+        pool[swapIndex] = current;
+      }
+      return pool;
+    }
+
+    function formatOverlayElapsed(durationMs) {
+      const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
+      const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+      const seconds = String(totalSeconds % 60).padStart(2, "0");
+      return minutes + ":" + seconds;
     }
   </script>
 </body>
