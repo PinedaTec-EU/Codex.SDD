@@ -6,6 +6,7 @@ import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSet
 import { DEFAULT_USER_STORY_CATEGORIES, nextUserStoryIdFromSummaries, parseYamlSequence } from "./explorerModel";
 import { getOrCreateBackendClient } from "./specsExplorer";
 import { buildSidebarHtml } from "./sidebarViewContent";
+import { readUserWorkspacePreferences, setStarredUserStory } from "./userWorkspacePreferences";
 
 type SidebarMessage =
   | { readonly command: "showCreateForm" }
@@ -14,6 +15,7 @@ type SidebarMessage =
   | { readonly command: "openSettings" }
   | { readonly command: "openPromptTemplates" }
   | { readonly command: "openWorkflow"; readonly usId?: string }
+  | { readonly command: "toggleStarredUserStory"; readonly usId?: string }
   | { readonly command: "deleteUserStory"; readonly usId?: string }
   | { readonly command: "submitCreateForm"; readonly title?: string; readonly kind?: string; readonly category?: string; readonly sourceText?: string };
 
@@ -72,6 +74,13 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         }
 
         await this.deleteUserStoryAsync(message.usId);
+        return;
+      case "toggleStarredUserStory":
+        if (!message.usId) {
+          return;
+        }
+
+        await this.toggleStarredUserStoryAsync(message.usId);
         return;
       case "initializeRepoPrompts":
         await this.runBusyActionAsync("Bootstrapping repo prompts...", async () => {
@@ -151,7 +160,23 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
     const summary = await getOrCreateBackendClient(workspaceRoot).getUserStorySummary(usId);
     await vscode.commands.executeCommand("specForge.deleteUserStory", summary);
+    const preferences = await readUserWorkspacePreferences(workspaceRoot);
+    if (preferences.starredUserStoryId === usId) {
+      await setStarredUserStory(workspaceRoot, null);
+    }
     await this.onDidCreateUserStory();
+  }
+
+  private async toggleStarredUserStoryAsync(usId: string): Promise<void> {
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+      return;
+    }
+
+    const preferences = await readUserWorkspacePreferences(workspaceRoot);
+    const nextStarredUserStoryId = preferences.starredUserStoryId === usId ? null : usId;
+    await setStarredUserStory(workspaceRoot, nextStarredUserStoryId);
+    await this.safeRenderAsync();
   }
 
   private async initializeRepoPromptsFromSidebarAsync(): Promise<void> {
@@ -195,6 +220,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         promptsInitialized: false,
         settingsConfigured: settingsStatus.executionConfigured,
         settingsMessage: settingsStatus.message,
+        starredUserStoryId: null,
         categories: [],
         userStories: []
       });
@@ -208,6 +234,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     const categories = await getUserStoryCategoriesAsync(workspaceRoot);
     const promptsInitialized = await hasInitializedRepoPromptsAsync(workspaceRoot);
     const settingsStatus = getSpecForgeSettingsStatus(getSpecForgeSettings());
+    const preferences = await readUserWorkspacePreferences(workspaceRoot);
     this.webviewView.webview.html = buildSidebarHtml({
       hasWorkspace: true,
       showCreateForm: this.showCreateForm,
@@ -215,6 +242,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       promptsInitialized,
       settingsConfigured: settingsStatus.executionConfigured,
       settingsMessage: settingsStatus.message,
+      starredUserStoryId: preferences.starredUserStoryId,
       categories,
       userStories
     });
@@ -235,6 +263,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         promptsInitialized: false,
         settingsConfigured: false,
         settingsMessage: "SpecForge.AI settings could not be evaluated.",
+        starredUserStoryId: null,
         categories: [],
         userStories: []
       });

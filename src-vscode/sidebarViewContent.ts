@@ -7,6 +7,7 @@ export interface SidebarViewModel {
   readonly promptsInitialized: boolean;
   readonly settingsConfigured: boolean;
   readonly settingsMessage: string | null;
+  readonly starredUserStoryId: string | null;
   readonly categories: readonly string[];
   readonly userStories: readonly UserStorySummary[];
 }
@@ -74,6 +75,14 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
               <strong>${escapeHtml(summary.title)}</strong>
               <span class="story-card__meta">${escapeHtml(summary.currentPhase)} · ${escapeHtml(summary.status)}</span>
             </span>
+          </button>
+          <button
+            class="icon-action story-star${model.starredUserStoryId === summary.usId ? " story-star--active" : ""}"
+            data-command="toggleStarredUserStory"
+            data-us-id="${escapeHtmlAttr(summary.usId)}"
+            title="${escapeHtmlAttr(model.starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}"
+            aria-label="${escapeHtmlAttr(model.starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}">
+            <span aria-hidden="true">${model.starredUserStoryId === summary.usId ? "★" : "☆"}</span>
           </button>
           <button
             class="icon-action icon-action--danger story-delete"
@@ -471,7 +480,7 @@ function wrapHtml(content: string, busy: boolean): string {
     }
     .story-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) auto auto;
       gap: 8px;
       align-items: stretch;
     }
@@ -543,6 +552,15 @@ function wrapHtml(content: string, busy: boolean): string {
     }
     .story-delete {
       align-self: center;
+    }
+    .story-star {
+      align-self: center;
+    }
+    .story-star--active {
+      color: #ffd75a;
+      border-color: rgba(255, 213, 90, 0.28);
+      background: linear-gradient(180deg, rgba(96, 73, 16, 0.96), rgba(44, 30, 6, 0.98));
+      box-shadow: 0 0 0 1px rgba(255, 213, 90, 0.06);
     }
     .story-card__id {
       font-family: ui-monospace, "SF Mono", Menlo, monospace;

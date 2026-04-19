@@ -41,6 +41,7 @@ const extensionSettings_1 = require("./extensionSettings");
 const explorerModel_1 = require("./explorerModel");
 const specsExplorer_1 = require("./specsExplorer");
 const sidebarViewContent_1 = require("./sidebarViewContent");
+const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
 class SidebarViewProvider {
     extensionUri;
     onDidCreateUserStory;
@@ -89,6 +90,12 @@ class SidebarViewProvider {
                     return;
                 }
                 await this.deleteUserStoryAsync(message.usId);
+                return;
+            case "toggleStarredUserStory":
+                if (!message.usId) {
+                    return;
+                }
+                await this.toggleStarredUserStoryAsync(message.usId);
                 return;
             case "initializeRepoPrompts":
                 await this.runBusyActionAsync("Bootstrapping repo prompts...", async () => {
@@ -159,7 +166,21 @@ class SidebarViewProvider {
         }
         const summary = await (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot).getUserStorySummary(usId);
         await vscode.commands.executeCommand("specForge.deleteUserStory", summary);
+        const preferences = await (0, userWorkspacePreferences_1.readUserWorkspacePreferences)(workspaceRoot);
+        if (preferences.starredUserStoryId === usId) {
+            await (0, userWorkspacePreferences_1.setStarredUserStory)(workspaceRoot, null);
+        }
         await this.onDidCreateUserStory();
+    }
+    async toggleStarredUserStoryAsync(usId) {
+        const workspaceRoot = getWorkspaceRoot();
+        if (!workspaceRoot) {
+            return;
+        }
+        const preferences = await (0, userWorkspacePreferences_1.readUserWorkspacePreferences)(workspaceRoot);
+        const nextStarredUserStoryId = preferences.starredUserStoryId === usId ? null : usId;
+        await (0, userWorkspacePreferences_1.setStarredUserStory)(workspaceRoot, nextStarredUserStoryId);
+        await this.safeRenderAsync();
     }
     async initializeRepoPromptsFromSidebarAsync() {
         const workspaceRoot = getWorkspaceRoot();
@@ -192,6 +213,7 @@ class SidebarViewProvider {
                 promptsInitialized: false,
                 settingsConfigured: settingsStatus.executionConfigured,
                 settingsMessage: settingsStatus.message,
+                starredUserStoryId: null,
                 categories: [],
                 userStories: []
             });
@@ -204,6 +226,7 @@ class SidebarViewProvider {
         const categories = await getUserStoryCategoriesAsync(workspaceRoot);
         const promptsInitialized = await hasInitializedRepoPromptsAsync(workspaceRoot);
         const settingsStatus = (0, extensionSettings_1.getSpecForgeSettingsStatus)((0, extensionSettings_1.getSpecForgeSettings)());
+        const preferences = await (0, userWorkspacePreferences_1.readUserWorkspacePreferences)(workspaceRoot);
         this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
             hasWorkspace: true,
             showCreateForm: this.showCreateForm,
@@ -211,6 +234,7 @@ class SidebarViewProvider {
             promptsInitialized,
             settingsConfigured: settingsStatus.executionConfigured,
             settingsMessage: settingsStatus.message,
+            starredUserStoryId: preferences.starredUserStoryId,
             categories,
             userStories
         });
@@ -230,6 +254,7 @@ class SidebarViewProvider {
                 promptsInitialized: false,
                 settingsConfigured: false,
                 settingsMessage: "SpecForge.AI settings could not be evaluated.",
+                starredUserStoryId: null,
                 categories: [],
                 userStories: []
             });

@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import * as fs from "node:fs";
 import { showUserStoryDetails } from "./detailsPanel";
 import { activateExtension, deactivateExtension, type ExtensionActions, type ExtensionHost } from "./extensionRuntime";
 import { getSpecForgeSettings } from "./extensionSettings";
@@ -21,6 +22,7 @@ import {
   requestRegression,
   deleteUserStory
 } from "./specsExplorer";
+import { getUserWorkspacePreferencesPath, readUserWorkspacePreferences, setStarredUserStory } from "./userWorkspacePreferences";
 
 let previousAttentionSnapshot = new Map<string, string>();
 
@@ -54,6 +56,8 @@ export function activate(context: vscode.ExtensionContext): void {
       void refreshWorkspaceUiAsync();
     })
   );
+
+  void autoOpenStarredUserStoryAsync();
 }
 
 export function deactivate(): void {
@@ -180,4 +184,50 @@ function createWorkspaceWatcher(onChange: () => Promise<void>): vscode.Disposabl
       disposable.dispose();
     }
   });
+}
+
+async function autoOpenStarredUserStoryAsync(): Promise<void> {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceRoot) {
+    return;
+  }
+
+  const preferences = await readUserWorkspacePreferences(workspaceRoot);
+  if (!preferences.starredUserStoryId) {
+    return;
+  }
+
+  try {
+    const summary = await getOrCreateBackendClient(workspaceRoot).getUserStorySummary(preferences.starredUserStoryId);
+    await openWorkflowView(
+      workspaceRoot,
+      summary,
+      () => getOrCreateBackendClient(workspaceRoot),
+      {
+        refreshExplorer: async () => {
+          await vscode.commands.executeCommand("specForge.refreshUserStories");
+          await notifyAttentionChangesAsync();
+        },
+        notifyAttention: (message) => {
+          if (getSpecForgeSettings().attentionNotificationsEnabled) {
+            void vscode.window.showInformationMessage(message);
+          }
+        },
+        stopBackend: (root) => {
+          resetBackendClient(root);
+        }
+      }
+    );
+  } catch {
+    await clearMissingStarredUserStoryAsync(workspaceRoot);
+  }
+}
+
+async function clearMissingStarredUserStoryAsync(workspaceRoot: string): Promise<void> {
+  await setStarredUserStory(workspaceRoot, null);
+  try {
+    await fs.promises.rm(getUserWorkspacePreferencesPath(workspaceRoot), { force: true });
+  } catch {
+    // Best effort cleanup only.
+  }
 }

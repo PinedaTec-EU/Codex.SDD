@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
+const fs = __importStar(require("node:fs"));
 const detailsPanel_1 = require("./detailsPanel");
 const extensionRuntime_1 = require("./extensionRuntime");
 const extensionSettings_1 = require("./extensionSettings");
@@ -43,6 +44,7 @@ const outputChannel_1 = require("./outputChannel");
 const workflowPanel_1 = require("./workflowPanel");
 const sidebarView_1 = require("./sidebarView");
 const specsExplorer_1 = require("./specsExplorer");
+const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
 let previousAttentionSnapshot = new Map();
 function activate(context) {
     (0, specsExplorer_1.configureBackendHostRoot)(context.extensionUri.fsPath);
@@ -67,6 +69,7 @@ function activate(context) {
         }
         void refreshWorkspaceUiAsync();
     }));
+    void autoOpenStarredUserStoryAsync();
 }
 function deactivate() {
     (0, extensionRuntime_1.deactivateExtension)({
@@ -173,5 +176,44 @@ function createWorkspaceWatcher(onChange) {
             disposable.dispose();
         }
     });
+}
+async function autoOpenStarredUserStoryAsync() {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+        return;
+    }
+    const preferences = await (0, userWorkspacePreferences_1.readUserWorkspacePreferences)(workspaceRoot);
+    if (!preferences.starredUserStoryId) {
+        return;
+    }
+    try {
+        const summary = await (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot).getUserStorySummary(preferences.starredUserStoryId);
+        await (0, workflowPanel_1.openWorkflowView)(workspaceRoot, summary, () => (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot), {
+            refreshExplorer: async () => {
+                await vscode.commands.executeCommand("specForge.refreshUserStories");
+                await notifyAttentionChangesAsync();
+            },
+            notifyAttention: (message) => {
+                if ((0, extensionSettings_1.getSpecForgeSettings)().attentionNotificationsEnabled) {
+                    void vscode.window.showInformationMessage(message);
+                }
+            },
+            stopBackend: (root) => {
+                (0, specsExplorer_1.resetBackendClient)(root);
+            }
+        });
+    }
+    catch {
+        await clearMissingStarredUserStoryAsync(workspaceRoot);
+    }
+}
+async function clearMissingStarredUserStoryAsync(workspaceRoot) {
+    await (0, userWorkspacePreferences_1.setStarredUserStory)(workspaceRoot, null);
+    try {
+        await fs.promises.rm((0, userWorkspacePreferences_1.getUserWorkspacePreferencesPath)(workspaceRoot), { force: true });
+    }
+    catch {
+        // Best effort cleanup only.
+    }
 }
 //# sourceMappingURL=extension.js.map

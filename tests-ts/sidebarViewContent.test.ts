@@ -10,6 +10,7 @@ test("buildSidebarHtml shows the bootstrap block when prompts are missing before
     promptsInitialized: false,
     settingsConfigured: true,
     settingsMessage: null,
+    starredUserStoryId: null,
     categories: ["workflow", "ux"],
     userStories: []
   });
@@ -29,6 +30,7 @@ test("buildSidebarHtml shows a single prominent create action when prompts are i
     promptsInitialized: true,
     settingsConfigured: true,
     settingsMessage: null,
+    starredUserStoryId: null,
     categories: ["workflow", "ux"],
     userStories: []
   });
@@ -48,6 +50,7 @@ test("buildSidebarHtml renders the embedded creation form inside the sidebar", (
     promptsInitialized: true,
     settingsConfigured: true,
     settingsMessage: null,
+    starredUserStoryId: null,
     categories: ["workflow", "ux"],
     userStories: []
   });
@@ -66,6 +69,7 @@ test("buildSidebarHtml exposes a compact prompt reset action when repo prompts a
     promptsInitialized: true,
     settingsConfigured: true,
     settingsMessage: null,
+    starredUserStoryId: null,
     categories: ["workflow"],
     userStories: [{
       usId: "US-0001",
@@ -93,6 +97,7 @@ test("buildSidebarHtml uses compact actions instead of a separate create card wh
     promptsInitialized: true,
     settingsConfigured: true,
     settingsMessage: null,
+    starredUserStoryId: null,
     categories: ["workflow"],
     userStories: [{
       usId: "US-0001",
@@ -108,6 +113,7 @@ test("buildSidebarHtml uses compact actions instead of a separate create card wh
 
   assert.match(html, /compact-actions/);
   assert.match(html, /aria-label="Create new user story"/);
+  assert.match(html, /aria-label="Star US-0001"/);
   assert.match(html, /aria-label="Delete US-0001"/);
   assert.match(html, /story-card--active story-card--phase-refinement/);
   assert.match(html, /story-card__phase-number">3</);
@@ -123,6 +129,7 @@ test("buildSidebarHtml keeps the phase rail for user stories that are still in p
     promptsInitialized: true,
     settingsConfigured: true,
     settingsMessage: null,
+    starredUserStoryId: null,
     categories: ["workflow"],
     userStories: [{
       usId: "US-0002",
@@ -148,6 +155,7 @@ test("buildSidebarHtml hides the phase rail for completed user stories", () => {
     promptsInitialized: true,
     settingsConfigured: true,
     settingsMessage: null,
+    starredUserStoryId: null,
     categories: ["workflow"],
     userStories: [{
       usId: "US-0003",
@@ -173,6 +181,7 @@ test("buildSidebarHtml shows a bootstrap block above the backlog when prompts ar
     promptsInitialized: false,
     settingsConfigured: true,
     settingsMessage: null,
+    starredUserStoryId: null,
     categories: ["workflow"],
     userStories: [{
       usId: "US-0001",
@@ -199,6 +208,7 @@ test("buildSidebarHtml exposes a visible settings warning when execution is not 
     promptsInitialized: false,
     settingsConfigured: false,
     settingsMessage: "SpecForge.AI is not configured for the current provider. Missing base URL, API key, model.",
+    starredUserStoryId: null,
     categories: [],
     userStories: []
   });
@@ -217,6 +227,7 @@ test("buildSidebarHtml surfaces the model warning when the deterministic fallbac
     promptsInitialized: false,
     settingsConfigured: false,
     settingsMessage: "SpecForge.AI needs an SLM/LLM execution provider before workflow stages can run. Select an OpenAI-compatible provider and configure base URL, API key, and model.",
+    starredUserStoryId: null,
     categories: [],
     userStories: [{
       usId: "US-0001",
@@ -242,6 +253,7 @@ test("buildSidebarHtml shows a busy indicator and disables actions while a sideb
     promptsInitialized: false,
     settingsConfigured: true,
     settingsMessage: null,
+    starredUserStoryId: null,
     categories: ["workflow"],
     userStories: []
   });
@@ -249,4 +261,31 @@ test("buildSidebarHtml shows a busy indicator and disables actions while a sideb
   assert.match(html, /Working/);
   assert.match(html, /Bootstrapping repo prompts\.\.\./);
   assert.match(html, /const busy = true/);
+});
+
+test("buildSidebarHtml marks the starred user story with a highlighted star action", () => {
+  const html = buildSidebarHtml({
+    hasWorkspace: true,
+    showCreateForm: false,
+    busyMessage: null,
+    promptsInitialized: true,
+    settingsConfigured: true,
+    settingsMessage: null,
+    starredUserStoryId: "US-0009",
+    categories: ["workflow"],
+    userStories: [{
+      usId: "US-0009",
+      title: "Pinned workflow",
+      category: "workflow",
+      currentPhase: "implementation",
+      status: "active",
+      mainArtifactPath: "/tmp/us.md",
+      directoryPath: "/tmp/us.US-0009",
+      workBranch: null
+    }]
+  });
+
+  assert.match(html, /story-star--active/);
+  assert.match(html, /aria-label="Unstar US-0009"/);
+  assert.match(html, />★</);
 });

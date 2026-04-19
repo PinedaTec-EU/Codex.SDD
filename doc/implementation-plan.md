@@ -178,6 +178,7 @@ Incluye en el MVP:
 - ✅ visibilidad inicial centrada en US/workflows activos en la sidebar y vistas principales
 - ✅ acceso desde la workflow view a los prompts asociados de la fase seleccionada
 - ✅ anexos de archivos en la workflow view reutilizados como contexto runtime de la US
+- ✅ starred por usuario sobre una US con persistencia en disco y autoapertura al reabrir VS Code
 
 No bloquea el MVP:
 
@@ -218,6 +219,7 @@ Subtareas recién resueltas:
 - ✅ fijar que el foco inicial de la UX esté en las US activas; el histórico y la búsqueda quedan post-MVP
 - ✅ permitir adjuntar ficheros a una US desde la workflow view y abrirlos desde esa misma pantalla
 - ✅ exponer botones para abrir los prompts `execute` y `approve` de la fase seleccionada cuando existan
+- ✅ permitir marcar una US como `starred` por usuario y reabrirla automáticamente en modo visual al volver al workspace
 - [ ] completar inspección/edición rica de prompts desde la extensión con diff o prompt efectivo visible
 
 Subtareas pendientes de cerrar antes de considerar el MVP completo:

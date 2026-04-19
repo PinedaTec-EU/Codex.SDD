@@ -184,6 +184,8 @@ The extension currently provides:
 - a sidebar webview with embedded user-story intake
 - a single high-contrast `Create User Story` empty state in the sidebar
 - a compact header action in the sidebar to initialize or reinitialize `.specs/prompts/`
+- per-user starred user stories persisted on disk inside the workspace
+- automatic reopening of the starred user story in workflow view for the same local user
 - a default navigation focus on active user stories and active workflows
 - a workflow webview opened directly from a user story click
 - per-phase detail inside the workflow view with artifact preview
@@ -261,6 +263,14 @@ Typical contents:
     04-review.md
 ```
 
+Per-user VS Code workspace preferences are stored separately:
+
+```text
+.specs/users/<local-user>/vscode-preferences.json
+```
+
+This preference file currently stores the starred user story that should reopen automatically for that same developer. It is ignored by git by default, so several developers can share the same workspace without overwriting each other's VS Code UX state.
+
 ## Roadmap
 
 ### Phase 1 foundation
@@ -291,6 +301,7 @@ Typical contents:
 - [x] add extension settings for provider connection and watcher behavior
 - [x] add watcher-driven refresh, attention notifications, and playback controls with best-effort stop
 - [x] keep the default navigation focused on active user stories and workflows for the MVP
+- [x] persist a per-user starred user story on disk and autoopen it when reopening the workspace
 - [ ] finalize richer branch lifecycle rules and Git/PR metadata
 - [x] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration
@@ -311,6 +322,7 @@ The current target is an MVP, not a feature-complete product.
 - [x] support repo-initialized prompts and an OpenAI-compatible provider path
 - [x] support explicit regression to an earlier valid phase
 - [x] support safe restart from the original source
+- [x] support per-user starred user stories with automatic reopening
 
 ### Post-MVP
 
