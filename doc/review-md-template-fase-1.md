@@ -1,69 +1,69 @@
-# SpecForge · Plantilla `04-review.md` fase 1
+# SpecForge · `04-review.md` template phase 1
 
-## Objetivo
+## Goal
 
-Definir la plantilla de review como artefacto de validación final antes de aprobación humana de release.
+Define the review template as the final validation artifact before human release approval.
 
-## Principios
+## Principles
 
-- debe ser clara y accionable
-- debe priorizar findings y veredicto
-- debe referenciar US, refinement, diseño e implementación
-- no debe esconder riesgos residuales
+- it must be clear and actionable
+- it must prioritize findings and verdict
+- it must reference the user story, refinement, design, and implementation
+- it must not hide residual risks
 
-## Plantilla propuesta
+## Proposed Template
 
 ```md
 # Review · US-0001 · v01
 
-## Estado
-- Resultado: `pass` | `fail`
-- Basado en:
+## State
+- Result: `pass` | `fail`
+- Based on:
   - `us.md`
   - `01-refinement.md`
   - `02-technical-design.md`
   - `03-implementation.md`
 
-## Resumen
-Conclusión breve de la revisión.
+## Summary
+Short review conclusion.
 
-## Verificaciones realizadas
-- [ ] Cumple la US
-- [ ] Cumple el refinement
-- [ ] Respeta el diseño técnico
-- [ ] Respeta restricciones del repo
-- [ ] Tiene validación suficiente
+## Checks Performed
+- [ ] Matches the user story
+- [ ] Matches the refinement
+- [ ] Respects the technical design
+- [ ] Respects repository constraints
+- [ ] Has sufficient validation
 
 ## Findings
 ### Finding 1
-- Severidad: `high` | `medium` | `low`
-- Tipo: `functional` | `technical` | `process`
-- Descripción: ...
-- Evidencia: ...
-- Fase objetivo de corrección: `refinement` | `technical_design` | `implementation`
+- Severity: `high` | `medium` | `low`
+- Type: `functional` | `technical` | `process`
+- Description: ...
+- Evidence: ...
+- Target correction phase: `refinement` | `technical_design` | `implementation`
 
 ### Finding 2
-- Severidad: ...
-- Tipo: ...
-- Descripción: ...
-- Evidencia: ...
-- Fase objetivo de corrección: ...
+- Severity: ...
+- Type: ...
+- Description: ...
+- Evidence: ...
+- Target correction phase: ...
 
-## Riesgos residuales
+## Residual Risks
 - ...
 - ...
 
-## Veredicto
-- Resultado final: `pass` | `fail`
-- Motivo principal: ...
+## Verdict
+- Final result: `pass` | `fail`
+- Primary reason: ...
 
-## Recomendación
-- Si `pass`: avanzar a `release_approval`
-- Si `fail`: regresar a `<fase>`
+## Recommendation
+- If `pass`: advance to `release_approval`
+- If `fail`: regress to `<phase>`
 ```
 
-## Notas de uso
+## Usage Notes
 
-- los findings deben ser estructurados y no ambiguos
-- si la review falla, debe quedar clara la fase objetivo de regresión
-- si pasa, debe quedar preparado el salto a `release_approval`
+- findings must be structured and unambiguous
+- if the review fails, the target regression phase must be clear
+- if it passes, the jump to `release_approval` must be ready

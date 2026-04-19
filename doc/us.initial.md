@@ -1,48 +1,48 @@
-# SpecForge · US inicial
+# SpecForge · Initial user story
 
-Esta US define la intención de producto para SpecForge y referencia los artefactos SDD que concretan su alcance.
+This user story defines the product intent for SpecForge and references the SDD artifacts that make its scope concrete.
 
-## Objetivo
+## Objective
 
-Construir una herramienta para VS Code que gobierne workflows SDD asistidos por IA con:
+Build a VS Code tool that governs AI-assisted SDD workflows with:
 
-- persistencia en repo
-- checkpoints humanos
-- trazabilidad por fases
-- regresión controlada
-- métricas operativas
+- repository persistence
+- human checkpoints
+- per-phase traceability
+- controlled regression
+- operational metrics
 
-## Artefactos derivados
+## Derived Artifacts
 
-- [Visión de producto](./product-vision.md)
-- [Arquitectura objetivo](./architecture.md)
-- [Modelo de dominio inicial](./domain-model.md)
-- [Plan de implementación](./implementation-plan.md)
+- [Product vision](./product-vision.md)
+- [Target architecture](./architecture.md)
+- [Initial domain model](./domain-model.md)
+- [Implementation plan](./implementation-plan.md)
 
-## Estado de la US
+## User Story State
 
-- Estado: `draft`
-- Prioridad: `alta`
-- Tipo: `foundation`
-- Fuente principal de verdad: esta carpeta `doc/`
+- State: `draft`
+- Priority: `high`
+- Type: `foundation`
+- Primary source of truth: this `doc/` folder
 
-## Decisión de trabajo actual
+## Current Working Decision
 
-Esta US ya no intenta describir todo en un único fichero. El trabajo se divide en:
+This user story no longer tries to describe everything in a single file. The work is split into:
 
-1. visión y valor de producto
-2. arquitectura y límites de componentes
-3. dominio mínimo ejecutable
-4. plan incremental de construcción
+1. product vision and value
+2. architecture and component boundaries
+3. minimum executable domain
+4. incremental implementation plan
 
-## Criterios de aceptación de esta concreción
+## Acceptance Criteria For This Definition
 
-- La visión de producto queda separada de la solución técnica.
-- La arquitectura define responsabilidades y límites explícitos.
-- El dominio inicial contiene solo el núcleo necesario para fase 1.
-- El plan siguiente prioriza un workflow canónico antes de personalización avanzada.
+- Product vision is separated from the technical solution.
+- Architecture defines explicit responsibilities and boundaries.
+- The initial domain contains only the core needed for phase 1.
+- The next plan prioritizes a canonical workflow before advanced customization.
 
-## Notas
+## Notes
 
-- La persistencia en repo sigue siendo un principio central.
-- La personalización de workflows y la ejecución paralela permanecen como capacidades futuras, no como complejidad obligatoria de fase 1.
+- Repository persistence remains a central principle.
+- Workflow customization and parallel execution remain future capabilities, not mandatory phase-1 complexity.

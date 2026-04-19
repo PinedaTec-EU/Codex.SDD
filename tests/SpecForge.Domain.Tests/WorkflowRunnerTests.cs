@@ -77,8 +77,8 @@ public sealed class WorkflowRunnerTests : IDisposable
             "US-0001",
             [
                 "El analista funcional.",
-                "Recibe datos del formulario y debe producir una especificación refinada validable.",
-                "Debe quedar un objetivo claro y criterios de aceptación comprobables."
+                "It receives form data and must produce a refinement specification that can be validated.",
+                "A clear objective and verifiable acceptance criteria must remain."
             ]);
 
         Assert.Equal("clarification", answerResult.CurrentPhase);
@@ -180,7 +180,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
         await File.WriteAllTextAsync(
             paths.MainArtifactPath,
-            "# US-0001 · Test story\n\n## Objetivo\nUpdated source text\n\n## Alcance inicial\n- Incluye:\n  - restart flow");
+            "# US-0001 · Test story\n\n## Objective\nUpdated source text\n\n## Initial Scope\n- Includes:\n  - restart flow");
 
         var result = await runner.RestartUserStoryFromSourceAsync(
             workspaceRoot,

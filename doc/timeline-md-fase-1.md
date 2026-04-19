@@ -1,31 +1,31 @@
-# SpecForge · `timeline.md` fase 1
+# SpecForge · `timeline.md` phase 1
 
-## Objetivo
+## Goal
 
-Definir el formato de `timeline.md` como registro cronológico legible por humanos de la vida de una US.
+Define the `timeline.md` format as the human-readable chronological record of a user story lifecycle.
 
-## Propósito
+## Purpose
 
-`timeline.md` no sustituye a `state.yaml`. Su función es:
+`timeline.md` does not replace `state.yaml`. Its role is to:
 
-- dejar una traza auditable y fácil de leer
-- explicar por qué cambió el estado de la US
-- registrar decisiones, aprobaciones, regresiones e intervenciones
-- resumir eventos relevantes sin obligar a inspeccionar múltiples ficheros
+- leave an auditable and easy-to-read trail
+- explain why the user story state changed
+- record decisions, approvals, regressions, and interventions
+- summarize relevant events without forcing inspection of multiple files
 
-## Regla principal
+## Main Rule
 
-`timeline.md` registra hechos y contexto breve.
+`timeline.md` records facts and brief context.
 
-No debe duplicar:
+It must not duplicate:
 
-- el estado actual completo de `state.yaml`
-- metadatos Git completos de `branch.yaml`
-- contenido completo de artefactos de fase
+- the full current state from `state.yaml`
+- full Git metadata from `branch.yaml`
+- full contents of phase artifacts
 
-Debe referenciar esos artefactos cuando sea necesario.
+It should reference those artifacts when needed.
 
-## Ubicación
+## Location
 
 ```text
 .specs/
@@ -34,102 +34,102 @@ Debe referenciar esos artefactos cuando sea necesario.
       timeline.md
 ```
 
-## Estructura propuesta
+## Proposed Structure
 
 ```md
-# Timeline · US-0001 · Crear base SDD para SpecForge
+# Timeline · US-0001 · Create SDD foundation for SpecForge
 
-## Resumen
+## Summary
 
-- Estado actual: `waiting_user`
-- Fase actual: `refinement`
-- Rama activa: `sin crear`
-- Última actualización: `2026-04-18T10:30:00Z`
+- Current status: `waiting_user`
+- Current phase: `refinement`
+- Active branch: `not created`
+- Last updated: `2026-04-18T10:30:00Z`
 
-## Eventos
+## Events
 
 ### 2026-04-18T09:00:00Z · `us_created`
 
 - Actor: `system`
-- Fase: `capture`
-- Resumen: Se creó la US desde chat y se inicializaron `us.md` y `state.yaml`.
-- Artefactos:
+- Phase: `capture`
+- Summary: The user story was created from chat and `us.md` and `state.yaml` were initialized.
+- Artifacts:
   - `.specs/us/us.US-0001/us.md`
   - `.specs/us/us.US-0001/state.yaml`
 
 ### 2026-04-18T09:04:00Z · `phase_started`
 
 - Actor: `system`
-- Fase: `refinement`
-- Resumen: Se inició la generación del refinement.
+- Phase: `refinement`
+- Summary: Refinement generation started.
 
 ### 2026-04-18T09:06:00Z · `phase_completed`
 
 - Actor: `system`
-- Fase: `refinement`
-- Resumen: Refinement generado con evaluación `red-team` y reconstrucción `blue-team`.
-- Artefactos:
+- Phase: `refinement`
+- Summary: Refinement was generated with `red-team` evaluation and `blue-team` reconstruction.
+- Artifacts:
   - `.specs/us/us.US-0001/phases/01-refinement.md`
 
 ### 2026-04-18T09:10:00Z · `phase_approved`
 
 - Actor: `user`
-- Fase: `refinement_approval`
-- Resumen: El usuario aprobó el refinement y eligió `main` como rama base.
+- Phase: `refinement_approval`
+- Summary: The user approved the refinement and chose `main` as the base branch.
 
 ### 2026-04-18T09:11:00Z · `branch_created`
 
 - Actor: `system`
-- Fase: `refinement_approval`
-- Resumen: Se creó la rama `feature/us-0001-specforge-foundation`.
-- Artefactos:
+- Phase: `refinement_approval`
+- Summary: The branch `feature/us-0001-specforge-foundation` was created.
+- Artifacts:
   - `.specs/us/us.US-0001/branch.yaml`
 ```
 
-## Secciones
+## Sections
 
-### Cabecera
+### Header
 
-Debe contener:
+It must contain:
 
 - `usId`
-- título corto de la US
+- the user story short title
 
-### `Resumen`
+### `Summary`
 
-Debe reflejar solo una vista rápida:
+It should only reflect a quick view:
 
-- estado actual
-- fase actual
-- rama activa o ausencia de rama
-- timestamp de última actualización
+- current status
+- current phase
+- active branch or absence of a branch
+- last-update timestamp
 
-Esta sección puede reescribirse en cada cambio relevante.
+This section may be rewritten on each relevant change.
 
-### `Eventos`
+### `Events`
 
-Debe ser append-only a nivel semántico.
+It must be append-only at the semantic level.
 
-Cada evento se añade al final y representa un hecho ya ocurrido.
+Each event is added at the end and represents a fact that already happened.
 
-## Formato de un evento
+## Event Format
 
-Cada evento debe incluir:
+Each event must include:
 
-- timestamp ISO-8601 en UTC
-- código de evento
+- ISO-8601 UTC timestamp
+- event code
 - actor
-- fase asociada si aplica
-- resumen breve
+- associated phase when applicable
+- short summary
 
-Puede incluir opcionalmente:
+It may optionally include:
 
-- razón
-- evidencia
-- artefactos afectados
-- notas
+- reason
+- evidence
+- affected artifacts
+- notes
 
-## Eventos mínimos de fase 1
+## Minimum Phase-1 Events
 
 - `us_created`
 - `phase_started`
@@ -146,36 +146,36 @@ Puede incluir opcionalmente:
 - `us_restarted_from_source`
 - `pr_preparation_requested`
 
-## Estilo de redacción
+## Writing Style
 
-- frases cortas
-- lenguaje factual
-- sin narrativa larga
-- sin copiar el contenido de artefactos
-- enlazar por ruta cuando el detalle viva en otro fichero
+- short sentences
+- factual language
+- no long narrative
+- do not copy artifact contents
+- link by path when the detail lives in another file
 
-## Reglas de actualización
+## Update Rules
 
-- crear `timeline.md` en `capture`
-- añadir un evento por cada transición de fase relevante
-- añadir un evento por cada aprobación, regresión o intervención humana
-- actualizar `Resumen` cuando cambie el estado global, la fase actual o la rama activa
-- si una operación falla sin cambiar estado, solo registrar evento si aporta valor de auditoría
+- create `timeline.md` during `capture`
+- add one event for each relevant phase transition
+- add one event for each approval, regression, or human intervention
+- update `Summary` when global status, current phase, or active branch changes
+- if an operation fails without changing state, only record an event if it adds audit value
 
-## Cuándo no registrar un evento
+## When Not To Record An Event
 
-- relecturas internas sin efecto
-- validaciones idempotentes sin cambio observable
-- pasos técnicos de bajo nivel que no cambian la comprensión humana del flujo
+- internal rereads with no effect
+- idempotent validations with no observable change
+- low-level technical steps that do not change a human understanding of the flow
 
-## Relación con `state.yaml`
+## Relationship With `state.yaml`
 
-- `state.yaml` es la fuente estructurada de estado actual
-- `timeline.md` es la fuente legible de historia operativa
-- si hay discrepancia, prevalece `state.yaml`
+- `state.yaml` is the structured source of current state
+- `timeline.md` is the readable source of operational history
+- if they diverge, `state.yaml` wins
 
-## Decisiones abiertas
+## Open Decisions
 
-- si conviene limitar el tamaño del `Resumen`
-- si algunos errores técnicos repetitivos deberían agregarse en una sola entrada
-- si a futuro hará falta un `events.yaml` adicional para analítica más fina
+- whether the size of `Summary` should be limited
+- whether repeated technical errors should be aggregated into a single entry
+- whether an additional `events.yaml` will be needed later for finer analytics

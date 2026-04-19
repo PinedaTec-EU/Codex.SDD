@@ -72,7 +72,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
-        await File.WriteAllTextAsync(paths.MainArtifactPath, "# US-0001 · Story one\n\n## Objetivo\nUpdated source");
+        await File.WriteAllTextAsync(paths.MainArtifactPath, "# US-0001 · Story one\n\n## Objective\nUpdated source");
 
         var result = await applicationService.RestartUserStoryFromSourceAsync(
             workspaceRoot,

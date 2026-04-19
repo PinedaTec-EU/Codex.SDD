@@ -1,21 +1,21 @@
-# SpecForge · Contrato MCP fase 1
+# SpecForge · MCP contract phase 1
 
-## Objetivo
+## Goal
 
-Definir la interfaz mínima del backend MCP para ejecutar el workflow canónico de fase 1 sin mezclar detalles de implementación interna con la UX de la extensión.
+Define the minimum MCP backend interface required to execute the canonical phase-1 workflow without mixing internal implementation details with the extension UX.
 
-## Principios del contrato
+## Contract Principles
 
-- las tools operan sobre artefactos persistidos en repo
-- el MCP devuelve estado suficiente para que la extensión no tenga que inferir reglas de negocio
-- los errores de negocio deben ser explícitos y accionables
-- el contrato se alinea con `workflow-canonico-fase-1.md`, `state.yaml` y `branch.yaml`
-- el avance entre fases es estrictamente lineal; no existe salto arbitrario a una fase futura
+- tools operate on artifacts persisted in the repository
+- MCP returns enough state so the extension does not need to infer business rules
+- business errors must be explicit and actionable
+- the contract aligns with `workflow-canonico-fase-1.md`, `state.yaml`, and `branch.yaml`
+- phase advance is strictly linear; arbitrary jumps to future phases do not exist
 
-## Convenciones
+## Conventions
 
-- todos los identificadores de historia usan `usId`
-- las fases usan estos ids canónicos:
+- all user-story identifiers use `usId`
+- phases use these canonical ids:
   - `capture`
   - `refinement`
   - `refinement_approval`
@@ -24,13 +24,13 @@ Definir la interfaz mínima del backend MCP para ejecutar el workflow canónico 
   - `review`
   - `release_approval`
   - `pr_preparation`
-- las respuestas deben incluir al menos:
+- responses must include at least:
   - `usId`
   - `status`
   - `currentPhase`
   - `activeArtifacts`
 
-## Modelo base de respuesta
+## Base Response Model
 
 ```yaml
 usId: US-0001
@@ -42,27 +42,27 @@ activeArtifacts:
 messages:
   - code: refinement_generated
     level: info
-    text: Refinement generado y pendiente de aprobación
+    text: Refinement generated and pending approval
 ```
 
-## Tools mínimas
+## Minimum Tools
 
 ### `create_us_from_chat`
 
-Propósito:
+Purpose:
 
-- crear una US nueva desde texto libre
+- create a new user story from free text
 
-Input mínimo:
+Minimum input:
 
 ```yaml
-title: Crear base SDD para SpecForge
+title: Create SDD foundation for SpecForge
 sourceText: |
-  Quiero una herramienta para VS Code...
+  I want a VS Code tool...
 baseBranch: main
 ```
 
-Output mínimo:
+Minimum output:
 
 ```yaml
 usId: US-0001
@@ -74,32 +74,32 @@ createdArtifacts:
 messages:
   - code: us_created
     level: info
-    text: US creada correctamente
+    text: User story created successfully
 ```
 
-Errores de negocio:
+Business errors:
 
 - `invalid_source_text`
 - `us_storage_conflict`
 
 ### `import_us_from_markdown`
 
-Propósito:
+Purpose:
 
-- adoptar un markdown existente como fuente inicial de una US
+- adopt an existing markdown file as the initial source of a user story
 
-Input mínimo:
+Minimum input:
 
 ```yaml
 sourcePath: /repo/doc/input/specforge-us.md
 baseBranch: main
 ```
 
-Output mínimo:
+Minimum output:
 
-- mismo shape que `create_us_from_chat`
+- same shape as `create_us_from_chat`
 
-Errores de negocio:
+Business errors:
 
 - `source_file_not_found`
 - `invalid_markdown_source`
@@ -107,11 +107,11 @@ Errores de negocio:
 
 ### `list_user_stories`
 
-Propósito:
+Purpose:
 
-- listar USs conocidas con su estado resumido
+- list known user stories with their summarized state
 
-Input mínimo:
+Minimum input:
 
 ```yaml
 filter:
@@ -120,12 +120,12 @@ filter:
     - waiting_user
 ```
 
-Output mínimo:
+Minimum output:
 
 ```yaml
 items:
   - usId: US-0001
-    title: Crear base SDD para SpecForge
+    title: Create SDD foundation for SpecForge
     status: waiting_user
     currentPhase: refinement
     updatedAt: 2026-04-18T09:30:00Z
@@ -133,17 +133,17 @@ items:
 
 ### `get_user_story_summary`
 
-Propósito:
+Purpose:
 
-- recuperar el resumen operativo de una US
+- retrieve the operational summary of a user story
 
-Input mínimo:
+Minimum input:
 
 ```yaml
 usId: US-0001
 ```
 
-Output mínimo:
+Minimum output:
 
 ```yaml
 usId: US-0001
@@ -163,23 +163,23 @@ metrics:
   manualInterventionCount: 0
 ```
 
-Errores de negocio:
+Business errors:
 
 - `us_not_found`
 
 ### `get_current_phase`
 
-Propósito:
+Purpose:
 
-- recuperar la fase actual y su capacidad de avance
+- retrieve the current phase and whether it can advance
 
-Input mínimo:
+Minimum input:
 
 ```yaml
 usId: US-0001
 ```
 
-Output mínimo:
+Minimum output:
 
 ```yaml
 usId: US-0001
@@ -190,23 +190,23 @@ requiresApproval: true
 blockingReason: refinement_pending_user_approval
 ```
 
-Errores de negocio:
+Business errors:
 
 - `us_not_found`
 
 ### `get_user_story_runtime_status`
 
-Propósito:
+Purpose:
 
-- consultar el estado runtime persistido de una US para saber si una ejecución larga sigue viva o si quedó fallida
+- inspect the persisted runtime state of a user story to determine whether a long-running execution is still alive or failed
 
-Input mínimo:
+Minimum input:
 
 ```yaml
 usId: US-0001
 ```
 
-Output mínimo:
+Minimum output:
 
 ```yaml
 usId: US-0001
@@ -221,26 +221,26 @@ message: Running 'generate-next-phase'.
 isStale: false
 ```
 
-Notas:
+Notes:
 
-- cuando `status = running` e `isStale = false`, el cliente no debe lanzar otro `generate_next_phase` sobre la misma US
-- cuando `status = failed`, el cliente puede inspeccionar `message` y decidir si reintenta
-- cuando `status = idle`, el cliente debe combinar esta respuesta con `get_current_phase` o `get_user_story_workflow` para saber qué hacer a continuación
+- when `status = running` and `isStale = false`, the client must not launch another `generate_next_phase` for the same user story
+- when `status = failed`, the client may inspect `message` and decide whether to retry
+- when `status = idle`, the client should combine this response with `get_current_phase` or `get_user_story_workflow` to decide what to do next
 
 ### `generate_next_phase`
 
-Propósito:
+Purpose:
 
-- ejecutar únicamente la siguiente transición lineal válida del workflow
+- execute only the next valid linear workflow transition
 
-Input mínimo:
+Minimum input:
 
 ```yaml
 usId: US-0001
 requestedBy: user
 ```
 
-Output mínimo:
+Minimum output:
 
 ```yaml
 usId: US-0001
@@ -250,10 +250,10 @@ generatedArtifact: .specs/us/us.US-0001/phases/01-refinement.md
 messages:
   - code: refinement_generated
     level: info
-    text: Refinement generado con evaluación red-team y blue-team
+    text: Refinement generated with red-team evaluation and blue-team reconstruction
 ```
 
-Errores de negocio:
+Business errors:
 
 - `us_not_found`
 - `phase_transition_not_allowed`
@@ -264,11 +264,11 @@ Errores de negocio:
 
 ### `approve_phase`
 
-Propósito:
+Purpose:
 
-- aprobar un checkpoint y desbloquear la transición siguiente
+- approve a checkpoint and unlock the next transition
 
-Input mínimo:
+Minimum input:
 
 ```yaml
 usId: US-0001
@@ -277,13 +277,13 @@ approvedBy: user
 baseBranch: main
 ```
 
-Notas:
+Notes:
 
-- `baseBranch` es obligatorio cuando la aprobación ejecuta `refinement_approval`, porque en ese momento se crea la rama de trabajo
-- en el resto de checkpoints `baseBranch` es opcional o no aplicable
-- en fase 1, la creación de rama queda integrada en esta operación y no se expone como tool separada
+- `baseBranch` is required when the approval executes `refinement_approval`, because that is when the work branch is created
+- for other checkpoints `baseBranch` is optional or not applicable
+- in phase 1, branch creation is integrated into this operation and is not exposed as a separate tool
 
-Output mínimo:
+Minimum output:
 
 ```yaml
 usId: US-0001
@@ -295,10 +295,10 @@ branch:
 messages:
   - code: phase_approved
     level: info
-    text: Fase aprobada y workflow avanzado
+    text: Phase approved and workflow advanced
 ```
 
-Errores de negocio:
+Business errors:
 
 - `us_not_found`
 - `phase_not_approvable`
@@ -307,20 +307,20 @@ Errores de negocio:
 
 ### `request_regression`
 
-Propósito:
+Purpose:
 
-- forzar una regresión explícita a una fase válida
+- force an explicit regression to a valid phase
 
-Input mínimo:
+Minimum input:
 
 ```yaml
 usId: US-0001
 targetPhaseId: technical_design
-reason: Review detecta desacoplamiento insuficiente
+reason: Review detected insufficient decoupling
 requestedBy: user
 ```
 
-Output mínimo:
+Minimum output:
 
 ```yaml
 usId: US-0001
@@ -329,10 +329,10 @@ currentPhase: technical_design
 messages:
   - code: phase_regressed
     level: warning
-    text: Workflow regresado a technical_design
+    text: Workflow regressed to technical_design
 ```
 
-Errores de negocio:
+Business errors:
 
 - `us_not_found`
 - `invalid_regression_target`
@@ -340,19 +340,19 @@ Errores de negocio:
 
 ### `restart_user_story_from_source`
 
-Propósito:
+Purpose:
 
-- reiniciar una US cuando la fuente cambió y el usuario decide reconstruir el flujo
+- restart a user story when the source changed and the user decides to rebuild the flow
 
-Input mínimo:
+Minimum input:
 
 ```yaml
 usId: US-0001
 requestedBy: user
-reason: La US cambió después de iniciar refinement
+reason: The user story changed after refinement started
 ```
 
-Output mínimo:
+Minimum output:
 
 ```yaml
 usId: US-0001
@@ -361,27 +361,27 @@ currentPhase: refinement
 messages:
   - code: us_restarted_from_source
     level: warning
-    text: Se limpiaron artefactos derivados y se reinició el flujo
+    text: Derived artifacts were cleared and the flow was restarted
 ```
 
-Errores de negocio:
+Business errors:
 
 - `us_not_found`
 - `restart_not_allowed`
 
 ### `list_user_story_files`
 
-Propósito:
+Purpose:
 
-- listar los ficheros persistidos de una US distinguiendo entre `context files` y `user story info`
+- list the persisted files of a user story, distinguishing between `context files` and `user story info`
 
-Input mínimo:
+Minimum input:
 
 ```yaml
 usId: US-0001
 ```
 
-Output mínimo:
+Minimum output:
 
 ```yaml
 usId: US-0001
@@ -393,17 +393,17 @@ attachments:
     path: .specs/us/us.US-0001/attachments/api-notes.md
 ```
 
-Errores de negocio:
+Business errors:
 
 - `us_not_found`
 
 ### `add_user_story_files`
 
-Propósito:
+Purpose:
 
-- copiar ficheros del repo o del filesystem local dentro de una US como `context` o `attachment`
+- copy files from the repository or local filesystem into a user story as `context` or `attachment`
 
-Input mínimo:
+Minimum input:
 
 ```yaml
 usId: US-0001
@@ -413,17 +413,17 @@ sourcePaths:
   - tests/SpecForge.Domain.Tests/WorkflowRunnerTests.cs
 ```
 
-Notas:
+Notes:
 
-- `kind` admite `context` y `attachment`
-- las rutas relativas se resuelven contra `workspaceRoot`
-- solo los ficheros guardados como `context` entran por defecto en el runtime del modelo
+- `kind` supports `context` and `attachment`
+- relative paths resolve against `workspaceRoot`
+- only files stored as `context` enter the model runtime by default
 
-Output mínimo:
+Minimum output:
 
-- mismo shape que `list_user_story_files`
+- same shape as `list_user_story_files`
 
-Errores de negocio:
+Business errors:
 
 - `us_not_found`
 - `source_file_not_found`
@@ -431,11 +431,11 @@ Errores de negocio:
 
 ### `set_user_story_file_kind`
 
-Propósito:
+Purpose:
 
-- mover un fichero ya persistido dentro de una US entre `context` y `attachment`
+- move a file already persisted inside a user story between `context` and `attachment`
 
-Input mínimo:
+Minimum input:
 
 ```yaml
 usId: US-0001
@@ -443,18 +443,18 @@ filePath: .specs/us/us.US-0001/attachments/api-notes.md
 kind: context
 ```
 
-Output mínimo:
+Minimum output:
 
-- mismo shape que `list_user_story_files`
+- same shape as `list_user_story_files`
 
-Errores de negocio:
+Business errors:
 
 - `us_not_found`
 - `file_not_found`
 - `invalid_file_kind`
 - `file_not_owned_by_user_story`
 
-## Errores transversales recomendados
+## Recommended Cross-Cutting Errors
 
 - `validation_error`
 - `storage_error`
@@ -462,13 +462,13 @@ Errores de negocio:
 - `concurrency_conflict`
 - `internal_error`
 
-## Recursos MCP sugeridos
+## Suggested MCP Resources
 
-- recurso de resumen de US por `usId`
-- recurso de fase actual por `usId`
-- recurso de artefactos activos por `usId`
+- user-story summary resource by `usId`
+- current-phase resource by `usId`
+- active-artifacts resource by `usId`
 
-## Decisiones abiertas
+## Open Decisions
 
-- `generate_next_phase` queda fijada como avance secuencial lineal; no acepta `targetPhaseId`
-- si el resumen de errores debe normalizarse con estructura `code/message/details`
+- `generate_next_phase` remains fixed as linear sequential advance and does not accept `targetPhaseId`
+- whether error summaries should be normalized with a `code/message/details` structure

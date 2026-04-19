@@ -47,7 +47,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("ollama-local", handler.LastRequest.Headers.Authorization?.Parameter);
         Assert.Contains("\"model\":\"llama3.1\"", handler.LastBody);
         Assert.Contains("Role: refinement analyst.", handler.LastBody);
-        Assert.Contains("Texto inicial", handler.LastBody);
+        Assert.Contains("Initial text", handler.LastBody);
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
         Directory.CreateDirectory(paths.RootDirectory);
-        await File.WriteAllTextAsync(paths.MainArtifactPath, "# US-0001\n\n## Objetivo\nTexto inicial");
+        await File.WriteAllTextAsync(paths.MainArtifactPath, "# US-0001\n\n## Objective\nInitial text");
     }
 
     private sealed class CapturingFakeHttpMessageHandler : HttpMessageHandler

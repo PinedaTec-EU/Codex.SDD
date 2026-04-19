@@ -1,95 +1,95 @@
-# SpecForge · Plantilla `02-technical-design.md` fase 1
+# SpecForge · `02-technical-design.md` template phase 1
 
-## Objetivo
+## Goal
 
-Definir la plantilla mínima del diseño técnico que sirve de entrada directa a implementación.
+Define the minimum technical design template that serves as the direct input to implementation.
 
-## Principios
+## Principles
 
-- debe ser práctico y ejecutable
-- debe identificar impacto real sobre componentes
-- debe documentar alternativas, riesgos y estrategia de validación
-- no debe convertirse en un documento académico
+- it must be practical and executable
+- it must identify real impact on components
+- it must document alternatives, risks, and validation strategy
+- it must not turn into an academic document
 
-## Plantilla propuesta
+## Proposed Template
 
 ```md
 # Technical Design · US-0001 · v01
 
-## Estado
-- Estado: `pending_approval`
-- Basado en: `01-refinement.md`
+## State
+- State: `pending_approval`
+- Based on: `01-refinement.md`
 
-## Resumen técnico
-Qué solución se propone y por qué.
+## Technical Summary
+What solution is being proposed and why.
 
-## Objetivo técnico
-Qué debe cambiar en el sistema para satisfacer el refinement aprobado.
+## Technical Objective
+What must change in the system to satisfy the approved refinement.
 
-## Componentes afectados
+## Affected Components
 - ...
 - ...
 - ...
 
-## Diseño propuesto
-### Arquitectura
-Describe piezas, responsabilidades y límites.
+## Proposed Design
+### Architecture
+Describe pieces, responsibilities, and boundaries.
 
-### Flujo principal
+### Primary Flow
 1. ...
 2. ...
 3. ...
 
-### Persistencia
+### Persistence
 - ...
 - ...
 
-### Contratos e interfaces
+### Contracts and Interfaces
 - ...
 - ...
 
-## Alternativas consideradas
-- Opción A:
+## Alternatives Considered
+- Option A:
   - Pros:
-  - Contras:
-- Opción B:
+  - Cons:
+- Option B:
   - Pros:
-  - Contras:
+  - Cons:
 
-## Riesgos técnicos
+## Technical Risks
 - ...
 - ...
 
-## Impacto esperado
-- Código:
+## Expected Impact
+- Code:
   - ...
-- Documentación:
+- Documentation:
   - ...
 - Tests:
   - ...
 
-## Estrategia de implementación
+## Implementation Strategy
 1. ...
 2. ...
 3. ...
 
-## Estrategia de validación
-- Tests unitarios:
+## Validation Strategy
+- Unit tests:
   - ...
-- Tests de integración:
+- Integration tests:
   - ...
-- Validación manual:
+- Manual validation:
   - ...
 
-## Decisiones abiertas
+## Open Decisions
 - ...
 - ...
 
-## Aprobación requerida
-- [ ] Diseño validado para implementar
+## Required Approval
+- [ ] Design validated for implementation
 ```
 
-## Notas de uso
+## Usage Notes
 
-- si la fase se rehace tras regresión, debe generarse una nueva versión
-- la salida debe permitir implementar sin reinterpretar funcionalidad básica
+- if the phase is redone after a regression, a new version must be generated
+- the output must enable implementation without reinterpreting basic functionality

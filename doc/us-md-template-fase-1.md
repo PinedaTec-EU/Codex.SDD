@@ -1,64 +1,64 @@
-# SpecForge · Plantilla `us.md` fase 1
+# SpecForge · `us.md` template phase 1
 
-## Objetivo
+## Goal
 
-Definir la plantilla mínima de `us.md` como artefacto fuente estable de la historia de usuario.
+Define the minimum `us.md` template as the stable source artifact for a user story.
 
-## Principios
+## Principles
 
-- debe ser breve
-- debe ser estable una vez arrancado `refinement`
-- no debe intentar contener el refinement ni el diseño técnico
-- debe capturar intención, alcance inicial y restricciones conocidas
+- it must be brief
+- it must remain stable once `refinement` starts
+- it must not try to contain the refinement or the technical design
+- it must capture intent, initial scope, and known constraints
 
-## Plantilla propuesta
+## Proposed Template
 
 ```md
-# US-0001 · <titulo breve>
+# US-0001 · <short title>
 
 ## Metadata
 - Kind: `feature` | `bug` | `hotfix`
-- Category: `<categoria-del-catalogo-del-repo>`
+- Category: `<repo-catalog-category>`
 
-## Estado
-- Estado: `draft`
-- Prioridad: `alta`
-- Origen: `chat` | `markdown-import`
-- Creada: `2026-04-18T10:00:00Z`
+## State
+- State: `draft`
+- Priority: `high`
+- Source: `chat` | `markdown-import`
+- Created: `2026-04-18T10:00:00Z`
 
-## Objetivo
-Describe qué valor se quiere conseguir y para quién.
+## Objective
+Describe what value should be delivered and for whom.
 
-## Problema
-Qué problema actual existe y por qué merece resolverse.
+## Problem
+What current problem exists and why it deserves to be solved.
 
-## Alcance inicial
-- Incluye:
+## Initial Scope
+- Includes:
   - ...
-- No incluye:
+- Excludes:
   - ...
 
-## Restricciones conocidas
+## Known Constraints
 - ...
 - ...
 
-## Supuestos iniciales
+## Initial Assumptions
 - ...
 - ...
 
-## Criterios de aceptación iniciales
+## Initial Acceptance Criteria
 - [ ] ...
 - [ ] ...
 - [ ] ...
 
-## Contexto adicional
-Notas, referencias, links internos o dependencias conocidas.
+## Additional Context
+Notes, references, internal links, or known dependencies.
 ```
 
-## Notas de uso
+## Usage Notes
 
-- `us.md` es el punto de entrada del workflow
-- `Kind` gobierna el prefijo de la rama de trabajo futura
-- `Category` gobierna la agrupación operativa de la US en la UI
-- tras iniciar `refinement`, su contenido deja de mutar el flujo automáticamente
-- si cambia y el usuario quiere incorporarlo, debe reiniciarse la US
+- `us.md` is the workflow entry point
+- `Kind` controls the prefix of the future work branch
+- `Category` controls the operational grouping of the user story in the UI
+- once `refinement` starts, its contents stop mutating the workflow automatically
+- if it changes and the user wants to incorporate it, the user story must be restarted

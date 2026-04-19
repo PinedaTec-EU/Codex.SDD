@@ -1,253 +1,253 @@
-# SpecForge · Workflow canónico fase 1
+# SpecForge · Canonical workflow phase 1
 
-## Objetivo
+## Goal
 
-Definir el flujo mínimo gobernable y usable que justifica la existencia de SpecForge antes de introducir personalización avanzada.
+Define the minimum governable and usable flow that justifies the existence of SpecForge before introducing advanced customization.
 
-## Alcance de fase 1
+## Phase-1 Scope
 
-Incluye:
+Includes:
 
-- creación o importación de una US
-- ejecución secuencial de fases base
-- checkpoints humanos explícitos
-- regresión desde review a una fase previa permitida
-- persistencia de artefactos y estado mínimo
-- creación de rama de trabajo tras el primer refinement aprobado
+- creation or import of a user story
+- sequential execution of core phases
+- explicit human checkpoints
+- regression from review to an allowed previous phase
+- persistence of artifacts and minimum state
+- creation of the work branch after the first approved refinement
 
-No incluye:
+Does not include:
 
-- edición visual de workflows
-- paralelización intra-US
-- integración real con PR
-- integración real con issues
-- asignación avanzada de múltiples agentes por fase
+- visual workflow editing
+- intra-user-story parallelization
+- real PR integration
+- real issue integration
+- advanced multi-agent assignment per phase
 
-## Fases del workflow
+## Workflow Phases
 
 ### 1. `capture`
 
-Propósito:
+Purpose:
 
-- registrar la US inicial y crear su contexto base
+- register the initial user story and create its base context
 
-Entrada:
+Input:
 
-- texto libre desde chat o markdown importado
+- free text from chat or imported markdown
 
-Salida:
+Output:
 
 - `us.md`
-- metadatos mínimos de la US
+- minimum user-story metadata
 
 Definition of Done:
 
-- existe identidad estable de US
-- existe artefacto principal persistido
-- el workflow queda inicializado
-- se registra el hash inicial del contenido fuente
+- stable user-story identity exists
+- primary artifact exists and is persisted
+- the workflow is initialized
+- the initial source-content hash is recorded
 
 Checkpoint:
 
-- no obligatorio
+- not required
 
 ### 2. `refinement`
 
-Propósito:
+Purpose:
 
-- convertir la intención inicial en una especificación funcional más precisa
-- someter la propuesta a crítica estructurada antes de fijar el refinement final
+- turn the initial intent into a more precise functional specification
+- subject the proposal to structured criticism before fixing the final refinement
 
-Entrada:
+Input:
 
 - `us.md`
-- contexto adicional del usuario si existe
+- additional user context when available
 
-Salida:
+Output:
 
 - `phases/01-refinement.md`
 
 Definition of Done:
 
-- objetivos, alcance y restricciones están explícitos
-- quedan identificadas ambigüedades y supuestos
-- existe una evaluación `red-team`
-- existe una reconstrucción `blue-team` sobre los hallazgos relevantes
-- la salida permite diseñar sin inventar requisitos críticos
+- goals, scope, and constraints are explicit
+- ambiguities and assumptions are identified
+- a `red-team` evaluation exists
+- a `blue-team` reconstruction over relevant findings exists
+- the output enables design without inventing critical requirements
 
 Checkpoint:
 
-- aprobación humana obligatoria
+- mandatory human approval
 
-Notas operativas:
+Operational Notes:
 
-- una vez iniciada esta fase, `us.md` deja de ser fuente mutable de verdad para el workflow en curso
-- el sistema debe comparar el hash del contenido fuente para detectar cambios manuales posteriores
-- si la US cambia tras iniciar `refinement`, esos cambios no se incorporan automáticamente
-- si el usuario quiere reiniciar desde la nueva US, el sistema debe limpiar el trabajo derivado ya procesado y reinicializar el flujo
-- toda modificación del fichero de refinement por parte del agente debe añadir un bloque de `history log` al inicio con fecha y resumen breve multilinea
+- once this phase starts, `us.md` stops being a mutable source of truth for the running workflow
+- the system must compare the source-content hash to detect later manual changes
+- if the user story changes after `refinement` starts, those changes are not incorporated automatically
+- if the user wants to restart from the new user story, the system must clean already-processed derived work and reinitialize the flow
+- every agent modification to the refinement file must add a `history log` block at the top with date and a short multiline summary
 
 ### 3. `refinement_approval`
 
-Propósito:
+Purpose:
 
-- fijar el refinement aprobado como baseline operativa de la US
-- crear la rama de trabajo que aislará la implementación
+- fix the approved refinement as the operational baseline of the user story
+- create the work branch that isolates implementation
 
-Entrada:
+Input:
 
 - `phases/01-refinement.md`
-- decisión del usuario
+- user decision
 
-Salida:
+Output:
 
-- refinement aprobado
-- branch de trabajo creada desde `main` o desde la rama base elegida por el usuario
+- approved refinement
+- work branch created from `main` or from the user-selected base branch
 
 Definition of Done:
 
-- existe aprobación explícita del usuario
-- existe rama de trabajo asociada a la US
-- el refinement aprobado queda congelado como baseline
+- explicit user approval exists
+- a work branch exists and is associated with the user story
+- the approved refinement is frozen as the baseline
 
 Checkpoint:
 
-- obligatorio
+- mandatory
 
 ### 4. `technical_design`
 
-Propósito:
+Purpose:
 
-- concretar solución técnica y límites de implementación
+- define the technical solution and implementation boundaries
 
-Entrada:
+Input:
 
-- salida aprobada de `refinement`
-- restricciones del repositorio
+- approved refinement output
+- repository constraints
 
-Salida:
+Output:
 
 - `phases/02-technical-design.md`
 
 Definition of Done:
 
-- componentes afectados identificados
-- estrategia de implementación definida
-- riesgos y decisiones abiertas documentados
+- affected components are identified
+- implementation strategy is defined
+- risks and open decisions are documented
 
 Checkpoint:
 
-- aprobación humana obligatoria
+- mandatory human approval
 
-Notas operativas:
+Operational Notes:
 
-- si esta fase ya fue aprobada o superada y debe regenerarse por una regresión, se crea una nueva versión, por ejemplo `phases/02-technical-design.v02.md`
-- la versión anterior queda preservada como historial y deja de ser la activa
+- if this phase was already approved or surpassed and must be regenerated because of a regression, a new version is created, for example `phases/02-technical-design.v02.md`
+- the previous version remains preserved as history and stops being the active one
 
 ### 5. `implementation`
 
-Propósito:
+Purpose:
 
-- ejecutar cambios sobre el repositorio conforme al diseño técnico
+- execute repository changes according to the technical design
 
-Entrada:
+Input:
 
-- diseño técnico aprobado
+- approved technical design
 
-Salida:
+Output:
 
-- cambios en código
-- resumen de implementación en `phases/03-implementation.md`
+- code changes
+- implementation summary in `phases/03-implementation.md`
 
 Definition of Done:
 
-- el cambio implementa el alcance aprobado
-- los artefactos modificados quedan trazados
-- existe resultado verificable de implementación
+- the change implements the approved scope
+- modified artifacts remain traceable
+- a verifiable implementation result exists
 
 Checkpoint:
 
-- no obligatorio antes de review
+- not required before review
 
-Notas operativas:
+Operational Notes:
 
-- si esta fase ya produjo una salida anterior y debe rehacerse, se genera una nueva versión de fichero y la previa queda archivada como no activa
+- if this phase already produced a previous output and must be redone, a new file version is generated and the previous one is archived as inactive
 
 ### 6. `review`
 
-Propósito:
+Purpose:
 
-- verificar cumplimiento funcional y técnico respecto a artefactos previos
+- verify functional and technical compliance against previous artifacts
 
-Entrada:
+Input:
 
-- US
-- refinement aprobado
-- diseño aprobado
-- resultado de implementación
+- user story
+- approved refinement
+- approved design
+- implementation result
 
-Salida:
+Output:
 
 - `phases/04-review.md`
-- findings estructurados si aplica
+- structured findings when applicable
 
 Definition of Done:
 
-- existe veredicto explícito `pass` o `fail`
-- si falla, cada finding apunta a una fase objetivo de corrección
+- an explicit `pass` or `fail` verdict exists
+- if it fails, each finding points to a target correction phase
 
 Checkpoint:
 
-- obligatorio si el resultado es `pass`
+- mandatory when the result is `pass`
 
 ### 7. `release_approval`
 
-Propósito:
+Purpose:
 
-- pedir confirmación humana final antes de preparar la PR
+- ask for final human confirmation before preparing the PR
 
-Entrada:
+Input:
 
-- review con resultado `pass`
-- estado actual de la branch
+- review with `pass` result
+- current branch state
 
-Salida:
+Output:
 
-- aprobación final del usuario o bloqueo explícito
+- final user approval or explicit block
 
 Definition of Done:
 
-- existe decisión final del usuario
-- el sistema sabe si puede o no pasar a preparación de PR
+- a final user decision exists
+- the system knows whether it can move to PR preparation
 
 Checkpoint:
 
-- obligatorio
+- mandatory
 
 ### 8. `pr_preparation`
 
-Propósito:
+Purpose:
 
-- preparar la PR a partir de la branch de trabajo y los artefactos aprobados
+- prepare the PR from the work branch and the approved artifacts
 
-Entrada:
+Input:
 
-- aprobación de `release_approval`
+- `release_approval` approval
 
-Salida:
+Output:
 
-- metadatos de PR preparados
-- resumen final de cambios listo para publicación
+- prepared PR metadata
+- final change summary ready for publication
 
 Definition of Done:
 
-- existe un payload de PR consistente con la US y los artefactos aprobados
+- a PR payload consistent with the user story and approved artifacts exists
 
 Checkpoint:
 
-- no obligatorio en fase 1, porque la integración real con GitHub sigue aplazada
+- not required in phase 1 because real GitHub integration is still postponed
 
-## Transiciones válidas
+## Valid Transitions
 
 - `capture -> refinement`
 - `refinement -> refinement_approval`
@@ -258,7 +258,7 @@ Checkpoint:
 - `release_approval -> pr_preparation`
 - `pr_preparation -> completed`
 
-## Regresiones válidas
+## Valid Regressions
 
 - `review -> refinement`
 - `review -> technical_design`
@@ -267,41 +267,41 @@ Checkpoint:
 - `release_approval -> technical_design`
 - `release_approval -> implementation`
 
-## Reglas operativas
+## Operational Rules
 
-- no puede haber más de una fase en estado `running`
-- una fase con checkpoint obligatorio no puede avanzar sin aprobación
-- toda regresión debe registrar motivo y evidencia
-- toda intervención humana debe quedar asociada a una fase o checkpoint
-- si una fase falla repetidamente sin nueva información, la US pasa a `waiting_user`
-- si una US ya está `completed` y el usuario quiere cambiar `us.md`, `refinement` o artefactos equivalentes, el sistema debe recomendar crear una nueva US
-- `us.md` solo es fuente de verdad para arrancar el flujo, no para mutar silenciosamente una ejecución ya iniciada
+- more than one phase cannot be in `running` state
+- a phase with a mandatory checkpoint cannot advance without approval
+- every regression must record reason and evidence
+- every human intervention must be associated with a phase or checkpoint
+- if a phase fails repeatedly without new information, the user story moves to `waiting_user`
+- if a user story is already `completed` and the user wants to change `us.md`, `refinement`, or equivalent artifacts, the system should recommend creating a new user story
+- `us.md` is the source of truth only to start the flow, not to silently mutate an already started execution
 
-## Política inicial de escalado
+## Initial Escalation Policy
 
-Escalar al usuario cuando ocurra una de estas condiciones:
+Escalate to the user when one of these conditions happens:
 
-- ambigüedad crítica no resoluble con artefactos existentes
-- dos regresiones consecutivas a la misma fase por el mismo motivo
-- conflicto entre edición manual y salida generada no reconciliado
-- cambio detectado en `us.md` después de iniciado `refinement`
+- critical ambiguity cannot be resolved with existing artifacts
+- two consecutive regressions target the same phase for the same reason
+- conflict between manual edits and generated output remains unreconciled
+- a change is detected in `us.md` after `refinement` started
 
-## Persistencia mínima por US
+## Minimum Persistence Per User Story
 
-Convención:
+Convention:
 
-- `markdown` para artefactos de trabajo y revisión humana
-- `yaml` para estado, configuración y metadatos técnicos
-- no se crea `input.md` por defecto si la entrada de la fase puede inferirse de la baseline aprobada anterior y del estado activo
-- solo se materializa un artefacto de entrada explícito cuando haga falta congelar un snapshot no inferible o adjuntar contexto extraordinario
+- `markdown` for work artifacts and human review
+- `yaml` for state, configuration, and technical metadata
+- `input.md` is not created by default if the phase input can be inferred from the previously approved baseline and active state
+- an explicit input artifact is materialized only when needed to freeze a non-inferable snapshot or attach extraordinary context
 
-Resolución de entradas por fase:
+Input resolution by phase:
 
-- `refinement` toma `us.md`
-- `technical_design` toma la versión activa aprobada de `01-refinement.md`
-- `implementation` toma la versión activa aprobada de `02-technical-design*.md`
-- `review` toma `us.md` y las versiones activas de `refinement`, `technical_design` e `implementation`
-- `release_approval` y `pr_preparation` toman la versión activa de `04-review.md` y los metadatos de rama
+- `refinement` takes `us.md`
+- `technical_design` takes the approved active version of `01-refinement.md`
+- `implementation` takes the approved active version of `02-technical-design*.md`
+- `review` takes `us.md` and the active versions of `refinement`, `technical_design`, and `implementation`
+- `release_approval` and `pr_preparation` take the active version of `04-review.md` and branch metadata
 
 ```text
 .specs/
@@ -319,12 +319,12 @@ Resolución de entradas por fase:
       branch.yaml
 ```
 
-Regla de ubicación:
+Location rule:
 
-- cada US vive bajo `.specs/us/us.<us-id>/`
-- esta convención prioriza visibilidad al inicio del workspace y separación clara respecto al código de producto
+- each user story lives under `.specs/us/us.<us-id>/`
+- this convention prioritizes visibility at the workspace root and clear separation from product code
 
-## Estado mínimo de `state.yaml`
+## Minimum `state.yaml` State
 
 ```yaml
 usId: US-0001
@@ -354,7 +354,7 @@ metrics:
   reviewPassCount: 0
 ```
 
-## Eventos mínimos
+## Minimum Events
 
 - `us_created`
 - `phase_started`
@@ -368,28 +368,11 @@ metrics:
 - `branch_created`
 - `us_blocked`
 - `us_waiting_user`
+- `us_restarted_from_source`
 - `pr_preparation_requested`
 
-## Impacto sobre el MCP inicial
+## Open Decisions
 
-Este workflow justifica como mínimo estas operaciones:
-
-- `create_us_from_chat`
-- `import_us_from_markdown`
-- `list_user_stories`
-- `get_user_story_summary`
-- `get_current_phase`
-- `get_user_story_runtime_status`
-- `generate_next_phase`
-- `approve_phase`
-- `request_regression`
-- `restart_user_story_from_source`
-- `list_user_story_files`
-- `add_user_story_files`
-- `set_user_story_file_kind`
-
-## Decisiones abiertas
-
-- si `timeline` seguirá en markdown o migrará también a `yaml`
-- si `capture` se modela como fase persistida o como bootstrap del workflow
-- si la review debe incorporar validaciones automáticas además del análisis del agente
+- whether `timeline` will remain markdown or also migrate to `yaml`
+- whether `capture` should be modeled as a persisted phase or as workflow bootstrap
+- whether review should incorporate automated validations in addition to agent analysis

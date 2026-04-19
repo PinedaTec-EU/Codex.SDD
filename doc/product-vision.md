@@ -1,51 +1,51 @@
-# SpecForge · Visión de producto
+# SpecForge · Product Vision
 
-## Problema
+## Problem
 
-El desarrollo asistido por IA suele degradarse en:
+AI-assisted development often degrades into:
 
-- prompts aislados sin trazabilidad
-- decisiones no persistidas
-- handoffs ambiguos
-- retrabajo por validación tardía
-- poca gobernanza en equipos de más de una persona
+- isolated prompts without traceability
+- non-persisted decisions
+- ambiguous handoffs
+- rework caused by late validation
+- weak governance for teams larger than one person
 
-## Propuesta de valor
+## Value Proposition
 
-SpecForge no busca solo generar código. Busca gobernar cómo se produce el resultado mediante un workflow SDD explícito, persistido y auditable.
+SpecForge does not aim only to generate code. It aims to govern how the result is produced through an explicit, persisted, and auditable SDD workflow.
 
-## Usuario objetivo
+## Target User
 
-Equipos de desarrollo que necesitan:
+Development teams that need:
 
-- coherencia entre artefactos
-- control del proceso
-- documentación viva versionada
-- visibilidad del progreso
-- capacidad de intervención humana sin romper la trazabilidad
+- consistency across artifacts
+- process control
+- versioned living documentation
+- progress visibility
+- the ability to intervene without breaking traceability
 
-## Resultado esperado
+## Expected Outcome
 
-Desde una US, el sistema debe permitir recorrer un flujo gobernado de:
+Starting from a user story, the system must allow a governed flow through:
 
-1. definición inicial
+1. initial definition
 2. refinement
-3. diseño técnico
-4. implementación
+3. technical design
+4. implementation
 5. review
-6. preparación de PR
+6. PR preparation
 
-## Principios
+## Principles
 
-- El chat no es la fuente de verdad final.
-- Toda información relevante se persiste en artefactos del repo.
-- La herramienta debe ser usable por otro workstation solo clonando el repositorio.
-- La UX debe priorizar claridad operativa.
-- El sistema debe permitir checkpoints e intervención humana entre fases.
+- Chat is not the final source of truth.
+- All relevant information is persisted in repository artifacts.
+- The tool must be usable from another workstation by cloning the repository only.
+- The UX must prioritize operational clarity.
+- The system must allow checkpoints and human intervention between phases.
 
-## No objetivos de fase 1
+## Non-Goals For Phase 1
 
-- editor visual avanzado de workflows
-- paralelización intra-US
-- integración completa con PR e issues
-- optimización multi-proveedor más allá de una abstracción mínima
+- advanced visual workflow editor
+- intra-user-story parallelization
+- full PR and issue integration
+- multi-provider optimization beyond a minimal abstraction

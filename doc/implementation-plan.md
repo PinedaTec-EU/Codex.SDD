@@ -1,33 +1,33 @@
-# SpecForge · Plan de implementación
+# SpecForge · Implementation Plan
 
-## Secuencia propuesta
+## Proposed Sequence
 
-### ✅ Paso 1. Fijar el workflow canónico
+### ✅ Step 1. Lock the canonical workflow
 
-Entregables:
+Deliverables:
 
-- ✅ fases iniciales
-- ✅ contratos de entrada y salida por fase
-- ✅ checkpoints obligatorios
-- ✅ criterios de regresión
-- ✅ reglas de versionado de artefactos
-- ✅ regla de inmutabilidad práctica de la fuente tras arrancar `refinement`
-- ✅ momento de creación de rama de trabajo
+- ✅ initial phases
+- ✅ input and output contracts per phase
+- ✅ mandatory checkpoints
+- ✅ regression criteria
+- ✅ artifact versioning rules
+- ✅ practical source immutability rule once `refinement` starts
+- ✅ work-branch creation timing
 
-### ✅ Paso 2. Definir persistencia mínima
+### ✅ Step 2. Define minimum persistence
 
-Entregables:
+Deliverables:
 
-- ✅ estructura de carpetas de `doc/` y del estado runtime persistido en repo
-- ✅ formato de `state.yaml`
-- ✅ formato de `branch.yaml`
-- ✅ formato de timeline o eventos
-- ✅ plantillas markdown esenciales
-- ✅ regla de inferencia de entradas entre fases para evitar `input.md` redundantes
+- ✅ `doc/` folder structure and runtime state persisted in the repo
+- ✅ `state.yaml` format
+- ✅ `branch.yaml` format
+- ✅ timeline or event format
+- ✅ essential markdown templates
+- ✅ cross-phase input inference rule to avoid redundant `input.md`
 
-### ✅ Paso 3. Diseñar el contrato MCP inicial
+### ✅ Step 3. Design the initial MCP contract
 
-Entregables:
+Deliverables:
 
 - ✅ `create_us_from_chat`
 - ✅ `import_us_from_markdown`
@@ -42,206 +42,206 @@ Entregables:
 - ✅ `list_user_story_files`
 - ✅ `add_user_story_files`
 - ✅ `set_user_story_file_kind`
-- ✅ integración de creación de rama dentro de `approve_phase`
+- ✅ branch creation integrated into `approve_phase`
 
-### ✅ Paso 4. Implementar el núcleo del workflow engine
+### ✅ Step 4. Implement the workflow engine core
 
-Entregables:
+Deliverables:
 
-- ✅ modelo de dominio
-- ✅ validación de transiciones
-- ✅ persistencia local
-- ✅ tests del dominio
+- ✅ domain model
+- ✅ transition validation
+- ✅ local persistence
+- ✅ domain tests
 
-### ✅ Paso 5. Añadir una extensión VS Code mínima
+### ✅ Step 5. Add a minimum VS Code extension
 
-Entregables:
+Deliverables:
 
-- ✅ vista de USs
-- ✅ comando crear/importar
-- ✅ comando continuar fase
-- ✅ apertura de artefacto principal
+- ✅ user-story view
+- ✅ create/import command
+- ✅ continue-phase command
+- ✅ primary-artifact opening
 
-Notas:
+Notes:
 
-- la extensión mínima ya está creada y compilando
-- el core de automatización ya existe mediante un workflow runner
-- `continue phase` en la extensión sigue pendiente de cableado con ese runner o con el backend MCP definitivo
+- the minimum extension already exists and compiles
+- the automation core already exists through a workflow runner
+- `continue phase` in the extension still needed wiring to that runner or to the final MCP backend
 
-### ✅ Paso 5.1. Cablear la extensión al workflow runner local
+### ✅ Step 5.1. Wire the extension to the local workflow runner
 
-Entregables:
+Deliverables:
 
-- ✅ invocar `WorkflowRunner` desde los comandos de la extensión
-- ✅ hacer que `continue phase` ejecute avance real de workflow
-- ✅ refrescar el árbol tras cambios de estado y artefactos
-- ✅ abrir el artefacto generado cuando aplique
+- ✅ invoke `WorkflowRunner` from extension commands
+- ✅ make `continue phase` execute a real workflow advance
+- ✅ refresh the tree after state and artifact changes
+- ✅ open the generated artifact when applicable
 
-### ✅ Paso 5.2. Introducir una capa de aplicación/MCP estable
+### ✅ Step 5.2. Introduce a stable application/MCP layer
 
-Entregables:
+Deliverables:
 
-- ✅ definir boundary estable entre extensión y backend
-- ✅ encapsular `WorkflowRunner` detrás de servicios de aplicación
-- ✅ alinear operaciones reales con `mcp-contract-fase-1.md`
-- ✅ preparar sustitución del runner local por backend MCP sin romper la UI
+- ✅ define a stable boundary between extension and backend
+- ✅ encapsulate `WorkflowRunner` behind application services
+- ✅ align real operations with `mcp-contract-fase-1.md`
+- ✅ prepare replacement of the local runner with an MCP backend without breaking the UI
 
-### ✅ Paso 5.3. Sustituir generación placeholder por ejecución de fases real
+### ✅ Step 5.3. Replace placeholder generation with real phase execution
 
-Entregables:
+Deliverables:
 
-- ✅ reemplazar artefactos de ejemplo por ejecución basada en artefactos previos y reglas de workflow
-- ✅ persistir resultados reales de fase
-- ✅ registrar fallos, bloqueos y regresiones en timeline y estado
-- ✅ mantener trazabilidad entre artefactos y decisiones
+- ✅ replace example artifacts with execution based on previous artifacts and workflow rules
+- ✅ persist real phase results
+- ✅ record failures, blocks, and regressions in timeline and state
+- ✅ maintain traceability between artifacts and decisions
 
-### ✅ Paso 5.4. Enriquecer la UX mínima
+### ✅ Step 5.4. Enrich the minimum UX
 
-Entregables:
+Deliverables:
 
-- ✅ detalle de fase seleccionada
-- ✅ acciones contextuales por fase
-- ✅ feedback claro de errores y bloqueos
-- ✅ base mínima para futura graph view del workflow
+- ✅ selected-phase detail
+- ✅ contextual actions per phase
+- ✅ clear feedback for errors and blocks
+- ✅ minimum base for a future workflow graph view
 
-## Orden recomendado después de esta US
+## Recommended Order After This User Story
 
-1. ✅ concretar el workflow canónico de fase 1
-2. ✅ concretar la estructura real de `doc/` y de los artefactos runtime
-3. ✅ concretar el contrato MCP mínimo
-4. ✅ arrancar implementación del dominio y persistencia
-5. ✅ fijar la estrategia de branch naming y reinicio seguro de una US
-6. ✅ introducir backend MCP real detrás del boundary actual
-7. ✅ enriquecer ejecución de fases con providers/agents reales
-8. ✅ materializar prompts versionados por fase en `.specs/prompts/`
-9. ✅ inicializar el repo con prompts obligatorios y `config.yaml`
-10. ✅ exigir prompts requeridos en la ejecución de fases reales
-11. ✅ componer prompts efectivos por fase usando contexto runtime
-12. ✅ exponer `request_regression` de punta a punta en dominio, MCP y extensión
-13. ✅ implementar reinicio seguro desde fuente
-14. ✅ cerrar estrategia base de branch naming para fase 1
-15. ✅ introducir categoría explícita de US con catálogo configurable del repo
-16. ✅ agrupar el explorer de VS Code por categoría de US
-17. ✅ introducir un proyecto mínimo de tests TypeScript para la extensión
-18. ✅ ampliar UX con graph view y detalle de fase más rico
-19. [ ] completar editor/inspector de prompts más rico desde la extensión
-20. [ ] enriquecer el ciclo de vida de ramas con integración Git/PR real
+1. ✅ define the canonical phase-1 workflow
+2. ✅ define the real `doc/` structure and runtime artifacts
+3. ✅ define the minimum MCP contract
+4. ✅ start domain and persistence implementation
+5. ✅ lock branch naming strategy and safe user-story restart
+6. ✅ introduce the real MCP backend behind the current boundary
+7. ✅ enrich phase execution with real providers/agents
+8. ✅ materialize versioned prompts per phase in `.specs/prompts/`
+9. ✅ initialize the repo with required prompts and `config.yaml`
+10. ✅ require prompts in real phase execution
+11. ✅ compose effective per-phase prompts using runtime context
+12. ✅ expose `request_regression` end to end in domain, MCP, and extension
+13. ✅ implement safe restart from source
+14. ✅ close the baseline branch-naming strategy for phase 1
+15. ✅ introduce explicit user-story category with a configurable repo catalog
+16. ✅ group the VS Code explorer by user-story category
+17. ✅ introduce a minimum TypeScript test project for the extension
+18. ✅ extend UX with graph view and richer phase detail
+19. [ ] complete a richer prompt editor/inspector from the extension
+20. [ ] enrich branch lifecycle with real Git/PR integration
 
-## Riesgos a vigilar
+## Risks To Watch
 
-- sobrediseñar workflows antes de validar el flujo base
-- introducir demasiadas entidades de dominio al inicio
-- mezclar estado humano, estado técnico y prompts sin límites claros
-- hacer la extensión demasiado lista y el backend demasiado débil
+- overdesigning workflows before validating the base flow
+- introducing too many domain entities too early
+- mixing human state, technical state, and prompts without clear boundaries
+- making the extension too smart and the backend too weak
 
-## Decisiones aplazadas
+## Deferred Decisions
 
-- edición visual completa de workflows
-- slicing paralelo intra-US
-- integración real de PR
-- integración real con issues
-- estrategias avanzadas multi-proveedor
+- full visual workflow editing
+- intra-user-story parallel slicing
+- real PR integration
+- real issue integration
+- advanced multi-provider strategies
 
-## Estado actual
+## Current State
 
-La fase 5 queda resuelta en su alcance mínimo:
+Phase 5 is resolved at its minimum scope:
 
-1. la extensión ya invoca el backend local
-2. existe un boundary estable entre UI y backend
-3. la ejecución de fases ya genera artefactos reales derivados del estado
-4. la UX mínima ya ofrece detalle, acciones contextuales y feedback básico
+1. the extension already invokes the local backend
+2. a stable boundary exists between UI and backend
+3. phase execution already generates real artifacts derived from state
+4. the minimum UX already offers detail, contextual actions, and basic feedback
 
-El siguiente salto no es introducir más infraestructura base. El backend MCP mínimo ya existe y el provider OpenAI-compatible con prompts versionados por repo ya está operativo. Lo pendiente para alcanzar un MVP utilizable es cerrar los huecos del workflow explícito y hacer visible ese alcance real en la documentación y la UX.
+The next leap is not more base infrastructure. The minimum MCP backend already exists and the OpenAI-compatible provider with repo-versioned prompts is already operational. What remains to reach a usable MVP is to close the explicit-workflow gaps and make that real scope visible in documentation and UX.
 
-## Roadmap MVP
+## MVP Roadmap
 
-Objetivo:
+Goal:
 
-- entregar un MVP funcional para ejecutar un workflow SDD secuencial dentro de VS Code con estado persistido, checkpoints humanos y backend local interoperable
+- deliver a functional MVP to execute a sequential SDD workflow inside VS Code with persisted state, human checkpoints, and an interoperable local backend
 
-Incluye en el MVP:
+Included in the MVP:
 
-- ✅ creación e importación de US
-- ✅ avance lineal de fases con aprobación donde aplica
-- ✅ persistencia local en `.specs/`
-- ✅ backend MCP mínimo
-- ✅ prompts versionados por repo y provider OpenAI-compatible
-- ✅ regresión explícita de fase desde UI y backend
-- ✅ reinicio seguro de una US desde la fuente
-- ✅ branch naming explícito por `kind` con formato `<kind>/us-xxxx-short-slug`
-- ✅ categoría explícita de US con catálogo configurable desde `.specs/config.yaml`
-- ✅ roadmap operativo coherente entre `doc/` y `README`
-- ✅ proyecto mínimo de tests TypeScript para lógica pura de la extensión
-- ✅ vista principal de workflow abierta desde el explorer con detalle por fase y auditoría
-- ✅ settings de extensión para provider, conexión y watcher
-- ✅ warning visible en la extensión cuando falta configurar el provider activo, con acceso directo a settings
-- ✅ watcher opcional con notificaciones de atención y controles `play/pause/stop`
-- ✅ sidebar de extensión con CTA único en vacío y formulario embebido para crear US
-- ✅ distinción visible en la UI y en la documentación entre fases automáticas y checkpoints del usuario
-- ✅ acción compacta en la cabecera de la sidebar para inicializar o rebootstrap de prompts versionados del repo
-- ✅ visibilidad inicial centrada en US/workflows activos en la sidebar y vistas principales
-- ✅ acceso desde la workflow view a los prompts asociados de la fase seleccionada
-- ✅ separación entre `context files` y `user story info` dentro de una US
-- ✅ solo los `context files` se reutilizan como contexto runtime del modelo
-- ✅ gestión de `context files` y `user story info` también por MCP, no solo por la extensión
-- ✅ sugerencias locales de `context files` durante `clarification` con heurística y vecindad del repo
-- ✅ feature flag de extensión para activar o desactivar esas sugerencias, activado por defecto
-- ✅ estado runtime persistido por US para detectar ejecuciones largas y bloquear reentradas duplicadas
-- ✅ starred por usuario sobre una US con persistencia en disco y autoapertura al reabrir VS Code
+- ✅ user-story creation and import
+- ✅ linear phase advance with approval where required
+- ✅ local persistence in `.specs/`
+- ✅ minimum MCP backend
+- ✅ repo-versioned prompts and OpenAI-compatible provider
+- ✅ explicit phase regression from UI and backend
+- ✅ safe restart of a user story from source
+- ✅ explicit branch naming by `kind` with `<kind>/us-xxxx-short-slug`
+- ✅ explicit user-story category with a configurable catalog from `.specs/config.yaml`
+- ✅ coherent operational roadmap between `doc/` and `README`
+- ✅ minimum TypeScript test project for pure extension logic
+- ✅ primary workflow view opened from the explorer with per-phase detail and visible audit
+- ✅ extension settings for provider, connection, and watcher
+- ✅ visible warning in the extension when the active provider is not configured, with a direct link to settings
+- ✅ optional watcher with attention notifications and `play/pause/stop` controls
+- ✅ extension sidebar with a single empty-state CTA and embedded creation form
+- ✅ visible distinction in UI and documentation between automatic phases and user checkpoints
+- ✅ compact action in the sidebar header to initialize or rebootstrap versioned repo prompts
+- ✅ initial visibility focused on active user stories and workflows in the sidebar and main views
+- ✅ access from workflow view to prompts associated with the selected phase
+- ✅ separation between `context files` and `user story info` within a user story
+- ✅ only `context files` are reused as model runtime context
+- ✅ management of `context files` and `user story info` through MCP as well as through the extension
+- ✅ local `context files` suggestions during `clarification` using heuristics and repo neighborhood
+- ✅ extension feature flag to enable or disable those suggestions, enabled by default
+- ✅ persisted runtime status per user story to detect long-running executions and block duplicate reentry
+- ✅ per-user starring of a user story with disk persistence and auto-reopen when VS Code is reopened
 
-No bloquea el MVP:
+Does not block the MVP:
 
-- ✅ graph view del workflow
-- [ ] panel de detalle rico con diff, timeline navegable o inspección de prompt efectivo
-- [ ] integración real con PR/issues
-- [ ] workflows personalizables y perfiles avanzados de agentes
-- [ ] mostrar también US finalizadas mediante un switch explícito en la UI
-- [ ] añadir buscador de US/workflows sobre la vista lateral
-- [ ] enlace con herramientas de ticketing (Jira, etc)
+- ✅ workflow graph view
+- [ ] rich detail panel with diff, navigable timeline, or effective prompt inspection
+- [ ] real PR/issues integration
+- [ ] customizable workflows and advanced agent profiles
+- [ ] show completed user stories through an explicit UI switch
+- [ ] add search over user stories/workflows in the side view
+- [ ] link with ticketing tools (Jira, etc.)
 
-Subtarea recién resuelta:
+Recently completed subtask:
 
-- ✅ añadir en la extensión comandos y affordances para inicializar `.specs/prompts/`, detectar repos no inicializados y abrir los templates desde la UI
-- ✅ hacer explícito en `README` y roadmap qué fases son automáticas y cuáles requieren intervención humana
+- ✅ add commands and affordances in the extension to initialize `.specs/prompts/`, detect uninitialized repos, and open templates from the UI
+- ✅ make it explicit in `README` and roadmap which phases are automatic and which require human intervention
 
-Subtareas recién resueltas:
+Recently completed subtasks:
 
-- ✅ añadir una tool MCP de inicialización que exporte `.specs/prompts/` y `.specs/config.yaml`
-- ✅ fijar el set mínimo de prompts por fase: `execute` y `approve` cuando aplique
-- ✅ hacer que el engine falle si el repo no está inicializado o faltan prompts requeridos
-- ✅ cargar y componer el prompt efectivo desde artefactos versionados del repo
-- ✅ usar ese prompt efectivo desde el provider OpenAI-compatible para OpenAI y Ollama
-- ✅ exponer `request_regression` en dominio, aplicación, MCP y extensión
-- ✅ invalidar aprobaciones obsoletas al regresar a una fase anterior
-- ✅ implementar `restart_user_story_from_source` con archivo de artefactos y rama previa supersedida
-- ✅ fijar `kind` explícito en la US y naming de rama `<kind>/us-xxxx-short-slug`
-- ✅ introducir `category` explícita en la US y validarla contra el catálogo global del repo
-- ✅ agrupar el explorer de VS Code por categoría de US
-- ✅ añadir tests TypeScript mínimos para parsing, agrupación y render seguro del panel de detalle
-- ✅ ampliar los tests TypeScript a agrupación del explorer y payload/parsing del cliente MCP
-- ✅ añadir un harness ligero de integración para el wiring de comandos de la extensión
-- ✅ abrir cada US del explorer en una workflow view central con detalle por fase y auditoría visible
-- ✅ exponer settings de extensión para provider, conexión OpenAI-compatible, API key, modelo y watcher
-- ✅ refrescar automáticamente desde cambios en `.specs/us/**` cuando el watcher está habilitado
-- ✅ añadir controles `play/pause/stop` con `stop` best-effort sobre el backend MCP local
-- ✅ reemplazar la botonera lateral por una sidebar webview con formulario de creación embebido
-- ✅ fijar que el foco inicial de la UX esté en las US activas; el histórico y la búsqueda quedan post-MVP
-- ✅ permitir adjuntar ficheros a una US desde la workflow view y abrirlos desde esa misma pantalla
-- ✅ exponer botones para abrir los prompts `execute` y `approve` de la fase seleccionada cuando existan
-- ✅ permitir marcar una US como `starred` por usuario y reabrirla automáticamente en modo visual al volver al workspace
-- ✅ proponer al usuario añadir `context files` cuando una US entra en `clarification` por falta de contexto de repo
-- ✅ sugerir candidatos de `context files` usando heurística local y vecindad de archivos del repo
-- ✅ exponer estado runtime persistido por MCP para que un modelo pueda comprobar si una US sigue ejecutándose
-- ✅ bloquear un segundo `generate_next_phase` mientras exista una ejecución viva reciente sobre la misma US
-- [ ] completar inspección/edición rica de prompts desde la extensión con diff o prompt efectivo visible
+- ✅ add an MCP initialization tool that exports `.specs/prompts/` and `.specs/config.yaml`
+- ✅ lock the minimum prompt set per phase: `execute` and `approve` where applicable
+- ✅ make the engine fail if the repo is not initialized or required prompts are missing
+- ✅ load and compose the effective prompt from repo-versioned artifacts
+- ✅ use that effective prompt from the OpenAI-compatible provider for OpenAI and Ollama
+- ✅ expose `request_regression` in domain, application, MCP, and extension
+- ✅ invalidate obsolete approvals when regressing to a previous phase
+- ✅ implement `restart_user_story_from_source` with archived artifacts and superseded previous branch
+- ✅ lock explicit `kind` in the user story and branch naming `<kind>/us-xxxx-short-slug`
+- ✅ introduce explicit `category` in the user story and validate it against the global repo catalog
+- ✅ group the VS Code explorer by user-story category
+- ✅ add minimum TypeScript tests for parsing, grouping, and safe rendering of the detail panel
+- ✅ extend TypeScript tests to explorer grouping and MCP client payload/parsing
+- ✅ add a lightweight integration harness for extension command wiring
+- ✅ open each user story from the explorer in a central workflow view with per-phase detail and visible audit
+- ✅ expose extension settings for provider, OpenAI-compatible connection, API key, model, and watcher
+- ✅ auto-refresh from `.specs/us/**` changes when the watcher is enabled
+- ✅ add `play/pause/stop` controls with best-effort `stop` on the local MCP backend
+- ✅ replace the side button bar with a sidebar webview with embedded creation form
+- ✅ lock the initial UX focus on active user stories; history and search stay post-MVP
+- ✅ allow attaching files to a user story from workflow view and opening them from the same screen
+- ✅ expose buttons to open the selected phase `execute` and `approve` prompts when they exist
+- ✅ allow a user story to be marked as `starred` per user and automatically reopened in visual mode when the workspace is reopened
+- ✅ suggest adding `context files` when a user story enters `clarification` because repo context is missing
+- ✅ suggest `context files` candidates using local heuristics and file neighborhood
+- ✅ expose persisted runtime status through MCP so a model can check whether a user story is still running
+- ✅ block a second `generate_next_phase` while a recent live execution exists for the same user story
+- [ ] complete rich prompt inspection/editing from the extension with diff or visible effective prompt
 
-Subtareas pendientes de cerrar antes de considerar el MVP completo:
+Pending subtasks before the MVP is considered complete:
 
-- [ ] enriquecer el ciclo de vida de `branch.yaml` con metadatos Git/PR reales
+- [ ] enrich `branch.yaml` lifecycle with real Git/PR metadata
 
-Artefactos de persistencia ya concretados o en concreción:
+Persistence artifacts already defined or being defined:
 
 - ✅ `state.yaml`
 - ✅ `branch.yaml`
 - ✅ `timeline.md`
-- ✅ plantillas markdown esenciales
+- ✅ essential markdown templates

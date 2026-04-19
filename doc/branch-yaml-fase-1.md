@@ -1,49 +1,49 @@
-# SpecForge · `branch.yaml` fase 1
+# SpecForge · `branch.yaml` phase 1
 
-## Objetivo
+## Goal
 
-Definir el artefacto técnico que persiste el anclaje Git de una US sin mezclarlo con el estado funcional del workflow.
+Define the technical artifact that persists the Git anchor of a user story without mixing it with the functional workflow state.
 
-## Propósito
+## Purpose
 
-`branch.yaml` existe para responder de forma estable a estas preguntas:
+`branch.yaml` exists to answer these questions in a stable way:
 
-- desde qué rama base se creó la rama de trabajo
-- cuál es la rama activa de la US
-- cuándo se creó
-- cuál es su estado operativo dentro del flujo
-- qué metadatos mínimos serán reutilizables en la futura preparación de PR
+- which base branch the work branch came from
+- which branch is currently active for the user story
+- when it was created
+- what its operational state is inside the workflow
+- which minimum metadata can be reused later during PR preparation
 
-## Alcance de fase 1
+## Phase-1 Scope
 
-Incluye:
+Includes:
 
-- persistencia de rama base elegida por el usuario
-- persistencia del nombre de la rama de trabajo
-- trazabilidad temporal de creación
-- estado mínimo de la rama respecto al workflow
+- persistence of the base branch selected by the user
+- persistence of the work branch name
+- temporal traceability of creation
+- minimum branch state relative to the workflow
 
-No incluye:
+Does not include:
 
-- sincronización remota con GitHub
-- estado de CI
-- URL de PR real
-- enriquecimiento con metadatos de revisión externa
+- remote GitHub synchronization
+- CI state
+- real PR URL
+- enrichment with external review metadata
 
-## Relación con otros artefactos
+## Relationship With Other Artifacts
 
-- `state.yaml` gobierna el ciclo de vida de la US
-- `branch.yaml` gobierna su contexto Git operativo
-- `04-review.md` y la futura preparación de PR pueden leer `branch.yaml`, pero no deben duplicar sus datos
+- `state.yaml` governs the user story lifecycle
+- `branch.yaml` governs its operational Git context
+- `04-review.md` and future PR preparation may read `branch.yaml`, but must not duplicate its data
 
-## Momento de creación
+## Creation Time
 
-`branch.yaml` debe crearse en `refinement_approval`, cuando:
+`branch.yaml` must be created in `refinement_approval`, when:
 
-- el usuario aprueba por primera vez el refinement
-- el sistema ya puede abrir una rama de trabajo aislada
+- the user approves the refinement for the first time
+- the system can already open an isolated work branch
 
-## Ubicación
+## Location
 
 ```text
 .specs/
@@ -52,7 +52,7 @@ No incluye:
       branch.yaml
 ```
 
-## Esquema mínimo propuesto
+## Proposed Minimum Schema
 
 ```yaml
 usId: US-0001
@@ -64,28 +64,28 @@ status: active
 createdAt: 2026-04-17T10:30:00Z
 createdFromPhase: refinement_approval
 strategy: single-branch-per-user-story
-titleSnapshot: Agrupar specs explorer por categoria
+titleSnapshot: Group specs explorer by category
 sourceUsPath: .specs/us/us.US-0001/us.md
 pullRequest:
   status: not_requested
   targetBaseBranch: main
 ```
 
-## Campos
+## Fields
 
 ### `usId`
 
-Identificador estable de la US dueña de la rama.
+Stable identifier of the user story that owns the branch.
 
 ### `baseBranch`
 
-Rama base elegida por el usuario al aprobar el primer refinement.
+Base branch selected by the user when approving the first refinement.
 
 ### `kind`
 
-Tipo explícito de la US que gobierna el prefijo de rama.
+Explicit user-story type that controls the branch prefix.
 
-Valores de fase 1:
+Phase-1 values:
 
 - `feature`
 - `bug`
@@ -93,31 +93,31 @@ Valores de fase 1:
 
 ### `workBranch`
 
-Nombre de la rama creada para aislar el trabajo de la US.
+Name of the branch created to isolate work for the user story.
 
-Convención cerrada para fase 1:
+Locked convention for phase 1:
 
-- formato `<kind>/us-0001-short-slug`
-- el `usId` es el ancla estable
-- `short-slug` deriva del título actual de la US
-- el slug mejora legibilidad, pero no es fuente de verdad
-- no se renombra automáticamente la rama si cambia el título de la US
+- format `<kind>/us-0001-short-slug`
+- `usId` is the stable anchor
+- `short-slug` derives from the current user-story title
+- the slug improves readability, but is not the source of truth
+- the branch is not renamed automatically if the user-story title changes
 
 ### `category`
 
-Categoría explícita de la US, derivada del catálogo del repo.
+Explicit user-story category derived from the repository catalog.
 
-Se usa para:
+It is used to:
 
-- agrupar historias en la UI
-- mejorar trazabilidad funcional de la rama
-- evitar taxonomías libres y explosión de categorías
+- group stories in the UI
+- improve functional traceability of the branch
+- avoid free-form taxonomies and category explosion
 
 ### `status`
 
-Estado operativo de la rama.
+Operational state of the branch.
 
-Valores iniciales recomendados:
+Recommended initial values:
 
 - `active`
 - `superseded`
@@ -126,48 +126,48 @@ Valores iniciales recomendados:
 
 ### `createdAt`
 
-Marca temporal de creación de la rama.
+Timestamp when the branch was created.
 
 ### `createdFromPhase`
 
-Fase del workflow que originó la creación. En fase 1 debe ser `refinement_approval`.
+Workflow phase that originated branch creation. In phase 1 it must be `refinement_approval`.
 
 ### `strategy`
 
-Estrategia de branching aplicada. En fase 1 se fija como `single-branch-per-user-story`.
+Applied branching strategy. In phase 1 it is fixed as `single-branch-per-user-story`.
 
 ### `pullRequest`
 
-Bloque reservado para enlazar con la futura preparación de PR sin forzar todavía integración real.
+Reserved block to connect with future PR preparation without forcing real integration yet.
 
-Campos mínimos:
+Minimum fields:
 
 - `status`
 - `targetBaseBranch`
 
-Valores iniciales de `pullRequest.status`:
+Initial `pullRequest.status` values:
 
 - `not_requested`
 - `ready_to_prepare`
 - `prepared`
 
-## Invariantes
+## Invariants
 
-- una US activa tiene como máximo un `branch.yaml` activo
-- no puede existir `workBranch` sin `baseBranch`
-- no puede existir `workBranch` sin `kind`
-- no puede existir `workBranch` sin `category`
-- `branch.yaml` no se crea antes de la aprobación inicial del refinement
-- si una US se reinicia desde fuente, el branch previo debe quedar marcado como `superseded` o `abandoned`, nunca reutilizado silenciosamente
+- an active user story has at most one active `branch.yaml`
+- `workBranch` cannot exist without `baseBranch`
+- `workBranch` cannot exist without `kind`
+- `workBranch` cannot exist without `category`
+- `branch.yaml` is not created before the initial refinement approval
+- if a user story is restarted from source, the previous branch must be marked as `superseded` or `abandoned`, never silently reused
 
-## Decisiones cerradas
+## Closed Decisions
 
-- convención de `workBranch`: `<kind>/us-0001-short-slug`
-- estrategia de ramas activa en fase 1: `single-branch-per-user-story`
-- una sola rama activa por US
-- el rename manual de rama se pospone; no existe rename automático en fase 1
+- `workBranch` convention: `<kind>/us-0001-short-slug`
+- active branch strategy in phase 1: `single-branch-per-user-story`
+- a single active branch per user story
+- manual branch rename is postponed; there is no automatic rename in phase 1
 
-## Decisiones abiertas
+## Open Decisions
 
-- si `branch.yaml` debe incluir el `headCommit` local en fase 1 o posponerse
-- si el estado `merged` debe quedar en fase 1 o reservarse para la futura integración real con PR
+- whether `branch.yaml` should include the local `headCommit` in phase 1 or postpone it
+- whether `merged` should remain in phase 1 or be reserved for future real PR integration

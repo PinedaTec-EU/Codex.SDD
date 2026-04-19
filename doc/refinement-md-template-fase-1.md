@@ -1,94 +1,94 @@
-# SpecForge · Plantilla `01-refinement.md` fase 1
+# SpecForge · `01-refinement.md` template phase 1
 
-## Objetivo
+## Goal
 
-Definir la plantilla de refinement como artefacto funcional consolidado después de análisis crítico `red-team` y reconstrucción `blue-team`.
+Define the refinement template as the consolidated functional artifact produced after `red-team` criticism and `blue-team` reconstruction.
 
-## Principios
+## Principles
 
-- debe contener la mejor versión operativa de la US
-- debe hacer explícitas ambigüedades y riesgos
-- debe incluir `history log` al inicio cuando el agente lo modifique
-- debe dejar claros los puntos pendientes de aprobación humana
+- it must contain the best operational version of the user story
+- it must make ambiguities and risks explicit
+- it must include a `history log` at the top when the agent modifies it
+- it must clearly expose what still needs human approval
 
-## Plantilla propuesta
+## Proposed Template
 
 ```md
 # Refinement · US-0001 · v01
 
 ## History Log
-- `2026-04-18T10:15:00Z` · Creación inicial del refinement.
+- `2026-04-18T10:15:00Z` · Initial refinement creation.
 
-## Estado
-- Estado: `pending_approval`
-- Basado en: `us.md`
+## State
+- State: `pending_approval`
+- Based on: `us.md`
 
-## Resumen ejecutivo
-Versión condensada de la US ya refinada.
+## Executive Summary
+Condensed version of the refined user story.
 
-## Objetivo refinado
-Qué debe conseguir exactamente el sistema al finalizar esta US.
+## Refined Objective
+What the system must achieve exactly when this user story is complete.
 
-## Alcance refinado
-- Incluye:
+## Refined Scope
+- Includes:
   - ...
-- No incluye:
+- Excludes:
   - ...
 
-## Reglas funcionales
+## Functional Rules
 - ...
 - ...
 - ...
 
-## Restricciones
-- Técnicas:
+## Constraints
+- Technical:
   - ...
-- Operativas:
+- Operational:
   - ...
-- De proceso:
+- Process:
   - ...
 
-## Ambigüedades detectadas
+## Detected Ambiguities
 - ...
 - ...
 
 ## Red Team
-### Riesgos
+### Risks
 - ...
 - ...
 
-### Objeciones
+### Objections
 - ...
 - ...
 
-### Puntos débiles
+### Weak Points
 - ...
 - ...
 
 ## Blue Team
-### Ajustes recomendados
+### Recommended Adjustments
 - ...
 - ...
 
-### Decisiones de refuerzo
+### Reinforcing Decisions
 - ...
 - ...
 
-### Refinement consolidado
-Explica cómo cambia o mejora la propuesta tras red-team y blue-team.
+### Consolidated Refinement
+Explain how the proposal changes or improves after red-team and blue-team.
 
-## Criterios de aceptación refinados
+## Refined Acceptance Criteria
 - [ ] ...
 - [ ] ...
 - [ ] ...
 
-## Preguntas para aprobación humana
+## Human Approval Questions
 - ...
 - ...
 ```
 
-## Notas de uso
+## Usage Notes
 
-- este fichero es la baseline funcional de la US tras aprobación
-- si ya hubo una versión aprobada y se rehace, debe versionarse
-- el detalle debe ser accionable, no narrativo
+- this file becomes the functional baseline of the user story after approval
+- if an approved version already existed and must be redone, it must be versioned
+- the level of detail must be actionable, not narrative

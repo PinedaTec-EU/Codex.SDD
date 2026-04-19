@@ -1,74 +1,74 @@
-# SpecForge · Arquitectura objetivo
+# SpecForge · Target Architecture
 
-## Componentes
+## Components
 
-### 1. Extensión de VS Code
+### 1. VS Code Extension
 
-Responsabilidades:
+Responsibilities:
 
-- presentar USs y su estado
-- lanzar acciones del usuario
-- abrir artefactos markdown
-- observar cambios manuales en artefactos relevantes
-- mostrar el flujo actual y la fase activa
-- actuar como cliente del backend MCP
+- present user stories and their state
+- trigger user actions
+- open markdown artifacts
+- observe manual changes in relevant artifacts
+- show the current flow and active phase
+- act as the client for the MCP backend
 
-No responsabilidades:
+Non-responsibilities:
 
-- decidir transiciones
-- ejecutar lógica de workflow
-- persistir reglas de dominio fuera de contratos definidos
+- deciding transitions
+- executing workflow logic
+- persisting domain rules outside defined contracts
 
 ### 2. MCP Server
 
-Responsabilidades:
+Responsibilities:
 
-- gobernar el workflow SDD
-- validar transiciones y regresiones
-- aplicar políticas de aprobación
-- invocar proveedores LLM mediante abstracción
-- persistir y recuperar estado técnico
-- emitir resultados y eventos trazables
+- govern the SDD workflow
+- validate transitions and regressions
+- apply approval policies
+- invoke LLM providers through an abstraction
+- persist and recover technical state
+- emit traceable results and events
 
-### 3. Repo como fuente de verdad
+### 3. Repository As Source Of Truth
 
-Responsabilidades:
+Responsibilities:
 
-- almacenar artefactos humanos en markdown
-- almacenar estado técnico mínimo
-- versionar workflows, plantillas y decisiones
-- permitir reconstrucción del contexto en otro entorno
+- store human-facing artifacts in markdown
+- store minimum technical state
+- version workflows, templates, and decisions
+- allow context reconstruction in another environment
 
-## Regla de diseño principal
+## Main Design Rule
 
-La extensión orquesta interacción. El MCP decide ciclo de vida. El repo preserva trazabilidad.
+The extension orchestrates interaction. The MCP decides lifecycle. The repository preserves traceability.
 
-## Workflow canónico inicial
+## Initial Canonical Workflow
 
-1. Crear o importar US.
-2. Generar refinement.
-3. Aprobar refinement.
-4. Generar diseño técnico.
-5. Aprobar diseño técnico.
-6. Implementar.
-7. Revisar.
-8. Regresar o avanzar según findings.
+1. Create or import a user story.
+2. Generate refinement.
+3. Approve refinement.
+4. Generate technical design.
+5. Approve technical design.
+6. Implement.
+7. Review.
+8. Regress or advance based on findings.
 
-## Persistencia mínima recomendada
+## Recommended Minimum Persistence
 
-- markdown para artefactos legibles por humanos
-- `yaml` para estado transaccional, configuración y metadatos técnicos de la US
-- `timeline.md` para auditoría legible por humanos, con opción de evaluar `yaml` si más adelante hiciera falta procesamiento estructurado adicional
+- markdown for human-readable artifacts
+- `yaml` for transactional state, configuration, and user-story technical metadata
+- `timeline.md` for human-readable audit history, with the option to evaluate `yaml` later if additional structured processing becomes necessary
 
-Regla práctica:
+Practical rule:
 
-- no duplicar entradas de fase en `input.md` si el sistema puede inferirlas de la fase previa aprobada y de los punteros activos del estado
+- do not duplicate phase inputs in `input.md` if the system can infer them from the previously approved phase and the active state pointers
 
-## Decisión abierta de stack
+## Open Stack Decision
 
-Opciones viables para el MCP:
+Viable MCP options:
 
-- `TypeScript`: menor fricción inicial y alineación con la extensión
-- `C#`: mejor soporte para dominio complejo y contratos fuertes
+- `TypeScript`: lower initial friction and alignment with the extension
+- `C#`: stronger support for complex domain logic and contracts
 
-Para una base seria de producto, la opción preferible es `C#` en el backend y `TypeScript` en la extensión, manteniendo desacoplamiento por contrato MCP.
+For a serious product base, the preferred option is `C#` in the backend and `TypeScript` in the extension, while keeping contract-level decoupling through MCP.
