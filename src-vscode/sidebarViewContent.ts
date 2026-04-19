@@ -637,12 +637,13 @@ function wrapHtml(content: string, busy: boolean): string {
     .story-card {
       text-align: left;
       padding: 0;
-      background: rgba(255, 255, 255, 0.03);
+      background: transparent;
       color: inherit;
       display: grid;
       grid-template-columns: 1fr;
       overflow: hidden;
       min-height: 100%;
+      border-radius: 18px 0 0 18px;
     }
     .story-card__content {
       display: grid;
@@ -742,10 +743,10 @@ function wrapHtml(content: string, busy: boolean): string {
       background: rgba(255, 255, 255, 0.08);
     }
     .story-row--shell > .icon-action:hover {
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.04);
     }
     .story-row--shell > .icon-action.icon-action--danger:hover {
-      background: rgba(255, 139, 139, 0.09);
+      background: rgba(255, 139, 139, 0.08);
     }
     .story-star--active {
       color: #ffd75a;
