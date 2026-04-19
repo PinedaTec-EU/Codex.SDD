@@ -272,7 +272,7 @@ function wrapHtml(content, busy) {
         linear-gradient(180deg, rgba(9, 16, 22, 0.98), rgba(11, 15, 20, 1));
       color: var(--vscode-editor-foreground);
     }
-    .empty-state, .form-card, .story-list, .action-card {
+    .empty-state, .form-card, .action-card {
       border: 1px solid rgba(114, 241, 184, 0.12);
       border-radius: 20px;
       background: rgba(14, 20, 26, 0.92);
@@ -447,7 +447,7 @@ function wrapHtml(content, busy) {
       align-items: center;
       flex-shrink: 0;
     }
-    .form-card, .story-list, .action-card {
+    .form-card, .action-card {
       padding: 16px;
     }
     .action-card {
@@ -562,6 +562,11 @@ function wrapHtml(content, busy) {
     }
     .story-list {
       margin-top: 14px;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
     }
     .story-list__empty {
       margin-top: 6px;
