@@ -89,6 +89,9 @@ class SidebarViewProvider {
             case "addCreateFiles":
                 await this.addCreateFilesAsync(message.kind === "attachment" ? "attachment" : "context");
                 return;
+            case "addCreateFilePaths":
+                await this.addCreateFilePathsAsync(message.kind === "attachment" ? "attachment" : "context", message.paths ?? []);
+                return;
             case "setCreateFileKind":
                 if (!message.sourcePath) {
                     return;
@@ -226,6 +229,24 @@ class SidebarViewProvider {
             nextFiles.set(source.fsPath, {
                 sourcePath: source.fsPath,
                 name: path.basename(source.fsPath),
+                kind
+            });
+        }
+        this.createFiles = [...nextFiles.values()].sort((left, right) => left.name.localeCompare(right.name));
+        await this.safeRenderAsync();
+    }
+    async addCreateFilePathsAsync(kind, paths) {
+        const normalizedPaths = paths
+            .map((entry) => entry.trim())
+            .filter((entry) => entry.length > 0);
+        if (normalizedPaths.length === 0) {
+            return;
+        }
+        const nextFiles = new Map(this.createFiles.map((file) => [file.sourcePath, file]));
+        for (const sourcePath of normalizedPaths) {
+            nextFiles.set(sourcePath, {
+                sourcePath,
+                name: path.basename(sourcePath),
                 kind
             });
         }

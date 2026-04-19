@@ -67,9 +67,12 @@ test("buildSidebarHtml renders the embedded creation form inside the sidebar", (
   assert.match(html, /create-user-story-form/);
   assert.match(html, /<textarea name="sourceText"/);
   assert.match(html, /<option value="workflow">workflow<\/option>/);
-  assert.match(html, /Add Files/);
+  assert.match(html, /Drag &amp; Drop Files|Drag & Drop Files/);
+  assert.match(html, /data-create-dropzone/);
   assert.match(html, /data-command="setCreateFileMode" data-kind="context"/);
   assert.match(html, /data-command="setCreateFileKind"/);
+  assert.match(html, /data-command="removeCreateFile"/);
+  assert.match(html, /Remove service\.cs/);
   assert.match(html, /service\.cs/);
 });
 

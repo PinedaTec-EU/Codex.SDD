@@ -19,6 +19,7 @@ type SidebarMessage =
   | { readonly command: "deleteUserStory"; readonly usId?: string }
   | { readonly command: "setCreateFileMode"; readonly kind?: string }
   | { readonly command: "addCreateFiles"; readonly kind?: string }
+  | { readonly command: "addCreateFilePaths"; readonly kind?: string; readonly paths?: readonly string[] }
   | { readonly command: "setCreateFileKind"; readonly sourcePath?: string; readonly kind?: string }
   | { readonly command: "removeCreateFile"; readonly sourcePath?: string }
   | { readonly command: "submitCreateForm"; readonly title?: string; readonly kind?: string; readonly category?: string; readonly sourceText?: string };
@@ -80,6 +81,11 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         return;
       case "addCreateFiles":
         await this.addCreateFilesAsync(message.kind === "attachment" ? "attachment" : "context");
+        return;
+      case "addCreateFilePaths":
+        await this.addCreateFilePathsAsync(
+          message.kind === "attachment" ? "attachment" : "context",
+          message.paths ?? []);
         return;
       case "setCreateFileKind":
         if (!message.sourcePath) {
@@ -238,6 +244,28 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       nextFiles.set(source.fsPath, {
         sourcePath: source.fsPath,
         name: path.basename(source.fsPath),
+        kind
+      });
+    }
+
+    this.createFiles = [...nextFiles.values()].sort((left, right) => left.name.localeCompare(right.name));
+    await this.safeRenderAsync();
+  }
+
+  private async addCreateFilePathsAsync(kind: "context" | "attachment", paths: readonly string[]): Promise<void> {
+    const normalizedPaths = paths
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+
+    if (normalizedPaths.length === 0) {
+      return;
+    }
+
+    const nextFiles = new Map(this.createFiles.map((file) => [file.sourcePath, file]));
+    for (const sourcePath of normalizedPaths) {
+      nextFiles.set(sourcePath, {
+        sourcePath,
+        name: path.basename(sourcePath),
         kind
       });
     }

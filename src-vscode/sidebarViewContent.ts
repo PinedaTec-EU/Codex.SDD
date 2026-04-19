@@ -154,7 +154,10 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
                 <button class="file-kind-toggle__option${createFileMode === "context" ? " file-kind-toggle__option--active" : ""}" type="button" data-command="setCreateFileMode" data-kind="context">Context</button>
                 <button class="file-kind-toggle__option${createFileMode === "attachment" ? " file-kind-toggle__option--active" : ""}" type="button" data-command="setCreateFileMode" data-kind="attachment">US Info</button>
               </div>
-              <button class="secondary-action" type="button" data-command="addCreateFiles" data-kind="${escapeHtmlAttr(createFileMode)}">Add Files</button>
+            </div>
+            <div class="file-dropzone" data-create-dropzone data-kind="${escapeHtmlAttr(createFileMode)}">
+              <strong>Drag & Drop Files</strong>
+              <span>Drop files here as ${escapeHtml(createFileMode === "context" ? "context" : "US info")}.</span>
             </div>
             ${createFiles.length > 0
               ? `<div class="draft-file-list">
@@ -167,7 +170,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
                       <div class="draft-file-item__actions">
                         <button class="file-kind-chip${file.kind === "context" ? " file-kind-chip--active" : ""}" type="button" data-command="setCreateFileKind" data-source-path="${escapeHtmlAttr(file.sourcePath)}" data-kind="context">Context</button>
                         <button class="file-kind-chip${file.kind === "attachment" ? " file-kind-chip--active" : ""}" type="button" data-command="setCreateFileKind" data-source-path="${escapeHtmlAttr(file.sourcePath)}" data-kind="attachment">US Info</button>
-                        <button class="ghost-action ghost-action--danger" type="button" data-command="removeCreateFile" data-source-path="${escapeHtmlAttr(file.sourcePath)}">Remove</button>
+                        <button class="icon-action icon-action--danger draft-file-item__remove" type="button" data-command="removeCreateFile" data-source-path="${escapeHtmlAttr(file.sourcePath)}" aria-label="Remove ${escapeHtmlAttr(file.name)}" title="Remove ${escapeHtmlAttr(file.name)}">🗑</button>
                       </div>
                     </div>
                   `).join("")}
@@ -542,6 +545,31 @@ function wrapHtml(content: string, busy: boolean): string {
       align-items: center;
       flex-wrap: wrap;
     }
+    .file-dropzone {
+      display: grid;
+      gap: 4px;
+      place-items: center;
+      padding: 18px 14px;
+      border-radius: 16px;
+      border: 1px dashed rgba(114, 241, 184, 0.28);
+      background: rgba(114, 241, 184, 0.05);
+      text-align: center;
+      color: rgba(255, 255, 255, 0.82);
+      transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+    }
+    .file-dropzone strong {
+      font-size: 0.92rem;
+      color: #dcfff0;
+    }
+    .file-dropzone span {
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.66);
+    }
+    .file-dropzone--active {
+      background: rgba(114, 241, 184, 0.1);
+      border-color: rgba(114, 241, 184, 0.44);
+      transform: translateY(-1px);
+    }
     .form-files__empty {
       font-size: 0.84rem;
     }
@@ -596,6 +624,12 @@ function wrapHtml(content: string, busy: boolean): string {
       gap: 8px;
       flex-wrap: wrap;
       align-items: center;
+    }
+    .draft-file-item__remove {
+      width: 34px;
+      min-width: 34px;
+      height: 34px;
+      margin-left: auto;
     }
     .story-list {
       margin-top: 14px;
@@ -807,6 +841,12 @@ function wrapHtml(content: string, busy: boolean): string {
         if (busy) {
           return;
         }
+        if (element.dataset.command === "removeCreateFile") {
+          const label = element.getAttribute("title") ?? "Remove file";
+          if (!confirm(label + "?")) {
+            return;
+          }
+        }
         vscode.postMessage({
           command: element.dataset.command,
           usId: element.dataset.usId,
@@ -819,6 +859,48 @@ function wrapHtml(content: string, busy: boolean): string {
     if (form) {
       for (const field of form.querySelectorAll("input, select, textarea, button")) {
         field.disabled = busy;
+      }
+      const dropzone = form.querySelector("[data-create-dropzone]");
+      if (dropzone) {
+        const setDropzoneState = (active) => {
+          dropzone.classList.toggle("file-dropzone--active", active);
+        };
+        dropzone.addEventListener("dragenter", (event) => {
+          event.preventDefault();
+          if (!busy) {
+            setDropzoneState(true);
+          }
+        });
+        dropzone.addEventListener("dragover", (event) => {
+          event.preventDefault();
+          if (!busy) {
+            setDropzoneState(true);
+          }
+        });
+        dropzone.addEventListener("dragleave", (event) => {
+          event.preventDefault();
+          if (event.target === dropzone) {
+            setDropzoneState(false);
+          }
+        });
+        dropzone.addEventListener("drop", (event) => {
+          event.preventDefault();
+          setDropzoneState(false);
+          if (busy) {
+            return;
+          }
+          const paths = Array.from(event.dataTransfer?.files ?? [])
+            .map((file) => file.path)
+            .filter((filePath) => typeof filePath === "string" && filePath.length > 0);
+          if (paths.length === 0) {
+            return;
+          }
+          vscode.postMessage({
+            command: "addCreateFilePaths",
+            kind: dropzone.dataset.kind,
+            paths
+          });
+        });
       }
       form.addEventListener("submit", (event) => {
         event.preventDefault();
