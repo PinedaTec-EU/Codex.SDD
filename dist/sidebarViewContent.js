@@ -62,22 +62,24 @@ function buildSidebarHtml(model) {
               <span class="story-card__meta">${escapeHtml(summary.currentPhase)} · ${escapeHtml(summary.status)}</span>
             </span>
           </button>
-          <button
-            class="icon-action story-star${model.starredUserStoryId === summary.usId ? " story-star--active" : ""}"
-            data-command="toggleStarredUserStory"
-            data-us-id="${escapeHtmlAttr(summary.usId)}"
-            title="${escapeHtmlAttr(model.starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}"
-            aria-label="${escapeHtmlAttr(model.starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}">
-            <span aria-hidden="true">${model.starredUserStoryId === summary.usId ? "★" : "☆"}</span>
-          </button>
-          <button
-            class="icon-action icon-action--danger story-delete"
-            data-command="deleteUserStory"
-            data-us-id="${escapeHtmlAttr(summary.usId)}"
-            title="Delete ${escapeHtmlAttr(summary.usId)}"
-            aria-label="Delete ${escapeHtmlAttr(summary.usId)}">
-            <span aria-hidden="true">🗑</span>
-          </button>
+          <div class="story-actions">
+            <button
+              class="icon-action story-star${model.starredUserStoryId === summary.usId ? " story-star--active" : ""}"
+              data-command="toggleStarredUserStory"
+              data-us-id="${escapeHtmlAttr(summary.usId)}"
+              title="${escapeHtmlAttr(model.starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}"
+              aria-label="${escapeHtmlAttr(model.starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}">
+              <span aria-hidden="true">${model.starredUserStoryId === summary.usId ? "★" : "☆"}</span>
+            </button>
+            <button
+              class="icon-action icon-action--danger story-delete"
+              data-command="deleteUserStory"
+              data-us-id="${escapeHtmlAttr(summary.usId)}"
+              title="Delete ${escapeHtmlAttr(summary.usId)}"
+              aria-label="Delete ${escapeHtmlAttr(summary.usId)}">
+              <span aria-hidden="true">🗑</span>
+            </button>
+          </div>
         </div>
       `).join("")}
     </section>
@@ -569,7 +571,7 @@ function wrapHtml(content, busy) {
     }
     .story-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 8px;
       align-items: stretch;
     }
@@ -583,7 +585,8 @@ function wrapHtml(content, busy) {
       box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
     }
     .story-row--shell > .story-card,
-    .story-row--shell > .icon-action {
+    .story-row--shell > .story-actions,
+    .story-row--shell > .story-actions > .icon-action {
       border: 0;
       box-shadow: none;
     }
@@ -681,22 +684,25 @@ function wrapHtml(content, busy) {
       background: linear-gradient(180deg, rgba(114, 241, 184, 0.28), rgba(18, 46, 36, 0.96));
       border-right-color: rgba(114, 241, 184, 0.26);
     }
-    .story-delete {
+    .story-actions {
+      display: grid;
+      grid-template-rows: 1fr 1fr;
+      gap: 0;
       align-self: stretch;
-      height: 100%;
     }
+    .story-delete,
     .story-star {
       align-self: stretch;
       height: 100%;
     }
-    .story-row--shell > .icon-action {
+    .story-row--shell > .story-actions > .icon-action {
       width: 40px;
       min-width: 40px;
-      border-radius: 14px;
+      border-radius: 0;
       background: transparent;
       position: relative;
     }
-    .story-row--shell > .icon-action::before {
+    .story-row--shell > .story-actions > .icon-action::before {
       content: "";
       position: absolute;
       left: -4px;
@@ -705,10 +711,25 @@ function wrapHtml(content, busy) {
       width: 1px;
       background: rgba(255, 255, 255, 0.08);
     }
-    .story-row--shell > .icon-action:hover {
+    .story-row--shell > .story-actions > .icon-action:first-child {
+      border-top-right-radius: 14px;
+    }
+    .story-row--shell > .story-actions > .icon-action:last-child {
+      border-bottom-right-radius: 14px;
+    }
+    .story-row--shell > .story-actions > .icon-action + .icon-action::after {
+      content: "";
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      top: 0;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .story-row--shell > .story-actions > .icon-action:hover {
       background: rgba(255, 255, 255, 0.04);
     }
-    .story-row--shell > .icon-action.icon-action--danger:hover {
+    .story-row--shell > .story-actions > .icon-action.icon-action--danger:hover {
       background: rgba(255, 139, 139, 0.08);
     }
     .story-star--active {
