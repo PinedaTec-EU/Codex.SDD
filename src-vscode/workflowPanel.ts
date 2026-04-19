@@ -12,7 +12,8 @@ type WorkflowPanelCommand =
   | { readonly command: "openPrompt"; readonly path?: string }
   | { readonly command: "openAttachment"; readonly path?: string }
   | { readonly command: "openSettings" }
-  | { readonly command: "attachFiles" }
+  | { readonly command: "attachFiles"; readonly kind?: string }
+  | { readonly command: "setFileKind"; readonly path?: string; readonly kind?: string }
   | { readonly command: "continue" }
   | { readonly command: "approve" }
   | { readonly command: "restart" }
@@ -153,7 +154,12 @@ class WorkflowPanelController {
         await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
         return;
       case "attachFiles":
-        await this.attachFilesAsync();
+        await this.attachFilesAsync(message.kind === "context" ? "context" : "attachment");
+        return;
+      case "setFileKind":
+        if (message.path && (message.kind === "context" || message.kind === "attachment")) {
+          await this.setFileKindAsync(message.path, message.kind);
+        }
         return;
       case "continue":
         if (!this.isExecutionConfigured()) {
@@ -238,19 +244,19 @@ class WorkflowPanelController {
     return getSpecForgeSettingsStatus(getSpecForgeSettings()).executionConfigured;
   }
 
-  private async attachFilesAsync(): Promise<void> {
+  private async attachFilesAsync(kind: "context" | "attachment"): Promise<void> {
     const selection = await vscode.window.showOpenDialog({
       canSelectFiles: true,
       canSelectFolders: false,
       canSelectMany: true,
-      openLabel: "Attach files to user story"
+      openLabel: kind === "context" ? "Add context files" : "Add user story files"
     });
 
     if (!selection || selection.length === 0) {
       return;
     }
 
-    const attachmentsDirectoryPath = path.join(this.summary.directoryPath, "attachments");
+    const attachmentsDirectoryPath = path.join(this.summary.directoryPath, kind === "context" ? "context" : "attachments");
     await fs.promises.mkdir(attachmentsDirectoryPath, { recursive: true });
 
     for (const source of selection) {
@@ -259,7 +265,27 @@ class WorkflowPanelController {
     }
 
     await this.refreshAsync();
-    void vscode.window.showInformationMessage(`Attached ${selection.length} file(s) to ${this.summary.usId}.`);
+    void vscode.window.showInformationMessage(
+      `${selection.length} file(s) added to ${kind === "context" ? "context" : "user story info"} for ${this.summary.usId}.`
+    );
+  }
+
+  private async setFileKindAsync(filePath: string, targetKind: "context" | "attachment"): Promise<void> {
+    const sourcePath = path.normalize(filePath);
+    const targetDirectory = path.join(this.summary.directoryPath, targetKind === "context" ? "context" : "attachments");
+    const sourceDirectory = path.dirname(sourcePath);
+
+    if (path.normalize(sourceDirectory) === path.normalize(targetDirectory)) {
+      return;
+    }
+
+    await fs.promises.mkdir(targetDirectory, { recursive: true });
+    const targetPath = await getNextAttachmentPathAsync(targetDirectory, path.basename(sourcePath));
+    await fs.promises.rename(sourcePath, targetPath);
+    await this.refreshAsync();
+    void vscode.window.showInformationMessage(
+      `Moved ${path.basename(sourcePath)} to ${targetKind === "context" ? "context" : "user story info"} in ${this.summary.usId}.`
+    );
   }
 
   private async approveCurrentPhaseAsync(): Promise<void> {

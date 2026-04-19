@@ -109,7 +109,7 @@ export interface TimelineEventDetails {
   readonly durationMs: number | null;
 }
 
-export interface AttachmentDetails {
+export interface UserStoryFileDetails {
   readonly name: string;
   readonly path: string;
 }
@@ -129,8 +129,10 @@ export interface UserStoryWorkflowDetails {
   readonly controls: CurrentPhaseControls;
   readonly clarification: ClarificationSessionDetails | null;
   readonly events: readonly TimelineEventDetails[];
+  readonly contextFilesDirectoryPath?: string;
+  readonly contextFiles?: readonly UserStoryFileDetails[];
   readonly attachmentsDirectoryPath: string;
-  readonly attachments: readonly AttachmentDetails[];
+  readonly attachments: readonly UserStoryFileDetails[];
 }
 
 export interface SpecForgeBackendClient {

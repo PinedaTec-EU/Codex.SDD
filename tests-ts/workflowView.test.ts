@@ -65,6 +65,13 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
         durationMs: 4876
       }
     ],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: [
+      {
+        name: "service.cs",
+        path: "/tmp/context/service.cs"
+      }
+    ],
     attachmentsDirectoryPath: "/tmp/attachments",
     attachments: [
       {
@@ -91,7 +98,12 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /Open Artifact/);
   assert.match(html, /Open Execute Prompt/);
   assert.match(html, /Open Approve Prompt/);
-  assert.match(html, /Attach Files/);
+  assert.match(html, /Add Files/);
+  assert.match(html, /Context Files/);
+  assert.match(html, /User Story Info/);
+  assert.match(html, /Move to US Info/);
+  assert.match(html, /Move to Context/);
+  assert.match(html, /service\.cs/);
   assert.match(html, /api-notes\.md/);
   assert.match(html, /Duration/);
   assert.match(html, /4\.88 s/);

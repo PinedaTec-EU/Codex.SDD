@@ -343,20 +343,55 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     const promptSection = promptButtons
         ? `<div class="detail-actions">${promptButtons}</div>`
         : "<p class=\"muted\">This phase does not expose prompt templates from the current repo bootstrap.</p>";
+    const contextFiles = workflow.contextFiles ?? [];
     const attachmentsSection = `
-    <div class="detail-actions">
-      <button data-command="attachFiles">Attach Files</button>
+    <div class="detail-actions detail-actions--files">
+      <div class="file-kind-toggle" data-file-kind-toggle>
+        <button class="file-kind-toggle__option file-kind-toggle__option--active" type="button" data-file-kind-option="context">Context</button>
+        <button class="file-kind-toggle__option" type="button" data-file-kind-option="attachment">US Info</button>
+      </div>
+      <button data-command="attachFiles" data-kind="context" data-attach-files-button>Add Files</button>
     </div>
-    ${workflow.attachments.length > 0
+    <div class="file-groups">
+      <section class="file-group">
+        <div class="file-group__header">
+          <h4>Context Files</h4>
+          <p>Injected into the model runtime when phases execute.</p>
+        </div>
+        ${contextFiles.length > 0
         ? `<div class="attachment-list">
-          ${workflow.attachments.map((attachment) => `
-            <button class="attachment-item" data-command="openAttachment" data-path="${escapeHtmlAttribute(attachment.path)}">
-              <strong>${escapeHtml(attachment.name)}</strong>
-              <span>${escapeHtml(attachment.path)}</span>
-            </button>
-          `).join("")}
-        </div>`
-        : "<p class=\"muted\">No files are attached to this user story yet.</p>"}
+              ${contextFiles.map((attachment) => `
+                <div class="file-item">
+                  <button class="attachment-item" data-command="openAttachment" data-path="${escapeHtmlAttribute(attachment.path)}">
+                    <strong>${escapeHtml(attachment.name)}</strong>
+                    <span>${escapeHtml(attachment.path)}</span>
+                  </button>
+                  <button class="file-kind-action" data-command="setFileKind" data-path="${escapeHtmlAttribute(attachment.path)}" data-kind="attachment">Move to US Info</button>
+                </div>
+              `).join("")}
+            </div>`
+        : "<p class=\"muted\">No context files are attached to this workflow yet.</p>"}
+      </section>
+      <section class="file-group">
+        <div class="file-group__header">
+          <h4>User Story Info</h4>
+          <p>Kept with the user story, but excluded from the model prompt by default.</p>
+        </div>
+        ${workflow.attachments.length > 0
+        ? `<div class="attachment-list">
+              ${workflow.attachments.map((attachment) => `
+                <div class="file-item">
+                  <button class="attachment-item" data-command="openAttachment" data-path="${escapeHtmlAttribute(attachment.path)}">
+                    <strong>${escapeHtml(attachment.name)}</strong>
+                    <span>${escapeHtml(attachment.path)}</span>
+                  </button>
+                  <button class="file-kind-action" data-command="setFileKind" data-path="${escapeHtmlAttribute(attachment.path)}" data-kind="context">Move to Context</button>
+                </div>
+              `).join("")}
+            </div>`
+        : "<p class=\"muted\">No user story files are attached yet.</p>"}
+      </section>
+    </div>
   `;
     const clarificationSection = selectedPhase.phaseId === "clarification" && workflow.clarification
         ? `
@@ -1110,13 +1145,64 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .detail-actions--artifact {
       justify-content: space-between;
     }
+    .detail-actions--files {
+      justify-content: space-between;
+    }
+    .file-kind-toggle {
+      display: inline-flex;
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.035);
+      gap: 4px;
+    }
+    .file-kind-toggle__option {
+      min-width: 92px;
+      border-radius: 999px !important;
+      padding: 8px 12px !important;
+      background: transparent !important;
+      border-color: transparent !important;
+      box-shadow: none !important;
+    }
+    .file-kind-toggle__option--active {
+      background: linear-gradient(180deg, rgba(114, 241, 184, 0.16), rgba(18, 33, 28, 0.92)) !important;
+      border-color: rgba(114, 241, 184, 0.18) !important;
+      color: #f2fff9 !important;
+    }
     .artifact-view-label {
       display: inline-flex;
       align-items: center;
     }
+    .file-groups {
+      display: grid;
+      gap: 18px;
+    }
+    .file-group {
+      display: grid;
+      gap: 10px;
+    }
+    .file-group__header {
+      display: grid;
+      gap: 4px;
+    }
+    .file-group__header h4 {
+      margin: 0;
+      font-size: 0.95rem;
+    }
+    .file-group__header p {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.62);
+      line-height: 1.4;
+    }
     .attachment-list {
       display: grid;
       gap: 10px;
+    }
+    .file-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: stretch;
     }
     .attachment-item {
       padding: 12px 14px;
@@ -1130,6 +1216,11 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       opacity: 0.62;
       font-size: 0.8rem;
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    }
+    .file-kind-action {
+      align-self: stretch;
+      min-width: 132px;
+      white-space: nowrap;
     }
     .clarification-shell {
       display: grid;
@@ -1379,6 +1470,15 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         width: auto;
         min-height: 148px;
       }
+      .detail-actions--files {
+        align-items: stretch;
+      }
+      .file-item {
+        grid-template-columns: 1fr;
+      }
+      .file-kind-action {
+        min-width: 0;
+      }
       ${buildPhasePositionCss(mobilePhasePositions)}
       ${buildPhaseActionPositionCss(mobilePhasePositions, mobilePhaseNodeWidth)}
     }
@@ -1446,7 +1546,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           ${promptSection}
         </section>
         <section class="detail-card">
-          <h3>User Story Attachments</h3>
+          <h3>Workflow Files</h3>
           ${attachmentsSection}
         </section>
         <section class="detail-card">
@@ -1463,9 +1563,24 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         vscode.postMessage({
           command: element.dataset.command,
           phaseId: element.dataset.phaseId,
-          path: element.dataset.path
+          path: element.dataset.path,
+          kind: element.dataset.kind
         });
       });
+    }
+
+    const fileKindToggle = document.querySelector("[data-file-kind-toggle]");
+    const attachFilesButton = document.querySelector("[data-attach-files-button]");
+    if (fileKindToggle && attachFilesButton instanceof HTMLElement) {
+      for (const element of fileKindToggle.querySelectorAll("[data-file-kind-option]")) {
+        element.addEventListener("click", () => {
+          const selectedKind = element.dataset.fileKindOption === "attachment" ? "attachment" : "context";
+          attachFilesButton.dataset.kind = selectedKind;
+          for (const candidate of fileKindToggle.querySelectorAll("[data-file-kind-option]")) {
+            candidate.classList.toggle("file-kind-toggle__option--active", candidate === element);
+          }
+        });
+      }
     }
 
     const clarificationSubmit = document.getElementById("submit-clarification-answers");

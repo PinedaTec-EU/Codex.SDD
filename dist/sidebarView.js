@@ -48,6 +48,8 @@ class SidebarViewProvider {
     webviewView;
     showCreateForm = false;
     busyMessage = null;
+    createFileMode = "context";
+    createFiles = [];
     constructor(extensionUri, onDidCreateUserStory) {
         this.extensionUri = extensionUri;
         this.onDidCreateUserStory = onDidCreateUserStory;
@@ -73,10 +75,34 @@ class SidebarViewProvider {
         switch (message.command) {
             case "showCreateForm":
                 this.showCreateForm = true;
+                this.createFileMode = "context";
                 await this.safeRenderAsync();
                 return;
             case "hideCreateForm":
                 this.showCreateForm = false;
+                await this.safeRenderAsync();
+                return;
+            case "setCreateFileMode":
+                this.createFileMode = message.kind === "attachment" ? "attachment" : "context";
+                await this.safeRenderAsync();
+                return;
+            case "addCreateFiles":
+                await this.addCreateFilesAsync(message.kind === "attachment" ? "attachment" : "context");
+                return;
+            case "setCreateFileKind":
+                if (!message.sourcePath) {
+                    return;
+                }
+                this.createFiles = this.createFiles.map((file) => file.sourcePath === message.sourcePath
+                    ? { ...file, kind: message.kind === "attachment" ? "attachment" : "context" }
+                    : file);
+                await this.safeRenderAsync();
+                return;
+            case "removeCreateFile":
+                if (!message.sourcePath) {
+                    return;
+                }
+                this.createFiles = this.createFiles.filter((file) => file.sourcePath !== message.sourcePath);
                 await this.safeRenderAsync();
                 return;
             case "openWorkflow":
@@ -145,7 +171,10 @@ class SidebarViewProvider {
         const summaries = await backendClient.listUserStories();
         const usId = (0, explorerModel_1.nextUserStoryIdFromSummaries)(summaries);
         const result = await backendClient.createUserStory(usId, title, kind, category, sourceText);
+        await this.materializeCreateFilesAsync(result.rootDirectory);
         this.showCreateForm = false;
+        this.createFiles = [];
+        this.createFileMode = "context";
         await this.onDidCreateUserStory();
         const createdSummary = await backendClient.getUserStorySummary(usId);
         await vscode.commands.executeCommand("specForge.openWorkflowView", createdSummary);
@@ -182,6 +211,35 @@ class SidebarViewProvider {
         await (0, userWorkspacePreferences_1.setStarredUserStory)(workspaceRoot, nextStarredUserStoryId);
         await this.safeRenderAsync();
     }
+    async addCreateFilesAsync(kind) {
+        const selection = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: true,
+            openLabel: kind === "context" ? "Add context files" : "Add user story files"
+        });
+        if (!selection || selection.length === 0) {
+            return;
+        }
+        const nextFiles = new Map(this.createFiles.map((file) => [file.sourcePath, file]));
+        for (const source of selection) {
+            nextFiles.set(source.fsPath, {
+                sourcePath: source.fsPath,
+                name: path.basename(source.fsPath),
+                kind
+            });
+        }
+        this.createFiles = [...nextFiles.values()].sort((left, right) => left.name.localeCompare(right.name));
+        await this.safeRenderAsync();
+    }
+    async materializeCreateFilesAsync(userStoryDirectoryPath) {
+        for (const file of this.createFiles) {
+            const targetDirectoryPath = path.join(userStoryDirectoryPath, file.kind === "context" ? "context" : "attachments");
+            await fs.promises.mkdir(targetDirectoryPath, { recursive: true });
+            const targetPath = await getNextAttachmentPathAsync(targetDirectoryPath, file.name);
+            await fs.promises.copyFile(file.sourcePath, targetPath);
+        }
+    }
     async initializeRepoPromptsFromSidebarAsync() {
         const workspaceRoot = getWorkspaceRoot();
         if (!workspaceRoot) {
@@ -214,6 +272,8 @@ class SidebarViewProvider {
                 settingsConfigured: settingsStatus.executionConfigured,
                 settingsMessage: settingsStatus.message,
                 starredUserStoryId: null,
+                createFileMode: this.createFileMode,
+                createFiles: this.createFiles,
                 categories: [],
                 userStories: []
             });
@@ -235,6 +295,8 @@ class SidebarViewProvider {
             settingsConfigured: settingsStatus.executionConfigured,
             settingsMessage: settingsStatus.message,
             starredUserStoryId: preferences.starredUserStoryId,
+            createFileMode: this.createFileMode,
+            createFiles: this.createFiles,
             categories,
             userStories
         });
@@ -255,6 +317,8 @@ class SidebarViewProvider {
                 settingsConfigured: false,
                 settingsMessage: "SpecForge.AI settings could not be evaluated.",
                 starredUserStoryId: null,
+                createFileMode: this.createFileMode,
+                createFiles: this.createFiles,
                 categories: [],
                 userStories: []
             });
@@ -300,6 +364,18 @@ async function hasInitializedRepoPromptsAsync(workspaceRoot) {
 async function openTextDocument(filePath) {
     const document = await vscode.workspace.openTextDocument(filePath);
     await vscode.window.showTextDocument(document, { preview: false });
+}
+async function getNextAttachmentPathAsync(directoryPath, fileName) {
+    const extension = path.extname(fileName);
+    const baseName = extension.length > 0 ? fileName.slice(0, -extension.length) : fileName;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+        const suffix = attempt === 0 ? "" : `.${String(attempt + 1).padStart(2, "0")}`;
+        const candidate = path.join(directoryPath, `${baseName}${suffix}${extension}`);
+        if (!await pathExistsAsync(candidate)) {
+            return candidate;
+        }
+    }
+    throw new Error(`Unable to persist '${fileName}' after 100 attempts.`);
 }
 function asErrorMessage(error) {
     if (error instanceof Error) {

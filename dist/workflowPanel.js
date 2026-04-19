@@ -147,7 +147,12 @@ class WorkflowPanelController {
                 await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
                 return;
             case "attachFiles":
-                await this.attachFilesAsync();
+                await this.attachFilesAsync(message.kind === "context" ? "context" : "attachment");
+                return;
+            case "setFileKind":
+                if (message.path && (message.kind === "context" || message.kind === "attachment")) {
+                    await this.setFileKindAsync(message.path, message.kind);
+                }
                 return;
             case "continue":
                 if (!this.isExecutionConfigured()) {
@@ -226,24 +231,37 @@ class WorkflowPanelController {
     isExecutionConfigured() {
         return (0, extensionSettings_1.getSpecForgeSettingsStatus)((0, extensionSettings_1.getSpecForgeSettings)()).executionConfigured;
     }
-    async attachFilesAsync() {
+    async attachFilesAsync(kind) {
         const selection = await vscode.window.showOpenDialog({
             canSelectFiles: true,
             canSelectFolders: false,
             canSelectMany: true,
-            openLabel: "Attach files to user story"
+            openLabel: kind === "context" ? "Add context files" : "Add user story files"
         });
         if (!selection || selection.length === 0) {
             return;
         }
-        const attachmentsDirectoryPath = path.join(this.summary.directoryPath, "attachments");
+        const attachmentsDirectoryPath = path.join(this.summary.directoryPath, kind === "context" ? "context" : "attachments");
         await fs.promises.mkdir(attachmentsDirectoryPath, { recursive: true });
         for (const source of selection) {
             const targetPath = await getNextAttachmentPathAsync(attachmentsDirectoryPath, path.basename(source.fsPath));
             await fs.promises.copyFile(source.fsPath, targetPath);
         }
         await this.refreshAsync();
-        void vscode.window.showInformationMessage(`Attached ${selection.length} file(s) to ${this.summary.usId}.`);
+        void vscode.window.showInformationMessage(`${selection.length} file(s) added to ${kind === "context" ? "context" : "user story info"} for ${this.summary.usId}.`);
+    }
+    async setFileKindAsync(filePath, targetKind) {
+        const sourcePath = path.normalize(filePath);
+        const targetDirectory = path.join(this.summary.directoryPath, targetKind === "context" ? "context" : "attachments");
+        const sourceDirectory = path.dirname(sourcePath);
+        if (path.normalize(sourceDirectory) === path.normalize(targetDirectory)) {
+            return;
+        }
+        await fs.promises.mkdir(targetDirectory, { recursive: true });
+        const targetPath = await getNextAttachmentPathAsync(targetDirectory, path.basename(sourcePath));
+        await fs.promises.rename(sourcePath, targetPath);
+        await this.refreshAsync();
+        void vscode.window.showInformationMessage(`Moved ${path.basename(sourcePath)} to ${targetKind === "context" ? "context" : "user story info"} in ${this.summary.usId}.`);
     }
     async approveCurrentPhaseAsync() {
         let baseBranch;

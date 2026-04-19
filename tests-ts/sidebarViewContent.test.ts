@@ -51,6 +51,14 @@ test("buildSidebarHtml renders the embedded creation form inside the sidebar", (
     settingsConfigured: true,
     settingsMessage: null,
     starredUserStoryId: null,
+    createFileMode: "context",
+    createFiles: [
+      {
+        sourcePath: "/tmp/service.cs",
+        name: "service.cs",
+        kind: "context"
+      }
+    ],
     categories: ["workflow", "ux"],
     userStories: []
   });
@@ -59,6 +67,10 @@ test("buildSidebarHtml renders the embedded creation form inside the sidebar", (
   assert.match(html, /create-user-story-form/);
   assert.match(html, /<textarea name="sourceText"/);
   assert.match(html, /<option value="workflow">workflow<\/option>/);
+  assert.match(html, /Add Files/);
+  assert.match(html, /data-command="setCreateFileMode" data-kind="context"/);
+  assert.match(html, /data-command="setCreateFileKind"/);
+  assert.match(html, /service\.cs/);
 });
 
 test("buildSidebarHtml exposes a compact prompt reset action when repo prompts are initialized", () => {

@@ -4,6 +4,8 @@ exports.buildSidebarHtml = buildSidebarHtml;
 function buildSidebarHtml(model) {
     const busyIndicatorMarkup = buildBusyIndicatorMarkup(model);
     const isBusy = model.busyMessage !== null;
+    const createFileMode = model.createFileMode ?? "context";
+    const createFiles = model.createFiles ?? [];
     if (!model.hasWorkspace) {
         return wrapHtml(`
       ${busyIndicatorMarkup}
@@ -113,6 +115,38 @@ function buildSidebarHtml(model) {
             <span>Source</span>
             <textarea name="sourceText" rows="8" placeholder="Describe the user story objective and scope." required></textarea>
           </label>
+          <div class="form-files">
+            <div class="form-files__header">
+              <div>
+                <span>Files</span>
+                <p class="copy">Switch between runtime context and user-story info before adding files. You can reclassify them below.</p>
+              </div>
+            </div>
+            <div class="form-files__actions">
+              <div class="file-kind-toggle">
+                <button class="file-kind-toggle__option${createFileMode === "context" ? " file-kind-toggle__option--active" : ""}" type="button" data-command="setCreateFileMode" data-kind="context">Context</button>
+                <button class="file-kind-toggle__option${createFileMode === "attachment" ? " file-kind-toggle__option--active" : ""}" type="button" data-command="setCreateFileMode" data-kind="attachment">US Info</button>
+              </div>
+              <button class="secondary-action" type="button" data-command="addCreateFiles" data-kind="${escapeHtmlAttr(createFileMode)}">Add Files</button>
+            </div>
+            ${createFiles.length > 0
+            ? `<div class="draft-file-list">
+                  ${createFiles.map((file) => `
+                    <div class="draft-file-item">
+                      <div class="draft-file-item__content">
+                        <strong>${escapeHtml(file.name)}</strong>
+                        <span>${escapeHtml(file.sourcePath)}</span>
+                      </div>
+                      <div class="draft-file-item__actions">
+                        <button class="file-kind-chip${file.kind === "context" ? " file-kind-chip--active" : ""}" type="button" data-command="setCreateFileKind" data-source-path="${escapeHtmlAttr(file.sourcePath)}" data-kind="context">Context</button>
+                        <button class="file-kind-chip${file.kind === "attachment" ? " file-kind-chip--active" : ""}" type="button" data-command="setCreateFileKind" data-source-path="${escapeHtmlAttr(file.sourcePath)}" data-kind="attachment">US Info</button>
+                        <button class="ghost-action ghost-action--danger" type="button" data-command="removeCreateFile" data-source-path="${escapeHtmlAttr(file.sourcePath)}">Remove</button>
+                      </div>
+                    </div>
+                  `).join("")}
+                </div>`
+            : "<p class=\"copy form-files__empty\">No files selected yet.</p>"}
+          </div>
           <button class="primary-action" type="submit">Create User Story</button>
         </form>
       </section>
@@ -336,7 +370,7 @@ function wrapHtml(content, busy) {
     .empty-state.hero .primary-action {
       margin-top: 18px;
     }
-    .primary-action, .ghost-action, .story-card, .icon-action, .warning-action {
+    .primary-action, .secondary-action, .ghost-action, .story-card, .icon-action, .warning-action {
       width: 100%;
       border-radius: 14px;
       border: 1px solid rgba(114, 241, 184, 0.18);
@@ -354,10 +388,19 @@ function wrapHtml(content, busy) {
       font-size: 0.96rem;
       box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
     }
+    .secondary-action {
+      padding: 10px 12px;
+      background: rgba(114, 241, 184, 0.08);
+      color: #dcfff0;
+    }
     .ghost-action {
       padding: 10px 12px;
       background: rgba(255, 255, 255, 0.04);
       color: inherit;
+    }
+    .ghost-action--danger {
+      border-color: rgba(255, 139, 139, 0.18);
+      color: #ffb0b0;
     }
     .warning-action {
       grid-column: 1 / -1;
@@ -439,6 +482,81 @@ function wrapHtml(content, busy) {
     textarea {
       resize: vertical;
       min-height: 124px;
+    }
+    .form-files {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .form-files__header {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .form-files__actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .form-files__empty {
+      font-size: 0.84rem;
+    }
+    .file-kind-toggle {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .file-kind-toggle__option,
+    .file-kind-chip {
+      width: auto;
+      border-radius: 999px;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.02);
+      color: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+    }
+    .file-kind-toggle__option--active,
+    .file-kind-chip--active {
+      background: rgba(114, 241, 184, 0.14);
+      color: #dffff0;
+      border-color: rgba(114, 241, 184, 0.2);
+    }
+    .draft-file-list {
+      display: grid;
+      gap: 8px;
+    }
+    .draft-file-item {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .draft-file-item__content {
+      display: grid;
+      gap: 4px;
+    }
+    .draft-file-item__content span {
+      font-size: 0.76rem;
+      color: rgba(255, 255, 255, 0.56);
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      word-break: break-all;
+    }
+    .draft-file-item__actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
     }
     .story-list {
       margin-top: 14px;
@@ -590,7 +708,9 @@ function wrapHtml(content, busy) {
         }
         vscode.postMessage({
           command: element.dataset.command,
-          usId: element.dataset.usId
+          usId: element.dataset.usId,
+          kind: element.dataset.kind,
+          sourcePath: element.dataset.sourcePath
         });
       });
     }

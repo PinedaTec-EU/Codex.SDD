@@ -17,12 +17,24 @@ type SidebarMessage =
   | { readonly command: "openWorkflow"; readonly usId?: string }
   | { readonly command: "toggleStarredUserStory"; readonly usId?: string }
   | { readonly command: "deleteUserStory"; readonly usId?: string }
+  | { readonly command: "setCreateFileMode"; readonly kind?: string }
+  | { readonly command: "addCreateFiles"; readonly kind?: string }
+  | { readonly command: "setCreateFileKind"; readonly sourcePath?: string; readonly kind?: string }
+  | { readonly command: "removeCreateFile"; readonly sourcePath?: string }
   | { readonly command: "submitCreateForm"; readonly title?: string; readonly kind?: string; readonly category?: string; readonly sourceText?: string };
+
+type DraftCreateFile = {
+  readonly sourcePath: string;
+  readonly name: string;
+  readonly kind: "context" | "attachment";
+};
 
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
   private webviewView: vscode.WebviewView | undefined;
   private showCreateForm = false;
   private busyMessage: string | null = null;
+  private createFileMode: "context" | "attachment" = "context";
+  private createFiles: DraftCreateFile[] = [];
 
   public constructor(
     private readonly extensionUri: vscode.Uri,
@@ -55,10 +67,37 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     switch (message.command) {
       case "showCreateForm":
         this.showCreateForm = true;
+        this.createFileMode = "context";
         await this.safeRenderAsync();
         return;
       case "hideCreateForm":
         this.showCreateForm = false;
+        await this.safeRenderAsync();
+        return;
+      case "setCreateFileMode":
+        this.createFileMode = message.kind === "attachment" ? "attachment" : "context";
+        await this.safeRenderAsync();
+        return;
+      case "addCreateFiles":
+        await this.addCreateFilesAsync(message.kind === "attachment" ? "attachment" : "context");
+        return;
+      case "setCreateFileKind":
+        if (!message.sourcePath) {
+          return;
+        }
+
+        this.createFiles = this.createFiles.map((file) =>
+          file.sourcePath === message.sourcePath
+            ? { ...file, kind: message.kind === "attachment" ? "attachment" : "context" }
+            : file);
+        await this.safeRenderAsync();
+        return;
+      case "removeCreateFile":
+        if (!message.sourcePath) {
+          return;
+        }
+
+        this.createFiles = this.createFiles.filter((file) => file.sourcePath !== message.sourcePath);
         await this.safeRenderAsync();
         return;
       case "openWorkflow":
@@ -135,7 +174,10 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     const summaries = await backendClient.listUserStories();
     const usId = nextUserStoryIdFromSummaries(summaries);
     const result = await backendClient.createUserStory(usId, title, kind, category, sourceText);
+    await this.materializeCreateFilesAsync(result.rootDirectory);
     this.showCreateForm = false;
+    this.createFiles = [];
+    this.createFileMode = "context";
     await this.onDidCreateUserStory();
     const createdSummary: UserStorySummary = await backendClient.getUserStorySummary(usId);
     await vscode.commands.executeCommand("specForge.openWorkflowView", createdSummary);
@@ -177,6 +219,40 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     const nextStarredUserStoryId = preferences.starredUserStoryId === usId ? null : usId;
     await setStarredUserStory(workspaceRoot, nextStarredUserStoryId);
     await this.safeRenderAsync();
+  }
+
+  private async addCreateFilesAsync(kind: "context" | "attachment"): Promise<void> {
+    const selection = await vscode.window.showOpenDialog({
+      canSelectFiles: true,
+      canSelectFolders: false,
+      canSelectMany: true,
+      openLabel: kind === "context" ? "Add context files" : "Add user story files"
+    });
+
+    if (!selection || selection.length === 0) {
+      return;
+    }
+
+    const nextFiles = new Map(this.createFiles.map((file) => [file.sourcePath, file]));
+    for (const source of selection) {
+      nextFiles.set(source.fsPath, {
+        sourcePath: source.fsPath,
+        name: path.basename(source.fsPath),
+        kind
+      });
+    }
+
+    this.createFiles = [...nextFiles.values()].sort((left, right) => left.name.localeCompare(right.name));
+    await this.safeRenderAsync();
+  }
+
+  private async materializeCreateFilesAsync(userStoryDirectoryPath: string): Promise<void> {
+    for (const file of this.createFiles) {
+      const targetDirectoryPath = path.join(userStoryDirectoryPath, file.kind === "context" ? "context" : "attachments");
+      await fs.promises.mkdir(targetDirectoryPath, { recursive: true });
+      const targetPath = await getNextAttachmentPathAsync(targetDirectoryPath, file.name);
+      await fs.promises.copyFile(file.sourcePath, targetPath);
+    }
   }
 
   private async initializeRepoPromptsFromSidebarAsync(): Promise<void> {
@@ -221,6 +297,8 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         settingsConfigured: settingsStatus.executionConfigured,
         settingsMessage: settingsStatus.message,
         starredUserStoryId: null,
+        createFileMode: this.createFileMode,
+        createFiles: this.createFiles,
         categories: [],
         userStories: []
       });
@@ -243,6 +321,8 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       settingsConfigured: settingsStatus.executionConfigured,
       settingsMessage: settingsStatus.message,
       starredUserStoryId: preferences.starredUserStoryId,
+      createFileMode: this.createFileMode,
+      createFiles: this.createFiles,
       categories,
       userStories
     });
@@ -264,6 +344,8 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         settingsConfigured: false,
         settingsMessage: "SpecForge.AI settings could not be evaluated.",
         starredUserStoryId: null,
+        createFileMode: this.createFileMode,
+        createFiles: this.createFiles,
         categories: [],
         userStories: []
       });
@@ -315,6 +397,21 @@ async function hasInitializedRepoPromptsAsync(workspaceRoot: string): Promise<bo
 async function openTextDocument(filePath: string): Promise<void> {
   const document = await vscode.workspace.openTextDocument(filePath);
   await vscode.window.showTextDocument(document, { preview: false });
+}
+
+async function getNextAttachmentPathAsync(directoryPath: string, fileName: string): Promise<string> {
+  const extension = path.extname(fileName);
+  const baseName = extension.length > 0 ? fileName.slice(0, -extension.length) : fileName;
+
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const suffix = attempt === 0 ? "" : `.${String(attempt + 1).padStart(2, "0")}`;
+    const candidate = path.join(directoryPath, `${baseName}${suffix}${extension}`);
+    if (!await pathExistsAsync(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(`Unable to persist '${fileName}' after 100 attempts.`);
 }
 
 function asErrorMessage(error: unknown): string {
