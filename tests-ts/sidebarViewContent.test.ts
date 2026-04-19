@@ -115,7 +115,7 @@ test("buildSidebarHtml uses compact actions instead of a separate create card wh
   assert.doesNotMatch(html, /Keep the backlog focused on active work/);
 });
 
-test("buildSidebarHtml does not render the phase rail for non-active user stories", () => {
+test("buildSidebarHtml keeps the phase rail for user stories that are still in progress", () => {
   const html = buildSidebarHtml({
     hasWorkspace: true,
     showCreateForm: false,
@@ -132,6 +132,31 @@ test("buildSidebarHtml does not render the phase rail for non-active user storie
       status: "waiting-user",
       mainArtifactPath: "/tmp/us.md",
       directoryPath: "/tmp/us.US-0002",
+      workBranch: null
+    }],
+  });
+
+  assert.match(html, /story-card--active story-card--phase-technical-design/);
+  assert.match(html, /<span class="story-card__phase-number">4<\/span>/);
+});
+
+test("buildSidebarHtml hides the phase rail for completed user stories", () => {
+  const html = buildSidebarHtml({
+    hasWorkspace: true,
+    showCreateForm: false,
+    busyMessage: null,
+    promptsInitialized: true,
+    settingsConfigured: true,
+    settingsMessage: null,
+    categories: ["workflow"],
+    userStories: [{
+      usId: "US-0003",
+      title: "Completed story",
+      category: "workflow",
+      currentPhase: "pr-preparation",
+      status: "completed",
+      mainArtifactPath: "/tmp/us.md",
+      directoryPath: "/tmp/us.US-0003",
       workBranch: null
     }],
   });

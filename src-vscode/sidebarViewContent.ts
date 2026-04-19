@@ -61,8 +61,8 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
       <div class="group-header">${escapeHtml(group.category)}</div>
       ${group.items.map((summary) => `
         <div class="story-row">
-          <button class="story-card${summary.status === "active" ? ` story-card--active story-card--phase-${escapeHtmlAttr(summary.currentPhase)}` : ""}" data-command="openWorkflow" data-us-id="${escapeHtmlAttr(summary.usId)}">
-            ${summary.status === "active"
+          <button class="story-card${shouldRenderPhaseRail(summary.status) ? ` story-card--active story-card--phase-${escapeHtmlAttr(summary.currentPhase)}` : ""}" data-command="openWorkflow" data-us-id="${escapeHtmlAttr(summary.usId)}">
+            ${shouldRenderPhaseRail(summary.status)
               ? `
                 <span class="story-card__phase-rail" aria-hidden="true">
                   <span class="story-card__phase-number">${phaseNumberFor(summary.currentPhase)}</span>
@@ -646,4 +646,8 @@ function phaseNumberFor(currentPhase: string): string {
   };
 
   return phaseOrder[currentPhase] ?? "?";
+}
+
+function shouldRenderPhaseRail(status: string): boolean {
+  return status !== "completed" && status !== "superseded" && status !== "abandoned";
 }
