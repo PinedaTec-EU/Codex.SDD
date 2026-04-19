@@ -34,6 +34,7 @@ Entregables:
 - ✅ `list_user_stories`
 - ✅ `get_user_story_summary`
 - ✅ `get_current_phase`
+- ✅ `get_user_story_runtime_status`
 - ✅ `generate_next_phase`
 - ✅ `approve_phase`
 - ✅ `request_regression`
@@ -185,6 +186,7 @@ Incluye en el MVP:
 - ✅ gestión de `context files` y `user story info` también por MCP, no solo por la extensión
 - ✅ sugerencias locales de `context files` durante `clarification` con heurística y vecindad del repo
 - ✅ feature flag de extensión para activar o desactivar esas sugerencias, activado por defecto
+- ✅ estado runtime persistido por US para detectar ejecuciones largas y bloquear reentradas duplicadas
 - ✅ starred por usuario sobre una US con persistencia en disco y autoapertura al reabrir VS Code
 
 No bloquea el MVP:
@@ -229,6 +231,8 @@ Subtareas recién resueltas:
 - ✅ permitir marcar una US como `starred` por usuario y reabrirla automáticamente en modo visual al volver al workspace
 - ✅ proponer al usuario añadir `context files` cuando una US entra en `clarification` por falta de contexto de repo
 - ✅ sugerir candidatos de `context files` usando heurística local y vecindad de archivos del repo
+- ✅ exponer estado runtime persistido por MCP para que un modelo pueda comprobar si una US sigue ejecutándose
+- ✅ bloquear un segundo `generate_next_phase` mientras exista una ejecución viva reciente sobre la misma US
 - [ ] completar inspección/edición rica de prompts desde la extensión con diff o prompt efectivo visible
 
 Subtareas pendientes de cerrar antes de considerar el MVP completo:

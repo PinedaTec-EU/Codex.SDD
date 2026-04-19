@@ -197,6 +197,8 @@ The extension currently provides:
 - clarification guidance inside the workflow view inviting the user to add more repo context when the model gets blocked
 - local context-file suggestions during clarification using two default-enabled strategies: keyword heuristics and repo-neighborhood discovery
 - a feature flag to disable clarification context suggestions without removing manual context-file intake
+- persisted runtime status per user story so MCP clients can see whether a long-running phase generation is still active
+- duplicate `generate_next_phase` requests are rejected while the same user story already has a live runtime operation
 - inline audit stream sourced from `timeline.md`
 - play / pause / stop controls for workflow execution
 - `Create User Story`
@@ -310,6 +312,7 @@ This preference file currently stores the starred user story that should reopen 
 - [x] keep the default navigation focused on active user stories and workflows for the MVP
 - [x] persist a per-user starred user story on disk and autoopen it when reopening the workspace
 - [x] suggest clarification-time context files through local heuristics and repo neighborhood, behind a default-enabled feature flag
+- [x] expose persisted runtime status so MCP clients can avoid duplicating long-running workflow executions
 - [ ] finalize richer branch lifecycle rules and Git/PR metadata
 - [x] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration

@@ -18,6 +18,7 @@ public sealed class UserStoryFilePaths
         RootDirectory = rootDirectory;
         MainArtifactPath = Path.Combine(rootDirectory, "us.md");
         StateFilePath = Path.Combine(rootDirectory, "state.yaml");
+        RuntimeFilePath = Path.Combine(rootDirectory, "runtime.yaml");
         TimelineFilePath = Path.Combine(rootDirectory, "timeline.md");
         PhasesDirectoryPath = Path.Combine(rootDirectory, "phases");
         BranchFilePath = Path.Combine(rootDirectory, "branch.yaml");
@@ -52,6 +53,8 @@ public sealed class UserStoryFilePaths
     public string MainArtifactPath { get; }
 
     public string StateFilePath { get; }
+
+    public string RuntimeFilePath { get; }
 
     public string TimelineFilePath { get; }
 

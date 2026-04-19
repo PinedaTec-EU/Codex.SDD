@@ -194,6 +194,39 @@ Errores de negocio:
 
 - `us_not_found`
 
+### `get_user_story_runtime_status`
+
+Propósito:
+
+- consultar el estado runtime persistido de una US para saber si una ejecución larga sigue viva o si quedó fallida
+
+Input mínimo:
+
+```yaml
+usId: US-0001
+```
+
+Output mínimo:
+
+```yaml
+usId: US-0001
+status: running
+activeOperation: generate-next-phase
+currentPhase: capture
+startedAtUtc: 2026-04-19T10:15:00.0000000Z
+lastHeartbeatUtc: 2026-04-19T10:15:08.0000000Z
+lastOutcome: running
+lastCompletedAtUtc: null
+message: Running 'generate-next-phase'.
+isStale: false
+```
+
+Notas:
+
+- cuando `status = running` e `isStale = false`, el cliente no debe lanzar otro `generate_next_phase` sobre la misma US
+- cuando `status = failed`, el cliente puede inspeccionar `message` y decidir si reintenta
+- cuando `status = idle`, el cliente debe combinar esta respuesta con `get_current_phase` o `get_user_story_workflow` para saber qué hacer a continuación
+
 ### `generate_next_phase`
 
 Propósito:
@@ -227,6 +260,7 @@ Errores de negocio:
 - `approval_required_before_transition`
 - `source_hash_mismatch_detected`
 - `workflow_blocked`
+- `user_story_operation_already_running`
 
 ### `approve_phase`
 

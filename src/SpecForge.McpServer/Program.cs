@@ -114,6 +114,9 @@ static async Task<JsonNode> HandleToolCallAsync(
         "get_current_phase" => await applicationService.GetCurrentPhaseAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId")),
+        "get_user_story_runtime_status" => await applicationService.GetUserStoryRuntimeStatusAsync(
+            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+            usId: GetRequired(arguments, "usId")),
         "generate_next_phase" => await applicationService.GenerateNextPhaseAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId")),
@@ -179,6 +182,7 @@ static JsonObject BuildToolsList()
             Tool("get_user_story_summary", "Get the operational summary of a user story."),
             Tool("get_user_story_workflow", "Get workflow phases, controls, and audit trail for a user story."),
             Tool("get_current_phase", "Get the current phase and advanceability of a user story."),
+            Tool("get_user_story_runtime_status", "Get the persisted runtime status of a user story, including whether a phase generation is still running."),
             Tool("generate_next_phase", "Advance to the next linear phase and generate its artifact."),
             Tool("approve_phase", "Approve the current phase and create the work branch if required."),
             Tool("request_regression", "Regress a user story to an earlier valid phase."),

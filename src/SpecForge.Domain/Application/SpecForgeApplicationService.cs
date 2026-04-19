@@ -9,9 +9,10 @@ public sealed class SpecForgeApplicationService
     private readonly WorkflowRunner workflowRunner;
     private readonly RepositoryPromptInitializer repositoryPromptInitializer;
     private readonly RepositoryCategoryCatalog repositoryCategoryCatalog;
+    private readonly UserStoryRuntimeStatusStore runtimeStatusStore;
 
     public SpecForgeApplicationService()
-        : this(new UserStoryFileStore(), new WorkflowRunner(), new RepositoryPromptInitializer(), new RepositoryCategoryCatalog())
+        : this(new UserStoryFileStore(), new WorkflowRunner(), new RepositoryPromptInitializer(), new RepositoryCategoryCatalog(), new UserStoryRuntimeStatusStore())
     {
     }
 
@@ -19,12 +20,14 @@ public sealed class SpecForgeApplicationService
         UserStoryFileStore fileStore,
         WorkflowRunner workflowRunner,
         RepositoryPromptInitializer? repositoryPromptInitializer = null,
-        RepositoryCategoryCatalog? repositoryCategoryCatalog = null)
+        RepositoryCategoryCatalog? repositoryCategoryCatalog = null,
+        UserStoryRuntimeStatusStore? runtimeStatusStore = null)
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
         this.workflowRunner = workflowRunner ?? throw new ArgumentNullException(nameof(workflowRunner));
         this.repositoryPromptInitializer = repositoryPromptInitializer ?? new RepositoryPromptInitializer();
         this.repositoryCategoryCatalog = repositoryCategoryCatalog ?? new RepositoryCategoryCatalog();
+        this.runtimeStatusStore = runtimeStatusStore ?? new UserStoryRuntimeStatusStore();
     }
 
     public Task<InitializeRepoPromptsResult> InitializeRepoPromptsAsync(
@@ -204,13 +207,54 @@ public sealed class SpecForgeApplicationService
         string usId,
         CancellationToken cancellationToken = default)
     {
-        var result = await workflowRunner.ContinuePhaseAsync(workspaceRoot, usId, cancellationToken);
-        return new ContinuePhaseResponse(
-            result.UsId,
-            WorkflowPresentation.ToPhaseSlug(result.CurrentPhase),
-            WorkflowPresentation.ToStatusSlug(result.Status),
-            result.GeneratedArtifactPath,
-            result.Usage);
+        var currentPhase = await GetCurrentPhaseAsync(workspaceRoot, usId, cancellationToken);
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        await using var operation = await runtimeStatusStore.StartOperationAsync(
+            paths.RootDirectory,
+            usId,
+            currentPhase.CurrentPhase,
+            "generate-next-phase",
+            cancellationToken);
+
+        try
+        {
+            var result = await workflowRunner.ContinuePhaseAsync(workspaceRoot, usId, cancellationToken);
+            var resultPhase = WorkflowPresentation.ToPhaseSlug(result.CurrentPhase);
+            operation.UpdatePhase(resultPhase);
+            await operation.CompleteAsync(resultPhase, cancellationToken);
+            return new ContinuePhaseResponse(
+                result.UsId,
+                resultPhase,
+                WorkflowPresentation.ToStatusSlug(result.Status),
+                result.GeneratedArtifactPath,
+                result.Usage);
+        }
+        catch (Exception exception)
+        {
+            await operation.FailAsync(currentPhase.CurrentPhase, exception.Message, cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task<UserStoryRuntimeStatus> GetUserStoryRuntimeStatusAsync(
+        string workspaceRoot,
+        string usId,
+        CancellationToken cancellationToken = default)
+    {
+        var currentPhase = await GetCurrentPhaseAsync(workspaceRoot, usId, cancellationToken);
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var runtime = await runtimeStatusStore.GetAsync(paths.RootDirectory, usId, currentPhase.CurrentPhase, cancellationToken);
+        return new UserStoryRuntimeStatus(
+            runtime.UsId,
+            ToRuntimeStatusSlug(runtime.Status),
+            runtime.ActiveOperation,
+            runtime.CurrentPhase,
+            runtime.StartedAtUtc?.UtcDateTime.ToString("O"),
+            runtime.LastHeartbeatUtc?.UtcDateTime.ToString("O"),
+            runtime.LastOutcome,
+            runtime.LastCompletedAtUtc?.UtcDateTime.ToString("O"),
+            runtime.Message,
+            runtime.IsStale);
     }
 
     public async Task<ApprovalResult> ApprovePhaseAsync(
@@ -525,4 +569,12 @@ public sealed class SpecForgeApplicationService
             .Select(WorkflowPresentation.ToPhaseSlug)
             .ToArray();
     }
+
+    private static string ToRuntimeStatusSlug(RuntimeStatus status) => status switch
+    {
+        RuntimeStatus.Idle => "idle",
+        RuntimeStatus.Running => "running",
+        RuntimeStatus.Failed => "failed",
+        _ => throw new ArgumentOutOfRangeException(nameof(status), status, null)
+    };
 }

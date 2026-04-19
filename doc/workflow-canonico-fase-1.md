@@ -379,6 +379,7 @@ Este workflow justifica como mínimo estas operaciones:
 - `list_user_stories`
 - `get_user_story_summary`
 - `get_current_phase`
+- `get_user_story_runtime_status`
 - `generate_next_phase`
 - `approve_phase`
 - `request_regression`
