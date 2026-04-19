@@ -214,6 +214,9 @@ test("buildWorkflowHtml animates the next link while autoplay is running", () =>
   assert.match(html, /Executing Capture/);
   assert.match(html, /shuffleMessages/);
   assert.match(html, /formatOverlayElapsed/);
+  assert.match(html, /restoreExecutionOverlayState/);
+  assert.match(html, /persistExecutionOverlayState/);
+  assert.match(html, /sessionStorage/);
 });
 
 test("buildWorkflowHtml animates capture toward refinement when clarification is not yet active", () => {
@@ -337,9 +340,11 @@ test("buildWorkflowHtml embeds a broad rotating execution message catalog for lo
   assert.match(html, /data-tone="playing"/);
   assert.match(html, /data-execution-message/);
   assert.match(html, /data-execution-elapsed/);
+  assert.match(html, /data-show-elapsed="true"/);
   assert.match(html, /Trying to keep the patch surgical instead of theatrical\./);
   assert.match(html, /Untangling edge cases before they untangle the plan\./);
   assert.match(html, /Math\.random/);
+  assert.match(html, /graph-stage--overlay-active/);
 });
 
 test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
@@ -390,6 +395,57 @@ test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
   assert.match(html, /execution-overlay execution-overlay--paused/);
   assert.match(html, /Paused after Review/);
   assert.match(html, /Playback is paused at the phase boundary/);
+  assert.doesNotMatch(html, /<span class="execution-overlay__elapsed"/);
+  assert.match(html, /data-show-elapsed="false"/);
+});
+
+test("buildWorkflowHtml highlights waiting-user and runner paused hero tokens as attention states", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0011",
+    title: "Attention tokens",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "clarification",
+    directoryPath: "/tmp/us.US-0011",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "clarification",
+        title: "Clarification",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: "clarification_pending_answers",
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "clarification",
+    selectedArtifactContent: null,
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "paused");
+
+  assert.match(html, /token token--attention">waiting-user</);
+  assert.match(html, /token token--attention">runner:paused</);
 });
 
 test("buildWorkflowHtml warns when the workflow is open without an SLM or LLM provider", () => {

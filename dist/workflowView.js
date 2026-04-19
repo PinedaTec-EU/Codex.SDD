@@ -158,16 +158,20 @@ function buildExecutionOverlay(workflow, playbackState) {
     const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
     const overlay = playbackState === "playing"
         ? {
+            usId: workflow.usId,
             title: `Executing ${currentPhase.title}`,
             phaseId: currentPhase.phaseId,
             tone: "playing",
+            showElapsed: true,
             messages: [...(phaseExecutionMessages[currentPhase.phaseId] ?? []), ...genericExecutionMessages]
         }
         : playbackState === "paused"
             ? {
+                usId: workflow.usId,
                 title: `Paused after ${currentPhase.title}`,
                 phaseId: currentPhase.phaseId,
                 tone: "paused",
+                showElapsed: false,
                 messages: [
                     "The current phase finished, but SpecForge.AI will wait before launching the next one.",
                     "Playback is paused at the phase boundary. Resume when you want the workflow moving again.",
@@ -175,9 +179,11 @@ function buildExecutionOverlay(workflow, playbackState) {
                 ]
             }
             : {
+                usId: workflow.usId,
                 title: `Stopping after ${currentPhase.title}`,
                 phaseId: currentPhase.phaseId,
                 tone: "stopping",
+                showElapsed: false,
                 messages: [
                     "Stopping autoplay and asking the local runner to stand down.",
                     "Trying to leave the in-flight work in a recoverable state.",
@@ -188,8 +194,10 @@ function buildExecutionOverlay(workflow, playbackState) {
     <div
       class="execution-overlay execution-overlay--${escapeHtmlAttribute(overlay.tone)}"
       data-execution-overlay
+      data-us-id="${escapeHtmlAttribute(overlay.usId)}"
       data-phase-id="${escapeHtmlAttribute(overlay.phaseId)}"
       data-tone="${escapeHtmlAttribute(overlay.tone)}"
+      data-show-elapsed="${overlay.showElapsed ? "true" : "false"}"
       data-messages='${escapeHtmlAttribute(JSON.stringify(overlay.messages))}'>
       <div class="execution-overlay__pulse" aria-hidden="true"></div>
       <div class="execution-overlay__body">
@@ -197,9 +205,20 @@ function buildExecutionOverlay(workflow, playbackState) {
         <strong class="execution-overlay__title">${escapeHtml(overlay.title)}</strong>
         <p class="execution-overlay__message" data-execution-message>${escapeHtml(overlay.messages[0] ?? "Processing workflow phase.")}</p>
       </div>
-      <span class="execution-overlay__elapsed" data-execution-elapsed>00:00</span>
+      ${overlay.showElapsed ? `<span class="execution-overlay__elapsed" data-execution-elapsed>00:00</span>` : ""}
     </div>
   `;
+}
+function heroTokenClass(value) {
+    switch (value) {
+        case "waiting-user":
+        case "runner:paused":
+            return " token--attention";
+        case "completed":
+            return " success";
+        default:
+            return "";
+    }
 }
 function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
@@ -501,6 +520,12 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       color: var(--accent);
       border-color: rgba(114, 241, 184, 0.24);
     }
+    .token.token--attention {
+      background: rgba(255, 213, 90, 0.16);
+      color: #ffe17b;
+      border-color: rgba(255, 213, 90, 0.34);
+      box-shadow: 0 0 0 1px rgba(255, 213, 90, 0.06);
+    }
     .control-strip {
       align-content: flex-start;
       justify-content: flex-end;
@@ -597,6 +622,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       min-height: ${desktopGraphHeight}px;
       z-index: 2;
     }
+    .graph-stage.graph-stage--overlay-active .phase-graph {
+      filter: blur(2px) saturate(0.85) brightness(0.78);
+      transform: scale(0.997);
+    }
     .execution-overlay {
       position: absolute;
       top: 18px;
@@ -605,7 +634,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       display: flex;
       align-items: center;
       gap: 14px;
-      max-width: min(420px, calc(100% - 24px));
+      width: min(430px, calc(100% - 24px));
+      min-height: 142px;
       padding: 14px 16px;
       border-radius: 18px;
       border: 1px solid rgba(92, 181, 255, 0.34);
@@ -664,7 +694,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .execution-overlay__message {
       margin: 0;
-      min-height: 2.8em;
+      min-height: 3.2em;
+      max-height: 3.2em;
+      overflow: hidden;
       color: rgba(255, 255, 255, 0.78);
       line-height: 1.4;
     }
@@ -1213,7 +1245,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         left: 10px;
         right: 10px;
         top: 10px;
-        max-width: none;
+        width: auto;
+        min-height: 148px;
       }
       ${buildPhasePositionCss(mobilePhasePositions)}
       ${buildPhaseActionPositionCss(mobilePhasePositions, mobilePhaseNodeWidth)}
@@ -1230,10 +1263,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           <h1>${escapeHtml(workflow.usId)} · ${escapeHtml(workflow.title)}</h1>
           <div class="hero-meta">
             <span class="token accent">${escapeHtml(workflow.category)}</span>
-            <span class="token">${escapeHtml(workflow.status)}</span>
+            <span class="token${heroTokenClass(workflow.status)}">${escapeHtml(workflow.status)}</span>
             <span class="token">${escapeHtml(workflow.currentPhase)}</span>
             <span class="token">${escapeHtml(workflow.workBranch ?? "branch:not-created")}</span>
-            <span class="token">runner:${escapeHtml(playbackState)}</span>
+            <span class="token${heroTokenClass(`runner:${playbackState}`)}">runner:${escapeHtml(playbackState)}</span>
           </div>
         </div>
         <div class="control-strip">
@@ -1249,7 +1282,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       <aside class="panel graph-panel">
         <h2 class="panel-title">Workflow Constellation</h2>
         <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and audit context.</p>
-        <div class="graph-stage">
+        <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}">
           ${executionOverlay}
           ${phaseGraph}
         </div>
@@ -1323,16 +1356,23 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       const messageElement = executionOverlay.querySelector("[data-execution-message]");
       const elapsedElement = executionOverlay.querySelector("[data-execution-elapsed]");
       const messageCatalog = JSON.parse(executionOverlay.dataset.messages ?? "[]");
-      const shuffledMessages = shuffleMessages(messageCatalog);
-      let messageIndex = 0;
-      let startedAt = Date.now();
+      const overlayKey = buildExecutionOverlayStateKey(
+        executionOverlay.dataset.usId ?? "",
+        executionOverlay.dataset.phaseId ?? "",
+        executionOverlay.dataset.tone ?? ""
+      );
+      const showElapsed = executionOverlay.dataset.showElapsed === "true";
+      const restoredState = restoreExecutionOverlayState(overlayKey, messageCatalog);
+      const shuffledMessages = restoredState.messages;
+      let messageIndex = restoredState.messageIndex;
+      let startedAt = restoredState.startedAt;
 
       if (messageElement && shuffledMessages.length > 0) {
-        messageElement.textContent = shuffledMessages[0];
+        messageElement.textContent = shuffledMessages[messageIndex] ?? shuffledMessages[0];
       }
 
-      if (elapsedElement) {
-        elapsedElement.textContent = "00:00";
+      if (elapsedElement && showElapsed) {
+        elapsedElement.textContent = formatOverlayElapsed(Date.now() - startedAt);
       }
 
       if (messageElement && shuffledMessages.length > 1) {
@@ -1343,14 +1383,25 @@ function buildWorkflowHtml(workflow, state, playbackState) {
             shuffledMessages.splice(0, shuffledMessages.length, ...reshuffled);
           }
           messageElement.textContent = shuffledMessages[messageIndex];
+          persistExecutionOverlayState(overlayKey, {
+            startedAt,
+            messageIndex,
+            messages: shuffledMessages
+          });
         }, 3800);
       }
 
-      if (elapsedElement) {
+      if (elapsedElement && showElapsed) {
         window.setInterval(() => {
           elapsedElement.textContent = formatOverlayElapsed(Date.now() - startedAt);
         }, 1000);
       }
+
+      persistExecutionOverlayState(overlayKey, {
+        startedAt,
+        messageIndex,
+        messages: shuffledMessages
+      });
     }
 
     function shuffleMessages(messages) {
@@ -1369,6 +1420,49 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
       const seconds = String(totalSeconds % 60).padStart(2, "0");
       return minutes + ":" + seconds;
+    }
+
+    function buildExecutionOverlayStateKey(usId, phaseId, tone) {
+      return "specforge-ai:execution-overlay:" + usId + ":" + phaseId + ":" + tone;
+    }
+
+    function restoreExecutionOverlayState(key, messageCatalog) {
+      const fallbackMessages = shuffleMessages(messageCatalog);
+      const fallbackState = {
+        startedAt: Date.now(),
+        messageIndex: 0,
+        messages: fallbackMessages
+      };
+
+      try {
+        const rawState = window.sessionStorage.getItem(key);
+        if (!rawState) {
+          return fallbackState;
+        }
+
+        const parsedState = JSON.parse(rawState);
+        if (!Array.isArray(parsedState.messages) || parsedState.messages.length === 0) {
+          return fallbackState;
+        }
+
+        return {
+          startedAt: typeof parsedState.startedAt === "number" ? parsedState.startedAt : fallbackState.startedAt,
+          messageIndex: typeof parsedState.messageIndex === "number"
+            ? Math.max(0, Math.min(parsedState.messageIndex, parsedState.messages.length - 1))
+            : 0,
+          messages: parsedState.messages
+        };
+      } catch {
+        return fallbackState;
+      }
+    }
+
+    function persistExecutionOverlayState(key, state) {
+      try {
+        window.sessionStorage.setItem(key, JSON.stringify(state));
+      } catch {
+        // Best effort only. The overlay still works without persistence.
+      }
     }
   </script>
 </body>
