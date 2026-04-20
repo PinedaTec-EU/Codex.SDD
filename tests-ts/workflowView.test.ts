@@ -882,6 +882,8 @@ test("buildWorkflowHtml renders clarification questions and embedded answer inpu
   assert.match(html, /A backoffice operator\./);
   assert.match(html, /Submit Answers/);
   assert.match(html, /submitClarificationAnswers/);
+  assert.match(html, /Clarification questions are shown in the structured form below to avoid duplicating the raw artifact preview\./);
+  assert.doesNotMatch(html, /<div class="markdown-preview">[\s\S]*Who triggers the workflow\?/);
 });
 
 test("buildWorkflowHtml proposes manual and suggested context files during clarification", () => {

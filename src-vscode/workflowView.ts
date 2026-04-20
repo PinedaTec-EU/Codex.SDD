@@ -373,6 +373,7 @@ export function buildWorkflowHtml(
   playbackState: "idle" | "playing" | "paused" | "stopping"
 ): string {
   const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
+  const isClarificationDetail = selectedPhase.phaseId === "clarification" && workflow.clarification !== null;
   const settingsWarning = !state.settingsConfigured && state.settingsMessage
     ? `
       <section class="settings-warning panel">
@@ -419,15 +420,25 @@ export function buildWorkflowHtml(
     ].filter(Boolean).join("")
     : "";
   const artifactSection = selectedPhase.artifactPath
-    ? `
-      <div class="detail-actions detail-actions--artifact">
-        <div class="artifact-view-label">
-          <span class="badge">Preview</span>
+    ? isClarificationDetail
+      ? `
+        <div class="detail-actions detail-actions--artifact">
+          <div class="artifact-view-label">
+            <span class="badge">Raw Artifact</span>
+          </div>
+          <button data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.artifactPath)}">Open Artifact</button>
         </div>
-        <button data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.artifactPath)}">Open Artifact</button>
-      </div>
-      ${artifactPreviewHtml ? `<div class="markdown-preview">${artifactPreviewHtml}</div>` : `<pre class="artifact-preview">${escapeHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")}</pre>`}
-    `
+        <p class="muted">Clarification questions are shown in the structured form below to avoid duplicating the raw artifact preview.</p>
+      `
+      : `
+        <div class="detail-actions detail-actions--artifact">
+          <div class="artifact-view-label">
+            <span class="badge">Preview</span>
+          </div>
+          <button data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.artifactPath)}">Open Artifact</button>
+        </div>
+        ${artifactPreviewHtml ? `<div class="markdown-preview">${artifactPreviewHtml}</div>` : `<pre class="artifact-preview">${escapeHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")}</pre>`}
+      `
     : "<p class=\"muted\">No artifact is persisted for this phase.</p>";
   const promptButtons = [
     selectedPhase.executePromptPath
