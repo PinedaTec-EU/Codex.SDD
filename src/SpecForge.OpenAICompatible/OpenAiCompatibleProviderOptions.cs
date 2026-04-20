@@ -5,4 +5,5 @@ public sealed record OpenAiCompatibleProviderOptions(
     string ApiKey,
     string Model,
     string? SystemPrompt = null,
-    string ClarificationTolerance = "balanced");
+    string ClarificationTolerance = "balanced",
+    string ReviewTolerance = "balanced");

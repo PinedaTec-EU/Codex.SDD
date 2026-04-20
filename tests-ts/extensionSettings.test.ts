@@ -9,6 +9,7 @@ test("readSpecForgeSettings normalizes optional strings and preserves toggles", 
     ["execution.apiKey", " secret "],
     ["execution.model", " gpt-test "],
     ["execution.clarificationTolerance", " inferential "],
+    ["execution.reviewTolerance", " strict "],
     ["ui.enableWatcher", false],
     ["ui.notifyOnAttention", true],
     ["features.enableContextSuggestions", true]
@@ -26,6 +27,7 @@ test("readSpecForgeSettings normalizes optional strings and preserves toggles", 
     apiKey: "secret",
     model: "gpt-test",
     clarificationTolerance: "inferential",
+    reviewTolerance: "strict",
     watcherEnabled: false,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true
@@ -39,6 +41,7 @@ test("buildBackendEnvironment maps extension settings to provider environment va
     apiKey: "secret",
     model: "gpt-test",
     clarificationTolerance: "strict",
+    reviewTolerance: "inferential",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true
@@ -47,7 +50,8 @@ test("buildBackendEnvironment maps extension settings to provider environment va
     SPECFORGE_OPENAI_BASE_URL: "https://api.example.test/v1",
     SPECFORGE_OPENAI_API_KEY: "secret",
     SPECFORGE_OPENAI_MODEL: "gpt-test",
-    SPECFORGE_CAPTURE_TOLERANCE: "strict"
+    SPECFORGE_CAPTURE_TOLERANCE: "strict",
+    SPECFORGE_REVIEW_TOLERANCE: "inferential"
   });
 });
 
@@ -58,6 +62,7 @@ test("getSpecForgeSettingsStatus requires connection fields for openai-compatibl
     apiKey: "secret",
     model: null,
     clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true
@@ -74,6 +79,7 @@ test("getSpecForgeSettingsStatus allows local openai-compatible endpoints withou
     apiKey: null,
     model: "llama3.1",
     clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true
@@ -90,6 +96,7 @@ test("getSpecForgeSettingsStatus still requires an api key for remote openai-com
     apiKey: null,
     model: "gpt-test",
     clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true
@@ -106,6 +113,7 @@ test("getSpecForgeSettingsStatus requires a real model-backed provider instead o
     apiKey: null,
     model: null,
     clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true
@@ -118,7 +126,7 @@ test("getSpecForgeSettingsStatus requires a real model-backed provider instead o
 test("readSpecForgeSettings falls back to balanced clarification tolerance for unsupported values", () => {
   const settings = readSpecForgeSettings({
     get<T>(section: string, defaultValue?: T): T {
-      if (section === "execution.clarificationTolerance") {
+      if (section === "execution.clarificationTolerance" || section === "execution.reviewTolerance") {
         return "chaotic" as T;
       }
 
@@ -127,4 +135,5 @@ test("readSpecForgeSettings falls back to balanced clarification tolerance for u
   });
 
   assert.equal(settings.clarificationTolerance, "balanced");
+  assert.equal(settings.reviewTolerance, "balanced");
 });

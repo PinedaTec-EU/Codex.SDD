@@ -146,6 +146,7 @@ export SPECFORGE_OPENAI_BASE_URL=https://api.openai.com/v1
 export SPECFORGE_OPENAI_API_KEY=<your-api-key>
 export SPECFORGE_OPENAI_MODEL=gpt-4.1-mini
 export SPECFORGE_CAPTURE_TOLERANCE=balanced
+export SPECFORGE_REVIEW_TOLERANCE=balanced
 ```
 
 For local testing with Ollama:
@@ -156,6 +157,7 @@ export SPECFORGE_OPENAI_BASE_URL=http://localhost:11434/v1
 export SPECFORGE_OPENAI_API_KEY=ollama-local
 export SPECFORGE_OPENAI_MODEL=llama3.1
 export SPECFORGE_CAPTURE_TOLERANCE=balanced
+export SPECFORGE_REVIEW_TOLERANCE=balanced
 ```
 
 The provider targets the OpenAI-compatible chat completions shape, so OpenAI and Ollama can share the same backend integration path.
@@ -166,7 +168,13 @@ This value is sent as `SPECFORGE_CAPTURE_TOLERANCE`, adds explicit guidance to t
 - `balanced` -> `0.2`
 - `inferential` -> `0.4`
 
-`temperature` is not exposed as an independent extension setting. The supported knob is clarification tolerance, and the provider derives `temperature` from it for the clarification phase only.
+For review, the backend supports the same three levels through `SPECFORGE_REVIEW_TOLERANCE`. It adds explicit review guidance to the prompt and maps review-only `temperature` using the same values:
+
+- `strict` -> `0.0`
+- `balanced` -> `0.2`
+- `inferential` -> `0.4`
+
+`temperature` is not exposed as an independent extension setting. The supported knobs are `clarificationTolerance` and `reviewTolerance`, and the provider derives `temperature` from them for the corresponding phases only.
 
 Before executing real provider-backed phases, initialize the repository prompt set through the MCP backend. This materializes `.specs/config.yaml` and `.specs/prompts/`, and the engine will fail fast if the required prompt files are missing.
 
@@ -276,6 +284,7 @@ The extension contributes these settings:
 - `specForge.execution.apiKey`
 - `specForge.execution.model`
 - `specForge.execution.clarificationTolerance`
+- `specForge.execution.reviewTolerance`
 - `specForge.ui.enableWatcher`
 - `specForge.ui.notifyOnAttention`
 - `specForge.features.enableContextSuggestions`

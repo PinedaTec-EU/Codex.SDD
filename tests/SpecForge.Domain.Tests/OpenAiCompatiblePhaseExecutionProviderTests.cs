@@ -86,6 +86,40 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Contains(expectedGuidance, userPrompt);
     }
 
+    [Theory]
+    [InlineData("strict", 0.0d, "Be demanding. Surface weaker evidence, thinner validation, and smaller deviations as findings whenever they could undermine confidence in release readiness.")]
+    [InlineData("balanced", 0.2d, "Use balanced judgment. Prioritize meaningful risks and missing evidence without inflating cosmetic or low-impact issues.")]
+    [InlineData("inferential", 0.4d, "Be pragmatic. Focus on material deviations, missing validation, or operational risks, and avoid blocking on minor imperfections that do not change the release decision.")]
+    public async Task ExecuteAsync_ReviewTolerance_ChangesTemperatureAndPrompt(
+        string reviewTolerance,
+        double expectedTemperature,
+        string expectedGuidance)
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var handler = new CapturingFakeHttpMessageHandler("# review markdown");
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            new OpenAiCompatibleProviderOptions(
+                BaseUrl: "http://localhost:11434/v1",
+                ApiKey: string.Empty,
+                Model: "llama3.1",
+                ReviewTolerance: reviewTolerance));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Review,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        await provider.ExecuteAsync(context);
+
+        Assert.Equal(expectedTemperature, ReadTemperature(handler.LastBody));
+        var userPrompt = ReadUserPrompt(handler.LastBody);
+        Assert.Contains($"Active tolerance: `{reviewTolerance}`", userPrompt);
+        Assert.Contains(expectedGuidance, userPrompt);
+    }
+
     [Fact]
     public async Task ExecuteAsync_IncludesContextFileContentsInRuntimeContext()
     {

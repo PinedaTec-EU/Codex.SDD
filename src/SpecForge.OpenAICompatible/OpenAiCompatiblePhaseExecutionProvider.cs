@@ -47,10 +47,17 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             throw new ArgumentException("Model is required.", nameof(options));
         }
 
-        if (!IsSupportedClarificationTolerance(options.ClarificationTolerance))
+        if (!IsSupportedTolerance(options.ClarificationTolerance))
         {
             throw new ArgumentException(
                 "ClarificationTolerance must be one of: strict, balanced, inferential.",
+                nameof(options));
+        }
+
+        if (!IsSupportedTolerance(options.ReviewTolerance))
+        {
+            throw new ArgumentException(
+                "ReviewTolerance must be one of: strict, balanced, inferential.",
                 nameof(options));
         }
     }
@@ -248,16 +255,29 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine("Do not replace these tokens with synonyms, labels, prose, or code fences.");
         }
 
+        if (context.PhaseId == PhaseId.Review)
+        {
+            builder
+                .AppendLine()
+                .AppendLine("## Review Tolerance")
+                .AppendLine()
+                .AppendLine($"- Active tolerance: `{options.ReviewTolerance}`")
+                .AppendLine($"- Guidance: {ResolveReviewGuidance(options.ReviewTolerance)}");
+        }
+
         return new EffectivePrompt(systemPrompt, builder.ToString().Trim());
     }
 
     private double ResolveTemperature(PhaseId phaseId) =>
-        phaseId == PhaseId.Clarification
-            ? ResolveClarificationTemperature(options.ClarificationTolerance)
-            : 0.2d;
+        phaseId switch
+        {
+            PhaseId.Clarification => ResolveToleranceTemperature(options.ClarificationTolerance),
+            PhaseId.Review => ResolveToleranceTemperature(options.ReviewTolerance),
+            _ => 0.2d
+        };
 
-    private static double ResolveClarificationTemperature(string tolerance) =>
-        NormalizeClarificationTolerance(tolerance) switch
+    private static double ResolveToleranceTemperature(string tolerance) =>
+        NormalizeTolerance(tolerance) switch
         {
             StrictTolerance => 0.0d,
             BalancedTolerance => 0.2d,
@@ -266,7 +286,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         };
 
     private static string ResolveClarificationGuidance(string tolerance) =>
-        NormalizeClarificationTolerance(tolerance) switch
+        NormalizeTolerance(tolerance) switch
         {
             StrictTolerance =>
                 "Be conservative. Ask for clarification whenever actor, trigger, business behavior, inputs, outputs, rules, or acceptance intent are materially ambiguous.",
@@ -276,10 +296,21 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 "Use balanced judgment. Ask only for gaps that would block a credible refinement, but do not invent business-critical facts."
         };
 
-    private static bool IsSupportedClarificationTolerance(string tolerance) =>
-        NormalizeClarificationTolerance(tolerance) is StrictTolerance or BalancedTolerance or InferentialTolerance;
+    private static string ResolveReviewGuidance(string tolerance) =>
+        NormalizeTolerance(tolerance) switch
+        {
+            StrictTolerance =>
+                "Be demanding. Surface weaker evidence, thinner validation, and smaller deviations as findings whenever they could undermine confidence in release readiness.",
+            InferentialTolerance =>
+                "Be pragmatic. Focus on material deviations, missing validation, or operational risks, and avoid blocking on minor imperfections that do not change the release decision.",
+            _ =>
+                "Use balanced judgment. Prioritize meaningful risks and missing evidence without inflating cosmetic or low-impact issues."
+        };
 
-    private static string NormalizeClarificationTolerance(string tolerance) =>
+    private static bool IsSupportedTolerance(string tolerance) =>
+        NormalizeTolerance(tolerance) is StrictTolerance or BalancedTolerance or InferentialTolerance;
+
+    private static string NormalizeTolerance(string tolerance) =>
         string.IsNullOrWhiteSpace(tolerance)
             ? BalancedTolerance
             : tolerance.Trim().ToLowerInvariant();
