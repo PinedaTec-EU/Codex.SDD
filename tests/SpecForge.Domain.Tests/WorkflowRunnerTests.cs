@@ -104,11 +104,12 @@ public sealed class WorkflowRunnerTests : IDisposable
         var userStory = await File.ReadAllTextAsync(paths.MainArtifactPath);
         Assert.DoesNotContain("## Clarification Log", userStory);
         var clarification = await File.ReadAllTextAsync(paths.ClarificationFilePath);
-        Assert.Contains("El analista funcional.", clarification);
+        Assert.Contains("- Status: `ready_for_refinement`", clarification);
+        Assert.DoesNotContain("El analista funcional.", clarification);
     }
 
     [Fact]
-    public async Task ContinuePhaseAsync_FromClarification_MergesNewQuestionsWithPreviousOnes()
+    public async Task ContinuePhaseAsync_FromClarification_ReplacesPreviousQuestionsWithNewOnes()
     {
         var runner = new WorkflowRunner();
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
@@ -156,13 +157,11 @@ public sealed class WorkflowRunnerTests : IDisposable
         var assessment = parseMethod.Invoke(null, [await File.ReadAllTextAsync(generatedClarificationPath)])!;
         await (Task)updateMethod.Invoke(null, [paths, assessment, CancellationToken.None])!;
 
-        var mergedClarification = await File.ReadAllTextAsync(paths.ClarificationFilePath);
-        Assert.Contains("1. Question A", mergedClarification);
-        Assert.Contains("2. Question B", mergedClarification);
-        Assert.Contains("3. Question C", mergedClarification);
-        Assert.Contains("1. Answer A updated", mergedClarification);
-        Assert.Contains("2. Answer B updated", mergedClarification);
-        Assert.Contains("3. ...", mergedClarification);
+        var updatedClarification = await File.ReadAllTextAsync(paths.ClarificationFilePath);
+        Assert.DoesNotContain("Question A", updatedClarification);
+        Assert.DoesNotContain("Question B", updatedClarification);
+        Assert.Contains("1. Question C", updatedClarification);
+        Assert.Contains("1. ...", updatedClarification);
     }
 
     [Fact]

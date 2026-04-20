@@ -701,8 +701,7 @@ public sealed class WorkflowRunner
         CancellationToken cancellationToken)
     {
         var existing = await ReadClarificationSessionAsync(paths, cancellationToken);
-        var mergedQuestions = MergeClarificationQuestions(existing, clarification.Questions);
-        var items = mergedQuestions
+        var items = clarification.Questions
             .Select((question, index) => new ClarificationItem(
                 index + 1,
                 question,
@@ -753,35 +752,6 @@ public sealed class WorkflowRunner
             var cleaned = UserStoryClarificationMarkdown.Remove(userStoryMarkdown);
             await File.WriteAllTextAsync(paths.MainArtifactPath, cleaned, cancellationToken);
         }
-    }
-
-    private static IReadOnlyCollection<string> MergeClarificationQuestions(
-        ClarificationSession? existing,
-        IReadOnlyCollection<string> newQuestions)
-    {
-        var merged = new List<string>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-
-        if (existing is not null)
-        {
-            foreach (var item in existing.Items)
-            {
-                if (seen.Add(item.Question))
-                {
-                    merged.Add(item.Question);
-                }
-            }
-        }
-
-        foreach (var question in newQuestions)
-        {
-            if (seen.Add(question))
-            {
-                merged.Add(question);
-            }
-        }
-
-        return merged;
     }
 
     private static string ReadCaptureTolerance()
