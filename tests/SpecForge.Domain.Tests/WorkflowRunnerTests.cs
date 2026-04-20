@@ -300,6 +300,11 @@ public sealed class WorkflowRunnerTests : IDisposable
 
         Assert.Equal("capture", result.CurrentPhase);
         Assert.Equal("active", result.Status);
+        Assert.Contains(paths.PhasesDirectoryPath, result.DeletedPaths);
+        Assert.Contains(paths.BranchFilePath, result.DeletedPaths);
+        Assert.Contains(paths.MainArtifactPath, result.PreservedPaths);
+        Assert.Contains(paths.StateFilePath, result.PreservedPaths);
+        Assert.Contains(paths.TimelineFilePath, result.PreservedPaths);
 
         var workflowRun = await new UserStoryFileStore().LoadAsync(paths.RootDirectory);
         Assert.Equal(PhaseId.Capture, workflowRun.CurrentPhase);

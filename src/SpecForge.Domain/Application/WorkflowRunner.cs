@@ -208,7 +208,7 @@ public sealed class WorkflowRunner
         var currentSourceText = await ReadSourceTextFromUserStoryAsync(paths.MainArtifactPath, cancellationToken);
         var currentSourceHash = ComputeSourceHash(currentSourceText);
 
-        await ResetDerivedArtifactsAsync(paths, existingRun, cancellationToken);
+        var deletedPaths = await ResetDerivedArtifactsAsync(paths, existingRun, cancellationToken);
 
         var cleanedUserStory = UserStoryClarificationMarkdown.Remove(
             await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken));
@@ -221,7 +221,15 @@ public sealed class WorkflowRunner
         return new ResetUserStoryResult(
             resetRun.UsId,
             WorkflowPresentation.ToStatusSlug(resetRun.Status),
-            WorkflowPresentation.ToPhaseSlug(resetRun.CurrentPhase));
+            WorkflowPresentation.ToPhaseSlug(resetRun.CurrentPhase),
+            deletedPaths,
+            [
+                paths.MainArtifactPath,
+                paths.ContextDirectoryPath,
+                paths.AttachmentsDirectoryPath,
+                paths.StateFilePath,
+                paths.TimelineFilePath
+            ]);
     }
 
     public async Task<ContinuePhaseResult> ContinuePhaseAsync(
@@ -505,33 +513,40 @@ public sealed class WorkflowRunner
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
     }
 
-    private static async Task ResetDerivedArtifactsAsync(
+    private static async Task<IReadOnlyCollection<string>> ResetDerivedArtifactsAsync(
         UserStoryFilePaths paths,
         WorkflowRun workflowRun,
         CancellationToken cancellationToken)
     {
+        var deletedPaths = new List<string>();
+
         if (Directory.Exists(paths.PhasesDirectoryPath))
         {
+            deletedPaths.Add(paths.PhasesDirectoryPath);
             Directory.Delete(paths.PhasesDirectoryPath, recursive: true);
         }
 
         if (File.Exists(paths.ClarificationFilePath))
         {
+            deletedPaths.Add(paths.ClarificationFilePath);
             File.Delete(paths.ClarificationFilePath);
         }
 
         if (File.Exists(paths.RuntimeFilePath))
         {
+            deletedPaths.Add(paths.RuntimeFilePath);
             File.Delete(paths.RuntimeFilePath);
         }
 
         if (workflowRun.Branch is not null && File.Exists(paths.BranchFilePath))
         {
+            deletedPaths.Add(paths.BranchFilePath);
             File.Delete(paths.BranchFilePath);
         }
 
         await Task.CompletedTask;
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
+        return deletedPaths;
     }
 
     private static async Task AppendTimelineEventAsync(

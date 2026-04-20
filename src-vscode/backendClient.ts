@@ -80,6 +80,8 @@ export interface ResetUserStoryResult {
   readonly usId: string;
   readonly currentPhase: string;
   readonly status: string;
+  readonly deletedPaths: readonly string[];
+  readonly preservedPaths: readonly string[];
 }
 
 export interface WorkflowPhaseDetails {

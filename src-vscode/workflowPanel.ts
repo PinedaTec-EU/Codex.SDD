@@ -438,6 +438,12 @@ class WorkflowPanelController {
     appendSpecForgeLog(
       `Workflow '${this.summary.usId}' was reset to '${result.currentPhase}' with status '${result.status}' from DEBUG UI.`
     );
+    appendSpecForgeDebugLog(
+      `Workflow '${this.summary.usId}' reset deleted paths: ${result.deletedPaths.length > 0 ? result.deletedPaths.join(", ") : "(none)"}.`
+    );
+    appendSpecForgeDebugLog(
+      `Workflow '${this.summary.usId}' reset preserved paths: ${result.preservedPaths.length > 0 ? result.preservedPaths.join(", ") : "(none)"}.`
+    );
     this.summary = {
       ...this.summary,
       currentPhase: result.currentPhase,
