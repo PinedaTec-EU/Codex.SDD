@@ -191,6 +191,7 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
   private writeQueue: Promise<void> = Promise.resolve();
   private nextRequestId = 1;
   private initialized = false;
+  private initializationPromise: Promise<void> | null = null;
   private disposed = false;
 
   public constructor(workspaceRoot: string, hostRoot: string, settings: SpecForgeSettings) {
@@ -354,19 +355,33 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
       return;
     }
 
-    appendSpecForgeLog("Initializing MCP session.");
-    await this.sendRequestAsync("initialize", {
-      protocolVersion: "2024-11-05",
-      capabilities: {},
-      clientInfo: {
-        name: "SpecForge VS Code Extension",
-        version: "0.0.1"
-      }
-    });
+    if (this.initializationPromise) {
+      appendSpecForgeDebugLog("Awaiting in-flight MCP session initialization.");
+      await this.initializationPromise;
+      return;
+    }
 
-    await this.sendNotificationAsync("notifications/initialized", {});
-    this.initialized = true;
-    appendSpecForgeLog("MCP session initialized.");
+    this.initializationPromise = (async () => {
+      appendSpecForgeLog("Initializing MCP session.");
+      await this.sendRequestAsync("initialize", {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: {
+          name: "SpecForge VS Code Extension",
+          version: "0.0.1"
+        }
+      });
+
+      await this.sendNotificationAsync("notifications/initialized", {});
+      this.initialized = true;
+      appendSpecForgeLog("MCP session initialized.");
+    })();
+
+    try {
+      await this.initializationPromise;
+    } finally {
+      this.initializationPromise = null;
+    }
   }
 
   private async callTool<T>(toolName: string, args: Record<string, unknown>): Promise<T> {

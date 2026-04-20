@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.openWorkflowView = openWorkflowView;
 exports.refreshWorkflowViews = refreshWorkflowViews;
+exports.hasActiveWorkflowPlayback = hasActiveWorkflowPlayback;
 exports.closeWorkflowView = closeWorkflowView;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
@@ -57,6 +58,14 @@ async function refreshWorkflowViews(reason = "external") {
     for (const panel of panels.values()) {
         await panel.refreshAsync(reason);
     }
+}
+function hasActiveWorkflowPlayback() {
+    for (const panel of panels.values()) {
+        if (panel.hasActivePlayback()) {
+            return true;
+        }
+    }
+    return false;
 }
 function closeWorkflowView(workspaceRoot, usId) {
     panels.get(`${workspaceRoot}:${usId}`)?.dispose();
@@ -106,6 +115,9 @@ class WorkflowPanelController {
     }
     dispose() {
         this.panel.dispose();
+    }
+    hasActivePlayback() {
+        return this.playbackState === "playing" || this.playbackState === "stopping";
     }
     async refreshAsync(reason = "unspecified") {
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' refresh start. reason='${reason}', selectedPhase='${this.selectedPhaseId}', playback='${this.playbackState}', summaryPhase='${this.summary.currentPhase}'.`);

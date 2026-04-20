@@ -9,7 +9,7 @@ import {
   setSpecForgeDebugLoggingEnabled,
   showSpecForgeOutput
 } from "./outputChannel";
-import { openWorkflowView, refreshWorkflowViews } from "./workflowPanel";
+import { hasActiveWorkflowPlayback, openWorkflowView, refreshWorkflowViews } from "./workflowPanel";
 import { SidebarViewProvider } from "./sidebarView";
 import {
   approveCurrentPhase,
@@ -42,6 +42,11 @@ export function activate(context: vscode.ExtensionContext): void {
   const refreshableProvider = { refresh: () => sidebarProvider.refresh() };
   activateExtension(context, createVsCodeHost(), refreshableProvider, createExtensionActions(refreshableProvider));
   const refreshWorkspaceUiAsync = async (reason: string) => {
+    if (reason.startsWith("watcher:") && hasActiveWorkflowPlayback()) {
+      appendSpecForgeDebugLog(`Skipping workspace UI refresh while workflow playback is active. reason='${reason}'.`);
+      return;
+    }
+
     appendSpecForgeDebugLog(`Refreshing workspace UI. reason='${reason}'.`);
     sidebarProvider.refresh();
     await refreshWorkflowViews(reason);

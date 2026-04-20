@@ -57,6 +57,16 @@ export async function refreshWorkflowViews(reason = "external"): Promise<void> {
   }
 }
 
+export function hasActiveWorkflowPlayback(): boolean {
+  for (const panel of panels.values()) {
+    if (panel.hasActivePlayback()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function closeWorkflowView(workspaceRoot: string, usId: string): void {
   panels.get(`${workspaceRoot}:${usId}`)?.dispose();
 }
@@ -113,6 +123,10 @@ class WorkflowPanelController {
 
   public dispose(): void {
     this.panel.dispose();
+  }
+
+  public hasActivePlayback(): boolean {
+    return this.playbackState === "playing" || this.playbackState === "stopping";
   }
 
   public async refreshAsync(reason = "unspecified"): Promise<void> {

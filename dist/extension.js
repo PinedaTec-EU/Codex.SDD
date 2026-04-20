@@ -57,6 +57,10 @@ function activate(context) {
     const refreshableProvider = { refresh: () => sidebarProvider.refresh() };
     (0, extensionRuntime_1.activateExtension)(context, createVsCodeHost(), refreshableProvider, createExtensionActions(refreshableProvider));
     const refreshWorkspaceUiAsync = async (reason) => {
+        if (reason.startsWith("watcher:") && (0, workflowPanel_1.hasActiveWorkflowPlayback)()) {
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`Skipping workspace UI refresh while workflow playback is active. reason='${reason}'.`);
+            return;
+        }
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Refreshing workspace UI. reason='${reason}'.`);
         sidebarProvider.refresh();
         await (0, workflowPanel_1.refreshWorkflowViews)(reason);

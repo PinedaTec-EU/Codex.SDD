@@ -51,6 +51,7 @@ class StdioMcpBackendClient {
     writeQueue = Promise.resolve();
     nextRequestId = 1;
     initialized = false;
+    initializationPromise = null;
     disposed = false;
     constructor(workspaceRoot, hostRoot, settings) {
         this.workspaceRoot = workspaceRoot;
@@ -178,18 +179,31 @@ class StdioMcpBackendClient {
         if (this.initialized) {
             return;
         }
-        (0, outputChannel_1.appendSpecForgeLog)("Initializing MCP session.");
-        await this.sendRequestAsync("initialize", {
-            protocolVersion: "2024-11-05",
-            capabilities: {},
-            clientInfo: {
-                name: "SpecForge VS Code Extension",
-                version: "0.0.1"
-            }
-        });
-        await this.sendNotificationAsync("notifications/initialized", {});
-        this.initialized = true;
-        (0, outputChannel_1.appendSpecForgeLog)("MCP session initialized.");
+        if (this.initializationPromise) {
+            (0, outputChannel_1.appendSpecForgeDebugLog)("Awaiting in-flight MCP session initialization.");
+            await this.initializationPromise;
+            return;
+        }
+        this.initializationPromise = (async () => {
+            (0, outputChannel_1.appendSpecForgeLog)("Initializing MCP session.");
+            await this.sendRequestAsync("initialize", {
+                protocolVersion: "2024-11-05",
+                capabilities: {},
+                clientInfo: {
+                    name: "SpecForge VS Code Extension",
+                    version: "0.0.1"
+                }
+            });
+            await this.sendNotificationAsync("notifications/initialized", {});
+            this.initialized = true;
+            (0, outputChannel_1.appendSpecForgeLog)("MCP session initialized.");
+        })();
+        try {
+            await this.initializationPromise;
+        }
+        finally {
+            this.initializationPromise = null;
+        }
     }
     async callTool(toolName, args) {
         await this.ensureInitializedAsync();
