@@ -7,6 +7,8 @@ export interface WorkflowViewState {
   readonly contextSuggestions: readonly SuggestedContextFile[];
   readonly settingsConfigured: boolean;
   readonly settingsMessage: string | null;
+  readonly executionPhaseId?: string | null;
+  readonly completedPhaseIds?: readonly string[];
   readonly debugMode?: boolean;
 }
 
@@ -200,6 +202,7 @@ const phaseExecutionMessages: Record<string, readonly string[]> = {
 
 function buildExecutionOverlay(
   workflow: UserStoryWorkflowDetails,
+  state: WorkflowViewState,
   playbackState: "idle" | "playing" | "paused" | "stopping"
 ): string {
   if (playbackState === "idle") {
@@ -207,14 +210,17 @@ function buildExecutionOverlay(
   }
 
   const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
+  const overlayPhase = playbackState === "playing" && state.executionPhaseId
+    ? workflow.phases.find((phase) => phase.phaseId === state.executionPhaseId) ?? currentPhase
+    : currentPhase;
   const overlay: ExecutionOverlayModel = playbackState === "playing"
     ? {
       usId: workflow.usId,
-      title: `Executing ${currentPhase.title}`,
-      phaseId: currentPhase.phaseId,
+      title: `Executing ${overlayPhase.title}`,
+      phaseId: overlayPhase.phaseId,
       tone: "playing",
       showElapsed: true,
-      messages: [...(phaseExecutionMessages[currentPhase.phaseId] ?? []), ...genericExecutionMessages]
+      messages: [...(phaseExecutionMessages[overlayPhase.phaseId] ?? []), ...genericExecutionMessages]
     }
     : playbackState === "paused"
       ? {
@@ -293,22 +299,32 @@ function resolvePhaseVisualTone(
   workflowStatus: string,
   playbackState: "idle" | "playing" | "paused" | "stopping",
   phase: WorkflowPhaseDetails,
-  disabled: boolean
+  disabled: boolean,
+  executionPhaseId: string | null,
+  completedPhaseIds: ReadonlySet<string>
 ): PhaseVisualTone {
   if (disabled) {
     return "disabled";
+  }
+
+  if (completedPhaseIds.has(phase.phaseId)) {
+    return "completed";
+  }
+
+  if (playbackState === "playing" && executionPhaseId === phase.phaseId) {
+    return "active";
   }
 
   if (phase.state === "completed") {
     return "completed";
   }
 
-  if (!phase.isCurrent) {
+  if (playbackState === "playing") {
     return "pending";
   }
 
-  if (playbackState === "playing") {
-    return "active";
+  if (!phase.isCurrent) {
+    return "pending";
   }
 
   if (playbackState === "paused" || playbackState === "stopping") {
@@ -369,8 +385,11 @@ export function buildWorkflowHtml(
       </section>
     `
     : "";
-  const phaseGraph = buildPhaseGraph(workflow, selectedPhase.phaseId, playbackState);
-  const executionOverlay = buildExecutionOverlay(workflow, playbackState);
+  const phaseGraph = buildPhaseGraph(workflow, state, selectedPhase.phaseId, playbackState);
+  const executionOverlay = buildExecutionOverlay(workflow, state, playbackState);
+  const displayedPhaseId = playbackState === "playing" && state.executionPhaseId
+    ? state.executionPhaseId
+    : workflow.currentPhase;
   const isMarkdownArtifact = Boolean(selectedPhase.artifactPath?.toLowerCase().endsWith(".md"));
   const artifactPreviewHtml = isMarkdownArtifact
     ? renderMarkdownToHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")
@@ -1794,7 +1813,7 @@ export function buildWorkflowHtml(
           <div class="hero-meta">
             <span class="token accent">${escapeHtml(workflow.category)}</span>
             <span class="token${heroTokenClass(workflow.status)}">${escapeHtml(workflow.status)}</span>
-            <span class="token">${escapeHtml(workflow.currentPhase)}</span>
+            <span class="token">${escapeHtml(displayedPhaseId)}</span>
             <span class="token">${escapeHtml(workflow.workBranch ?? "branch:not-created")}</span>
             <span class="token${heroTokenClass(`runner:${playbackState}`)}">runner:${escapeHtml(playbackState)}</span>
           </div>
@@ -2149,26 +2168,33 @@ export function buildWorkflowHtml(
 
 function buildPhaseGraph(
   workflow: UserStoryWorkflowDetails,
+  state: WorkflowViewState,
   selectedPhaseId: string,
   playbackState: "idle" | "playing" | "paused" | "stopping"
 ): string {
   const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
-  const clarificationVisited = hasClarificationHistory(workflow);
-  const visiblePhases = workflow.phases.filter((phase) => shouldShowPhase(phase.phaseId, clarificationVisited, currentPhase.phaseId));
+  const executionPhaseId = playbackState === "playing" ? state.executionPhaseId ?? currentPhase.phaseId : null;
+  const completedPhaseIds = new Set(state.completedPhaseIds ?? []);
+  const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);
+  const visiblePhases = workflow.phases.filter((phase) =>
+    shouldShowPhase(phase.phaseId, clarificationVisible, currentPhase.phaseId, executionPhaseId));
   const rejectCommand = currentPhase && workflow.controls.regressionTargets.length > 0
     ? { command: "regress", phaseId: workflow.controls.regressionTargets[0], label: `Regress to ${workflow.controls.regressionTargets[0]}` }
     : workflow.controls.canRestartFromSource
       ? { command: "restart", phaseId: undefined, label: "Restart from source" }
       : null;
-  const executingTargetPhaseId = playbackState === "playing"
-    ? getExecutingTargetPhaseId(visiblePhases, currentPhase.phaseId)
-    : null;
-  const links = buildGraphLinks(visiblePhases, executingTargetPhaseId, desktopPhasePositions, phaseNodeWidth);
-  const mobileLinks = buildGraphLinks(visiblePhases, executingTargetPhaseId, mobilePhasePositions, mobilePhaseNodeWidth);
+  const links = buildGraphLinks(visiblePhases, executionPhaseId, completedPhaseIds, desktopPhasePositions, phaseNodeWidth);
+  const mobileLinks = buildGraphLinks(visiblePhases, executionPhaseId, completedPhaseIds, mobilePhasePositions, mobilePhaseNodeWidth);
 
   const nodes = visiblePhases.map((phase, index) => {
     const disabled = false;
-    const visualTone = resolvePhaseVisualTone(workflow.status, playbackState, phase, disabled);
+    const visualTone = resolvePhaseVisualTone(
+      workflow.status,
+      playbackState,
+      phase,
+      disabled,
+      executionPhaseId,
+      completedPhaseIds);
     const displayState = phaseToneLabel(visualTone, phase.state);
     return `
     <button
@@ -2216,6 +2242,7 @@ function buildPhaseGraph(
 function buildGraphLinks(
   visiblePhases: readonly WorkflowPhaseDetails[],
   executingTargetPhaseId: string | null,
+  completedPhaseIds: ReadonlySet<string>,
   positions: Record<string, PhasePosition>,
   nodeWidth: number
 ): string {
@@ -2227,7 +2254,7 @@ function buildGraphLinks(
     edges.push({
       fromPhaseId: fromPhase.phaseId,
       toPhaseId: toPhase.phaseId,
-      className: linkClass(toPhase, executingTargetPhaseId)
+      className: linkClass(toPhase, executingTargetPhaseId, completedPhaseIds)
     });
   }
 
@@ -2244,34 +2271,41 @@ function hasClarificationHistory(workflow: UserStoryWorkflowDetails): boolean {
       && event.code !== "clarification_passed");
 }
 
-function linkClass(targetPhase: WorkflowPhaseDetails, executingTargetPhaseId: string | null): string {
+function shouldShowClarificationPhase(
+  workflow: UserStoryWorkflowDetails,
+  executionPhaseId: string | null
+): boolean {
+  return hasClarificationHistory(workflow)
+    || executionPhaseId === "clarification"
+    || executionPhaseId === "refinement";
+}
+
+function linkClass(
+  targetPhase: WorkflowPhaseDetails,
+  executingTargetPhaseId: string | null,
+  completedPhaseIds: ReadonlySet<string>
+): string {
   if (executingTargetPhaseId === targetPhase.phaseId) {
     return "executing";
   }
 
-  if (targetPhase.isCurrent || targetPhase.state === "completed") {
+  if (completedPhaseIds.has(targetPhase.phaseId) || targetPhase.isCurrent || targetPhase.state === "completed") {
     return "completed";
   }
 
   return "pending";
 }
 
-function getExecutingTargetPhaseId(
-  visiblePhases: readonly WorkflowPhaseDetails[],
-  currentPhaseId: string
-): string | null {
-  const currentPhaseIndex = visiblePhases.findIndex((phase) => phase.phaseId === currentPhaseId);
-  if (currentPhaseIndex < 0 || currentPhaseIndex >= visiblePhases.length - 1) {
-    return null;
-  }
-
-  return visiblePhases[currentPhaseIndex + 1].phaseId;
-}
-
-function shouldShowPhase(phaseId: string, clarificationVisited: boolean, currentPhaseId: string): boolean {
+function shouldShowPhase(
+  phaseId: string,
+  clarificationVisible: boolean,
+  currentPhaseId: string,
+  executionPhaseId: string | null
+): boolean {
   return phaseId !== "clarification"
-    || clarificationVisited
-    || currentPhaseId === "clarification";
+    || clarificationVisible
+    || currentPhaseId === "clarification"
+    || executionPhaseId === "clarification";
 }
 
 function graphPath(

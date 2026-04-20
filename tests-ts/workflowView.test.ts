@@ -229,7 +229,7 @@ test("buildWorkflowHtml shows configuration warning and disables execution contr
   assert.doesNotMatch(html, /data-command="continue"/);
 });
 
-test("buildWorkflowHtml animates the next link while autoplay is running", () => {
+test("buildWorkflowHtml animates the current execution phase while autoplay is running", () => {
   const html = buildWorkflowHtml({
     usId: "US-0003",
     title: "Autoplay graph",
@@ -283,6 +283,8 @@ test("buildWorkflowHtml animates the next link while autoplay is running", () =>
     selectedPhaseId: "capture",
     selectedArtifactContent: null,
     contextSuggestions: [],
+    executionPhaseId: "refinement",
+    completedPhaseIds: ["capture"],
     settingsConfigured: true,
     settingsMessage: null
   }, "playing");
@@ -290,7 +292,7 @@ test("buildWorkflowHtml animates the next link while autoplay is running", () =>
   assert.match(html, /graph-links path\.executing/);
   assert.match(html, /<path class="executing"/);
   assert.match(html, /data-execution-overlay/);
-  assert.match(html, /Executing Capture/);
+  assert.match(html, /Executing Refinement/);
   assert.match(html, /shuffleMessages/);
   assert.match(html, /formatOverlayElapsed/);
   assert.match(html, /restoreExecutionOverlayState/);
@@ -299,7 +301,7 @@ test("buildWorkflowHtml animates the next link while autoplay is running", () =>
   assert.match(html, /if \(overlayTone !== "playing" && graphStage\)/);
 });
 
-test("buildWorkflowHtml animates capture toward refinement when clarification is not yet active", () => {
+test("buildWorkflowHtml shows clarification as the active execution step from capture", () => {
   const html = buildWorkflowHtml({
     usId: "US-0004",
     title: "Capture autoplay",
@@ -365,12 +367,93 @@ test("buildWorkflowHtml animates capture toward refinement when clarification is
     selectedPhaseId: "capture",
     selectedArtifactContent: null,
     contextSuggestions: [],
+    executionPhaseId: "clarification",
+    completedPhaseIds: ["capture"],
     settingsConfigured: true,
     settingsMessage: null
   }, "playing");
 
   assert.match(html, /<path class="executing"/);
-  assert.doesNotMatch(html, /phase-node clarification/);
+  assert.match(html, /phase-node clarification phase-tone-active/);
+  assert.match(html, /Executing Clarification/);
+  assert.match(html, /phase-node capture phase-tone-completed/);
+});
+
+test("buildWorkflowHtml advances the execution overlay to refinement after clarification passes", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0005",
+    title: "Clarification to refinement",
+    category: "workflow",
+    status: "active",
+    currentPhase: "capture",
+    directoryPath: "/tmp/us.US-0005",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "clarification",
+        title: "Clarification",
+        order: 1,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: "/tmp/00-clarification.md",
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 2,
+        requiresApproval: true,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "capture",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    executionPhaseId: "refinement",
+    completedPhaseIds: ["capture", "clarification"],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "playing");
+
+  assert.match(html, /Executing Refinement/);
+  assert.match(html, /phase-node clarification phase-tone-completed/);
+  assert.match(html, /phase-node refinement phase-tone-active/);
 });
 
 test("buildWorkflowHtml embeds a broad rotating execution message catalog for long runs", () => {

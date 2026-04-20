@@ -9,7 +9,7 @@ import {
   setSpecForgeDebugLoggingEnabled,
   showSpecForgeOutput
 } from "./outputChannel";
-import { hasActiveWorkflowPlayback, openWorkflowView, refreshWorkflowViews } from "./workflowPanel";
+import { hasActiveWorkflowPlayback, notifyWorkflowFileChanged, openWorkflowView, refreshWorkflowViews } from "./workflowPanel";
 import { SidebarViewProvider } from "./sidebarView";
 import {
   approveCurrentPhase,
@@ -174,6 +174,10 @@ function createWorkspaceWatcher(onChange: (reason: string) => Promise<void>): vs
     if (uri && /(?:^|[\\/])runtime\.yaml$/i.test(uri.fsPath)) {
       appendSpecForgeDebugLog(`Watcher ignored runtime heartbeat file. path='${uri.fsPath}'.`);
       return;
+    }
+
+    if (uri) {
+      notifyWorkflowFileChanged(uri.fsPath);
     }
 
     appendSpecForgeDebugLog(`Watcher scheduled refresh. path='${uri?.fsPath ?? "unknown"}'.`);

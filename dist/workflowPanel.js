@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.openWorkflowView = openWorkflowView;
 exports.refreshWorkflowViews = refreshWorkflowViews;
+exports.notifyWorkflowFileChanged = notifyWorkflowFileChanged;
 exports.hasActiveWorkflowPlayback = hasActiveWorkflowPlayback;
 exports.closeWorkflowView = closeWorkflowView;
 const fs = __importStar(require("node:fs"));
@@ -59,6 +60,11 @@ async function refreshWorkflowViews(reason = "external") {
         await panel.refreshAsync(reason);
     }
 }
+function notifyWorkflowFileChanged(filePath) {
+    for (const panel of panels.values()) {
+        panel.onWatchedFileChanged(filePath);
+    }
+}
 function hasActiveWorkflowPlayback() {
     for (const panel of panels.values()) {
         if (panel.hasActivePlayback()) {
@@ -79,6 +85,9 @@ class WorkflowPanelController {
     selectedPhaseId;
     playbackState = "idle";
     autoplayPromise = null;
+    lastWorkflow = null;
+    transientExecutionPhaseId = null;
+    transientCompletedPhaseIds = [];
     constructor(workspaceRoot, summary, getBackendClient, callbacks) {
         this.workspaceRoot = workspaceRoot;
         this.summary = summary;
@@ -119,36 +128,30 @@ class WorkflowPanelController {
     hasActivePlayback() {
         return this.playbackState === "playing" || this.playbackState === "stopping";
     }
+    onWatchedFileChanged(filePath) {
+        if (this.playbackState !== "playing" || !this.belongsToCurrentWorkflow(filePath)) {
+            return;
+        }
+        const nextExecutionPhaseId = this.deriveExecutionPhaseFromWatchedPath(filePath);
+        if (!nextExecutionPhaseId || nextExecutionPhaseId === this.transientExecutionPhaseId) {
+            return;
+        }
+        this.setTransientExecutionPhase(nextExecutionPhaseId);
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' advanced local playback visualization to '${nextExecutionPhaseId}' from watcher path '${filePath}'.`);
+        void this.renderCachedWorkflowAsync("watcherPlaybackProgress");
+    }
     async refreshAsync(reason = "unspecified") {
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' refresh start. reason='${reason}', selectedPhase='${this.selectedPhaseId}', playback='${this.playbackState}', summaryPhase='${this.summary.currentPhase}'.`);
         const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+        this.lastWorkflow = workflow;
         this.summary = {
             ...this.summary,
             currentPhase: workflow.currentPhase,
             status: workflow.status,
             workBranch: workflow.workBranch
         };
-        const selectedPhase = workflow.phases.find((phase) => phase.phaseId === this.selectedPhaseId)
-            ?? workflow.phases.find((phase) => phase.isCurrent)
-            ?? workflow.phases[0];
-        this.selectedPhaseId = selectedPhase.phaseId;
-        const selectedArtifactContent = await readArtifactContentAsync(selectedPhase.artifactPath);
-        const sourceText = await readArtifactContentAsync(workflow.mainArtifactPath) ?? "";
-        const settings = (0, extensionSettings_1.getSpecForgeSettings)();
-        const settingsStatus = (0, extensionSettings_1.getSpecForgeSettingsStatus)(settings);
-        const contextSuggestions = settings.contextSuggestionsEnabled && workflow.currentPhase === "clarification"
-            ? await (0, contextSuggestions_1.suggestContextFiles)(this.workspaceRoot, workflow, sourceText)
-            : [];
-        this.panel.title = `${workflow.usId} workflow`;
-        this.panel.webview.html = (0, workflowView_1.buildWorkflowHtml)(workflow, {
-            selectedPhaseId: this.selectedPhaseId,
-            selectedArtifactContent,
-            contextSuggestions,
-            settingsConfigured: settingsStatus.executionConfigured,
-            settingsMessage: settingsStatus.message,
-            debugMode: (0, outputChannel_1.isSpecForgeDebugLoggingEnabled)()
-        }, this.playbackState);
-        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' refresh end. reason='${reason}', workflowPhase='${workflow.currentPhase}', workflowStatus='${workflow.status}', selectedPhase='${this.selectedPhaseId}', suggestions=${contextSuggestions.length}.`);
+        const suggestionCount = await this.renderWorkflowAsync(workflow);
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' refresh end. reason='${reason}', workflowPhase='${workflow.currentPhase}', workflowStatus='${workflow.status}', selectedPhase='${this.selectedPhaseId}', suggestions=${suggestionCount}.`);
     }
     async handleMessageAsync(message) {
         switch (message.command) {
@@ -219,6 +222,7 @@ class WorkflowPanelController {
                 (0, outputChannel_1.appendSpecForgeLog)(`Autoplay requested for '${this.summary.usId}'.`);
                 (0, outputChannel_1.showSpecForgeOutput)(true);
                 this.playbackState = "playing";
+                this.setTransientExecutionPhase(this.deriveInitialExecutionPhaseId());
                 if (!this.autoplayPromise) {
                     this.autoplayPromise = this.runAutoplayAsync().finally(() => {
                         this.autoplayPromise = null;
@@ -229,6 +233,7 @@ class WorkflowPanelController {
             case "pause":
                 (0, outputChannel_1.appendSpecForgeLog)(`Autoplay paused for '${this.summary.usId}'.`);
                 this.playbackState = "paused";
+                this.clearTransientExecutionPhase();
                 await this.refreshAsync("command:pause");
                 return;
             case "stop":
@@ -237,6 +242,7 @@ class WorkflowPanelController {
                 this.callbacks.stopBackend(this.workspaceRoot);
                 await this.callbacks.refreshExplorer();
                 this.playbackState = "idle";
+                this.clearTransientExecutionPhase();
                 await this.refreshAsync("command:stop");
                 return;
         }
@@ -254,6 +260,7 @@ class WorkflowPanelController {
             status: result.status
         };
         this.selectedPhaseId = result.currentPhase;
+        this.clearTransientExecutionPhase();
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' continueCurrentPhaseAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("continueCurrentPhaseAsync");
@@ -410,6 +417,7 @@ class WorkflowPanelController {
                 const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
                 if (!workflow.controls.canContinue) {
                     this.playbackState = "paused";
+                    this.clearTransientExecutionPhase();
                     (0, outputChannel_1.appendSpecForgeLog)(`Autoplay paused for '${workflow.usId}' because current phase '${workflow.currentPhase}' requires attention.`);
                     this.callbacks.notifyAttention(`${workflow.usId} requires attention at ${workflow.currentPhase}.`);
                     await this.refreshAsync("autoplay:pausedAtBoundary");
@@ -427,11 +435,81 @@ class WorkflowPanelController {
                 return;
             }
             this.playbackState = "paused";
+            this.clearTransientExecutionPhase();
             await this.refreshAsync("autoplay:error");
             (0, outputChannel_1.appendSpecForgeLog)(`Autoplay failed for '${this.summary.usId}': ${asErrorMessage(error)}`);
             (0, outputChannel_1.showSpecForgeOutput)(false);
             void vscode.window.showErrorMessage(asErrorMessage(error));
         }
+    }
+    async renderWorkflowAsync(workflow) {
+        const selectedPhase = workflow.phases.find((phase) => phase.phaseId === this.selectedPhaseId)
+            ?? workflow.phases.find((phase) => phase.isCurrent)
+            ?? workflow.phases[0];
+        this.selectedPhaseId = selectedPhase.phaseId;
+        const selectedArtifactContent = await readArtifactContentAsync(selectedPhase.artifactPath);
+        const sourceText = await readArtifactContentAsync(workflow.mainArtifactPath) ?? "";
+        const settings = (0, extensionSettings_1.getSpecForgeSettings)();
+        const settingsStatus = (0, extensionSettings_1.getSpecForgeSettingsStatus)(settings);
+        const contextSuggestions = settings.contextSuggestionsEnabled && workflow.currentPhase === "clarification"
+            ? await (0, contextSuggestions_1.suggestContextFiles)(this.workspaceRoot, workflow, sourceText)
+            : [];
+        this.panel.title = `${workflow.usId} workflow`;
+        this.panel.webview.html = (0, workflowView_1.buildWorkflowHtml)(workflow, {
+            selectedPhaseId: this.selectedPhaseId,
+            selectedArtifactContent,
+            contextSuggestions,
+            settingsConfigured: settingsStatus.executionConfigured,
+            settingsMessage: settingsStatus.message,
+            executionPhaseId: this.transientExecutionPhaseId,
+            completedPhaseIds: this.transientCompletedPhaseIds,
+            debugMode: (0, outputChannel_1.isSpecForgeDebugLoggingEnabled)()
+        }, this.playbackState);
+        return contextSuggestions.length;
+    }
+    async renderCachedWorkflowAsync(reason) {
+        if (!this.lastWorkflow) {
+            return;
+        }
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' rendering cached workflow. reason='${reason}', executionPhase='${this.transientExecutionPhaseId ?? "none"}'.`);
+        await this.renderWorkflowAsync(this.lastWorkflow);
+    }
+    belongsToCurrentWorkflow(filePath) {
+        const normalizedPath = path.normalize(filePath);
+        const normalizedDirectory = path.normalize(this.summary.directoryPath);
+        return normalizedPath.startsWith(normalizedDirectory + path.sep)
+            || normalizedPath === normalizedDirectory;
+    }
+    deriveInitialExecutionPhaseId() {
+        return this.summary.currentPhase === "capture"
+            ? "clarification"
+            : this.summary.currentPhase;
+    }
+    deriveExecutionPhaseFromWatchedPath(filePath) {
+        const normalizedPath = filePath.replace(/\\/g, "/");
+        if (normalizedPath.endsWith("/clarification.md") || normalizedPath.endsWith("/phases/00-clarification.md")) {
+            return "refinement";
+        }
+        if (normalizedPath.endsWith("/phases/01-refinement.md")) {
+            return "refinement";
+        }
+        return null;
+    }
+    setTransientExecutionPhase(phaseId) {
+        this.transientExecutionPhaseId = phaseId;
+        this.transientCompletedPhaseIds = this.computeCompletedPhaseIds(phaseId);
+    }
+    clearTransientExecutionPhase() {
+        this.transientExecutionPhaseId = null;
+        this.transientCompletedPhaseIds = [];
+    }
+    computeCompletedPhaseIds(executionPhaseId) {
+        const phaseOrder = ["capture", "clarification", "refinement", "technical-design", "implementation", "review", "release-approval", "pr-preparation"];
+        const executionPhaseIndex = phaseOrder.indexOf(executionPhaseId);
+        if (executionPhaseIndex <= 0) {
+            return [];
+        }
+        return phaseOrder.slice(0, executionPhaseIndex);
     }
 }
 async function readArtifactContentAsync(artifactPath) {

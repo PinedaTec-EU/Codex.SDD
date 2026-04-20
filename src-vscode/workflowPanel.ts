@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
-import type { SpecForgeBackendClient, UserStorySummary } from "./backendClient";
+import type { SpecForgeBackendClient, UserStorySummary, UserStoryWorkflowDetails } from "./backendClient";
 import { suggestContextFiles } from "./contextSuggestions";
 import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSettings";
 import { appendSpecForgeDebugLog, appendSpecForgeLog, isSpecForgeDebugLoggingEnabled, showSpecForgeOutput } from "./outputChannel";
@@ -57,6 +57,12 @@ export async function refreshWorkflowViews(reason = "external"): Promise<void> {
   }
 }
 
+export function notifyWorkflowFileChanged(filePath: string): void {
+  for (const panel of panels.values()) {
+    panel.onWatchedFileChanged(filePath);
+  }
+}
+
 export function hasActiveWorkflowPlayback(): boolean {
   for (const panel of panels.values()) {
     if (panel.hasActivePlayback()) {
@@ -76,6 +82,9 @@ class WorkflowPanelController {
   private selectedPhaseId: string;
   private playbackState: "idle" | "playing" | "paused" | "stopping" = "idle";
   private autoplayPromise: Promise<void> | null = null;
+  private lastWorkflow: UserStoryWorkflowDetails | null = null;
+  private transientExecutionPhaseId: string | null = null;
+  private transientCompletedPhaseIds: readonly string[] = [];
 
   public constructor(
     private readonly workspaceRoot: string,
@@ -129,40 +138,38 @@ class WorkflowPanelController {
     return this.playbackState === "playing" || this.playbackState === "stopping";
   }
 
+  public onWatchedFileChanged(filePath: string): void {
+    if (this.playbackState !== "playing" || !this.belongsToCurrentWorkflow(filePath)) {
+      return;
+    }
+
+    const nextExecutionPhaseId = this.deriveExecutionPhaseFromWatchedPath(filePath);
+    if (!nextExecutionPhaseId || nextExecutionPhaseId === this.transientExecutionPhaseId) {
+      return;
+    }
+
+    this.setTransientExecutionPhase(nextExecutionPhaseId);
+    appendSpecForgeDebugLog(
+      `Workflow '${this.summary.usId}' advanced local playback visualization to '${nextExecutionPhaseId}' from watcher path '${filePath}'.`
+    );
+    void this.renderCachedWorkflowAsync("watcherPlaybackProgress");
+  }
+
   public async refreshAsync(reason = "unspecified"): Promise<void> {
     appendSpecForgeDebugLog(
       `Workflow '${this.summary.usId}' refresh start. reason='${reason}', selectedPhase='${this.selectedPhaseId}', playback='${this.playbackState}', summaryPhase='${this.summary.currentPhase}'.`
     );
     const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+    this.lastWorkflow = workflow;
     this.summary = {
       ...this.summary,
       currentPhase: workflow.currentPhase,
       status: workflow.status,
       workBranch: workflow.workBranch
     };
-
-    const selectedPhase = workflow.phases.find((phase) => phase.phaseId === this.selectedPhaseId)
-      ?? workflow.phases.find((phase) => phase.isCurrent)
-      ?? workflow.phases[0];
-    this.selectedPhaseId = selectedPhase.phaseId;
-    const selectedArtifactContent = await readArtifactContentAsync(selectedPhase.artifactPath);
-    const sourceText = await readArtifactContentAsync(workflow.mainArtifactPath) ?? "";
-    const settings = getSpecForgeSettings();
-    const settingsStatus = getSpecForgeSettingsStatus(settings);
-    const contextSuggestions = settings.contextSuggestionsEnabled && workflow.currentPhase === "clarification"
-      ? await suggestContextFiles(this.workspaceRoot, workflow, sourceText)
-      : [];
-    this.panel.title = `${workflow.usId} workflow`;
-    this.panel.webview.html = buildWorkflowHtml(workflow, {
-      selectedPhaseId: this.selectedPhaseId,
-      selectedArtifactContent,
-      contextSuggestions,
-      settingsConfigured: settingsStatus.executionConfigured,
-      settingsMessage: settingsStatus.message,
-      debugMode: isSpecForgeDebugLoggingEnabled()
-    }, this.playbackState);
+    const suggestionCount = await this.renderWorkflowAsync(workflow);
     appendSpecForgeDebugLog(
-      `Workflow '${this.summary.usId}' refresh end. reason='${reason}', workflowPhase='${workflow.currentPhase}', workflowStatus='${workflow.status}', selectedPhase='${this.selectedPhaseId}', suggestions=${contextSuggestions.length}.`
+      `Workflow '${this.summary.usId}' refresh end. reason='${reason}', workflowPhase='${workflow.currentPhase}', workflowStatus='${workflow.status}', selectedPhase='${this.selectedPhaseId}', suggestions=${suggestionCount}.`
     );
   }
 
@@ -235,6 +242,7 @@ class WorkflowPanelController {
         appendSpecForgeLog(`Autoplay requested for '${this.summary.usId}'.`);
         showSpecForgeOutput(true);
         this.playbackState = "playing";
+        this.setTransientExecutionPhase(this.deriveInitialExecutionPhaseId());
         if (!this.autoplayPromise) {
           this.autoplayPromise = this.runAutoplayAsync().finally(() => {
             this.autoplayPromise = null;
@@ -245,6 +253,7 @@ class WorkflowPanelController {
       case "pause":
         appendSpecForgeLog(`Autoplay paused for '${this.summary.usId}'.`);
         this.playbackState = "paused";
+        this.clearTransientExecutionPhase();
         await this.refreshAsync("command:pause");
         return;
       case "stop":
@@ -253,6 +262,7 @@ class WorkflowPanelController {
         this.callbacks.stopBackend(this.workspaceRoot);
         await this.callbacks.refreshExplorer();
         this.playbackState = "idle";
+        this.clearTransientExecutionPhase();
         await this.refreshAsync("command:stop");
         return;
     }
@@ -273,6 +283,7 @@ class WorkflowPanelController {
       status: result.status
     };
     this.selectedPhaseId = result.currentPhase;
+    this.clearTransientExecutionPhase();
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' continueCurrentPhaseAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
     await this.refreshAsync("continueCurrentPhaseAsync");
@@ -477,6 +488,7 @@ class WorkflowPanelController {
         const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
         if (!workflow.controls.canContinue) {
           this.playbackState = "paused";
+          this.clearTransientExecutionPhase();
           appendSpecForgeLog(
             `Autoplay paused for '${workflow.usId}' because current phase '${workflow.currentPhase}' requires attention.`
           );
@@ -500,11 +512,95 @@ class WorkflowPanelController {
       }
 
       this.playbackState = "paused";
+      this.clearTransientExecutionPhase();
       await this.refreshAsync("autoplay:error");
       appendSpecForgeLog(`Autoplay failed for '${this.summary.usId}': ${asErrorMessage(error)}`);
       showSpecForgeOutput(false);
       void vscode.window.showErrorMessage(asErrorMessage(error));
     }
+  }
+
+  private async renderWorkflowAsync(workflow: UserStoryWorkflowDetails): Promise<number> {
+    const selectedPhase = workflow.phases.find((phase) => phase.phaseId === this.selectedPhaseId)
+      ?? workflow.phases.find((phase) => phase.isCurrent)
+      ?? workflow.phases[0];
+    this.selectedPhaseId = selectedPhase.phaseId;
+    const selectedArtifactContent = await readArtifactContentAsync(selectedPhase.artifactPath);
+    const sourceText = await readArtifactContentAsync(workflow.mainArtifactPath) ?? "";
+    const settings = getSpecForgeSettings();
+    const settingsStatus = getSpecForgeSettingsStatus(settings);
+    const contextSuggestions = settings.contextSuggestionsEnabled && workflow.currentPhase === "clarification"
+      ? await suggestContextFiles(this.workspaceRoot, workflow, sourceText)
+      : [];
+    this.panel.title = `${workflow.usId} workflow`;
+    this.panel.webview.html = buildWorkflowHtml(workflow, {
+      selectedPhaseId: this.selectedPhaseId,
+      selectedArtifactContent,
+      contextSuggestions,
+      settingsConfigured: settingsStatus.executionConfigured,
+      settingsMessage: settingsStatus.message,
+      executionPhaseId: this.transientExecutionPhaseId,
+      completedPhaseIds: this.transientCompletedPhaseIds,
+      debugMode: isSpecForgeDebugLoggingEnabled()
+    }, this.playbackState);
+    return contextSuggestions.length;
+  }
+
+  private async renderCachedWorkflowAsync(reason: string): Promise<void> {
+    if (!this.lastWorkflow) {
+      return;
+    }
+
+    appendSpecForgeDebugLog(
+      `Workflow '${this.summary.usId}' rendering cached workflow. reason='${reason}', executionPhase='${this.transientExecutionPhaseId ?? "none"}'.`
+    );
+    await this.renderWorkflowAsync(this.lastWorkflow);
+  }
+
+  private belongsToCurrentWorkflow(filePath: string): boolean {
+    const normalizedPath = path.normalize(filePath);
+    const normalizedDirectory = path.normalize(this.summary.directoryPath);
+    return normalizedPath.startsWith(normalizedDirectory + path.sep)
+      || normalizedPath === normalizedDirectory;
+  }
+
+  private deriveInitialExecutionPhaseId(): string {
+    return this.summary.currentPhase === "capture"
+      ? "clarification"
+      : this.summary.currentPhase;
+  }
+
+  private deriveExecutionPhaseFromWatchedPath(filePath: string): string | null {
+    const normalizedPath = filePath.replace(/\\/g, "/");
+    if (normalizedPath.endsWith("/clarification.md") || normalizedPath.endsWith("/phases/00-clarification.md")) {
+      return "refinement";
+    }
+
+    if (normalizedPath.endsWith("/phases/01-refinement.md")) {
+      return "refinement";
+    }
+
+    return null;
+  }
+
+  private setTransientExecutionPhase(phaseId: string): void {
+    this.transientExecutionPhaseId = phaseId;
+    this.transientCompletedPhaseIds = this.computeCompletedPhaseIds(phaseId);
+  }
+
+  private clearTransientExecutionPhase(): void {
+    this.transientExecutionPhaseId = null;
+    this.transientCompletedPhaseIds = [];
+  }
+
+  private computeCompletedPhaseIds(executionPhaseId: string): readonly string[] {
+    const phaseOrder = ["capture", "clarification", "refinement", "technical-design", "implementation", "review", "release-approval", "pr-preparation"];
+    const executionPhaseIndex = phaseOrder.indexOf(executionPhaseId);
+    if (executionPhaseIndex <= 0) {
+      return [];
+    }
+
+    return phaseOrder.slice(0, executionPhaseIndex);
   }
 }
 

@@ -166,6 +166,9 @@ function createWorkspaceWatcher(onChange) {
             (0, outputChannel_1.appendSpecForgeDebugLog)(`Watcher ignored runtime heartbeat file. path='${uri.fsPath}'.`);
             return;
         }
+        if (uri) {
+            (0, workflowPanel_1.notifyWorkflowFileChanged)(uri.fsPath);
+        }
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Watcher scheduled refresh. path='${uri?.fsPath ?? "unknown"}'.`);
         if (debounceHandle) {
             clearTimeout(debounceHandle);
