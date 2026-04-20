@@ -262,6 +262,7 @@ Typical contents:
 ```text
 .specs/us/us.US-0001/
   us.md
+  clarification.md
   state.yaml
   branch.yaml
   timeline.md
@@ -279,6 +280,8 @@ Per-user VS Code workspace preferences are stored separately:
 ```
 
 This preference file currently stores the starred user story that should reopen automatically for that same developer. It is ignored by git by default, so several developers can share the same workspace without overwriting each other's VS Code UX state.
+
+`clarification.md` is persisted separately from `us.md`. The workflow UI keeps the accumulated clarification questions there, while `us.md` remains the stable source artifact instead of being rewritten with each clarification round.
 
 ## Roadmap
 

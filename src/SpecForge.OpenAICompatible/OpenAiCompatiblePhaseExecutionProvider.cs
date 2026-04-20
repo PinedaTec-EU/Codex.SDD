@@ -128,6 +128,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var sharedOutputRulesPrompt = await File.ReadAllTextAsync(paths.SharedOutputRulesPromptPath, cancellationToken);
         var phasePrompt = await File.ReadAllTextAsync(phasePromptPath, cancellationToken);
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
+        var clarificationLogPath = Path.Combine(Path.GetDirectoryName(context.UserStoryPath)!, "clarification.md");
         var systemPrompt = string.Join(
             $"{Environment.NewLine}{Environment.NewLine}",
             new[]
@@ -156,6 +157,21 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine()
             .AppendLine(userStory.Trim())
             .AppendLine();
+
+        if (File.Exists(clarificationLogPath))
+        {
+            var clarificationLog = await File.ReadAllTextAsync(clarificationLogPath, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(clarificationLog))
+            {
+                builder
+                    .AppendLine("## Clarification Log")
+                    .AppendLine()
+                    .AppendLine($"Path: `{clarificationLogPath}`")
+                    .AppendLine()
+                    .AppendLine(clarificationLog.Trim())
+                    .AppendLine();
+            }
+        }
 
         if (context.PreviousArtifactPaths.Count > 0)
         {

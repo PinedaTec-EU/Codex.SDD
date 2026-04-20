@@ -54,11 +54,15 @@ public sealed class WorkflowRunnerTests : IDisposable
             UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
         Assert.Equal(PhaseId.Clarification, loadedRun.CurrentPhase);
 
-        var userStoryPath = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").MainArtifactPath;
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        var userStoryPath = paths.MainArtifactPath;
         var userStory = await File.ReadAllTextAsync(userStoryPath);
-        Assert.Contains("## Clarification Log", userStory);
-        Assert.Contains("### Questions", userStory);
-        Assert.Contains("### Answers", userStory);
+        Assert.DoesNotContain("## Clarification Log", userStory);
+        Assert.True(File.Exists(paths.ClarificationFilePath));
+        var clarification = await File.ReadAllTextAsync(paths.ClarificationFilePath);
+        Assert.Contains("## Clarification Log", clarification);
+        Assert.Contains("### Questions", clarification);
+        Assert.Contains("### Answers", clarification);
 
         var timelinePath = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
         var timeline = await File.ReadAllTextAsync(timelinePath);
@@ -95,6 +99,70 @@ public sealed class WorkflowRunnerTests : IDisposable
         var timeline = await File.ReadAllTextAsync(timelinePath);
         Assert.Contains("`clarification_answered`", timeline);
         Assert.Contains("`clarification_passed`", timeline);
+
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        var userStory = await File.ReadAllTextAsync(paths.MainArtifactPath);
+        Assert.DoesNotContain("## Clarification Log", userStory);
+        var clarification = await File.ReadAllTextAsync(paths.ClarificationFilePath);
+        Assert.Contains("El analista funcional.", clarification);
+    }
+
+    [Fact]
+    public async Task ContinuePhaseAsync_FromClarification_MergesNewQuestionsWithPreviousOnes()
+    {
+        var runner = new WorkflowRunner();
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "sample US");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await File.WriteAllTextAsync(
+            paths.ClarificationFilePath,
+            UserStoryClarificationMarkdown.Serialize(
+                new ClarificationSession(
+                    "needs_clarification",
+                    "balanced",
+                    "Need more detail.",
+                    [
+                        new ClarificationItem(1, "Question A", "Answer A"),
+                        new ClarificationItem(2, "Question B", null)
+                    ])));
+
+        await runner.SubmitClarificationAnswersAsync(
+            workspaceRoot,
+            "US-0001",
+            ["Answer A updated", "Answer B updated"]);
+
+        var generatedClarificationPath = paths.GetPhaseArtifactPath(PhaseId.Clarification);
+        await File.WriteAllTextAsync(
+            generatedClarificationPath,
+            """
+            # Clarification · US-0001 · v02
+
+            ## State
+            - State: `pending_user_input`
+
+            ## Decision
+            needs_clarification
+
+            ## Reason
+            Still missing one more detail.
+
+            ## Questions
+            1. Question C
+            """
+        );
+
+        var parseMethod = typeof(WorkflowRunner).GetMethod("ParseClarificationArtifact", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var updateMethod = typeof(WorkflowRunner).GetMethod("UpdateClarificationLogAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var assessment = parseMethod.Invoke(null, [await File.ReadAllTextAsync(generatedClarificationPath)])!;
+        await (Task)updateMethod.Invoke(null, [paths, assessment, CancellationToken.None])!;
+
+        var mergedClarification = await File.ReadAllTextAsync(paths.ClarificationFilePath);
+        Assert.Contains("1. Question A", mergedClarification);
+        Assert.Contains("2. Question B", mergedClarification);
+        Assert.Contains("3. Question C", mergedClarification);
+        Assert.Contains("1. Answer A updated", mergedClarification);
+        Assert.Contains("2. Answer B updated", mergedClarification);
+        Assert.Contains("3. ...", mergedClarification);
     }
 
     [Fact]

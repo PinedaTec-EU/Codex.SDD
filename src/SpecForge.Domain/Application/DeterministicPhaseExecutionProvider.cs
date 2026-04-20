@@ -28,7 +28,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
     {
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
         var objective = ReadSection(userStory, "## Objective", "## Objetivo");
-        var clarification = UserStoryClarificationMarkdown.Parse(userStory);
+        var clarification = await ReadClarificationSessionAsync(context.UserStoryPath, cancellationToken);
         var hasAnswers = clarification is not null && clarification.Items.Any(item => !string.IsNullOrWhiteSpace(item.Answer));
         var looksPlaceholder = objective.Contains("sample", StringComparison.OrdinalIgnoreCase)
             || objective.Contains("...", StringComparison.Ordinal)
@@ -303,5 +303,24 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         }
 
         return path;
+    }
+
+    private static async Task<ClarificationSession?> ReadClarificationSessionAsync(
+        string userStoryPath,
+        CancellationToken cancellationToken)
+    {
+        var clarificationPath = Path.Combine(Path.GetDirectoryName(userStoryPath)!, "clarification.md");
+        if (File.Exists(clarificationPath))
+        {
+            var clarificationMarkdown = await File.ReadAllTextAsync(clarificationPath, cancellationToken);
+            var session = UserStoryClarificationMarkdown.Parse(clarificationMarkdown);
+            if (session is not null)
+            {
+                return session;
+            }
+        }
+
+        var userStoryMarkdown = await File.ReadAllTextAsync(userStoryPath, cancellationToken);
+        return UserStoryClarificationMarkdown.Parse(userStoryMarkdown);
     }
 }

@@ -142,7 +142,7 @@ public sealed class RepositoryPromptInitializer
         Decision rules:
         - use `ready_for_refinement` when the story is concrete enough to produce a meaningful refinement
         - use `needs_clarification` when actors, business behavior, inputs, outputs, rules, or acceptance intent are too vague
-        - if there are already answers in the clarification log inside `us.md`, use them as first-class context
+        - if there are already answers in `clarification.md`, use them as first-class context
         - keep the questions concrete and answerable by the user inside the extension
         """;
 

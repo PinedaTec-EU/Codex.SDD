@@ -262,13 +262,11 @@ public sealed class WorkflowRunner
             throw new WorkflowDomainException("Clarification answers can only be submitted while the workflow is in the clarification phase.");
         }
 
-        var userStory = await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken);
-        var session = UserStoryClarificationMarkdown.Parse(userStory)
+        var session = await ReadClarificationSessionAsync(paths, cancellationToken)
             ?? throw new WorkflowDomainException("No clarification questions are currently registered for this user story.");
 
         var updatedSession = UserStoryClarificationMarkdown.WithAnswers(session, answers);
-        var updatedUserStory = UserStoryClarificationMarkdown.Upsert(userStory, updatedSession);
-        await File.WriteAllTextAsync(paths.MainArtifactPath, updatedUserStory, cancellationToken);
+        await PersistClarificationSessionAsync(paths, updatedSession, cancellationToken);
 
         workflowRun.RestoreState(PhaseId.Clarification, UserStoryStatus.Active);
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
@@ -277,9 +275,9 @@ public sealed class WorkflowRunner
             "clarification_answered",
             "user",
             workflowRun.CurrentPhase,
-            $"Recorded {updatedSession.Items.Count(item => !string.IsNullOrWhiteSpace(item.Answer))} clarification answer(s) in `us.md`.",
+            $"Recorded {updatedSession.Items.Count(item => !string.IsNullOrWhiteSpace(item.Answer))} clarification answer(s) in `clarification.md`.",
             cancellationToken,
-            paths.MainArtifactPath);
+            paths.ClarificationFilePath);
 
         return new SubmitClarificationAnswersResult(
             workflowRun.UsId,
@@ -301,7 +299,7 @@ public sealed class WorkflowRunner
 
         var clarificationGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, cancellationToken);
         var clarification = ParseClarificationArtifact(await File.ReadAllTextAsync(clarificationGeneration.ArtifactPath, cancellationToken));
-        await UpdateClarificationLogAsync(paths.MainArtifactPath, clarification, cancellationToken);
+        await UpdateClarificationLogAsync(paths, clarification, cancellationToken);
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             clarification.IsReady ? "clarification_passed" : "clarification_requested",
@@ -627,25 +625,92 @@ public sealed class WorkflowRunner
     }
 
     private static async Task UpdateClarificationLogAsync(
-        string userStoryPath,
+        UserStoryFilePaths paths,
         ClarificationAssessment clarification,
         CancellationToken cancellationToken)
     {
-        var userStory = await File.ReadAllTextAsync(userStoryPath, cancellationToken);
-        var existing = UserStoryClarificationMarkdown.Parse(userStory);
-        var items = clarification.Questions
+        var existing = await ReadClarificationSessionAsync(paths, cancellationToken);
+        var mergedQuestions = MergeClarificationQuestions(existing, clarification.Questions);
+        var items = mergedQuestions
             .Select((question, index) => new ClarificationItem(
                 index + 1,
                 question,
-                existing?.Items.FirstOrDefault(item => item.Index == index + 1)?.Answer))
+                existing?.Items.FirstOrDefault(item => string.Equals(item.Question, question, StringComparison.Ordinal))?.Answer))
             .ToArray();
         var session = new ClarificationSession(
             clarification.IsReady ? "ready_for_refinement" : "needs_clarification",
             ReadCaptureTolerance(),
             clarification.Reason,
             items);
-        var updated = UserStoryClarificationMarkdown.Upsert(userStory, session);
-        await File.WriteAllTextAsync(userStoryPath, updated, cancellationToken);
+        await PersistClarificationSessionAsync(paths, session, cancellationToken);
+    }
+
+    private static async Task<ClarificationSession?> ReadClarificationSessionAsync(
+        UserStoryFilePaths paths,
+        CancellationToken cancellationToken)
+    {
+        if (File.Exists(paths.ClarificationFilePath))
+        {
+            var clarificationMarkdown = await File.ReadAllTextAsync(paths.ClarificationFilePath, cancellationToken);
+            var session = UserStoryClarificationMarkdown.Parse(clarificationMarkdown);
+            if (session is not null)
+            {
+                return session;
+            }
+        }
+
+        if (!File.Exists(paths.MainArtifactPath))
+        {
+            return null;
+        }
+
+        var userStoryMarkdown = await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken);
+        return UserStoryClarificationMarkdown.Parse(userStoryMarkdown);
+    }
+
+    private static async Task PersistClarificationSessionAsync(
+        UserStoryFilePaths paths,
+        ClarificationSession session,
+        CancellationToken cancellationToken)
+    {
+        Directory.CreateDirectory(paths.RootDirectory);
+        await File.WriteAllTextAsync(paths.ClarificationFilePath, UserStoryClarificationMarkdown.Serialize(session), cancellationToken);
+
+        if (File.Exists(paths.MainArtifactPath))
+        {
+            var userStoryMarkdown = await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken);
+            var cleaned = UserStoryClarificationMarkdown.Remove(userStoryMarkdown);
+            await File.WriteAllTextAsync(paths.MainArtifactPath, cleaned, cancellationToken);
+        }
+    }
+
+    private static IReadOnlyCollection<string> MergeClarificationQuestions(
+        ClarificationSession? existing,
+        IReadOnlyCollection<string> newQuestions)
+    {
+        var merged = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        if (existing is not null)
+        {
+            foreach (var item in existing.Items)
+            {
+                if (seen.Add(item.Question))
+                {
+                    merged.Add(item.Question);
+                }
+            }
+        }
+
+        foreach (var question in newQuestions)
+        {
+            if (seen.Add(question))
+            {
+                merged.Add(question);
+            }
+        }
+
+        return merged;
     }
 
     private static string ReadCaptureTolerance()

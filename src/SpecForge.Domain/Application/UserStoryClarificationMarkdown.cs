@@ -146,6 +146,51 @@ public static class UserStoryClarificationMarkdown
         return builder.ToString();
     }
 
+    public static string Serialize(ClarificationSession session) => BuildSection(session).TrimEnd() + Environment.NewLine;
+
+    public static string Remove(string userStoryMarkdown)
+    {
+        if (string.IsNullOrWhiteSpace(userStoryMarkdown))
+        {
+            return string.Empty;
+        }
+
+        var content = userStoryMarkdown.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd();
+        var startIndex = content.IndexOf(ClarificationSectionHeading, StringComparison.Ordinal);
+        if (startIndex < 0)
+        {
+            return content + Environment.NewLine;
+        }
+
+        var nextHeadingIndex = content.IndexOf("\n## ", startIndex + ClarificationSectionHeading.Length, StringComparison.Ordinal);
+        var prefix = content[..startIndex].TrimEnd();
+        var suffix = nextHeadingIndex >= 0 ? content[nextHeadingIndex..].TrimStart('\n') : string.Empty;
+
+        if (string.IsNullOrWhiteSpace(prefix) && string.IsNullOrWhiteSpace(suffix))
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(prefix))
+        {
+            builder.Append(prefix.TrimEnd());
+        }
+
+        if (!string.IsNullOrWhiteSpace(suffix))
+        {
+            if (builder.Length > 0)
+            {
+                builder.AppendLine();
+                builder.AppendLine();
+            }
+
+            builder.Append(suffix.TrimStart());
+        }
+
+        return builder.Length == 0 ? string.Empty : builder.ToString().TrimEnd() + Environment.NewLine;
+    }
+
     public static ClarificationSession WithAnswers(ClarificationSession session, IReadOnlyList<string> answers)
     {
         var items = session.Items

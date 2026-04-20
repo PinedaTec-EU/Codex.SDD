@@ -109,8 +109,7 @@ public sealed class SpecForgeApplicationService
         var rawTimeline = File.Exists(paths.TimelineFilePath)
             ? await File.ReadAllTextAsync(paths.TimelineFilePath, cancellationToken)
             : string.Empty;
-        var userStoryMarkdown = await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken);
-        var clarification = UserStoryClarificationMarkdown.Parse(userStoryMarkdown);
+        var clarification = await ReadClarificationSessionAsync(paths, cancellationToken);
         var currentPhase = await GetCurrentPhaseAsync(workspaceRoot, usId, cancellationToken);
 
         return new UserStoryWorkflowDetails(
@@ -175,8 +174,7 @@ public sealed class SpecForgeApplicationService
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         if (workflowRun.CurrentPhase == Workflow.PhaseId.Clarification)
         {
-            var userStoryMarkdown = await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken);
-            var clarification = UserStoryClarificationMarkdown.Parse(userStoryMarkdown);
+            var clarification = await ReadClarificationSessionAsync(paths, cancellationToken);
             var canAdvanceClarification = UserStoryClarificationMarkdown.HasAllAnswers(clarification);
             return new CurrentPhaseSummary(
                 workflowRun.UsId,
@@ -568,6 +566,29 @@ public sealed class SpecForgeApplicationService
             .Where(target => workflowRun.Definition.CanRegress(workflowRun.CurrentPhase, target))
             .Select(WorkflowPresentation.ToPhaseSlug)
             .ToArray();
+    }
+
+    private static async Task<ClarificationSession?> ReadClarificationSessionAsync(
+        UserStoryFilePaths paths,
+        CancellationToken cancellationToken)
+    {
+        if (File.Exists(paths.ClarificationFilePath))
+        {
+            var clarificationMarkdown = await File.ReadAllTextAsync(paths.ClarificationFilePath, cancellationToken);
+            var session = UserStoryClarificationMarkdown.Parse(clarificationMarkdown);
+            if (session is not null)
+            {
+                return session;
+            }
+        }
+
+        if (!File.Exists(paths.MainArtifactPath))
+        {
+            return null;
+        }
+
+        var userStoryMarkdown = await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken);
+        return UserStoryClarificationMarkdown.Parse(userStoryMarkdown);
     }
 
     private static string ToRuntimeStatusSlug(RuntimeStatus status) => status switch

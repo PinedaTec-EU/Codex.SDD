@@ -17,6 +17,7 @@ public sealed class UserStoryFilePaths
 
         RootDirectory = rootDirectory;
         MainArtifactPath = Path.Combine(rootDirectory, "us.md");
+        ClarificationFilePath = Path.Combine(rootDirectory, "clarification.md");
         StateFilePath = Path.Combine(rootDirectory, "state.yaml");
         RuntimeFilePath = Path.Combine(rootDirectory, "runtime.yaml");
         TimelineFilePath = Path.Combine(rootDirectory, "timeline.md");
@@ -51,6 +52,8 @@ public sealed class UserStoryFilePaths
     public string RootDirectory { get; }
 
     public string MainArtifactPath { get; }
+
+    public string ClarificationFilePath { get; }
 
     public string StateFilePath { get; }
 

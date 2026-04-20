@@ -118,6 +118,9 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         Assert.Equal(paths.ContextDirectoryPath, workflow.ContextFilesDirectoryPath);
         Assert.Single(workflow.Attachments);
         Assert.Equal(paths.AttachmentsDirectoryPath, workflow.AttachmentsDirectoryPath);
+        Assert.True(File.Exists(paths.ClarificationFilePath));
+        var userStory = await File.ReadAllTextAsync(paths.MainArtifactPath);
+        Assert.DoesNotContain("## Clarification Log", userStory);
         Assert.Contains("`phase_completed`", workflow.RawTimeline);
         Assert.Contains(workflow.Events, timelineEvent => timelineEvent.Code == "phase_completed");
     }

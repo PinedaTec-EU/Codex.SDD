@@ -187,6 +187,7 @@ Included in the MVP:
 - ✅ local `context files` suggestions during `clarification` using heuristics and repo neighborhood
 - ✅ extension feature flag to enable or disable those suggestions, enabled by default
 - ✅ persisted runtime status per user story to detect long-running executions and block duplicate reentry
+- ✅ separate `clarification.md` artifact to accumulate clarification questions and answers without mutating `us.md`
 - ✅ per-user starring of a user story with disk persistence and auto-reopen when VS Code is reopened
 
 Does not block the MVP:
@@ -233,6 +234,7 @@ Recently completed subtasks:
 - ✅ suggest `context files` candidates using local heuristics and file neighborhood
 - ✅ expose persisted runtime status through MCP so a model can check whether a user story is still running
 - ✅ block a second `generate_next_phase` while a recent live execution exists for the same user story
+- ✅ keep accumulated clarification questions in the visual workflow while removing them from `us.md`
 - [ ] complete rich prompt inspection/editing from the extension with diff or visible effective prompt
 
 Pending subtasks before the MVP is considered complete:
