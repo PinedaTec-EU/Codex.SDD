@@ -1359,7 +1359,7 @@ function phaseLabelFor(currentPhase) {
     const phaseLabels = {
         "capture": "CAP",
         "clarification": "CLAR",
-        "refinement": "REF",
+        "refinement": "SPEC",
         "technical-design": "TECH",
         "implementation": "IMP",
         "review": "REV",

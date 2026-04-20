@@ -487,7 +487,7 @@ public sealed class SpecForgeApplicationService
     private static string ToPhaseTitle(Workflow.PhaseId phaseId) => phaseId switch
     {
         Workflow.PhaseId.Capture => "Capture",
-        Workflow.PhaseId.Clarification => "Clarification",
+        Workflow.PhaseId.Clarification => "Refinement",
         Workflow.PhaseId.Refinement => "Spec",
         Workflow.PhaseId.TechnicalDesign => "Technical Design",
         Workflow.PhaseId.Implementation => "Implementation",

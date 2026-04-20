@@ -28,9 +28,6 @@ type AnchorSide = "left" | "right" | "top" | "bottom";
 
 const phaseNodeWidth = 220;
 const phaseNodeHeight = 116;
-const phaseActionOffsetX = 16;
-const phaseActionTopOffset = 18;
-
 const leftColumnX = 20;
 const rightColumnX = 400;
 const topRowY = 40;
@@ -67,13 +64,6 @@ const mobileGraphWidth = computeGraphWidth(mobilePhasePositions, mobilePhaseNode
 function buildPhasePositionCss(positions: Record<string, PhasePosition>): string {
   return Object.entries(positions)
     .map(([phaseId, position]) => `.phase-node.${phaseId} { left: ${position.left}px; top: ${position.top}px; }`)
-    .join("\n");
-}
-
-function buildPhaseActionPositionCss(positions: Record<string, PhasePosition>, nodeWidth = phaseNodeWidth): string {
-  return Object.entries(positions)
-    .map(([phaseId, position]) =>
-      `.phase-node-actions.${phaseId} { left: ${position.left + nodeWidth + phaseActionOffsetX}px; top: ${position.top + phaseActionTopOffset}px; }`)
     .join("\n");
 }
 
@@ -119,11 +109,11 @@ function fileNameFromPath(filePath: string): string {
   return segments.at(-1) ?? filePath;
 }
 
-function renderExecutionMetric(label: string, value: string, tone: string): string {
+function renderTokenSummaryRow(label: string, value: string): string {
   return `
-    <div class="metric-card metric-card--${escapeHtmlAttribute(tone)}">
-      <span class="metric-card__label">${escapeHtml(label)}</span>
-      <span class="metric-card__value">${escapeHtml(value)}</span>
+    <div class="token-summary__row">
+      <span class="token-summary__label">${escapeHtml(label)}</span>
+      <span class="token-summary__value">${escapeHtml(value)}</span>
     </div>
   `;
 }
@@ -367,6 +357,27 @@ function phaseToneLabel(tone: PhaseVisualTone, fallbackState: string): string {
   return tone;
 }
 
+function phaseSecondaryLabel(phase: WorkflowPhaseDetails): string {
+  switch (phase.phaseId) {
+    case "capture":
+    case "clarification":
+      return "US";
+    case "refinement":
+      return "spec";
+    default:
+      return phase.phaseId;
+  }
+}
+
+function buildWorkflowHeroTitle(workflow: UserStoryWorkflowDetails): string {
+  const normalizedTitle = workflow.title.trim();
+  if (normalizedTitle.startsWith(`${workflow.usId} ·`) || normalizedTitle === workflow.usId) {
+    return normalizedTitle;
+  }
+
+  return `${workflow.usId} · ${normalizedTitle}`;
+}
+
 export function buildWorkflowHtml(
   workflow: UserStoryWorkflowDetails,
   state: WorkflowViewState,
@@ -399,24 +410,43 @@ export function buildWorkflowHtml(
   const selectedPhaseEvent = workflow.events
     .filter((event) => event.phase === selectedPhase.phaseId)
     .at(-1) ?? null;
-  const selectedPhaseMetrics = selectedPhaseEvent
-    ? [
-      selectedPhaseEvent.durationMs !== null
-        ? renderExecutionMetric("Duration", formatDuration(selectedPhaseEvent.durationMs), "elapsed")
-        : "",
-      selectedPhaseEvent.usage
-        ? renderExecutionMetric(
-          "Input/Output Tokens",
-          `${formatMetricNumber(selectedPhaseEvent.usage.inputTokens)} / ${formatMetricNumber(selectedPhaseEvent.usage.outputTokens)}`,
-          "prompt")
-        : "",
-      selectedPhaseEvent.usage
-        ? renderExecutionMetric("Total Tokens", formatMetricNumber(selectedPhaseEvent.usage.totalTokens), "combined")
-        : "",
-      selectedPhaseEvent.usage && selectedPhaseEvent.durationMs !== null
-        ? renderExecutionMetric("Response Speed", formatTokensPerSecond(selectedPhaseEvent.usage.outputTokens, selectedPhaseEvent.durationMs), "throughput")
-        : ""
-    ].filter(Boolean).join("")
+  const detailRejectCommand = selectedPhase.isCurrent && workflow.controls.regressionTargets.length > 0
+    ? { command: "regress", phaseId: workflow.controls.regressionTargets[0] }
+    : selectedPhase.isCurrent && workflow.controls.canRestartFromSource
+      ? { command: "restart", phaseId: undefined }
+      : null;
+  const detailActions = selectedPhase.isCurrent && (workflow.controls.canApprove || detailRejectCommand)
+    ? `
+      <div class="detail-actions detail-actions--phase-header">
+        ${workflow.controls.canApprove ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve">Approve</button>` : ""}
+        ${detailRejectCommand ? `<button class="workflow-action-button workflow-action-button--danger" data-command="${detailRejectCommand.command}"${detailRejectCommand.phaseId ? ` data-phase-id="${escapeHtmlAttribute(detailRejectCommand.phaseId)}"` : ""}>Reject</button>` : ""}
+      </div>
+    `
+    : "";
+  const durationMetric = selectedPhaseEvent?.durationMs !== null && selectedPhaseEvent
+    ? `
+      <div class="phase-duration-pill" role="status" aria-label="Phase duration">
+        <span class="phase-duration-pill__label">Duration</span>
+        <span class="phase-duration-pill__value">${escapeHtml(formatDuration(selectedPhaseEvent.durationMs))}</span>
+      </div>
+    `
+    : "";
+  const tokenSummary = selectedPhaseEvent?.usage
+    ? `
+      <div class="token-summary">
+        <div class="token-summary__header">Tokens</div>
+        <div class="token-summary__rows">
+          ${renderTokenSummaryRow("Input / Output", `${formatMetricNumber(selectedPhaseEvent.usage.inputTokens)} / ${formatMetricNumber(selectedPhaseEvent.usage.outputTokens)}`)}
+          ${renderTokenSummaryRow("Total", formatMetricNumber(selectedPhaseEvent.usage.totalTokens))}
+          ${selectedPhaseEvent.durationMs !== null
+            ? renderTokenSummaryRow("Response Speed", formatTokensPerSecond(selectedPhaseEvent.usage.outputTokens, selectedPhaseEvent.durationMs))
+            : ""}
+        </div>
+      </div>
+    `
+    : "";
+  const selectedPhaseMetrics = durationMetric || tokenSummary
+    ? `${durationMetric}${tokenSummary}`
     : "";
   const artifactSection = selectedPhase.artifactPath
     ? `
@@ -424,17 +454,17 @@ export function buildWorkflowHtml(
         <div class="artifact-view-label">
           <span class="badge">Preview</span>
         </div>
-        <button data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.artifactPath)}">Open Artifact</button>
+        <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.artifactPath)}">Open Artifact</button>
       </div>
       ${artifactPreviewHtml ? `<div class="markdown-preview">${artifactPreviewHtml}</div>` : `<pre class="artifact-preview">${escapeHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")}</pre>`}
     `
     : "<p class=\"muted\">No artifact is persisted for this phase.</p>";
   const promptButtons = [
     selectedPhase.executePromptPath
-      ? `<button data-command="openPrompt" data-path="${escapeHtmlAttribute(selectedPhase.executePromptPath)}">Open Execute Prompt</button>`
+      ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${escapeHtmlAttribute(selectedPhase.executePromptPath)}">Open Execute Prompt</button>`
       : "",
     selectedPhase.approvePromptPath
-      ? `<button data-command="openPrompt" data-path="${escapeHtmlAttribute(selectedPhase.approvePromptPath)}">Open Approve Prompt</button>`
+      ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${escapeHtmlAttribute(selectedPhase.approvePromptPath)}">Open Approve Prompt</button>`
       : ""
   ].filter(Boolean).join("");
   const promptSection = promptButtons
@@ -651,9 +681,10 @@ export function buildWorkflowHtml(
     .hero::after {
       content: "";
       position: absolute;
-      inset: auto -8% -48% 42%;
-      height: 220px;
-      background: radial-gradient(circle, rgba(114, 241, 184, 0.22), transparent 62%);
+      inset: auto;
+      width: 0;
+      height: 0;
+      background: none;
       pointer-events: none;
     }
     .hero-head {
@@ -684,36 +715,75 @@ export function buildWorkflowHtml(
       align-items: center;
     }
     .detail-metrics {
-      display: flex;
-      gap: 6px;
-      margin-top: 10px;
-      overflow-x: auto;
-      padding-bottom: 2px;
-      flex-wrap: nowrap;
+      display: grid;
+      grid-template-columns: minmax(152px, 186px) minmax(0, 1fr);
+      gap: 12px;
+      margin-top: 12px;
+      align-items: stretch;
     }
-    .metric-card {
-      flex: 0 0 min(172px, calc((100% - 18px) / 4));
-      min-width: 138px;
-      padding: 7px 10px;
-      border-radius: 12px;
-      border: 1px solid rgba(114, 241, 184, 0.18);
-      background: linear-gradient(180deg, rgba(18, 44, 34, 0.94), rgba(9, 20, 17, 0.98));
+    .phase-duration-pill {
+      display: grid;
+      align-content: center;
+      gap: 6px;
+      min-height: 92px;
+      padding: 12px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(92, 181, 255, 0.28);
+      background: linear-gradient(180deg, rgba(92, 181, 255, 0.18), rgba(15, 32, 55, 0.96));
+      box-shadow: 0 10px 24px rgba(18, 44, 74, 0.2);
+    }
+    .phase-duration-pill__label {
+      font-size: 0.64rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(181, 219, 255, 0.84);
+    }
+    .phase-duration-pill__value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      line-height: 1.05;
+      color: #f1f8ff;
+    }
+    .token-summary {
+      min-width: 0;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: linear-gradient(180deg, rgba(34, 39, 47, 0.92), rgba(20, 24, 30, 0.98));
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
     }
-    .metric-card__label {
-      display: block;
-      margin-bottom: 3px;
-      font-size: 0.58rem;
-      letter-spacing: 0.05em;
+    .token-summary__header {
+      margin-bottom: 10px;
+      font-size: 0.64rem;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: rgba(114, 241, 184, 0.74);
+      color: rgba(226, 232, 240, 0.72);
     }
-    .metric-card__value {
-      display: block;
-      font-size: 0.78rem;
+    .token-summary__rows {
+      display: grid;
+      gap: 8px;
+    }
+    .token-summary__row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: baseline;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .token-summary__row:first-child {
+      padding-top: 0;
+      border-top: none;
+    }
+    .token-summary__label {
+      min-width: 0;
+      font-size: 0.76rem;
+      color: rgba(226, 232, 240, 0.7);
+    }
+    .token-summary__value {
+      font-size: 0.8rem;
       font-weight: 700;
-      line-height: 1.15;
-      color: #f2fff9;
+      color: #f4f7fb;
     }
     .hero-meta {
       margin-top: 14px;
@@ -864,7 +934,7 @@ export function buildWorkflowHtml(
       height: 30px;
       margin-left: 2px;
     }
-    .control-strip button, .detail-actions button, .attachment-item, .settings-warning button, .workflow-files-dialog__close {
+    .control-strip button, .attachment-item, .settings-warning button, .workflow-files-dialog__close {
       border: 1px solid rgba(114, 241, 184, 0.18);
       border-radius: 14px;
       padding: 10px 14px;
@@ -874,12 +944,12 @@ export function buildWorkflowHtml(
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
       transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
     }
-    .control-strip button:hover, .detail-actions button:hover, .attachment-item:hover, .settings-warning button:hover, .workflow-files-dialog__close:hover {
+    .control-strip button:hover, .attachment-item:hover, .settings-warning button:hover, .workflow-files-dialog__close:hover {
       transform: translateY(-1px);
       border-color: rgba(114, 241, 184, 0.38);
       background: linear-gradient(180deg, rgba(114, 241, 184, 0.24), rgba(18, 33, 28, 0.94));
     }
-    .control-strip button:disabled, .detail-actions button:disabled, .workflow-files-dialog__close:disabled {
+    .control-strip button:disabled, .workflow-files-dialog__close:disabled {
       opacity: 0.46;
       cursor: not-allowed;
       transform: none;
@@ -1264,54 +1334,6 @@ export function buildWorkflowHtml(
       background: rgba(255, 255, 255, 0.05);
       color: rgba(255, 255, 255, 0.52);
     }
-    .phase-node-actions {
-      position: absolute;
-      display: flex;
-      gap: 8px;
-      z-index: 10;
-    }
-    ${buildPhaseActionPositionCss(desktopPhasePositions)}
-    .action-btn {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 0.9rem;
-      cursor: pointer;
-      background: rgba(255, 255, 255, 0.08);
-      color: rgba(255, 255, 255, 0.7);
-      transition: all 140ms ease;
-    }
-    .action-btn:hover {
-      transform: scale(1.08);
-      border-color: rgba(255, 255, 255, 0.28);
-      background: rgba(255, 255, 255, 0.12);
-    }
-    .action-btn--approve {
-      background: rgba(127, 240, 165, 0.14);
-      color: #7ff0a5;
-      border-color: rgba(127, 240, 165, 0.24);
-    }
-    .action-btn--approve:hover {
-      background: rgba(127, 240, 165, 0.22);
-      border-color: rgba(127, 240, 165, 0.42);
-      box-shadow: 0 0 12px rgba(127, 240, 165, 0.18);
-    }
-    .action-btn--reject {
-      background: rgba(255, 139, 139, 0.14);
-      color: #ff8b8b;
-      border-color: rgba(255, 139, 139, 0.24);
-    }
-    .action-btn--reject:hover {
-      background: rgba(255, 139, 139, 0.22);
-      border-color: rgba(255, 139, 139, 0.42);
-      box-shadow: 0 0 12px rgba(255, 139, 139, 0.18);
-    }
     .phase-node.selected .phase-index {
       box-shadow: 0 0 0 8px rgba(114, 241, 184, 0.08);
     }
@@ -1321,11 +1343,19 @@ export function buildWorkflowHtml(
       gap: 18px;
       align-content: start;
     }
+    .detail-card-shell {
+      position: relative;
+      padding-top: 18px;
+    }
     .detail-card {
       border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 20px;
       padding: 18px;
       background: rgba(255, 255, 255, 0.025);
+    }
+    .detail-card--phase-overview {
+      position: relative;
+      z-index: 1;
     }
     .detail-card h2, .detail-card h3 {
       margin-top: 0;
@@ -1336,6 +1366,14 @@ export function buildWorkflowHtml(
       gap: 10px;
       flex-wrap: wrap;
       align-items: center;
+    }
+    .detail-actions--phase-header {
+      position: absolute;
+      top: 0;
+      right: 18px;
+      z-index: 3;
+      margin: 0;
+      justify-content: flex-end;
     }
     .detail-actions--artifact {
       justify-content: space-between;
@@ -1490,6 +1528,36 @@ export function buildWorkflowHtml(
       transform: translateY(-1px);
       border-color: rgba(114, 241, 184, 0.38);
       background: linear-gradient(180deg, rgba(114, 241, 184, 0.24), rgba(18, 33, 28, 0.94));
+    }
+    .workflow-action-button.workflow-action-button--approve {
+      border-color: rgba(114, 241, 184, 0.28);
+      background: linear-gradient(180deg, rgba(114, 241, 184, 0.22), rgba(18, 43, 35, 0.96));
+      color: #f2fff9;
+    }
+    .workflow-action-button.workflow-action-button--approve:hover {
+      border-color: rgba(114, 241, 184, 0.44);
+      background: linear-gradient(180deg, rgba(114, 241, 184, 0.3), rgba(20, 54, 42, 0.98));
+      box-shadow: 0 10px 24px rgba(20, 72, 53, 0.24);
+    }
+    .workflow-action-button.workflow-action-button--danger {
+      border-color: rgba(255, 139, 139, 0.3);
+      background: linear-gradient(180deg, rgba(255, 139, 139, 0.2), rgba(54, 22, 22, 0.96));
+      color: #ffd1d1;
+    }
+    .workflow-action-button.workflow-action-button--danger:hover {
+      border-color: rgba(255, 139, 139, 0.46);
+      background: linear-gradient(180deg, rgba(255, 139, 139, 0.28), rgba(70, 24, 24, 0.98));
+      box-shadow: 0 10px 24px rgba(88, 28, 28, 0.24);
+    }
+    .workflow-action-button.workflow-action-button--document {
+      border-color: rgba(92, 181, 255, 0.28);
+      background: linear-gradient(180deg, rgba(92, 181, 255, 0.18), rgba(16, 31, 52, 0.94));
+      color: #e7f3ff;
+    }
+    .workflow-action-button.workflow-action-button--document:hover {
+      border-color: rgba(92, 181, 255, 0.42);
+      background: linear-gradient(180deg, rgba(92, 181, 255, 0.26), rgba(18, 39, 64, 0.98));
+      box-shadow: 0 10px 24px rgba(22, 52, 92, 0.24);
     }
     .workflow-action-button--debug-reset {
       border-color: rgba(255, 170, 84, 0.28);
@@ -1738,12 +1806,16 @@ export function buildWorkflowHtml(
       .hero, .graph-panel, .detail-panel {
         padding: 16px;
       }
+      .detail-metrics {
+        grid-template-columns: 1fr;
+      }
+      .detail-actions--phase-header {
+        position: static;
+        margin: 12px 0 0;
+        justify-content: flex-start;
+      }
       .phase-node {
         width: ${mobilePhaseNodeWidth}px;
-      }
-      .phase-node-actions {
-        transform: scale(0.94);
-        transform-origin: top left;
       }
       .graph-stage, .phase-graph {
         width: ${mobileGraphWidth}px;
@@ -1788,7 +1860,6 @@ export function buildWorkflowHtml(
         min-width: 0;
       }
       ${buildPhasePositionCss(mobilePhasePositions)}
-      ${buildPhaseActionPositionCss(mobilePhasePositions, mobilePhaseNodeWidth)}
     }
   </style>
 </head>
@@ -1816,7 +1887,7 @@ export function buildWorkflowHtml(
       <div class="hero-head">
         <div>
           <p class="eyebrow">SpecForge.AI Workflow Graph</p>
-          <h1>${escapeHtml(workflow.usId)} · ${escapeHtml(workflow.title)}</h1>
+          <h1>${escapeHtml(buildWorkflowHeroTitle(workflow))}</h1>
           <div class="hero-meta">
             <span class="token accent">${escapeHtml(workflow.category)}</span>
             <span class="token${heroTokenClass(workflow.status)}">${escapeHtml(workflow.status)}</span>
@@ -1844,16 +1915,19 @@ export function buildWorkflowHtml(
         </div>
       </aside>
       <main class="panel detail-panel">
-        <section class="detail-card">
+        <div class="detail-card-shell">
+          ${detailActions}
+          <section class="detail-card detail-card--phase-overview">
           <h2>${escapeHtml(selectedPhase.title)}</h2>
           <div class="detail-meta">
-            <span class="token">${escapeHtml(selectedPhase.phaseId)}</span>
+            <span class="token">${escapeHtml(phaseSecondaryLabel(selectedPhase))}</span>
             <span class="token">${escapeHtml(selectedPhase.state)}</span>
             ${selectedPhase.requiresApproval ? `<span class="token">approval required</span>` : ""}
             ${selectedPhase.isApproved ? `<span class="token success">approved</span>` : ""}
           </div>
           ${selectedPhaseMetrics ? `<div class="detail-metrics">${selectedPhaseMetrics}</div>` : ""}
-        </section>
+          </section>
+        </div>
         <section class="detail-card">
           <h3>Artifact</h3>
           ${artifactSection}
@@ -2190,11 +2264,6 @@ function buildPhaseGraph(
   const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);
   const visiblePhases = workflow.phases.filter((phase) =>
     shouldShowPhase(phase.phaseId, clarificationVisible, currentPhase.phaseId, executionPhaseId));
-  const rejectCommand = currentPhase && workflow.controls.regressionTargets.length > 0
-    ? { command: "regress", phaseId: workflow.controls.regressionTargets[0], label: `Regress to ${workflow.controls.regressionTargets[0]}` }
-    : workflow.controls.canRestartFromSource
-      ? { command: "restart", phaseId: undefined, label: "Restart from source" }
-      : null;
   const links = buildGraphLinks(visiblePhases, executionPhaseId, completedPhaseIds, desktopPhasePositions, phaseNodeWidth);
   const mobileLinks = buildGraphLinks(visiblePhases, executionPhaseId, completedPhaseIds, mobilePhasePositions, mobilePhaseNodeWidth);
 
@@ -2218,7 +2287,7 @@ function buildPhaseGraph(
         <span class="phase-status-dot"></span>
       </div>
       <h3>${escapeHtml(phase.title)}</h3>
-      <div class="phase-slug">${escapeHtml(phase.phaseId)}</div>
+      <div class="phase-slug">${escapeHtml(phaseSecondaryLabel(phase))}</div>
       <div class="phase-tags">
         <span class="phase-tag phase-tag--${escapeHtmlAttribute(visualTone)}">${escapeHtml(displayState)}</span>
         ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
@@ -2227,15 +2296,6 @@ function buildPhaseGraph(
     </button>
   `;
   }).join("");
-
-  const nodeActions = currentPhase
-    ? `
-      <div class="phase-node-actions ${escapeHtmlAttribute(currentPhase.phaseId)}">
-        ${workflow.controls.canApprove ? `<button class="action-btn action-btn--approve" data-command="approve" aria-label="Approve phase" title="Approve phase">✓</button>` : ""}
-        ${rejectCommand ? `<button class="action-btn action-btn--reject" data-command="${rejectCommand.command}"${rejectCommand.phaseId ? ` data-phase-id="${escapeHtmlAttribute(rejectCommand.phaseId)}"` : ""} aria-label="${escapeHtmlAttribute(rejectCommand.label)}" title="${escapeHtmlAttribute(rejectCommand.label)}">✕</button>` : ""}
-      </div>
-    `
-    : "";
 
   return `
     <div class="phase-graph" aria-label="Workflow graph">
@@ -2246,7 +2306,6 @@ function buildPhaseGraph(
         ${mobileLinks}
       </svg>
       ${nodes}
-      ${nodeActions}
     </div>
   `;
 }

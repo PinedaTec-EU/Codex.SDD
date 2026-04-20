@@ -4,6 +4,7 @@ exports.buildUserStoryDetailsHtml = buildUserStoryDetailsHtml;
 exports.escapeHtml = escapeHtml;
 const PHASES = [
     "capture",
+    "clarification",
     "refinement",
     "technical-design",
     "implementation",
@@ -60,7 +61,7 @@ function buildUserStoryDetailsHtml(summary) {
   <h2>Workflow</h2>
   <ul>${phaseItems}</ul>
   <h2>Next action</h2>
-  <p>Use <code>Continue Phase</code> when the current phase can advance, or <code>Approve Current Phase</code> when the phase is blocked by approval.</p>
+  <p>Use <code>Continue Phase</code> when the current phase can advance, or <code>Approve Current Phase</code> only when the workflow is at a human checkpoint.</p>
 </body>
 </html>`;
 }
