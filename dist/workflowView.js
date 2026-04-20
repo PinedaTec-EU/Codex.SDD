@@ -421,9 +421,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         </p>
       </div>
       <div class="detail-actions detail-actions--files detail-actions--clarification">
-        <button data-command="attachFiles" data-kind="context">Add Context Files</button>
+        <button class="workflow-action-button" data-command="attachFiles" data-kind="context">Add Context Files</button>
         ${state.contextSuggestions.length > 1
-        ? `<button data-add-suggested-context-files='${escapeHtmlAttribute(JSON.stringify(state.contextSuggestions.map((item) => item.path)))}'>Add All Suggested</button>`
+        ? `<button class="workflow-action-button" data-add-suggested-context-files='${escapeHtmlAttribute(JSON.stringify(state.contextSuggestions.map((item) => item.path)))}'>Add All Suggested</button>`
         : ""}
       </div>
       ${state.contextSuggestions.length > 0
@@ -435,7 +435,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
                   <strong>${escapeHtml(suggestion.relativePath)}</strong>
                   <span>${escapeHtml(suggestion.reason)}</span>
                 </div>
-                <button data-command="addSuggestedContextFile" data-path="${escapeHtmlAttribute(suggestion.path)}">Add to Context</button>
+                <button class="workflow-action-button workflow-action-button--compact" data-command="addSuggestedContextFile" data-path="${escapeHtmlAttribute(suggestion.path)}">Add to Context</button>
               </div>
             `).join("")}
           </div>
@@ -1372,6 +1372,26 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .detail-actions--clarification {
       justify-content: flex-start;
     }
+    .workflow-action-button {
+      border: 1px solid rgba(114, 241, 184, 0.18);
+      border-radius: 14px;
+      padding: 10px 14px;
+      background: linear-gradient(180deg, rgba(114, 241, 184, 0.16), rgba(18, 33, 28, 0.92));
+      color: #f2fff9;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+      white-space: nowrap;
+    }
+    .workflow-action-button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(114, 241, 184, 0.38);
+      background: linear-gradient(180deg, rgba(114, 241, 184, 0.24), rgba(18, 33, 28, 0.94));
+    }
+    .workflow-action-button--compact {
+      align-self: center;
+      min-width: 156px;
+    }
     .clarification-suggestions {
       display: grid;
       gap: 10px;
@@ -1380,7 +1400,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 12px;
-      align-items: center;
+      align-items: start;
       padding: 12px 14px;
       border-radius: 16px;
       border: 1px solid rgba(114, 241, 184, 0.12);
@@ -1389,13 +1409,21 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .clarification-suggestion__body {
       display: grid;
       gap: 4px;
+      min-width: 0;
     }
     .clarification-suggestion__body strong {
+      display: block;
       font-size: 0.96rem;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .clarification-suggestion__body span {
+      display: block;
       color: rgba(241, 246, 255, 0.7);
       line-height: 1.4;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .clarification-item {
       display: grid;
@@ -1643,6 +1671,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       }
       .clarification-suggestion {
         grid-template-columns: 1fr;
+      }
+      .workflow-action-button--compact {
+        width: 100%;
+        min-width: 0;
       }
       .file-kind-action {
         min-width: 0;
