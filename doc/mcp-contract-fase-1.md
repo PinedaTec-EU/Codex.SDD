@@ -302,6 +302,7 @@ Business errors:
 - `phase_not_approvable`
 - `approval_not_required`
 - `missing_base_branch`
+- `validation_error`
 
 ### `request_regression`
 

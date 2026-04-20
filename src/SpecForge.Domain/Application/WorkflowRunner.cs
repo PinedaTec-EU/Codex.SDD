@@ -71,6 +71,7 @@ public sealed class WorkflowRunner
     {
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        await EnsureCurrentPhaseIsApprovableAsync(paths, workflowRun.CurrentPhase, cancellationToken);
         var metadata = await ReadUserStoryMetadataAsync(paths.MainArtifactPath, usId, cancellationToken);
         var workBranchName = BuildWorkBranchName(usId, metadata.Title, metadata.Kind);
         workflowRun.ApproveCurrentPhase(
@@ -589,6 +590,26 @@ public sealed class WorkflowRunner
         }
 
         await File.AppendAllTextAsync(timelinePath, builder.ToString(), cancellationToken);
+    }
+
+    private static async Task EnsureCurrentPhaseIsApprovableAsync(
+        UserStoryFilePaths paths,
+        PhaseId currentPhase,
+        CancellationToken cancellationToken)
+    {
+        if (currentPhase != PhaseId.Refinement)
+        {
+            return;
+        }
+
+        var artifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Refinement);
+        if (artifactPath is null || !File.Exists(artifactPath))
+        {
+            throw new WorkflowDomainException("The spec baseline cannot be approved because `01-spec.md` does not exist.");
+        }
+
+        var markdown = await File.ReadAllTextAsync(artifactPath, cancellationToken);
+        SpecBaselineSchemaValidator.EnsureValid(markdown);
     }
 
     private sealed record ArtifactGenerationResult(string ArtifactPath, TokenUsage? Usage, long DurationMs);

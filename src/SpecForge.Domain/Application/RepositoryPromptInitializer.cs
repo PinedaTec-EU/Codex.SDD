@@ -170,6 +170,11 @@ public sealed class RepositoryPromptInitializer
         - Blue Team
         - Acceptance Criteria
         - Human Approval Questions
+
+        Schema rules:
+        - every required section must exist exactly once with the same heading text
+        - do not leave placeholder-only content such as `...`, `TODO`, or empty bullet lists in required sections
+        - the resulting artifact must be approvable without inventing missing business facts later
         """;
 
     private static string BuildRefinementApprovePrompt() =>
@@ -180,6 +185,10 @@ public sealed class RepositoryPromptInitializer
         - evaluate whether the spec is precise enough for technical design
         - identify blocking ambiguities, hidden scope, or acceptance gaps
         - recommend approve or hold, but never mutate the user decision
+
+        Approval guardrails:
+        - approval must fail if required schema sections are missing
+        - approval must fail if required sections still contain placeholder-only content
         """;
 
     private static string BuildTechnicalDesignExecutePrompt() =>

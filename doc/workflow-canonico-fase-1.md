@@ -74,6 +74,7 @@ Definition of Done:
 - a `red-team` evaluation exists
 - a `blue-team` reconstruction over relevant findings exists
 - the output enables design without inventing critical requirements
+- the artifact satisfies the required schema defined in `doc/spec-schema-fase-1.md`
 
 Checkpoint:
 
@@ -87,6 +88,7 @@ Operational Notes:
 - if the user wants to restart from the new user story, the system must clean already-processed derived work and reinitialize the flow
 - every agent modification to the spec file must add a `history log` block at the top with date and a short multiline summary
 - approving this phase freezes the spec baseline and creates the work branch that isolates implementation
+- approval must fail if the spec is structurally invalid or still contains placeholder-only required sections
 
 ### 3. `technical_design`
 

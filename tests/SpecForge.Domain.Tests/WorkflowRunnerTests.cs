@@ -213,6 +213,37 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ApproveCurrentPhaseAsync_WhenSpecSchemaIsInvalid_ThrowsValidationError()
+    {
+        var runner = new WorkflowRunner();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        await File.WriteAllTextAsync(
+            paths.GetPhaseArtifactPath(PhaseId.Refinement),
+            """
+            # Spec · US-0001 · v01
+
+            ## History Log
+            - `2026-04-20T10:15:00Z` · Initial spec creation.
+
+            ## State
+            - State: `pending_approval`
+            - Based on: `us.md`
+
+            ## Spec Summary
+            ...
+            """);
+
+        var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
+            runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main"));
+
+        Assert.Contains("required schema", error.Message);
+        Assert.Contains("Inputs", error.Message);
+    }
+
+    [Fact]
     public async Task RequestRegressionAsync_FromReviewToTechnicalDesign_PersistsStateAndTimeline()
     {
         var runner = new WorkflowRunner();

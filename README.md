@@ -89,6 +89,7 @@ See the detailed design documents in:
 - [doc/product-vision.md](doc/product-vision.md)
 - [doc/architecture.md](doc/architecture.md)
 - [doc/workflow-canonico-fase-1.md](doc/workflow-canonico-fase-1.md)
+- [doc/spec-schema-fase-1.md](doc/spec-schema-fase-1.md)
 - [doc/mcp-contract-fase-1.md](doc/mcp-contract-fase-1.md)
 - [doc/implementation-plan.md](doc/implementation-plan.md)
 
@@ -275,6 +276,8 @@ Current expectation for `01-spec.md`:
 - explicit ambiguities and approval questions
 
 This reduces approval fatigue versus forcing the user to approve both a weak refinement and a separate technical design by default. The technical design remains important, but phase 1 now treats it as a derived execution artifact rather than as a mandatory blocking checkpoint in every story.
+
+The exact required schema for that artifact lives in [doc/spec-schema-fase-1.md](doc/spec-schema-fase-1.md). The approval path now validates that schema before the spec baseline can be frozen.
 
 ### Workflow readability
 
