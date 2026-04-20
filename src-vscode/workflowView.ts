@@ -2228,8 +2228,10 @@ function buildGraphLinks(
 
 function hasClarificationHistory(workflow: UserStoryWorkflowDetails): boolean {
   return workflow.currentPhase === "clarification"
-    || workflow.clarification !== null
-    || workflow.events.some((event) => event.phase === "clarification");
+    || workflow.clarification?.status === "needs_clarification"
+    || workflow.events.some((event) =>
+      event.phase === "clarification"
+      && event.code !== "clarification_passed");
 }
 
 function linkClass(targetPhase: WorkflowPhaseDetails, executingTargetPhaseId: string | null): string {

@@ -803,8 +803,23 @@ test("buildWorkflowHtml hides clarification and draws a direct capture to refine
       canRestartFromSource: true,
       regressionTargets: []
     },
-    clarification: null,
+    clarification: {
+      status: "ready_for_refinement",
+      tolerance: "balanced",
+      reason: "The user story is concrete enough to proceed to refinement.",
+      items: []
+    },
     events: [
+      {
+        timestampUtc: "2026-04-18T09:59:00Z",
+        code: "clarification_passed",
+        actor: "system",
+        phase: "clarification",
+        summary: "Clarification pre-flight passed. Advancing to refinement.",
+        artifacts: ["/tmp/00-clarification.md"],
+        usage: null,
+        durationMs: null
+      },
       {
         timestampUtc: "2026-04-18T10:00:00Z",
         code: "phase_completed",

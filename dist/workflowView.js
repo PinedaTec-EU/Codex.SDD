@@ -2138,8 +2138,9 @@ function buildGraphLinks(visiblePhases, executingTargetPhaseId, positions, nodeW
 }
 function hasClarificationHistory(workflow) {
     return workflow.currentPhase === "clarification"
-        || workflow.clarification !== null
-        || workflow.events.some((event) => event.phase === "clarification");
+        || workflow.clarification?.status === "needs_clarification"
+        || workflow.events.some((event) => event.phase === "clarification"
+            && event.code !== "clarification_passed");
 }
 function linkClass(targetPhase, executingTargetPhaseId) {
     if (executingTargetPhaseId === targetPhase.phaseId) {
