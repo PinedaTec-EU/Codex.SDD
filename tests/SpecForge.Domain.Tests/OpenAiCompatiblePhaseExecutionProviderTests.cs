@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using SpecForge.Domain.Application;
 using SpecForge.Domain.Persistence;
 using SpecForge.Domain.Workflow;
@@ -106,6 +107,76 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_ClarificationOk_NormalizesToCanonicalReadyArtifact()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var handler = new CapturingFakeHttpMessageHandler("ok");
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            new OpenAiCompatibleProviderOptions(
+                BaseUrl: "http://localhost:11434/v1",
+                ApiKey: string.Empty,
+                Model: "llama3.1"));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Clarification,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        var result = await provider.ExecuteAsync(context);
+
+        Assert.Contains("## Decision", result.Content);
+        Assert.Contains("ready_for_refinement", result.Content);
+        Assert.Contains("No clarification questions remain.", result.Content);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ClarificationNeedsClarification_StripsMachineHeaderAndKeepsMarkdownBody()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var handler = new CapturingFakeHttpMessageHandler(
+            """
+            needs_clarification
+
+            # Clarification · US-0001 · v01
+
+            ## State
+            - State: `pending_user_input`
+
+            ## Decision
+            needs_clarification
+
+            ## Reason
+            Missing actor and acceptance details.
+
+            ## Questions
+            1. Who performs the action?
+            """
+        );
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            new OpenAiCompatibleProviderOptions(
+                BaseUrl: "http://localhost:11434/v1",
+                ApiKey: string.Empty,
+                Model: "llama3.1"));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Clarification,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        var result = await provider.ExecuteAsync(context);
+
+        Assert.DoesNotContain("needs_clarification\n\n# Clarification", result.Content);
+        Assert.StartsWith("# Clarification · US-0001 · v01", result.Content);
+        Assert.Contains("## Questions", result.Content);
+    }
+
+    [Fact]
     public void Constructor_RemoteEndpointWithoutApiKey_Throws()
     {
         var httpClient = new HttpClient(new CapturingFakeHttpMessageHandler());
@@ -166,6 +237,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
     private sealed class CapturingFakeHttpMessageHandler : HttpMessageHandler
     {
+        private readonly string responseContent;
+
+        public CapturingFakeHttpMessageHandler(string responseContent = "# generated markdown")
+        {
+            this.responseContent = responseContent;
+        }
+
         public HttpRequestMessage? LastRequest { get; private set; }
 
         public string LastBody { get; private set; } = string.Empty;
@@ -175,22 +253,25 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             LastRequest = request;
             LastBody = await request.Content!.ReadAsStringAsync(cancellationToken);
 
-            var payload = """
+            var payload = JsonSerializer.Serialize(new
+            {
+                usage = new
                 {
-                  "usage": {
-                    "prompt_tokens": 120,
-                    "completion_tokens": 48,
-                    "total_tokens": 168
-                  },
-                  "choices": [
+                    prompt_tokens = 120,
+                    completion_tokens = 48,
+                    total_tokens = 168
+                },
+                choices = new[]
+                {
+                    new
                     {
-                      "message": {
-                        "content": "# generated markdown"
-                      }
+                        message = new
+                        {
+                            content = responseContent
+                        }
                     }
-                  ]
                 }
-                """;
+            });
 
             return new HttpResponseMessage(HttpStatusCode.OK)
             {

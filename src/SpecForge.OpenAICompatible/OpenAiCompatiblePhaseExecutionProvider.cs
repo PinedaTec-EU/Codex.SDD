@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using SpecForge.Domain.Application;
 using SpecForge.Domain.Persistence;
+using SpecForge.Domain.Workflow;
 
 namespace SpecForge.OpenAICompatible;
 
@@ -74,7 +75,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             throw new InvalidOperationException("OpenAI-compatible provider returned an empty content payload.");
         }
 
-        return new PhaseExecutionResult(content.Trim(), ExecutionKind: "openai-compatible", usage);
+        var normalizedContent = NormalizePhaseContent(context, content.Trim());
+        return new PhaseExecutionResult(normalizedContent, ExecutionKind: "openai-compatible", usage);
     }
 
     private HttpRequestMessage BuildRequest(string systemPrompt, string userPrompt)
@@ -216,7 +218,109 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine("- Stay strictly inside the requested phase contract.")
             .AppendLine("- Return only the markdown artifact for the current phase.");
 
+        if (context.PhaseId == PhaseId.Clarification)
+        {
+            builder
+                .AppendLine()
+                .AppendLine("## Internal Clarification Contract")
+                .AppendLine()
+                .AppendLine("The first non-empty line of your response is machine-validated and must be exactly one of:")
+                .AppendLine("- `ok`")
+                .AppendLine("- `needs_clarification`")
+                .AppendLine()
+                .AppendLine("If the story is ready for refinement, return exactly `ok` and nothing else.")
+                .AppendLine("If the story still needs clarification, the first line must be `needs_clarification`, followed by a blank line and then the complete markdown artifact.")
+                .AppendLine("Do not replace these tokens with synonyms, labels, prose, or code fences.");
+        }
+
         return new EffectivePrompt(systemPrompt, builder.ToString().Trim());
+    }
+
+    private static string NormalizePhaseContent(PhaseExecutionContext context, string content)
+    {
+        if (context.PhaseId != PhaseId.Clarification)
+        {
+            return content;
+        }
+
+        var firstLine = GetFirstNonEmptyLine(content);
+        if (string.Equals(firstLine, "ok", StringComparison.OrdinalIgnoreCase))
+        {
+            return BuildReadyForRefinementArtifact(context);
+        }
+
+        if (string.Equals(firstLine, "needs_clarification", StringComparison.OrdinalIgnoreCase))
+        {
+            var markdownBody = RemoveLeadingDecisionLine(content);
+            if (string.IsNullOrWhiteSpace(markdownBody))
+            {
+                throw new InvalidOperationException(
+                    "Clarification response declared 'needs_clarification' but did not include a markdown artifact body.");
+            }
+
+            return markdownBody;
+        }
+
+        if (content.Contains("## Decision", StringComparison.Ordinal))
+        {
+            return content;
+        }
+
+        throw new InvalidOperationException(
+            "Clarification response did not start with 'ok' or 'needs_clarification', and no fallback markdown decision section was found.");
+    }
+
+    private static string BuildReadyForRefinementArtifact(PhaseExecutionContext context) =>
+        string.Join(
+            Environment.NewLine,
+            new[]
+            {
+                $"# Clarification · {context.UsId} · v01",
+                string.Empty,
+                "## State",
+                "- State: `ready`",
+                string.Empty,
+                "## Decision",
+                "ready_for_refinement",
+                string.Empty,
+                "## Reason",
+                "The current user story is concrete enough to proceed to refinement.",
+                string.Empty,
+                "## Questions",
+                "1. No clarification questions remain."
+            }) + Environment.NewLine;
+
+    private static string GetFirstNonEmptyLine(string content) =>
+        content
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(static line => line.Trim())
+            .FirstOrDefault(static line => line.Length > 0)
+        ?? string.Empty;
+
+    private static string RemoveLeadingDecisionLine(string content)
+    {
+        using var reader = new StringReader(content);
+        var builder = new StringBuilder();
+        var skippedDecisionLine = false;
+        string? line;
+
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (!skippedDecisionLine)
+            {
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                skippedDecisionLine = true;
+                continue;
+            }
+
+            builder.AppendLine(line);
+        }
+
+        return builder.ToString().Trim();
     }
 
     private static bool RequiresApiKey(string baseUrl)
