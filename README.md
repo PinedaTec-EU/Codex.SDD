@@ -41,8 +41,8 @@ Not implemented yet:
   - `release_approval`
   - `pr_preparation`
 - Phase execution semantics are explicit:
-  - automatic/system-driven phases: `capture`, `refinement`, `technical_design`, `implementation`, `review`, `pr_preparation`
-  - user checkpoint phases: `release_approval`
+  - automatic/system-driven phases: `capture`, `clarification`, `technical_design`, `implementation`, `review`, `pr_preparation`
+  - human checkpoint phases: `refinement` and `release_approval`
 - Explicit approval gates and regression rules
 - Local workspace persistence under `.specs/us/us.<us-id>/`
 - Human-readable artifacts in Markdown
@@ -189,7 +189,7 @@ The .NET core already supports:
 - validating explicit user-story categories against the repo catalog in `.specs/config.yaml`
 - advancing to the next valid phase
 - approving approval-required phases
-- creating the work branch metadata on refinement approval using `<kind>/us-xxxx-short-slug`
+- creating the work branch metadata when the refinement/spec phase is approved using `<kind>/us-xxxx-short-slug`
 - generating minimal phase artifacts and timeline entries
 - initializing versioned repo prompts under `.specs/prompts/`
 - requiring prompt initialization for real provider-backed phase execution
@@ -259,6 +259,23 @@ Recommended detail:
 
 The sidebar intake keeps the original freeform source box, but also offers an optional guided wizard that turns those answers into structured source text before the user story is created.
 
+### Spec baseline
+
+The `refinement` phase is the functional checkpoint of the workflow. Its output is no longer treated as lightweight prose; it is the approved baseline spec for downstream work.
+
+Current expectation for `01-spec.md`:
+
+- inputs
+- outputs
+- business rules
+- edge cases
+- errors and failure modes
+- constraints
+- acceptance criteria
+- explicit ambiguities and approval questions
+
+This reduces approval fatigue versus forcing the user to approve both a weak refinement and a separate technical design by default. The technical design remains important, but phase 1 now treats it as a derived execution artifact rather than as a mandatory blocking checkpoint in every story.
+
 ### Workflow readability
 
 The workflow view intentionally distinguishes between:
@@ -266,7 +283,7 @@ The workflow view intentionally distinguishes between:
 - automatic phases that the system can execute when the provider and prompts are ready
 - user-driven checkpoints that require explicit approval before the next transition
 
-Today the canonical checkpoint is `release_approval`. The graph and phase detail make this visible so the operator can see where the workflow will stop and wait for attention.
+Today the canonical checkpoints are `refinement` as the spec baseline and `release_approval` as the final human release gate. The graph and phase detail make this visible so the operator can see where the workflow will stop and wait for attention.
 
 ### Running the extension locally
 
@@ -307,7 +324,7 @@ Typical contents:
   branch.yaml
   timeline.md
   phases/
-    01-refinement.md
+    01-spec.md
     02-technical-design.md
     03-implementation.md
     04-review.md

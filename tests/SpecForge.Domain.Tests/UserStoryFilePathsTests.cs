@@ -24,4 +24,14 @@ public sealed class UserStoryFilePathsTests
 
         Assert.Equal("/repo/.specs/us/us.US-0001/restarts/20260418T103000Z", archiveDirectory);
     }
+
+    [Fact]
+    public void GetPhaseArtifactPath_ForRefinement_UsesSpecArtifactName()
+    {
+        var paths = UserStoryFilePaths.FromWorkspaceRoot("/repo", "US-0001");
+
+        var artifactPath = paths.GetPhaseArtifactPath(SpecForge.Domain.Workflow.PhaseId.Refinement);
+
+        Assert.Equal("/repo/.specs/us/us.US-0001/phases/01-spec.md", artifactPath);
+    }
 }

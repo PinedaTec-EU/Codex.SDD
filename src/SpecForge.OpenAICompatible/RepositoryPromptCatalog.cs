@@ -19,7 +19,6 @@ internal sealed class RepositoryPromptCatalog
             paths.RefinementExecutePromptPath,
             paths.RefinementApprovePromptPath,
             paths.TechnicalDesignExecutePromptPath,
-            paths.TechnicalDesignApprovePromptPath,
             paths.ImplementationExecutePromptPath,
             paths.ReviewExecutePromptPath,
             paths.ReleaseApprovalApprovePromptPath
@@ -57,7 +56,6 @@ internal sealed class RepositoryPromptCatalog
         return phaseId switch
         {
             PhaseId.Refinement => paths.RefinementApprovePromptPath,
-            PhaseId.TechnicalDesign => paths.TechnicalDesignApprovePromptPath,
             PhaseId.ReleaseApproval => paths.ReleaseApprovalApprovePromptPath,
             _ => throw new InvalidOperationException($"Phase '{phaseId}' does not have an approve prompt.")
         };

@@ -8,7 +8,7 @@ Define the review template as the final validation artifact before human release
 
 - it must be clear and actionable
 - it must prioritize findings and verdict
-- it must reference the user story, refinement, design, and implementation
+- it must reference the user story, approved spec, design, and implementation
 - it must not hide residual risks
 
 ## Proposed Template
@@ -20,7 +20,7 @@ Define the review template as the final validation artifact before human release
 - Result: `pass` | `fail`
 - Based on:
   - `us.md`
-  - `01-refinement.md`
+  - `01-spec.md`
   - `02-technical-design.md`
   - `03-implementation.md`
 
@@ -29,7 +29,7 @@ Short review conclusion.
 
 ## Checks Performed
 - [ ] Matches the user story
-- [ ] Matches the refinement
+- [ ] Matches the approved spec
 - [ ] Respects the technical design
 - [ ] Respects repository constraints
 - [ ] Has sufficient validation

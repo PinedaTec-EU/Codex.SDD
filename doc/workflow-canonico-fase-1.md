@@ -13,7 +13,7 @@ Includes:
 - explicit human checkpoints
 - regression from review to an allowed previous phase
 - persistence of artifacts and minimum state
-- creation of the work branch after the first approved refinement
+- creation of the work branch after the first approved spec baseline
 
 Does not include:
 
@@ -55,8 +55,8 @@ Checkpoint:
 
 Purpose:
 
-- turn the initial intent into a more precise functional specification
-- subject the proposal to structured criticism before fixing the final refinement
+- turn the initial intent into an approved baseline spec
+- subject the proposal to structured criticism before fixing the final operational artifact
 
 Input:
 
@@ -65,11 +65,11 @@ Input:
 
 Output:
 
-- `phases/01-refinement.md`
+- `phases/01-spec.md`
 
 Definition of Done:
 
-- goals, scope, and constraints are explicit
+- inputs, outputs, business rules, edge cases, and constraints are explicit
 - ambiguities and assumptions are identified
 - a `red-team` evaluation exists
 - a `blue-team` reconstruction over relevant findings exists
@@ -85,36 +85,10 @@ Operational Notes:
 - the system must compare the source-content hash to detect later manual changes
 - if the user story changes after `refinement` starts, those changes are not incorporated automatically
 - if the user wants to restart from the new user story, the system must clean already-processed derived work and reinitialize the flow
-- every agent modification to the refinement file must add a `history log` block at the top with date and a short multiline summary
+- every agent modification to the spec file must add a `history log` block at the top with date and a short multiline summary
+- approving this phase freezes the spec baseline and creates the work branch that isolates implementation
 
-### 3. `refinement_approval`
-
-Purpose:
-
-- fix the approved refinement as the operational baseline of the user story
-- create the work branch that isolates implementation
-
-Input:
-
-- `phases/01-refinement.md`
-- user decision
-
-Output:
-
-- approved refinement
-- work branch created from `main` or from the user-selected base branch
-
-Definition of Done:
-
-- explicit user approval exists
-- a work branch exists and is associated with the user story
-- the approved refinement is frozen as the baseline
-
-Checkpoint:
-
-- mandatory
-
-### 4. `technical_design`
+### 3. `technical_design`
 
 Purpose:
 
@@ -122,7 +96,7 @@ Purpose:
 
 Input:
 
-- approved refinement output
+- approved spec output
 - repository constraints
 
 Output:
@@ -137,14 +111,15 @@ Definition of Done:
 
 Checkpoint:
 
-- mandatory human approval
+- not required by default in phase 1
 
 Operational Notes:
 
 - if this phase was already approved or surpassed and must be regenerated because of a regression, a new version is created, for example `phases/02-technical-design.v02.md`
 - the previous version remains preserved as history and stops being the active one
+- this artifact is derived from the approved spec and should remain short, implementable, and bounded
 
-### 5. `implementation`
+### 4. `implementation`
 
 Purpose:
 
@@ -152,7 +127,7 @@ Purpose:
 
 Input:
 
-- approved technical design
+- approved spec and active technical design
 
 Output:
 
@@ -173,7 +148,7 @@ Operational Notes:
 
 - if this phase already produced a previous output and must be redone, a new file version is generated and the previous one is archived as inactive
 
-### 6. `review`
+### 5. `review`
 
 Purpose:
 
@@ -182,8 +157,8 @@ Purpose:
 Input:
 
 - user story
-- approved refinement
-- approved design
+- approved spec
+- active design
 - implementation result
 
 Output:
@@ -200,7 +175,7 @@ Checkpoint:
 
 - mandatory when the result is `pass`
 
-### 7. `release_approval`
+### 6. `release_approval`
 
 Purpose:
 
@@ -224,7 +199,7 @@ Checkpoint:
 
 - mandatory
 
-### 8. `pr_preparation`
+### 7. `pr_preparation`
 
 Purpose:
 
@@ -250,8 +225,7 @@ Checkpoint:
 ## Valid Transitions
 
 - `capture -> refinement`
-- `refinement -> refinement_approval`
-- `refinement_approval -> technical_design`
+- `refinement -> technical_design`
 - `technical_design -> implementation`
 - `implementation -> review`
 - `review -> release_approval`
@@ -298,7 +272,7 @@ Convention:
 Input resolution by phase:
 
 - `refinement` takes `us.md`
-- `technical_design` takes the approved active version of `01-refinement.md`
+- `technical_design` takes the approved active version of `01-spec.md`
 - `implementation` takes the approved active version of `02-technical-design*.md`
 - `review` takes `us.md` and the active versions of `refinement`, `technical_design`, and `implementation`
 - `release_approval` and `pr_preparation` take the active version of `04-review.md` and branch metadata
@@ -311,7 +285,7 @@ Input resolution by phase:
       state.yaml
       timeline.md
       phases/
-        01-refinement.md
+        01-spec.md
         02-technical-design.md
         02-technical-design.v02.md
         03-implementation.md
@@ -333,7 +307,7 @@ status: active
 currentPhase: refinement
 sourceHash: sha256:...
 activeArtifacts:
-  refinement: phases/01-refinement.md
+  refinement: phases/01-spec.md
   technicalDesign: phases/02-technical-design.md
   implementation: phases/03-implementation.md
   review: phases/04-review.md
@@ -341,7 +315,6 @@ approvedPhases:
   - refinement
 phaseStates:
   refinement: waiting_user
-  refinementApproval: pending
   technicalDesign: pending
   implementation: pending
   review: pending

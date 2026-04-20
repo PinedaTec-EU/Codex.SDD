@@ -401,8 +401,8 @@ public sealed class WorkflowRunner
                 continue;
             }
 
-            var candidate = paths.GetPhaseArtifactPath(phaseId);
-            if (File.Exists(candidate))
+            var candidate = paths.GetLatestExistingPhaseArtifactPath(phaseId);
+            if (candidate is not null)
             {
                 result[phaseId] = candidate;
             }

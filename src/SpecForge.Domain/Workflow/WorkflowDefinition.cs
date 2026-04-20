@@ -35,7 +35,6 @@ public sealed class WorkflowDefinition
         new HashSet<PhaseId>
         {
             PhaseId.Refinement,
-            PhaseId.TechnicalDesign,
             PhaseId.ReleaseApproval
         };
 

@@ -34,7 +34,10 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.NotNull(result.GeneratedArtifactPath);
         Assert.True(File.Exists(result.GeneratedArtifactPath!));
         var refinementContent = await File.ReadAllTextAsync(result.GeneratedArtifactPath!);
+        Assert.Contains("# Spec · US-0001 · v01", refinementContent);
         Assert.Contains("Initial source text", refinementContent);
+        Assert.Contains("## Inputs", refinementContent);
+        Assert.Contains("## Acceptance Criteria", refinementContent);
         Assert.Contains("## Red Team", refinementContent);
         Assert.Contains("## Blue Team", refinementContent);
     }
@@ -194,10 +197,11 @@ public sealed class WorkflowRunnerTests : IDisposable
         var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
         Assert.Equal(PhaseId.TechnicalDesign, result.CurrentPhase);
-        Assert.Equal(UserStoryStatus.WaitingUser, result.Status);
+        Assert.Equal(UserStoryStatus.Active, result.Status);
         var technicalDesignContent = await File.ReadAllTextAsync(result.GeneratedArtifactPath!);
         Assert.Contains("## Affected Components", technicalDesignContent);
         Assert.Contains("SpecForge.Runner.Cli", technicalDesignContent);
+        Assert.Contains("## Validation Strategy", technicalDesignContent);
 
         var loadedRun = await new UserStoryFileStore().LoadAsync(
             UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
@@ -216,14 +220,13 @@ public sealed class WorkflowRunnerTests : IDisposable
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
-        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
         var result = await runner.RequestRegressionAsync(workspaceRoot, "US-0001", PhaseId.TechnicalDesign, "Review found a design gap");
 
         Assert.Equal("technical-design", result.CurrentPhase);
-        Assert.Equal("waiting-user", result.Status);
+        Assert.Equal("active", result.Status);
 
         var loadedRun = await new UserStoryFileStore().LoadAsync(
             UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
@@ -271,7 +274,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         var archiveDirectory = Directory.GetDirectories(paths.RestartsDirectoryPath).Single();
         Assert.True(File.Exists(Path.Combine(archiveDirectory, "state.yaml")));
         Assert.True(File.Exists(Path.Combine(archiveDirectory, "branch.yaml")));
-        Assert.True(File.Exists(Path.Combine(archiveDirectory, "phases", "01-refinement.md")));
+        Assert.True(File.Exists(Path.Combine(archiveDirectory, "phases", "01-spec.md")));
         Assert.True(File.Exists(Path.Combine(archiveDirectory, "phases", "02-technical-design.md")));
 
         var archivedBranch = await File.ReadAllTextAsync(Path.Combine(archiveDirectory, "branch.yaml"));
@@ -376,7 +379,7 @@ public sealed class WorkflowRunnerTests : IDisposable
 - Phase: `refinement`
 - Summary: Generated artifact for phase `refinement`.
 - Artifacts:
-  - .specs/us/us.US-0001/phases/01-refinement.md
+  - .specs/us/us.US-0001/phases/01-spec.md
 - Tokens:
   - input: `486`
   - output: `1644`

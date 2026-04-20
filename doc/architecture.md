@@ -46,10 +46,10 @@ The extension orchestrates interaction. The MCP decides lifecycle. The repositor
 ## Initial Canonical Workflow
 
 1. Create or import a user story.
-2. Generate refinement.
-3. Approve refinement.
-4. Generate technical design.
-5. Approve technical design.
+2. Generate clarification if needed.
+3. Generate the formalized spec during refinement.
+4. Approve the spec baseline and create the work branch.
+5. Generate technical design.
 6. Implement.
 7. Review.
 8. Regress or advance based on findings.

@@ -33,7 +33,6 @@ public sealed class RepositoryPromptInitializer
             [paths.RefinementExecutePromptPath] = BuildRefinementExecutePrompt(),
             [paths.RefinementApprovePromptPath] = BuildRefinementApprovePrompt(),
             [paths.TechnicalDesignExecutePromptPath] = BuildTechnicalDesignExecutePrompt(),
-            [paths.TechnicalDesignApprovePromptPath] = BuildTechnicalDesignApprovePrompt(),
             [paths.ImplementationExecutePromptPath] = BuildImplementationExecutePrompt(),
             [paths.ReviewExecutePromptPath] = BuildReviewExecutePrompt(),
             [paths.ReleaseApprovalApprovePromptPath] = BuildReleaseApprovalApprovePrompt()
@@ -91,7 +90,6 @@ public sealed class RepositoryPromptInitializer
             approve: .specs/prompts/phases/refinement.approve.md
           technical_design:
             execute: .specs/prompts/phases/technical-design.execute.md
-            approve: .specs/prompts/phases/technical-design.approve.md
           implementation:
             execute: .specs/prompts/phases/implementation.execute.md
           review:
@@ -151,23 +149,26 @@ public sealed class RepositoryPromptInitializer
         Role: refinement analyst.
 
         Goal:
-        - transform `us.md` into a sharper `01-refinement.md`
+        - transform `us.md` into a formalized `01-spec.md`
+        - force a practical spec instead of narrative-only refinement
         - include red-team criticism
         - include blue-team corrections
-        - leave a concrete, reviewable refinement
+        - leave a concrete, reviewable spec that can anchor technical design
 
         Required sections:
         - History Log
         - State
-        - Executive Summary
-        - Refined Objective
-        - Refined Scope
-        - Functional Rules
+        - Spec Summary
+        - Inputs
+        - Outputs
+        - Business Rules
+        - Edge Cases
+        - Errors and Failure Modes
         - Constraints
         - Detected Ambiguities
         - Red Team
         - Blue Team
-        - Refined Acceptance Criteria
+        - Acceptance Criteria
         - Human Approval Questions
         """;
 
@@ -176,7 +177,7 @@ public sealed class RepositoryPromptInitializer
         Role: approval assistant for refinement.
 
         Goal:
-        - evaluate whether the refinement is ready for technical design
+        - evaluate whether the spec is precise enough for technical design
         - identify blocking ambiguities, hidden scope, or acceptance gaps
         - recommend approve or hold, but never mutate the user decision
         """;
@@ -186,7 +187,7 @@ public sealed class RepositoryPromptInitializer
         Role: technical designer.
 
         Goal:
-        - derive a practical technical design from the approved refinement
+        - derive a practical technical design from the approved spec
         - keep the design implementable inside this repository
 
         Required sections:
@@ -201,17 +202,6 @@ public sealed class RepositoryPromptInitializer
         - Implementation Strategy
         - Validation Strategy
         - Open Decisions
-        - Required Approval
-        """;
-
-    private static string BuildTechnicalDesignApprovePrompt() =>
-        """
-        Role: approval assistant for technical design.
-
-        Goal:
-        - verify that the design is implementable, bounded, and aligned with the refinement
-        - surface missing risks, missing validation, or architectural overreach
-        - recommend approve or hold without pretending to be the human approver
         """;
 
     private static string BuildImplementationExecutePrompt() =>
@@ -220,7 +210,7 @@ public sealed class RepositoryPromptInitializer
 
         Goal:
         - describe the intended implementation delta for this phase
-        - stay aligned with the approved technical design
+        - stay aligned with the approved spec and derived technical design
         - keep the output grounded in repository components and validation steps
         """;
 
@@ -229,7 +219,7 @@ public sealed class RepositoryPromptInitializer
         Role: critical reviewer.
 
         Goal:
-        - compare user story, refinement, technical design, and implementation outputs
+        - compare user story, spec, technical design, and implementation outputs
         - identify deviations, risks, and missing validation
         - emit findings with clear severity and a pass or fail recommendation
 

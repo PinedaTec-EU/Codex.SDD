@@ -588,7 +588,7 @@ class WorkflowPanelController {
       return "refinement";
     }
 
-    if (normalizedPath.endsWith("/phases/01-refinement.md")) {
+    if (normalizedPath.endsWith("/phases/01-spec.md") || normalizedPath.endsWith("/phases/01-refinement.md")) {
       return "refinement";
     }
 

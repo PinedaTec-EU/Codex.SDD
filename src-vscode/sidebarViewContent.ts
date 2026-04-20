@@ -1401,7 +1401,7 @@ function phaseLabelFor(currentPhase: string): string {
   const phaseLabels: Record<string, string> = {
     "capture": "CAP",
     "clarification": "CLAR",
-    "refinement": "REF",
+    "refinement": "SPEC",
     "technical-design": "TECH",
     "implementation": "IMP",
     "review": "REV",

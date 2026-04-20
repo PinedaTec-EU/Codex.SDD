@@ -29,7 +29,7 @@ Development teams that need:
 Starting from a user story, the system must allow a governed flow through:
 
 1. initial definition
-2. refinement
+2. approved spec baseline
 3. technical design
 4. implementation
 5. review
@@ -41,7 +41,7 @@ Starting from a user story, the system must allow a governed flow through:
 - All relevant information is persisted in repository artifacts.
 - The tool must be usable from another workstation by cloning the repository only.
 - The UX must prioritize operational clarity.
-- The system must allow checkpoints and human intervention between phases.
+- The system must allow checkpoints and human intervention between phases, but only where the checkpoint meaningfully changes risk.
 
 ## Non-Goals For Phase 1
 

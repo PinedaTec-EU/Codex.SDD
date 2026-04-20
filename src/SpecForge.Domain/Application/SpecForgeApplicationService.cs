@@ -488,7 +488,7 @@ public sealed class SpecForgeApplicationService
     {
         Workflow.PhaseId.Capture => "Capture",
         Workflow.PhaseId.Clarification => "Clarification",
-        Workflow.PhaseId.Refinement => "Refinement",
+        Workflow.PhaseId.Refinement => "Spec",
         Workflow.PhaseId.TechnicalDesign => "Technical Design",
         Workflow.PhaseId.Implementation => "Implementation",
         Workflow.PhaseId.Review => "Review",
@@ -504,19 +504,7 @@ public sealed class SpecForgeApplicationService
             return null;
         }
 
-        string? latestPath = null;
-        for (var version = 1; version < 100; version++)
-        {
-            var candidate = paths.GetPhaseArtifactPath(phaseId, version);
-            if (!File.Exists(candidate))
-            {
-                break;
-            }
-
-            latestPath = candidate;
-        }
-
-        return latestPath;
+        return paths.GetLatestExistingPhaseArtifactPath(phaseId);
     }
 
     private static string? TryGetExecutePromptPath(UserStoryFilePaths paths, Workflow.PhaseId phaseId)
@@ -541,7 +529,6 @@ public sealed class SpecForgeApplicationService
         var candidate = phaseId switch
         {
             Workflow.PhaseId.Refinement => promptPaths.RefinementApprovePromptPath,
-            Workflow.PhaseId.TechnicalDesign => promptPaths.TechnicalDesignApprovePromptPath,
             Workflow.PhaseId.ReleaseApproval => promptPaths.ReleaseApprovalApprovePromptPath,
             _ => null
         };

@@ -163,10 +163,10 @@ const phaseExecutionMessages: Record<string, readonly string[]> = {
     "Holding the line until the user story becomes actionable."
   ],
   refinement: [
-    "Distilling the user story into a sharper refinement artifact.",
-    "Checking that acceptance criteria and constraints still agree.",
+    "Turning the user story into a formal spec the rest of the flow can trust.",
+    "Checking that acceptance criteria, constraints, and edge cases still agree.",
     "Trying to leave fewer surprises for technical design.",
-    "Shaping the artifact so approval is about substance, not cleanup."
+    "Shaping the spec so approval is about scope, not cleanup."
   ],
   "technical-design": [
     "Lining up implementation choices before code starts moving.",

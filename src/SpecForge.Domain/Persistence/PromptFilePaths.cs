@@ -23,7 +23,6 @@ public sealed class PromptFilePaths
         RefinementExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "refinement.execute.md");
         RefinementApprovePromptPath = Path.Combine(PhasePromptsDirectoryPath, "refinement.approve.md");
         TechnicalDesignExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "technical-design.execute.md");
-        TechnicalDesignApprovePromptPath = Path.Combine(PhasePromptsDirectoryPath, "technical-design.approve.md");
         ImplementationExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "implementation.execute.md");
         ReviewExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "review.execute.md");
         ReleaseApprovalApprovePromptPath = Path.Combine(PhasePromptsDirectoryPath, "release-approval.approve.md");
@@ -56,8 +55,6 @@ public sealed class PromptFilePaths
     public string RefinementApprovePromptPath { get; }
 
     public string TechnicalDesignExecutePromptPath { get; }
-
-    public string TechnicalDesignApprovePromptPath { get; }
 
     public string ImplementationExecutePromptPath { get; }
 

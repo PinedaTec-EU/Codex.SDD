@@ -101,7 +101,7 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Equal("refinement", refinementResult.CurrentPhase);
         Assert.Equal("waiting-user", refinementResult.Status);
         Assert.NotNull(refinementResult.GeneratedArtifactPath);
-        Assert.EndsWith("01-refinement.md", refinementResult.GeneratedArtifactPath, StringComparison.Ordinal);
+        Assert.EndsWith("01-spec.md", refinementResult.GeneratedArtifactPath, StringComparison.Ordinal);
 
         var refinementWorkflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
         Assert.Equal("refinement", refinementWorkflow.CurrentPhase);

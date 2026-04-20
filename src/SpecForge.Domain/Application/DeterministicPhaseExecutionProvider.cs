@@ -76,54 +76,76 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         var title = ReadHeading(userStory, fallback: context.UsId);
         var objective = ReadSection(userStory, "## Objective", "## Objetivo");
         var initialScope = ReadSection(userStory, "## Initial Scope", "## Alcance inicial");
+        var scope = string.IsNullOrWhiteSpace(initialScope)
+            ? "- Core happy-path behavior requested in `us.md`.\n- Explicit exclusions still need approval if they affect architecture or timeline."
+            : initialScope;
         var ambiguity = string.IsNullOrWhiteSpace(initialScope)
-            ? "The initial scope does not yet distinguish clearly between in-scope and out-of-scope behavior."
-            : "The scope is present, but edge cases and exclusions still need approval before design starts.";
+            ? "The source does not yet distinguish clearly between in-scope behavior and deliberate exclusions."
+            : "The source identifies baseline scope, but edge cases and non-functional expectations still need explicit validation.";
 
         return string.Join(
                    Environment.NewLine,
                    new[]
                    {
-                       $"# Refinement · {context.UsId} · v01",
+                       $"# Spec · {context.UsId} · v01",
                        string.Empty,
                        "## History Log",
-                       $"- `{DateTimeOffset.UtcNow:O}` · Initial refinement generated from `us.md`.",
+                       $"- `{DateTimeOffset.UtcNow:O}` · Initial spec generated from `us.md`.",
                        string.Empty,
                        "## State",
                        "- State: `pending_approval`",
                        "- Based on: `us.md`",
                        string.Empty,
-                       "## Executive Summary",
-                       $"User story `{title}` has been normalized into a refinement-ready spec.",
+                       "## Spec Summary",
+                       $"User story `{title}` has been normalized into an executable baseline spec.",
                        string.Empty,
-                       "## Refined Objective",
-                       objective,
+                       "## Inputs",
+                       "- Source intent from `us.md`.",
+                       "- Clarification answers when available.",
                        string.Empty,
-                       "## Refined Scope",
-                       string.IsNullOrWhiteSpace(initialScope)
-                           ? "- Include core workflow execution only.\n- Exclude advanced integrations until phase approval."
-                           : initialScope,
+                       "## Outputs",
+                       "- A bounded implementation target for technical design.",
+                       "- Explicit acceptance criteria that can be validated later in review and tests.",
+                       string.Empty,
+                       "## Business Rules",
+                       $"- The system must satisfy this objective: {objective}",
+                       "- The delivered behavior must stay within the approved scope and avoid silently expanding into roadmap work.",
+                       "- Repository changes must remain traceable to this spec and its downstream design.",
+                       string.Empty,
+                       "## Edge Cases",
+                       "- Missing repository context must be surfaced instead of guessed as settled fact.",
+                       "- Scope items that imply architectural expansion must be escalated before implementation.",
+                       string.Empty,
+                       "## Errors and Failure Modes",
+                       "- If the spec leaves business-critical ambiguity unresolved, technical design must stop and request clarification or regression.",
+                       "- If implementation cannot be validated against these criteria, review must fail and point to the correction phase.",
+                       string.Empty,
+                       "## Constraints",
+                       "- Keep the first implementation pass bounded to the current repository and workflow phase.",
+                       "- Treat external integrations, security policy changes, and cross-cutting architecture shifts as explicit decisions, not defaults.",
                        string.Empty,
                        "## Detected Ambiguities",
                        $"- {ambiguity}",
-                       "- Final approval criteria still depend on explicit human validation.",
+                       "- Non-functional thresholds are not explicit unless the user story or clarification already makes them explicit.",
                        string.Empty,
                        "## Red Team",
-                       "### Risks",
-                       $"- The current request may still hide implicit assumptions around `{title}`.",
+                       "- The current request may still hide implicit assumptions around actor responsibilities or approval boundaries.",
                        "- Missing explicit exclusions could expand the implementation scope beyond the approved phase.",
-                       string.Empty,
-                       "### Objections",
-                       "- The US does not yet prove that every acceptance condition is testable.",
-                       "- Some operational details may still be conflated with future roadmap items.",
+                       "- Some acceptance expectations may still read as intent rather than as verifiable checks.",
                        string.Empty,
                        "## Blue Team",
-                       "### Recommended Adjustments",
-                       "- Keep the approved scope constrained to the canonical workflow and visible persisted artifacts.",
-                       "- Convert missing assumptions into explicit acceptance criteria before implementation continues.",
+                       "- Keep the approved scope constrained to the current workflow and visible persisted artifacts.",
+                       "- Translate assumptions into explicit criteria before implementation continues.",
+                       "- Use this spec as the operational baseline instead of returning to the raw user story.",
                        string.Empty,
-                       "### Consolidated Refinement",
-                       "The refinement is now structured for technical design with explicit risks, bounded scope, and approval checkpoints."
+                       "## Acceptance Criteria",
+                       "- The implementation maps to the approved objective without inventing new business behavior.",
+                       "- Technical design can derive concrete component impact, contracts, and validation from this spec.",
+                       "- Review can verify whether the delivered change matches the approved scope and error handling expectations.",
+                       string.Empty,
+                       "## Human Approval Questions",
+                       "- Is the scope precise enough to avoid a second interpretation pass during technical design?",
+                       "- Are any hidden business rules, exclusions, or edge cases still missing from the baseline?"
                    }) +
                Environment.NewLine;
     }
@@ -135,8 +157,9 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         var refinement = await File.ReadAllTextAsync(
             GetRequiredPath(context, PhaseId.Refinement),
             cancellationToken);
-        var executiveSummary = ReadSection(refinement, "## Executive Summary", "## Resumen ejecutivo");
-        var refinedObjective = ReadSection(refinement, "## Refined Objective", "## Objetivo refinado");
+        var specSummary = ReadSection(refinement, "## Spec Summary");
+        var businessRules = ReadSection(refinement, "## Business Rules");
+        var constraints = ReadSection(refinement, "## Constraints");
 
         return string.Join(
                    Environment.NewLine,
@@ -145,14 +168,14 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                        $"# Technical Design · {context.UsId} · v01",
                        string.Empty,
                        "## State",
-                       "- State: `pending_approval`",
-                       "- Based on: `01-refinement.md`",
+                       "- State: `generated`",
+                       "- Based on: `01-spec.md`",
                        string.Empty,
                        "## Technical Summary",
-                       executiveSummary,
+                       specSummary,
                        string.Empty,
                        "## Technical Objective",
-                       refinedObjective,
+                       businessRules,
                        string.Empty,
                        "## Affected Components",
                        "- `SpecForge.Domain` for workflow rules and orchestration.",
@@ -169,10 +192,18 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                        "3. Generate or update the corresponding artifact.",
                        "4. Persist state, branch metadata, and timeline.",
                        string.Empty,
+                       "### Constraints and Guardrails",
+                       constraints,
+                       string.Empty,
                        "## Implementation Strategy",
                        "1. Keep all workflow invariants in the domain core.",
                        "2. Use application services as the stable backend surface.",
-                       "3. Let the extension consume the backend through explicit commands."
+                       "3. Let the extension consume the backend through explicit commands.",
+                       string.Empty,
+                       "## Validation Strategy",
+                       "- Domain tests must validate transitions, approvals, regressions, and persisted state.",
+                       "- Extension tests must keep user-facing workflow labels and affordances aligned with the updated flow.",
+                       "- Review must compare implementation back to the approved spec before final release approval."
                    }) +
                Environment.NewLine;
     }
@@ -235,7 +266,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                        $"- Result: `{result}`",
                        string.Empty,
                        "## Checks Performed",
-                       $"- [x] Refinement artifact present: `{refinementExists}`",
+                       $"- [x] Spec artifact present: `{refinementExists}`",
                        $"- [x] Technical design artifact present: `{technicalDesignExists}`",
                        $"- [x] Implementation artifact present: `{implementationExists}`",
                        string.Empty,

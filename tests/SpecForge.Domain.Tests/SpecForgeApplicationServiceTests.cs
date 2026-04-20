@@ -48,7 +48,6 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
-        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
@@ -60,7 +59,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
 
         Assert.Equal("US-0001", result.UsId);
         Assert.Equal("technical-design", result.CurrentPhase);
-        Assert.Equal("waiting-user", result.Status);
+        Assert.Equal("active", result.Status);
     }
 
     [Fact]
@@ -110,7 +109,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         Assert.NotNull(workflow.Clarification);
         Assert.Equal("ready_for_refinement", workflow.Clarification!.Status);
         Assert.Contains(workflow.Phases, phase => phase.PhaseId == "clarification" && phase.ExecutePromptPath is not null);
-        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.IsCurrent && phase.ArtifactPath is not null);
+        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.IsCurrent && phase.Title == "Spec" && phase.ArtifactPath is not null);
         Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.ExecutePromptPath is not null && phase.ApprovePromptPath is not null);
         Assert.True(workflow.Controls.CanApprove);
         Assert.False(workflow.Controls.CanContinue);
