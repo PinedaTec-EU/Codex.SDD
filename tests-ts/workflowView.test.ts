@@ -637,8 +637,58 @@ test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
   assert.match(html, /Playback is paused at the phase boundary/);
   assert.doesNotMatch(html, /<span class="execution-overlay__elapsed"/);
   assert.match(html, /data-show-elapsed="false"/);
+  assert.match(html, /\.graph-stage\.graph-stage--overlay-active \.phase-graph[\s\S]*pointer-events: none;/);
   assert.match(html, /graphStage\.classList\.remove\("graph-stage--overlay-active"\)/);
   assert.match(html, /document\.addEventListener\("pointerdown"/);
+});
+
+test("buildWorkflowHtml locks background interaction while the workflow files modal is open", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0014",
+    title: "Modal lock",
+    category: "workflow",
+    status: "active",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0014",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [{
+      phaseId: "refinement",
+      title: "Refinement",
+      order: 0,
+      requiresApproval: true,
+      isApproved: false,
+      isCurrent: true,
+      state: "current",
+      artifactPath: "/tmp/01-refinement.md",
+      executePromptPath: "/tmp/refinement.execute.md",
+      approvePromptPath: "/tmp/refinement.approve.md"
+    }],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "refinement_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "refinement",
+    selectedArtifactContent: "## Refinement",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /<div class="shell" data-workflow-shell>/);
+  assert.match(html, /\.shell\.shell--interaction-locked[\s\S]*pointer-events: none;/);
+  assert.match(html, /workflowShell\.classList\.toggle\("shell--interaction-locked", open\)/);
 });
 
 test("buildWorkflowHtml highlights waiting-user and runner paused hero tokens as attention states", () => {

@@ -630,6 +630,10 @@ export function buildWorkflowHtml(
       display: grid;
       gap: 18px;
     }
+    .shell.shell--interaction-locked {
+      pointer-events: none;
+      user-select: none;
+    }
     .panel {
       border: 1px solid rgba(114, 241, 184, 0.16);
       border-radius: 24px;
@@ -926,6 +930,7 @@ export function buildWorkflowHtml(
     .graph-stage.graph-stage--overlay-active .phase-graph {
       filter: blur(2px) saturate(0.85) brightness(0.78);
       transform: scale(0.997);
+      pointer-events: none;
     }
     .execution-overlay {
       position: absolute;
@@ -1805,7 +1810,7 @@ export function buildWorkflowHtml(
       </div>
     </div>
   </div>
-  <div class="shell">
+  <div class="shell" data-workflow-shell>
     ${settingsWarning}
     <section class="panel hero">
       <div class="hero-head">
@@ -1901,6 +1906,7 @@ export function buildWorkflowHtml(
     }
 
     const workflowFilesOverlay = document.querySelector("[data-workflow-files-overlay]");
+    const workflowShell = document.querySelector("[data-workflow-shell]");
     const toggleWorkflowFiles = (open) => {
       if (!(workflowFilesOverlay instanceof HTMLElement)) {
         return;
@@ -1908,6 +1914,9 @@ export function buildWorkflowHtml(
 
       workflowFilesOverlay.hidden = !open;
       workflowFilesOverlay.classList.toggle("is-open", open);
+      if (workflowShell instanceof HTMLElement) {
+        workflowShell.classList.toggle("shell--interaction-locked", open);
+      }
       vscode.setState({
         ...viewState,
         workflowFilesOpen: open
