@@ -4,7 +4,7 @@ import * as vscode from "vscode";
 import type { SpecForgeBackendClient, UserStorySummary } from "./backendClient";
 import { suggestContextFiles } from "./contextSuggestions";
 import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSettings";
-import { appendSpecForgeDebugLog, appendSpecForgeLog, showSpecForgeOutput } from "./outputChannel";
+import { appendSpecForgeDebugLog, appendSpecForgeLog, isSpecForgeDebugLoggingEnabled, showSpecForgeOutput } from "./outputChannel";
 import { buildWorkflowHtml } from "./workflowView";
 
 type WorkflowPanelCommand =
@@ -20,6 +20,7 @@ type WorkflowPanelCommand =
   | { readonly command: "continue" }
   | { readonly command: "approve" }
   | { readonly command: "restart" }
+  | { readonly command: "debugResetToCapture" }
   | { readonly command: "regress"; readonly phaseId?: string }
   | { readonly command: "submitClarificationAnswers"; readonly answers?: string[] }
   | { readonly command: "play" }
@@ -143,7 +144,8 @@ class WorkflowPanelController {
       selectedArtifactContent,
       contextSuggestions,
       settingsConfigured: settingsStatus.executionConfigured,
-      settingsMessage: settingsStatus.message
+      settingsMessage: settingsStatus.message,
+      debugMode: isSpecForgeDebugLoggingEnabled()
     }, this.playbackState);
     appendSpecForgeDebugLog(
       `Workflow '${this.summary.usId}' refresh end. reason='${reason}', workflowPhase='${workflow.currentPhase}', workflowStatus='${workflow.status}', selectedPhase='${this.selectedPhaseId}', suggestions=${contextSuggestions.length}.`
@@ -199,6 +201,9 @@ class WorkflowPanelController {
         return;
       case "restart":
         await this.restartCurrentWorkflowAsync();
+        return;
+      case "debugResetToCapture":
+        await this.debugResetToCaptureAsync();
         return;
       case "regress":
         if (message.phaseId) {
@@ -416,6 +421,33 @@ class WorkflowPanelController {
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' restartCurrentWorkflowAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
     await this.refreshAsync("restartCurrentWorkflowAsync");
+  }
+
+  private async debugResetToCaptureAsync(): Promise<void> {
+    const confirmation = await vscode.window.showWarningMessage(
+      `Reset ${this.summary.usId} to capture and delete all generated artifacts after the source?`,
+      { modal: true },
+      "Reset to Capture"
+    );
+
+    if (confirmation !== "Reset to Capture") {
+      return;
+    }
+
+    const result = await this.getBackendClient().resetUserStoryToCapture(this.summary.usId);
+    appendSpecForgeLog(
+      `Workflow '${this.summary.usId}' was reset to '${result.currentPhase}' with status '${result.status}' from DEBUG UI.`
+    );
+    this.summary = {
+      ...this.summary,
+      currentPhase: result.currentPhase,
+      status: result.status,
+      workBranch: null
+    };
+    this.selectedPhaseId = result.currentPhase;
+    appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' debugResetToCaptureAsync requested explorer refresh.`);
+    await this.callbacks.refreshExplorer();
+    await this.refreshAsync("debugResetToCaptureAsync");
   }
 
   private async runAutoplayAsync(): Promise<void> {

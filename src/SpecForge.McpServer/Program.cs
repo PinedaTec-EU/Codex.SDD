@@ -133,6 +133,9 @@ static async Task<JsonNode> HandleToolCallAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
             reason: GetOptional(arguments, "reason")),
+        "reset_user_story_to_capture" => await applicationService.ResetUserStoryToCaptureAsync(
+            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+            usId: GetRequired(arguments, "usId")),
         "submit_clarification_answers" => await applicationService.SubmitClarificationAnswersAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
@@ -187,6 +190,7 @@ static JsonObject BuildToolsList()
             Tool("approve_phase", "Approve the current phase and create the work branch if required."),
             Tool("request_regression", "Regress a user story to an earlier valid phase."),
             Tool("restart_user_story_from_source", "Restart a user story after the source has changed."),
+            Tool("reset_user_story_to_capture", "Reset a user story to capture and delete generated derived artifacts."),
             Tool("submit_clarification_answers", "Store clarification answers inside the user story so clarification can re-run."),
             Tool("list_user_story_files", "List context files and user-story files currently persisted for a user story."),
             Tool("add_user_story_files", "Copy files into a user story as either context or user-story info."),

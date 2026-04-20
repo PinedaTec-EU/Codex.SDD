@@ -284,6 +284,39 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ResetUserStoryToCaptureAsync_DeletesDerivedArtifactsAndReturnsToCapture()
+    {
+        var runner = new WorkflowRunner();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        Assert.True(Directory.Exists(paths.PhasesDirectoryPath));
+        Assert.True(File.Exists(paths.BranchFilePath));
+
+        var result = await runner.ResetUserStoryToCaptureAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal("capture", result.CurrentPhase);
+        Assert.Equal("active", result.Status);
+
+        var workflowRun = await new UserStoryFileStore().LoadAsync(paths.RootDirectory);
+        Assert.Equal(PhaseId.Capture, workflowRun.CurrentPhase);
+        Assert.Equal(UserStoryStatus.Active, workflowRun.Status);
+        Assert.False(workflowRun.IsPhaseApproved(PhaseId.Refinement));
+        Assert.False(File.Exists(paths.BranchFilePath));
+        Assert.False(File.Exists(paths.ClarificationFilePath));
+        Assert.True(Directory.Exists(paths.PhasesDirectoryPath));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(paths.PhasesDirectoryPath));
+
+        var timeline = await File.ReadAllTextAsync(paths.TimelineFilePath);
+        Assert.Contains("`us_created`", timeline);
+        Assert.DoesNotContain("`phase_completed`", timeline);
+        Assert.DoesNotContain("`phase_approved`", timeline);
+    }
+
+    [Fact]
     public async Task RestartUserStoryFromSourceAsync_WithoutSourceChange_Throws()
     {
         var runner = new WorkflowRunner();

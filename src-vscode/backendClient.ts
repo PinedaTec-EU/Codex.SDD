@@ -76,6 +76,12 @@ export interface RestartUserStoryResult {
   readonly generatedArtifactPath: string | null;
 }
 
+export interface ResetUserStoryResult {
+  readonly usId: string;
+  readonly currentPhase: string;
+  readonly status: string;
+}
+
 export interface WorkflowPhaseDetails {
   readonly phaseId: string;
   readonly title: string;
@@ -160,6 +166,7 @@ export interface SpecForgeBackendClient {
   approveCurrentPhase(usId: string, baseBranch?: string): Promise<UserStorySummary>;
   requestRegression(usId: string, targetPhase: string, reason?: string): Promise<RequestRegressionResult>;
   restartUserStoryFromSource(usId: string, reason?: string): Promise<RestartUserStoryResult>;
+  resetUserStoryToCapture(usId: string): Promise<ResetUserStoryResult>;
   submitClarificationAnswers(usId: string, answers: readonly string[]): Promise<void>;
   cancelActiveOperations(): void;
   dispose(): void;
@@ -308,6 +315,13 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
       "restart_user_story_from_source",
       buildRestartUserStoryArguments(this.workspaceRoot, usId, reason)
     );
+  }
+
+  public async resetUserStoryToCapture(usId: string): Promise<ResetUserStoryResult> {
+    return this.callTool<ResetUserStoryResult>("reset_user_story_to_capture", {
+      workspaceRoot: this.workspaceRoot,
+      usId
+    });
   }
 
   public async submitClarificationAnswers(usId: string, answers: readonly string[]): Promise<void> {

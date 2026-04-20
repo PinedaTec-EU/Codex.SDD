@@ -197,6 +197,33 @@ public sealed class WorkflowRunner
             generatedArtifactPath);
     }
 
+    public async Task<ResetUserStoryResult> ResetUserStoryToCaptureAsync(
+        string workspaceRoot,
+        string usId,
+        CancellationToken cancellationToken = default)
+    {
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var existingRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        var metadata = await ReadUserStoryMetadataAsync(paths.MainArtifactPath, usId, cancellationToken);
+        var currentSourceText = await ReadSourceTextFromUserStoryAsync(paths.MainArtifactPath, cancellationToken);
+        var currentSourceHash = ComputeSourceHash(currentSourceText);
+
+        await ResetDerivedArtifactsAsync(paths, existingRun, cancellationToken);
+
+        var cleanedUserStory = UserStoryClarificationMarkdown.Remove(
+            await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken));
+        await File.WriteAllTextAsync(paths.MainArtifactPath, cleanedUserStory, cancellationToken);
+        await File.WriteAllTextAsync(paths.TimelineFilePath, BuildInitialTimeline(usId, metadata.Title), cancellationToken);
+
+        var resetRun = new WorkflowRun(usId, currentSourceHash, existingRun.Definition);
+        await fileStore.SaveAsync(resetRun, paths.RootDirectory, cancellationToken);
+
+        return new ResetUserStoryResult(
+            resetRun.UsId,
+            WorkflowPresentation.ToStatusSlug(resetRun.Status),
+            WorkflowPresentation.ToPhaseSlug(resetRun.CurrentPhase));
+    }
+
     public async Task<ContinuePhaseResult> ContinuePhaseAsync(
         string workspaceRoot,
         string usId,
@@ -475,6 +502,35 @@ public sealed class WorkflowRunner
             StateYamlSerializer.Serialize(workflowRun),
             cancellationToken);
 
+        Directory.CreateDirectory(paths.PhasesDirectoryPath);
+    }
+
+    private static async Task ResetDerivedArtifactsAsync(
+        UserStoryFilePaths paths,
+        WorkflowRun workflowRun,
+        CancellationToken cancellationToken)
+    {
+        if (Directory.Exists(paths.PhasesDirectoryPath))
+        {
+            Directory.Delete(paths.PhasesDirectoryPath, recursive: true);
+        }
+
+        if (File.Exists(paths.ClarificationFilePath))
+        {
+            File.Delete(paths.ClarificationFilePath);
+        }
+
+        if (File.Exists(paths.RuntimeFilePath))
+        {
+            File.Delete(paths.RuntimeFilePath);
+        }
+
+        if (workflowRun.Branch is not null && File.Exists(paths.BranchFilePath))
+        {
+            File.Delete(paths.BranchFilePath);
+        }
+
+        await Task.CompletedTask;
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
     }
 

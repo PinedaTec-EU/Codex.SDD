@@ -284,6 +284,12 @@ public sealed class SpecForgeApplicationService
         CancellationToken cancellationToken = default) =>
         workflowRunner.RestartUserStoryFromSourceAsync(workspaceRoot, usId, reason, cancellationToken);
 
+    public Task<ResetUserStoryResult> ResetUserStoryToCaptureAsync(
+        string workspaceRoot,
+        string usId,
+        CancellationToken cancellationToken = default) =>
+        workflowRunner.ResetUserStoryToCaptureAsync(workspaceRoot, usId, cancellationToken);
+
     public Task<SubmitClarificationAnswersResult> SubmitClarificationAnswersAsync(
         string workspaceRoot,
         string usId,

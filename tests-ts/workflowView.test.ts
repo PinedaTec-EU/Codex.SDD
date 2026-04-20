@@ -101,6 +101,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /Open Approve Prompt/);
   assert.match(html, /data-open-workflow-files/);
   assert.doesNotMatch(html, />Reset</);
+  assert.doesNotMatch(html, /debugResetToCapture/);
   assert.match(html, /Workflow-level files are grouped here instead of repeating them in every phase detail\./);
   assert.match(html, /<h4>User Story<\/h4>/);
   assert.match(html, /us\.md/);
@@ -127,6 +128,55 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /vscode\.getState\(\)/);
   assert.match(html, /workflowFilesOpen/);
   assert.match(html, /vscode\.setState\(/);
+});
+
+test("buildWorkflowHtml shows the debug reset action only in debug mode", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0099",
+    title: "Debug workflow",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0099",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [{
+      phaseId: "refinement",
+      title: "Refinement",
+      order: 1,
+      requiresApproval: true,
+      isApproved: false,
+      isCurrent: true,
+      state: "current",
+      artifactPath: "/tmp/01-refinement.md",
+      executePromptPath: "/tmp/refinement.execute.md",
+      approvePromptPath: "/tmp/refinement.approve.md"
+    }],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "refinement_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "refinement",
+    selectedArtifactContent: "## Refinement",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    debugMode: true
+  }, "idle");
+
+  assert.match(html, /Reset to Capture/);
+  assert.match(html, /data-command="debugResetToCapture"/);
 });
 
 test("buildWorkflowHtml shows configuration warning and disables execution controls when settings are incomplete", () => {

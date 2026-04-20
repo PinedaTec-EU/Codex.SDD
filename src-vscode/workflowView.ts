@@ -7,6 +7,7 @@ export interface WorkflowViewState {
   readonly contextSuggestions: readonly SuggestedContextFile[];
   readonly settingsConfigured: boolean;
   readonly settingsMessage: string | null;
+  readonly debugMode?: boolean;
 }
 
 interface ExecutionOverlayModel {
@@ -559,6 +560,9 @@ export function buildWorkflowHtml(
       ${stopIcon()}
     </button>
   `;
+  const debugResetButton = state.debugMode
+    ? `<button class="workflow-action-button workflow-action-button--debug-reset" type="button" data-command="debugResetToCapture">Reset to Capture</button>`
+    : "";
 
   const auditRows = workflow.events.length > 0
     ? workflow.events.map((event) => `
@@ -1461,6 +1465,11 @@ export function buildWorkflowHtml(
       border-color: rgba(114, 241, 184, 0.38);
       background: linear-gradient(180deg, rgba(114, 241, 184, 0.24), rgba(18, 33, 28, 0.94));
     }
+    .workflow-action-button--debug-reset {
+      border-color: rgba(255, 170, 84, 0.28);
+      background: linear-gradient(180deg, rgba(255, 170, 84, 0.18), rgba(46, 31, 14, 0.94));
+      color: #ffe3b8;
+    }
     .workflow-action-button--compact {
       align-self: center;
       min-width: 156px;
@@ -1791,6 +1800,7 @@ export function buildWorkflowHtml(
           </div>
         </div>
         <div class="control-strip">
+          ${debugResetButton}
           ${playbackButtons}
           <button class="icon-button" type="button" data-open-workflow-files aria-label="Open workflow files">
             ${fileIcon()}
