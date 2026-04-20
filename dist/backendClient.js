@@ -222,8 +222,9 @@ class StdioMcpBackendClient {
             params
         };
         const resultPromise = new Promise((resolve, reject) => {
-            this.pending.set(id, { resolve, reject });
+            this.pending.set(id, { method, resolve, reject });
         });
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`MCP request queued. id=${id}, method='${method}', pending=${this.pending.size}, bytes=${Buffer.byteLength(JSON.stringify(payload), "utf8")}.`);
         await this.writePayloadAsync(JSON.stringify(payload));
         return resultPromise;
     }
@@ -266,21 +267,26 @@ class StdioMcpBackendClient {
         }
     }
     handleMessage(message) {
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`MCP message received. id=${typeof message.id === "number" ? message.id : "n/a"}, hasResult=${message.result !== undefined}, hasError=${message.error !== undefined}.`);
         if (typeof message.id !== "number") {
             return;
         }
         const pending = this.pending.get(message.id);
         if (!pending) {
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`MCP response ignored because no pending request matched id=${message.id}.`);
             return;
         }
         this.pending.delete(message.id);
         if (message.error) {
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`MCP request failed. id=${message.id}, method='${pending.method}', pending=${this.pending.size}, error='${message.error.message}'.`);
             pending.reject(new Error(message.error.message));
             return;
         }
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`MCP request resolved. id=${message.id}, method='${pending.method}', pending=${this.pending.size}.`);
         pending.resolve(message.result);
     }
     rejectPendingRequests(message) {
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Rejecting ${this.pending.size} pending MCP request(s). reason='${message}'.`);
         for (const request of this.pending.values()) {
             request.reject(new Error(message));
         }

@@ -9,7 +9,7 @@ import {
 } from "./backendClientModel";
 import type { SpecForgeSettings } from "./extensionSettings";
 import { buildBackendEnvironment } from "./extensionSettings";
-import { appendSpecForgeLog } from "./outputChannel";
+import { appendSpecForgeDebugLog, appendSpecForgeLog } from "./outputChannel";
 
 export interface UserStorySummary {
   readonly usId: string;
@@ -394,8 +394,12 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     };
 
     const resultPromise = new Promise<any>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      this.pending.set(id, { method, resolve, reject });
     });
+
+    appendSpecForgeDebugLog(
+      `MCP request queued. id=${id}, method='${method}', pending=${this.pending.size}, bytes=${Buffer.byteLength(JSON.stringify(payload), "utf8")}.`
+    );
 
     await this.writePayloadAsync(JSON.stringify(payload));
     return resultPromise;
@@ -448,26 +452,38 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
   }
 
   private handleMessage(message: MpcResponse): void {
+    appendSpecForgeDebugLog(
+      `MCP message received. id=${typeof message.id === "number" ? message.id : "n/a"}, hasResult=${message.result !== undefined}, hasError=${message.error !== undefined}.`
+    );
+
     if (typeof message.id !== "number") {
       return;
     }
 
     const pending = this.pending.get(message.id);
     if (!pending) {
+      appendSpecForgeDebugLog(`MCP response ignored because no pending request matched id=${message.id}.`);
       return;
     }
 
     this.pending.delete(message.id);
 
     if (message.error) {
+      appendSpecForgeDebugLog(
+        `MCP request failed. id=${message.id}, method='${pending.method}', pending=${this.pending.size}, error='${message.error.message}'.`
+      );
       pending.reject(new Error(message.error.message));
       return;
     }
 
+    appendSpecForgeDebugLog(
+      `MCP request resolved. id=${message.id}, method='${pending.method}', pending=${this.pending.size}.`
+    );
     pending.resolve(message.result);
   }
 
   private rejectPendingRequests(message: string): void {
+    appendSpecForgeDebugLog(`Rejecting ${this.pending.size} pending MCP request(s). reason='${message}'.`);
     for (const request of this.pending.values()) {
       request.reject(new Error(message));
     }
@@ -477,6 +493,7 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
 }
 
 interface PendingRequest {
+  readonly method: string;
   readonly resolve: (value: any) => void;
   readonly reject: (reason?: unknown) => void;
 }

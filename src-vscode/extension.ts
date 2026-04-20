@@ -3,7 +3,12 @@ import * as fs from "node:fs";
 import { showUserStoryDetails } from "./detailsPanel";
 import { activateExtension, deactivateExtension, type ExtensionActions, type ExtensionHost } from "./extensionRuntime";
 import { getSpecForgeSettings } from "./extensionSettings";
-import { getSpecForgeOutputChannel, showSpecForgeOutput } from "./outputChannel";
+import {
+  appendSpecForgeDebugLog,
+  getSpecForgeOutputChannel,
+  setSpecForgeDebugLoggingEnabled,
+  showSpecForgeOutput
+} from "./outputChannel";
 import { openWorkflowView, refreshWorkflowViews } from "./workflowPanel";
 import { SidebarViewProvider } from "./sidebarView";
 import {
@@ -28,15 +33,18 @@ let previousAttentionSnapshot = new Map<string, string>();
 
 export function activate(context: vscode.ExtensionContext): void {
   configureBackendHostRoot(context.extensionUri.fsPath);
+  setSpecForgeDebugLoggingEnabled(context.extensionMode === vscode.ExtensionMode.Development);
   context.subscriptions.push(getSpecForgeOutputChannel());
+  appendSpecForgeDebugLog(`Extension activated in mode '${vscode.ExtensionMode[context.extensionMode]}'.`);
   const sidebarProvider = new SidebarViewProvider(context.extensionUri, async () => {
-    await refreshWorkspaceUiAsync();
+    await refreshWorkspaceUiAsync("sidebar:onDidCreateUserStory");
   });
   const refreshableProvider = { refresh: () => sidebarProvider.refresh() };
   activateExtension(context, createVsCodeHost(), refreshableProvider, createExtensionActions(refreshableProvider));
-  const refreshWorkspaceUiAsync = async () => {
+  const refreshWorkspaceUiAsync = async (reason: string) => {
+    appendSpecForgeDebugLog(`Refreshing workspace UI. reason='${reason}'.`);
     sidebarProvider.refresh();
-    await refreshWorkflowViews();
+    await refreshWorkflowViews(reason);
     await notifyAttentionChangesAsync();
   };
 
@@ -53,7 +61,7 @@ export function activate(context: vscode.ExtensionContext): void {
         resetBackendClient(workspaceRoot);
       }
 
-      void refreshWorkspaceUiAsync();
+      void refreshWorkspaceUiAsync("configurationChanged");
     })
   );
 
@@ -126,6 +134,7 @@ async function notifyAttentionChangesAsync(): Promise<void> {
   }
 
   const summaries = await getOrCreateBackendClient(workspaceRoot).listUserStories();
+  appendSpecForgeDebugLog(`notifyAttentionChangesAsync loaded ${summaries.length} user story summary item(s).`);
   const nextSnapshot = new Map<string, string>();
 
   for (const summary of summaries) {
@@ -147,25 +156,29 @@ async function notifyAttentionChangesAsync(): Promise<void> {
   previousAttentionSnapshot = nextSnapshot;
 }
 
-function createWorkspaceWatcher(onChange: () => Promise<void>): vscode.Disposable {
+function createWorkspaceWatcher(onChange: (reason: string) => Promise<void>): vscode.Disposable {
   const disposables: vscode.Disposable[] = [];
   let debounceHandle: NodeJS.Timeout | undefined;
 
   const scheduleRefresh = (uri?: vscode.Uri) => {
     if (!getSpecForgeSettings().watcherEnabled) {
+      appendSpecForgeDebugLog(`Watcher ignored change because watcher is disabled. path='${uri?.fsPath ?? "unknown"}'.`);
       return;
     }
 
     if (uri && /(?:^|[\\/])runtime\.yaml$/i.test(uri.fsPath)) {
+      appendSpecForgeDebugLog(`Watcher ignored runtime heartbeat file. path='${uri.fsPath}'.`);
       return;
     }
+
+    appendSpecForgeDebugLog(`Watcher scheduled refresh. path='${uri?.fsPath ?? "unknown"}'.`);
 
     if (debounceHandle) {
       clearTimeout(debounceHandle);
     }
 
     debounceHandle = setTimeout(() => {
-      void onChange();
+      void onChange(`watcher:${uri?.fsPath ?? "unknown"}`);
     }, 300);
   };
 

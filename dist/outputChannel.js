@@ -34,16 +34,32 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getSpecForgeOutputChannel = getSpecForgeOutputChannel;
+exports.setSpecForgeDebugLoggingEnabled = setSpecForgeDebugLoggingEnabled;
+exports.isSpecForgeDebugLoggingEnabled = isSpecForgeDebugLoggingEnabled;
 exports.appendSpecForgeLog = appendSpecForgeLog;
+exports.appendSpecForgeDebugLog = appendSpecForgeDebugLog;
 exports.showSpecForgeOutput = showSpecForgeOutput;
 const vscode = __importStar(require("vscode"));
 let outputChannel;
+let debugLoggingEnabled = false;
 function getSpecForgeOutputChannel() {
     outputChannel ??= vscode.window.createOutputChannel("SpecForge.AI");
     return outputChannel;
 }
+function setSpecForgeDebugLoggingEnabled(enabled) {
+    debugLoggingEnabled = enabled;
+}
+function isSpecForgeDebugLoggingEnabled() {
+    return debugLoggingEnabled;
+}
 function appendSpecForgeLog(message) {
     getSpecForgeOutputChannel().appendLine(`[${new Date().toISOString()}] ${message}`);
+}
+function appendSpecForgeDebugLog(message) {
+    if (!debugLoggingEnabled) {
+        return;
+    }
+    appendSpecForgeLog(`[debug] ${message}`);
 }
 function showSpecForgeOutput(preserveFocus = true) {
     getSpecForgeOutputChannel().show(preserveFocus);

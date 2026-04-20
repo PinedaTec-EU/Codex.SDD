@@ -4,7 +4,7 @@ import * as vscode from "vscode";
 import type { SpecForgeBackendClient, UserStorySummary } from "./backendClient";
 import { suggestContextFiles } from "./contextSuggestions";
 import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSettings";
-import { appendSpecForgeLog, showSpecForgeOutput } from "./outputChannel";
+import { appendSpecForgeDebugLog, appendSpecForgeLog, showSpecForgeOutput } from "./outputChannel";
 import { buildWorkflowHtml } from "./workflowView";
 
 type WorkflowPanelCommand =
@@ -50,9 +50,9 @@ export async function openWorkflowView(
   await controller.showAsync();
 }
 
-export async function refreshWorkflowViews(): Promise<void> {
+export async function refreshWorkflowViews(reason = "external"): Promise<void> {
   for (const panel of panels.values()) {
-    await panel.refreshAsync();
+    await panel.refreshAsync(reason);
   }
 }
 
@@ -107,14 +107,17 @@ class WorkflowPanelController {
 
   public async showAsync(): Promise<void> {
     this.panel.reveal(vscode.ViewColumn.Active);
-    await this.refreshAsync();
+    await this.refreshAsync("showAsync");
   }
 
   public dispose(): void {
     this.panel.dispose();
   }
 
-  public async refreshAsync(): Promise<void> {
+  public async refreshAsync(reason = "unspecified"): Promise<void> {
+    appendSpecForgeDebugLog(
+      `Workflow '${this.summary.usId}' refresh start. reason='${reason}', selectedPhase='${this.selectedPhaseId}', playback='${this.playbackState}', summaryPhase='${this.summary.currentPhase}'.`
+    );
     const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
     this.summary = {
       ...this.summary,
@@ -142,6 +145,9 @@ class WorkflowPanelController {
       settingsConfigured: settingsStatus.executionConfigured,
       settingsMessage: settingsStatus.message
     }, this.playbackState);
+    appendSpecForgeDebugLog(
+      `Workflow '${this.summary.usId}' refresh end. reason='${reason}', workflowPhase='${workflow.currentPhase}', workflowStatus='${workflow.status}', selectedPhase='${this.selectedPhaseId}', suggestions=${contextSuggestions.length}.`
+    );
   }
 
   private async handleMessageAsync(message: WorkflowPanelCommand): Promise<void> {
@@ -149,7 +155,7 @@ class WorkflowPanelController {
       case "selectPhase":
         if (message.phaseId) {
           this.selectedPhaseId = message.phaseId;
-          await this.refreshAsync();
+          await this.refreshAsync("command:selectPhase");
         }
         return;
       case "openArtifact":
@@ -215,12 +221,12 @@ class WorkflowPanelController {
             this.autoplayPromise = null;
           });
         }
-        await this.refreshAsync();
+        await this.refreshAsync("command:play");
         return;
       case "pause":
         appendSpecForgeLog(`Autoplay paused for '${this.summary.usId}'.`);
         this.playbackState = "paused";
-        await this.refreshAsync();
+        await this.refreshAsync("command:pause");
         return;
       case "stop":
         appendSpecForgeLog(`Autoplay stopped for '${this.summary.usId}'.`);
@@ -228,7 +234,7 @@ class WorkflowPanelController {
         this.callbacks.stopBackend(this.workspaceRoot);
         await this.callbacks.refreshExplorer();
         this.playbackState = "idle";
-        await this.refreshAsync();
+        await this.refreshAsync("command:stop");
         return;
     }
   }
@@ -248,15 +254,17 @@ class WorkflowPanelController {
       status: result.status
     };
     this.selectedPhaseId = result.currentPhase;
+    appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' continueCurrentPhaseAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
-    await this.refreshAsync();
+    await this.refreshAsync("continueCurrentPhaseAsync");
   }
 
   private async submitClarificationAnswersAsync(answers: string[]): Promise<void> {
     await this.getBackendClient().submitClarificationAnswers(this.summary.usId, answers);
     appendSpecForgeLog(`Workflow '${this.summary.usId}' stored ${answers.length} clarification answer(s).`);
+    appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' submitClarificationAnswersAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
-    await this.refreshAsync();
+    await this.refreshAsync("submitClarificationAnswersAsync");
   }
 
   private isExecutionConfigured(): boolean {
@@ -353,8 +361,9 @@ class WorkflowPanelController {
 
     this.summary = await this.getBackendClient().approveCurrentPhase(this.summary.usId, baseBranch);
     appendSpecForgeLog(`Workflow '${this.summary.usId}' approved phase '${this.summary.currentPhase}'.`);
+    appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' approveCurrentPhaseAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
-    await this.refreshAsync();
+    await this.refreshAsync("approveCurrentPhaseAsync");
   }
 
   private async requestRegressionAsync(targetPhase: string): Promise<void> {
@@ -378,8 +387,9 @@ class WorkflowPanelController {
       status: result.status
     };
     this.selectedPhaseId = result.currentPhase;
+    appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' requestRegressionAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
-    await this.refreshAsync();
+    await this.refreshAsync("requestRegressionAsync");
   }
 
   private async restartCurrentWorkflowAsync(): Promise<void> {
@@ -403,8 +413,9 @@ class WorkflowPanelController {
       status: result.status
     };
     this.selectedPhaseId = result.currentPhase;
+    appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' restartCurrentWorkflowAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
-    await this.refreshAsync();
+    await this.refreshAsync("restartCurrentWorkflowAsync");
   }
 
   private async runAutoplayAsync(): Promise<void> {
@@ -418,11 +429,14 @@ class WorkflowPanelController {
             `Autoplay paused for '${workflow.usId}' because current phase '${workflow.currentPhase}' requires attention.`
           );
           this.callbacks.notifyAttention(`${workflow.usId} requires attention at ${workflow.currentPhase}.`);
-          await this.refreshAsync();
+          await this.refreshAsync("autoplay:pausedAtBoundary");
           return;
         }
 
         appendSpecForgeLog(`Autoplay continuing '${workflow.usId}' at phase '${workflow.currentPhase}'.`);
+        appendSpecForgeDebugLog(
+          `Autoplay loop iteration for '${workflow.usId}'. canContinue=${workflow.controls.canContinue}, requiresApproval=${workflow.controls.requiresApproval}, blockingReason='${workflow.controls.blockingReason ?? "none"}'.`
+        );
         await this.continueCurrentPhaseAsync();
       }
 
@@ -434,7 +448,7 @@ class WorkflowPanelController {
       }
 
       this.playbackState = "paused";
-      await this.refreshAsync();
+      await this.refreshAsync("autoplay:error");
       appendSpecForgeLog(`Autoplay failed for '${this.summary.usId}': ${asErrorMessage(error)}`);
       showSpecForgeOutput(false);
       void vscode.window.showErrorMessage(asErrorMessage(error));

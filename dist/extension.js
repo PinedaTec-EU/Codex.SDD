@@ -48,15 +48,18 @@ const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
 let previousAttentionSnapshot = new Map();
 function activate(context) {
     (0, specsExplorer_1.configureBackendHostRoot)(context.extensionUri.fsPath);
+    (0, outputChannel_1.setSpecForgeDebugLoggingEnabled)(context.extensionMode === vscode.ExtensionMode.Development);
     context.subscriptions.push((0, outputChannel_1.getSpecForgeOutputChannel)());
+    (0, outputChannel_1.appendSpecForgeDebugLog)(`Extension activated in mode '${vscode.ExtensionMode[context.extensionMode]}'.`);
     const sidebarProvider = new sidebarView_1.SidebarViewProvider(context.extensionUri, async () => {
-        await refreshWorkspaceUiAsync();
+        await refreshWorkspaceUiAsync("sidebar:onDidCreateUserStory");
     });
     const refreshableProvider = { refresh: () => sidebarProvider.refresh() };
     (0, extensionRuntime_1.activateExtension)(context, createVsCodeHost(), refreshableProvider, createExtensionActions(refreshableProvider));
-    const refreshWorkspaceUiAsync = async () => {
+    const refreshWorkspaceUiAsync = async (reason) => {
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Refreshing workspace UI. reason='${reason}'.`);
         sidebarProvider.refresh();
-        await (0, workflowPanel_1.refreshWorkflowViews)();
+        await (0, workflowPanel_1.refreshWorkflowViews)(reason);
         await notifyAttentionChangesAsync();
     };
     context.subscriptions.push(vscode.window.registerWebviewViewProvider("specForge.userStories", sidebarProvider), createWorkspaceWatcher(refreshWorkspaceUiAsync), vscode.workspace.onDidChangeConfiguration((event) => {
@@ -67,7 +70,7 @@ function activate(context) {
         if (workspaceRoot) {
             (0, specsExplorer_1.resetBackendClient)(workspaceRoot);
         }
-        void refreshWorkspaceUiAsync();
+        void refreshWorkspaceUiAsync("configurationChanged");
     }));
     void autoOpenStarredUserStoryAsync();
 }
@@ -127,6 +130,7 @@ async function notifyAttentionChangesAsync() {
         return;
     }
     const summaries = await (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot).listUserStories();
+    (0, outputChannel_1.appendSpecForgeDebugLog)(`notifyAttentionChangesAsync loaded ${summaries.length} user story summary item(s).`);
     const nextSnapshot = new Map();
     for (const summary of summaries) {
         const fingerprint = `${summary.currentPhase}:${summary.status}`;
@@ -151,16 +155,19 @@ function createWorkspaceWatcher(onChange) {
     let debounceHandle;
     const scheduleRefresh = (uri) => {
         if (!(0, extensionSettings_1.getSpecForgeSettings)().watcherEnabled) {
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`Watcher ignored change because watcher is disabled. path='${uri?.fsPath ?? "unknown"}'.`);
             return;
         }
         if (uri && /(?:^|[\\/])runtime\.yaml$/i.test(uri.fsPath)) {
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`Watcher ignored runtime heartbeat file. path='${uri.fsPath}'.`);
             return;
         }
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Watcher scheduled refresh. path='${uri?.fsPath ?? "unknown"}'.`);
         if (debounceHandle) {
             clearTimeout(debounceHandle);
         }
         debounceHandle = setTimeout(() => {
-            void onChange();
+            void onChange(`watcher:${uri?.fsPath ?? "unknown"}`);
         }, 300);
     };
     const markdownWatcher = vscode.workspace.createFileSystemWatcher("**/.specs/us/**/*.md");
