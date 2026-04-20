@@ -9,6 +9,9 @@ namespace SpecForge.OpenAICompatible;
 
 public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProvider
 {
+    private const string StrictTolerance = "strict";
+    private const string BalancedTolerance = "balanced";
+    private const string InferentialTolerance = "inferential";
     private readonly HttpClient httpClient;
     private readonly OpenAiCompatibleProviderOptions options;
     private readonly RepositoryPromptCatalog promptCatalog;
@@ -43,6 +46,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         {
             throw new ArgumentException("Model is required.", nameof(options));
         }
+
+        if (!IsSupportedClarificationTolerance(options.ClarificationTolerance))
+        {
+            throw new ArgumentException(
+                "ClarificationTolerance must be one of: strict, balanced, inferential.",
+                nameof(options));
+        }
     }
 
     public async Task<PhaseExecutionResult> ExecuteAsync(
@@ -52,7 +62,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         promptCatalog.EnsureRepositoryIsInitialized(context.WorkspaceRoot);
 
         var prompt = await BuildEffectivePromptAsync(context, cancellationToken);
-        var request = BuildRequest(prompt.SystemPrompt, prompt.UserPrompt);
+        var request = BuildRequest(context, prompt.SystemPrompt, prompt.UserPrompt);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         var payload = await response.Content.ReadAsStringAsync(cancellationToken);
 
@@ -79,7 +89,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return new PhaseExecutionResult(normalizedContent, ExecutionKind: "openai-compatible", usage);
     }
 
-    private HttpRequestMessage BuildRequest(string systemPrompt, string userPrompt)
+    private HttpRequestMessage BuildRequest(PhaseExecutionContext context, string systemPrompt, string userPrompt)
     {
         var endpoint = $"{options.BaseUrl.TrimEnd('/')}/chat/completions";
         var messages = new List<object>();
@@ -103,7 +113,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         {
             model = options.Model,
             messages,
-            temperature = 0.2
+            temperature = ResolveTemperature(context.PhaseId)
         });
 
         var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
@@ -222,6 +232,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         {
             builder
                 .AppendLine()
+                .AppendLine("## Clarification Tolerance")
+                .AppendLine()
+                .AppendLine($"- Active tolerance: `{options.ClarificationTolerance}`")
+                .AppendLine($"- Guidance: {ResolveClarificationGuidance(options.ClarificationTolerance)}")
+                .AppendLine()
                 .AppendLine("## Internal Clarification Contract")
                 .AppendLine()
                 .AppendLine("The first non-empty line of your response is machine-validated and must be exactly one of:")
@@ -235,6 +250,39 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         return new EffectivePrompt(systemPrompt, builder.ToString().Trim());
     }
+
+    private double ResolveTemperature(PhaseId phaseId) =>
+        phaseId == PhaseId.Clarification
+            ? ResolveClarificationTemperature(options.ClarificationTolerance)
+            : 0.2d;
+
+    private static double ResolveClarificationTemperature(string tolerance) =>
+        NormalizeClarificationTolerance(tolerance) switch
+        {
+            StrictTolerance => 0.0d,
+            BalancedTolerance => 0.2d,
+            InferentialTolerance => 0.4d,
+            _ => 0.2d
+        };
+
+    private static string ResolveClarificationGuidance(string tolerance) =>
+        NormalizeClarificationTolerance(tolerance) switch
+        {
+            StrictTolerance =>
+                "Be conservative. Ask for clarification whenever actor, trigger, business behavior, inputs, outputs, rules, or acceptance intent are materially ambiguous.",
+            InferentialTolerance =>
+                "Be permissive. Prefer `ready_for_refinement` when the core actor, outcome, and flow are understandable, and infer reasonable defaults unless a missing detail would likely invalidate refinement.",
+            _ =>
+                "Use balanced judgment. Ask only for gaps that would block a credible refinement, but do not invent business-critical facts."
+        };
+
+    private static bool IsSupportedClarificationTolerance(string tolerance) =>
+        NormalizeClarificationTolerance(tolerance) is StrictTolerance or BalancedTolerance or InferentialTolerance;
+
+    private static string NormalizeClarificationTolerance(string tolerance) =>
+        string.IsNullOrWhiteSpace(tolerance)
+            ? BalancedTolerance
+            : tolerance.Trim().ToLowerInvariant();
 
     private static string NormalizePhaseContent(PhaseExecutionContext context, string content)
     {

@@ -10,6 +10,7 @@ internal static class PhaseExecutionProviderFactory
     private const string BaseUrlEnvVar = "SPECFORGE_OPENAI_BASE_URL";
     private const string ApiKeyEnvVar = "SPECFORGE_OPENAI_API_KEY";
     private const string ModelEnvVar = "SPECFORGE_OPENAI_MODEL";
+    private const string ClarificationToleranceEnvVar = "SPECFORGE_CAPTURE_TOLERANCE";
     private const string SystemPromptEnvVar = "SPECFORGE_OPENAI_SYSTEM_PROMPT";
     private const string TimeoutSecondsEnvVar = "SPECFORGE_OPENAI_TIMEOUT_SECONDS";
     private static readonly TimeSpan DefaultOpenAiTimeout = TimeSpan.FromMinutes(10);
@@ -36,6 +37,7 @@ internal static class PhaseExecutionProviderFactory
             ? Environment.GetEnvironmentVariable(ApiKeyEnvVar) ?? string.Empty
             : GetRequiredEnvironmentVariable(ApiKeyEnvVar);
         var model = GetRequiredEnvironmentVariable(ModelEnvVar);
+        var clarificationTolerance = Environment.GetEnvironmentVariable(ClarificationToleranceEnvVar) ?? "balanced";
         var systemPrompt = Environment.GetEnvironmentVariable(SystemPromptEnvVar) ??
                            "You generate markdown artifacts for SpecForge workflow phases. Return only markdown.";
         var httpClient = new HttpClient
@@ -46,7 +48,8 @@ internal static class PhaseExecutionProviderFactory
             BaseUrl: baseUrl,
             ApiKey: apiKey,
             Model: model,
-            SystemPrompt: systemPrompt);
+            SystemPrompt: systemPrompt,
+            ClarificationTolerance: clarificationTolerance);
         return new OpenAiCompatiblePhaseExecutionProvider(httpClient, options);
     }
 

@@ -47,8 +47,43 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("Bearer", handler.LastRequest.Headers.Authorization?.Scheme);
         Assert.Equal("ollama-local", handler.LastRequest.Headers.Authorization?.Parameter);
         Assert.Contains("\"model\":\"llama3.1\"", handler.LastBody);
+        Assert.Equal(0.2d, ReadTemperature(handler.LastBody));
         Assert.Contains("Role: refinement analyst.", handler.LastBody);
         Assert.Contains("Initial text", handler.LastBody);
+    }
+
+    [Theory]
+    [InlineData("strict", 0.0d, "Be conservative. Ask for clarification whenever actor, trigger, business behavior, inputs, outputs, rules, or acceptance intent are materially ambiguous.")]
+    [InlineData("balanced", 0.2d, "Use balanced judgment. Ask only for gaps that would block a credible refinement, but do not invent business-critical facts.")]
+    [InlineData("inferential", 0.4d, "Be permissive. Prefer `ready_for_refinement` when the core actor, outcome, and flow are understandable, and infer reasonable defaults unless a missing detail would likely invalidate refinement.")]
+    public async Task ExecuteAsync_ClarificationTolerance_ChangesTemperatureAndPrompt(
+        string clarificationTolerance,
+        double expectedTemperature,
+        string expectedGuidance)
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var handler = new CapturingFakeHttpMessageHandler("ok");
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            new OpenAiCompatibleProviderOptions(
+                BaseUrl: "http://localhost:11434/v1",
+                ApiKey: string.Empty,
+                Model: "llama3.1",
+                ClarificationTolerance: clarificationTolerance));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Clarification,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        await provider.ExecuteAsync(context);
+
+        Assert.Equal(expectedTemperature, ReadTemperature(handler.LastBody));
+        var userPrompt = ReadUserPrompt(handler.LastBody);
+        Assert.Contains($"Active tolerance: `{clarificationTolerance}`", userPrompt);
+        Assert.Contains(expectedGuidance, userPrompt);
     }
 
     [Fact]
@@ -233,6 +268,23 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
         Directory.CreateDirectory(paths.RootDirectory);
         await File.WriteAllTextAsync(paths.MainArtifactPath, "# US-0001\n\n## Objective\nInitial text");
+    }
+
+    private static double ReadTemperature(string requestBody)
+    {
+        using var document = JsonDocument.Parse(requestBody);
+        return document.RootElement.GetProperty("temperature").GetDouble();
+    }
+
+    private static string ReadUserPrompt(string requestBody)
+    {
+        using var document = JsonDocument.Parse(requestBody);
+        return document.RootElement
+            .GetProperty("messages")
+            .EnumerateArray()
+            .First(message => string.Equals(message.GetProperty("role").GetString(), "user", StringComparison.Ordinal))
+            .GetProperty("content")
+            .GetString() ?? string.Empty;
     }
 
     private sealed class CapturingFakeHttpMessageHandler : HttpMessageHandler

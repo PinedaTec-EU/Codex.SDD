@@ -133,6 +133,16 @@
           "default": "",
           "description": "Model name used by the OpenAI-compatible provider."
         },
+        "specForge.execution.clarificationTolerance": {
+          "type": "string",
+          "default": "balanced",
+          "enum": [
+            "strict",
+            "balanced",
+            "inferential"
+          ],
+          "description": "How demanding clarification should be before the workflow advances to refinement. This also adjusts the temperature sent for the clarification phase."
+        },
         "specForge.ui.enableWatcher": {
           "type": "boolean",
           "default": true,

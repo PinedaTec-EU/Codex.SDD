@@ -14,6 +14,7 @@ function readSpecForgeSettings(configuration) {
         baseUrl: normalizeOptional(configuration.get("execution.baseUrl")),
         apiKey: normalizeOptional(configuration.get("execution.apiKey")),
         model: normalizeOptional(configuration.get("execution.model")),
+        clarificationTolerance: normalizeClarificationTolerance(configuration.get("execution.clarificationTolerance", "balanced")),
         watcherEnabled: configuration.get("ui.enableWatcher", true),
         attentionNotificationsEnabled: configuration.get("ui.notifyOnAttention", true),
         contextSuggestionsEnabled: configuration.get("features.enableContextSuggestions", true)
@@ -32,6 +33,7 @@ function buildBackendEnvironment(settings) {
     if (settings.model) {
         env.SPECFORGE_OPENAI_MODEL = settings.model;
     }
+    env.SPECFORGE_CAPTURE_TOLERANCE = settings.clarificationTolerance;
     return env;
 }
 function getSpecForgeSettingsStatus(settings) {
@@ -61,6 +63,10 @@ function getSpecForgeSettingsStatus(settings) {
 function normalizeOptional(value) {
     const trimmed = value?.trim();
     return trimmed ? trimmed : null;
+}
+function normalizeClarificationTolerance(value) {
+    const normalized = value?.trim().toLowerCase();
+    return normalized === "strict" || normalized === "inferential" ? normalized : "balanced";
 }
 function isLocalOpenAiCompatibleEndpoint(baseUrl) {
     if (!baseUrl) {

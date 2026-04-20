@@ -58,7 +58,8 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             new OpenAiCompatibleProviderOptions(
                 BaseUrl: $"{modelStub.BaseUrl}/v1",
                 ApiKey: string.Empty,
-                Model: "stub-model"));
+                Model: "stub-model",
+                ClarificationTolerance: "inferential"));
         var workflowRunner = new WorkflowRunner(provider);
         var applicationService = new SpecForgeApplicationService(
             new UserStoryFileStore(),
@@ -114,8 +115,12 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
 
         Assert.Equal(3, modelStub.Requests.Count);
         Assert.All(modelStub.Requests, request => Assert.Equal("/v1/chat/completions", request.Path));
+        Assert.Equal(0.4d, ExtractTemperature(modelStub.Requests[0].Body));
+        Assert.Equal(0.4d, ExtractTemperature(modelStub.Requests[1].Body));
+        Assert.Equal(0.2d, ExtractTemperature(modelStub.Requests[2].Body));
         Assert.Contains("Role: clarification analyst.", ExtractUserPrompt(modelStub.Requests[0].Body));
         Assert.Contains("- Phase: `Clarification`", ExtractUserPrompt(modelStub.Requests[0].Body));
+        Assert.Contains("Active tolerance: `inferential`", ExtractUserPrompt(modelStub.Requests[0].Body));
         Assert.Contains("Role: clarification analyst.", ExtractUserPrompt(modelStub.Requests[1].Body));
         Assert.Contains("- Phase: `Clarification`", ExtractUserPrompt(modelStub.Requests[1].Body));
         Assert.Contains("Role: refinement analyst.", ExtractUserPrompt(modelStub.Requests[2].Body));
@@ -141,6 +146,12 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             .First(message => string.Equals(message.GetProperty("role").GetString(), "user", StringComparison.Ordinal))
             .GetProperty("content")
             .GetString() ?? string.Empty;
+    }
+
+    private static double ExtractTemperature(string requestBody)
+    {
+        using var document = JsonDocument.Parse(requestBody);
+        return document.RootElement.GetProperty("temperature").GetDouble();
     }
 
     private sealed class OpenAiCompatibleModelStubServer : IDisposable
