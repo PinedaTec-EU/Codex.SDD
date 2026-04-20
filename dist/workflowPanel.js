@@ -44,6 +44,7 @@ const vscode = __importStar(require("vscode"));
 const contextSuggestions_1 = require("./contextSuggestions");
 const extensionSettings_1 = require("./extensionSettings");
 const outputChannel_1 = require("./outputChannel");
+const workflowPlaybackState_1 = require("./workflowPlaybackState");
 const workflowView_1 = require("./workflowView");
 const panels = new Map();
 async function openWorkflowView(workspaceRoot, summary, getBackendClient, callbacks) {
@@ -259,6 +260,7 @@ class WorkflowPanelController {
             currentPhase: result.currentPhase,
             status: result.status
         };
+        this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
         this.selectedPhaseId = result.currentPhase;
         this.clearTransientExecutionPhase();
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' continueCurrentPhaseAsync requested explorer refresh.`);
@@ -268,6 +270,8 @@ class WorkflowPanelController {
     async submitClarificationAnswersAsync(answers) {
         await this.getBackendClient().submitClarificationAnswers(this.summary.usId, answers);
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' stored ${answers.length} clarification answer(s).`);
+        this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
+        this.clearTransientExecutionPhase();
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' submitClarificationAnswersAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("submitClarificationAnswersAsync");
@@ -344,6 +348,8 @@ class WorkflowPanelController {
         }
         this.summary = await this.getBackendClient().approveCurrentPhase(this.summary.usId, baseBranch);
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' approved phase '${this.summary.currentPhase}'.`);
+        this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
+        this.clearTransientExecutionPhase();
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' approveCurrentPhaseAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("approveCurrentPhaseAsync");
@@ -364,6 +370,8 @@ class WorkflowPanelController {
             currentPhase: result.currentPhase,
             status: result.status
         };
+        this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
+        this.clearTransientExecutionPhase();
         this.selectedPhaseId = result.currentPhase;
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' requestRegressionAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
@@ -385,6 +393,8 @@ class WorkflowPanelController {
             currentPhase: result.currentPhase,
             status: result.status
         };
+        this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
+        this.clearTransientExecutionPhase();
         this.selectedPhaseId = result.currentPhase;
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' restartCurrentWorkflowAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
@@ -405,6 +415,8 @@ class WorkflowPanelController {
             status: result.status,
             workBranch: null
         };
+        this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
+        this.clearTransientExecutionPhase();
         this.selectedPhaseId = result.currentPhase;
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' debugResetToCaptureAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();

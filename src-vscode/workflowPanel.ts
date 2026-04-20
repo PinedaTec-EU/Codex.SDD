@@ -5,6 +5,7 @@ import type { SpecForgeBackendClient, UserStorySummary, UserStoryWorkflowDetails
 import { suggestContextFiles } from "./contextSuggestions";
 import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSettings";
 import { appendSpecForgeDebugLog, appendSpecForgeLog, isSpecForgeDebugLoggingEnabled, showSpecForgeOutput } from "./outputChannel";
+import { normalizePlaybackStateAfterManualWorkflowChange } from "./workflowPlaybackState";
 import { buildWorkflowHtml } from "./workflowView";
 
 type WorkflowPanelCommand =
@@ -282,6 +283,7 @@ class WorkflowPanelController {
       currentPhase: result.currentPhase,
       status: result.status
     };
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
     this.selectedPhaseId = result.currentPhase;
     this.clearTransientExecutionPhase();
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' continueCurrentPhaseAsync requested explorer refresh.`);
@@ -292,6 +294,8 @@ class WorkflowPanelController {
   private async submitClarificationAnswersAsync(answers: string[]): Promise<void> {
     await this.getBackendClient().submitClarificationAnswers(this.summary.usId, answers);
     appendSpecForgeLog(`Workflow '${this.summary.usId}' stored ${answers.length} clarification answer(s).`);
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' submitClarificationAnswersAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
     await this.refreshAsync("submitClarificationAnswersAsync");
@@ -391,6 +395,8 @@ class WorkflowPanelController {
 
     this.summary = await this.getBackendClient().approveCurrentPhase(this.summary.usId, baseBranch);
     appendSpecForgeLog(`Workflow '${this.summary.usId}' approved phase '${this.summary.currentPhase}'.`);
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' approveCurrentPhaseAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
     await this.refreshAsync("approveCurrentPhaseAsync");
@@ -416,6 +422,8 @@ class WorkflowPanelController {
       currentPhase: result.currentPhase,
       status: result.status
     };
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
     this.selectedPhaseId = result.currentPhase;
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' requestRegressionAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
@@ -442,6 +450,8 @@ class WorkflowPanelController {
       currentPhase: result.currentPhase,
       status: result.status
     };
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
     this.selectedPhaseId = result.currentPhase;
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' restartCurrentWorkflowAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
@@ -475,6 +485,8 @@ class WorkflowPanelController {
       status: result.status,
       workBranch: null
     };
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
     this.selectedPhaseId = result.currentPhase;
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' debugResetToCaptureAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
