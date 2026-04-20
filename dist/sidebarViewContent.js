@@ -52,7 +52,7 @@ function buildSidebarHtml(model) {
             ${shouldRenderPhaseRail(summary.status)
         ? `
                 <span class="story-card__phase-rail" aria-hidden="true">
-                  <span class="story-card__phase-number">${phaseNumberFor(summary.currentPhase)}</span>
+                  <span class="story-card__phase-label">${phaseLabelFor(summary.currentPhase)}</span>
                 </span>
               `
         : ""}
@@ -922,14 +922,16 @@ function wrapHtml(content, busy) {
       border-top-left-radius: 13px;
       border-bottom-left-radius: 13px;
     }
-    .story-card__phase-number {
+    .story-card__phase-label {
       display: inline-block;
       transform: rotate(-90deg);
-      font-size: 1rem;
+      font-size: 0.7rem;
       font-weight: 800;
-      letter-spacing: 0.16em;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
       color: rgba(255, 255, 255, 0.92);
       line-height: 1;
+      white-space: nowrap;
     }
     .story-card--phase-capture .story-card__phase-rail,
     .story-card--phase-clarification .story-card__phase-rail {
@@ -1353,18 +1355,18 @@ function escapeHtml(value) {
 function escapeHtmlAttr(value) {
     return escapeHtml(value);
 }
-function phaseNumberFor(currentPhase) {
-    const phaseOrder = {
-        "capture": "1",
-        "clarification": "2",
-        "refinement": "3",
-        "technical-design": "4",
-        "implementation": "5",
-        "review": "6",
-        "release-approval": "7",
-        "pr-preparation": "8"
+function phaseLabelFor(currentPhase) {
+    const phaseLabels = {
+        "capture": "CAP",
+        "clarification": "CLAR",
+        "refinement": "REF",
+        "technical-design": "TECH",
+        "implementation": "IMP",
+        "review": "REV",
+        "release-approval": "REL",
+        "pr-preparation": "PR"
     };
-    return phaseOrder[currentPhase] ?? "?";
+    return phaseLabels[currentPhase] ?? "?";
 }
 function shouldRenderPhaseRail(status) {
     return status !== "completed" && status !== "superseded" && status !== "abandoned";
