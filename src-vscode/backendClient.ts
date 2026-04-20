@@ -22,6 +22,19 @@ export interface UserStorySummary {
   readonly workBranch: string | null;
 }
 
+export interface UserStoryRuntimeStatus {
+  readonly usId: string;
+  readonly status: string;
+  readonly activeOperation: string | null;
+  readonly currentPhase: string;
+  readonly startedAtUtc: string | null;
+  readonly lastHeartbeatUtc: string | null;
+  readonly lastOutcome: string | null;
+  readonly lastCompletedAtUtc: string | null;
+  readonly message: string | null;
+  readonly isStale: boolean;
+}
+
 export interface ContinuePhaseResult {
   readonly usId: string;
   readonly currentPhase: string;
@@ -139,6 +152,7 @@ export interface SpecForgeBackendClient {
   listUserStories(): Promise<readonly UserStorySummary[]>;
   getUserStorySummary(usId: string): Promise<UserStorySummary>;
   getUserStoryWorkflow(usId: string): Promise<UserStoryWorkflowDetails>;
+  getUserStoryRuntimeStatus(usId: string): Promise<UserStoryRuntimeStatus>;
   createUserStory(usId: string, title: string, kind: string, category: string, sourceText: string): Promise<CreateOrImportUserStoryResult>;
   importUserStory(usId: string, sourcePath: string, title: string, kind: string, category: string): Promise<CreateOrImportUserStoryResult>;
   initializeRepoPrompts(overwrite?: boolean): Promise<InitializeRepoPromptsResult>;
@@ -227,6 +241,13 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
 
   public async getUserStoryWorkflow(usId: string): Promise<UserStoryWorkflowDetails> {
     return this.callTool<UserStoryWorkflowDetails>("get_user_story_workflow", {
+      workspaceRoot: this.workspaceRoot,
+      usId
+    });
+  }
+
+  public async getUserStoryRuntimeStatus(usId: string): Promise<UserStoryRuntimeStatus> {
+    return this.callTool<UserStoryRuntimeStatus>("get_user_story_runtime_status", {
       workspaceRoot: this.workspaceRoot,
       usId
     });

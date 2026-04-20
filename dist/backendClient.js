@@ -102,6 +102,12 @@ class StdioMcpBackendClient {
             usId
         });
     }
+    async getUserStoryRuntimeStatus(usId) {
+        return this.callTool("get_user_story_runtime_status", {
+            workspaceRoot: this.workspaceRoot,
+            usId
+        });
+    }
     async createUserStory(usId, title, kind, category, sourceText) {
         return this.callTool("create_us_from_chat", {
             workspaceRoot: this.workspaceRoot,

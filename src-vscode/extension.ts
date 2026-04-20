@@ -151,8 +151,12 @@ function createWorkspaceWatcher(onChange: () => Promise<void>): vscode.Disposabl
   const disposables: vscode.Disposable[] = [];
   let debounceHandle: NodeJS.Timeout | undefined;
 
-  const scheduleRefresh = () => {
+  const scheduleRefresh = (uri?: vscode.Uri) => {
     if (!getSpecForgeSettings().watcherEnabled) {
+      return;
+    }
+
+    if (uri && /(?:^|[\\/])runtime\.yaml$/i.test(uri.fsPath)) {
       return;
     }
 

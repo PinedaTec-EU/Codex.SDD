@@ -11,6 +11,8 @@ internal static class PhaseExecutionProviderFactory
     private const string ApiKeyEnvVar = "SPECFORGE_OPENAI_API_KEY";
     private const string ModelEnvVar = "SPECFORGE_OPENAI_MODEL";
     private const string SystemPromptEnvVar = "SPECFORGE_OPENAI_SYSTEM_PROMPT";
+    private const string TimeoutSecondsEnvVar = "SPECFORGE_OPENAI_TIMEOUT_SECONDS";
+    private static readonly TimeSpan DefaultOpenAiTimeout = TimeSpan.FromMinutes(10);
     private const string DeterministicKind = "deterministic";
     private const string OpenAiCompatibleKind = "openai-compatible";
 
@@ -36,7 +38,10 @@ internal static class PhaseExecutionProviderFactory
         var model = GetRequiredEnvironmentVariable(ModelEnvVar);
         var systemPrompt = Environment.GetEnvironmentVariable(SystemPromptEnvVar) ??
                            "You generate markdown artifacts for SpecForge workflow phases. Return only markdown.";
-        var httpClient = new HttpClient();
+        var httpClient = new HttpClient
+        {
+            Timeout = ReadOpenAiTimeout()
+        };
         var options = new OpenAiCompatibleProviderOptions(
             BaseUrl: baseUrl,
             ApiKey: apiKey,
@@ -68,5 +73,22 @@ internal static class PhaseExecutionProviderFactory
                || parsed.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
                || parsed.Host.Equals("0.0.0.0", StringComparison.OrdinalIgnoreCase)
                || parsed.Host.Equals(IPAddress.IPv6Loopback.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static TimeSpan ReadOpenAiTimeout()
+    {
+        var configured = Environment.GetEnvironmentVariable(TimeoutSecondsEnvVar);
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            return DefaultOpenAiTimeout;
+        }
+
+        if (int.TryParse(configured, out var seconds) && seconds > 0)
+        {
+            return TimeSpan.FromSeconds(seconds);
+        }
+
+        throw new InvalidOperationException(
+            $"Environment variable '{TimeoutSecondsEnvVar}' must be a positive integer number of seconds.");
     }
 }

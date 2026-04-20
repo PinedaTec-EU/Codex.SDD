@@ -149,8 +149,11 @@ async function notifyAttentionChangesAsync() {
 function createWorkspaceWatcher(onChange) {
     const disposables = [];
     let debounceHandle;
-    const scheduleRefresh = () => {
+    const scheduleRefresh = (uri) => {
         if (!(0, extensionSettings_1.getSpecForgeSettings)().watcherEnabled) {
+            return;
+        }
+        if (uri && /(?:^|[\\/])runtime\.yaml$/i.test(uri.fsPath)) {
             return;
         }
         if (debounceHandle) {
