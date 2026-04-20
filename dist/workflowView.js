@@ -395,6 +395,30 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     const promptSection = promptButtons
         ? `<div class="detail-actions">${promptButtons}</div>`
         : "<p class=\"muted\">This phase does not expose prompt templates from the current repo bootstrap.</p>";
+    const phaseInputSection = selectedPhase.phaseId === "refinement"
+        ? `
+      <div class="phase-input-shell">
+        <p class="phase-input-copy">
+          Add explicit human guidance for this shared workflow. The next regeneration persists the prompt with actor and timestamp,
+          then uses it as part of the spec input.
+        </p>
+        <label class="phase-input-label" for="phase-input-textarea">Prompt</label>
+        <textarea
+          id="phase-input-textarea"
+          class="phase-input-textarea"
+          rows="8"
+          placeholder="Add the clarification, constraint, correction, or direction that should shape the next spec output."
+          ${selectedPhase.isCurrent ? "" : "disabled"}></textarea>
+        <div class="detail-actions detail-actions--phase-input">
+          <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.inputArtifactPath ?? "")}" ${selectedPhase.inputArtifactPath ? "" : "disabled"}>Open Input Log</button>
+          <button id="submit-phase-input" class="workflow-action-button" ${selectedPhase.isCurrent ? "" : "disabled"}>Regenerate Spec</button>
+        </div>
+        ${state.selectedInputContent
+            ? `<div class="phase-input-log"><div class="phase-input-log__header">Current input log</div><pre class="artifact-preview">${escapeHtml(state.selectedInputContent)}</pre></div>`
+            : "<p class=\"muted\">No explicit human phase input has been registered yet.</p>"}
+      </div>
+    `
+        : "";
     const contextFiles = workflow.contextFiles ?? [];
     const workflowFilesSection = `
     <section class="file-group">
@@ -541,7 +565,13 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     const auditRows = workflow.events.length > 0
         ? workflow.events.map((event) => `
       <div class="audit-row">
-        <div class="audit-head">${escapeHtml(event.timestampUtc)} · ${escapeHtml(event.code)}</div>
+        <div class="audit-head">
+          <span>${escapeHtml(event.timestampUtc)} · ${escapeHtml(event.code)}</span>
+          <div class="audit-head__meta">
+            ${event.actor ? `<span class="badge">${escapeHtml(event.actor)}</span>` : ""}
+            ${event.phase ? `<span class="badge">${escapeHtml(event.phase)}</span>` : ""}
+          </div>
+        </div>
         <div class="audit-body">${escapeHtml(event.summary ?? "")}</div>
       </div>
     `).join("")
@@ -1402,6 +1432,51 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       display: grid;
       gap: 12px;
     }
+    .phase-input-shell {
+      display: grid;
+      gap: 12px;
+    }
+    .phase-input-copy {
+      margin: 0;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.8);
+    }
+    .phase-input-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.72);
+    }
+    .phase-input-textarea {
+      width: 100%;
+      min-height: 176px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(8, 12, 18, 0.84);
+      color: #f4f7fb;
+      resize: vertical;
+      font: inherit;
+      line-height: 1.5;
+    }
+    .phase-input-textarea:focus {
+      outline: none;
+      border-color: rgba(92, 181, 255, 0.42);
+      box-shadow: 0 0 0 3px rgba(92, 181, 255, 0.08);
+    }
+    .detail-actions--phase-input {
+      justify-content: space-between;
+    }
+    .phase-input-log {
+      display: grid;
+      gap: 8px;
+    }
+    .phase-input-log__header {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.68);
+    }
     .clarification-meta {
       display: flex;
       gap: 8px;
@@ -1666,9 +1741,18 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       padding-left: 12px;
     }
     .audit-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
       font-size: 0.8rem;
       color: rgba(255, 255, 255, 0.62);
+    }
+    .audit-head__meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
     }
     .audit-body {
       margin-top: 4px;
@@ -1854,6 +1938,14 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           <h3>Artifact</h3>
           ${artifactSection}
         </section>
+        ${phaseInputSection
+        ? `
+            <section class="detail-card">
+              <h3>Phase Input</h3>
+              ${phaseInputSection}
+            </section>
+          `
+        : ""}
         ${clarificationSection
         ? `
             <section class="detail-card">
@@ -2019,6 +2111,39 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         vscode.postMessage({
           command: "submitClarificationAnswers",
           answers
+        });
+      });
+    }
+
+    const phaseInputTextarea = document.getElementById("phase-input-textarea");
+    if (phaseInputTextarea instanceof HTMLTextAreaElement) {
+      phaseInputTextarea.value = typeof viewState.phaseInputDraft === "string" ? viewState.phaseInputDraft : "";
+      phaseInputTextarea.addEventListener("input", () => {
+        vscode.setState({
+          ...viewState,
+          workflowFilesOpen: Boolean(viewState.workflowFilesOpen),
+          phaseInputDraft: phaseInputTextarea.value
+        });
+      });
+    }
+
+    const submitPhaseInput = document.getElementById("submit-phase-input");
+    if (submitPhaseInput && phaseInputTextarea instanceof HTMLTextAreaElement) {
+      submitPhaseInput.addEventListener("click", () => {
+        const prompt = phaseInputTextarea.value.trim();
+        if (!prompt) {
+          return;
+        }
+
+        vscode.postMessage({
+          command: "submitPhaseInput",
+          prompt
+        });
+        phaseInputTextarea.value = "";
+        vscode.setState({
+          ...viewState,
+          workflowFilesOpen: Boolean(viewState.workflowFilesOpen),
+          phaseInputDraft: ""
         });
       });
     }

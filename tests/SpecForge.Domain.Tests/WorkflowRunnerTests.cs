@@ -111,6 +111,38 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RegisterPhaseInputAndRegenerateCurrentPhaseAsync_PersistsInputWithActorAndRegeneratesSpec()
+    {
+        var runner = new WorkflowRunner();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text", "alice");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var result = await runner.RegisterPhaseInputAndRegenerateCurrentPhaseAsync(
+            workspaceRoot,
+            "US-0001",
+            "Do not expand scope into roadmap work. Keep the export columns fixed.",
+            "bob");
+
+        Assert.Equal("US-0001", result.UsId);
+        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("waiting-user", result.Status);
+        Assert.True(File.Exists(result.InputArtifactPath));
+        Assert.True(File.Exists(result.GeneratedArtifactPath));
+
+        var inputMarkdown = await File.ReadAllTextAsync(result.InputArtifactPath);
+        Assert.Contains("`bob`", inputMarkdown);
+        Assert.Contains("Keep the export columns fixed.", inputMarkdown);
+
+        var regeneratedSpec = await File.ReadAllTextAsync(result.GeneratedArtifactPath);
+        Assert.Contains("Manual operator input must be honored", regeneratedSpec);
+
+        var timeline = await File.ReadAllTextAsync(UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath);
+        Assert.Contains("`manual_intervention_registered`", timeline);
+        Assert.Contains("- Actor: `alice`", timeline);
+        Assert.Contains("- Actor: `bob`", timeline);
+    }
+
+    [Fact]
     public async Task ContinuePhaseAsync_FromClarification_MergesNewQuestionsWithPreviousOnes()
     {
         var runner = new WorkflowRunner();

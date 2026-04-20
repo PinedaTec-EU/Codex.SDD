@@ -55,6 +55,15 @@ export interface CreateOrImportUserStoryResult {
   readonly mainArtifactPath: string;
 }
 
+export interface RegisterPhaseInputResult {
+  readonly usId: string;
+  readonly currentPhase: string;
+  readonly status: string;
+  readonly inputArtifactPath: string;
+  readonly generatedArtifactPath: string;
+  readonly usage: TokenUsage | null;
+}
+
 export interface InitializeRepoPromptsResult {
   readonly workspaceRoot: string;
   readonly configPath: string;
@@ -93,6 +102,7 @@ export interface WorkflowPhaseDetails {
   readonly isCurrent: boolean;
   readonly state: string;
   readonly artifactPath: string | null;
+  readonly inputArtifactPath?: string | null;
   readonly executePromptPath: string | null;
   readonly approvePromptPath: string | null;
 }
@@ -161,15 +171,16 @@ export interface SpecForgeBackendClient {
   getUserStorySummary(usId: string): Promise<UserStorySummary>;
   getUserStoryWorkflow(usId: string): Promise<UserStoryWorkflowDetails>;
   getUserStoryRuntimeStatus(usId: string): Promise<UserStoryRuntimeStatus>;
-  createUserStory(usId: string, title: string, kind: string, category: string, sourceText: string): Promise<CreateOrImportUserStoryResult>;
-  importUserStory(usId: string, sourcePath: string, title: string, kind: string, category: string): Promise<CreateOrImportUserStoryResult>;
+  createUserStory(usId: string, title: string, kind: string, category: string, sourceText: string, actor?: string): Promise<CreateOrImportUserStoryResult>;
+  importUserStory(usId: string, sourcePath: string, title: string, kind: string, category: string, actor?: string): Promise<CreateOrImportUserStoryResult>;
   initializeRepoPrompts(overwrite?: boolean): Promise<InitializeRepoPromptsResult>;
   continuePhase(usId: string): Promise<ContinuePhaseResult>;
-  approveCurrentPhase(usId: string, baseBranch?: string): Promise<UserStorySummary>;
-  requestRegression(usId: string, targetPhase: string, reason?: string): Promise<RequestRegressionResult>;
-  restartUserStoryFromSource(usId: string, reason?: string): Promise<RestartUserStoryResult>;
+  approveCurrentPhase(usId: string, baseBranch?: string, actor?: string): Promise<UserStorySummary>;
+  requestRegression(usId: string, targetPhase: string, reason?: string, actor?: string): Promise<RequestRegressionResult>;
+  restartUserStoryFromSource(usId: string, reason?: string, actor?: string): Promise<RestartUserStoryResult>;
   resetUserStoryToCapture(usId: string): Promise<ResetUserStoryResult>;
-  submitClarificationAnswers(usId: string, answers: readonly string[]): Promise<void>;
+  submitClarificationAnswers(usId: string, answers: readonly string[], actor?: string): Promise<void>;
+  registerPhaseInput(usId: string, prompt: string, actor?: string): Promise<RegisterPhaseInputResult>;
   cancelActiveOperations(): void;
   dispose(): void;
 }
@@ -263,25 +274,27 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     });
   }
 
-  public async createUserStory(usId: string, title: string, kind: string, category: string, sourceText: string): Promise<CreateOrImportUserStoryResult> {
+  public async createUserStory(usId: string, title: string, kind: string, category: string, sourceText: string, actor?: string): Promise<CreateOrImportUserStoryResult> {
     return this.callTool<CreateOrImportUserStoryResult>("create_us_from_chat", {
       workspaceRoot: this.workspaceRoot,
       usId,
       title,
       kind,
       category,
-      sourceText
+      sourceText,
+      ...(actor && actor.trim().length > 0 ? { actor } : {})
     });
   }
 
-  public async importUserStory(usId: string, sourcePath: string, title: string, kind: string, category: string): Promise<CreateOrImportUserStoryResult> {
+  public async importUserStory(usId: string, sourcePath: string, title: string, kind: string, category: string, actor?: string): Promise<CreateOrImportUserStoryResult> {
     return this.callTool<CreateOrImportUserStoryResult>("import_us_from_markdown", {
       workspaceRoot: this.workspaceRoot,
       usId,
       sourcePath,
       title,
       kind,
-      category
+      category,
+      ...(actor && actor.trim().length > 0 ? { actor } : {})
     });
   }
 
@@ -299,24 +312,24 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     });
   }
 
-  public async approveCurrentPhase(usId: string, baseBranch?: string): Promise<UserStorySummary> {
+  public async approveCurrentPhase(usId: string, baseBranch?: string, actor?: string): Promise<UserStorySummary> {
     return this.callTool<UserStorySummary>(
       "approve_phase",
-      buildApprovePhaseArguments(this.workspaceRoot, usId, baseBranch)
+      buildApprovePhaseArguments(this.workspaceRoot, usId, baseBranch, actor)
     );
   }
 
-  public async requestRegression(usId: string, targetPhase: string, reason?: string): Promise<RequestRegressionResult> {
+  public async requestRegression(usId: string, targetPhase: string, reason?: string, actor?: string): Promise<RequestRegressionResult> {
     return this.callTool<RequestRegressionResult>(
       "request_regression",
-      buildRequestRegressionArguments(this.workspaceRoot, usId, targetPhase, reason)
+      buildRequestRegressionArguments(this.workspaceRoot, usId, targetPhase, reason, actor)
     );
   }
 
-  public async restartUserStoryFromSource(usId: string, reason?: string): Promise<RestartUserStoryResult> {
+  public async restartUserStoryFromSource(usId: string, reason?: string, actor?: string): Promise<RestartUserStoryResult> {
     return this.callTool<RestartUserStoryResult>(
       "restart_user_story_from_source",
-      buildRestartUserStoryArguments(this.workspaceRoot, usId, reason)
+      buildRestartUserStoryArguments(this.workspaceRoot, usId, reason, actor)
     );
   }
 
@@ -327,11 +340,21 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     });
   }
 
-  public async submitClarificationAnswers(usId: string, answers: readonly string[]): Promise<void> {
+  public async submitClarificationAnswers(usId: string, answers: readonly string[], actor?: string): Promise<void> {
     await this.callTool<void>("submit_clarification_answers", {
       workspaceRoot: this.workspaceRoot,
       usId,
-      answers
+      answers,
+      ...(actor && actor.trim().length > 0 ? { actor } : {})
+    });
+  }
+
+  public async registerPhaseInput(usId: string, prompt: string, actor?: string): Promise<RegisterPhaseInputResult> {
+    return this.callTool<RegisterPhaseInputResult>("register_phase_input", {
+      workspaceRoot: this.workspaceRoot,
+      usId,
+      prompt,
+      ...(actor && actor.trim().length > 0 ? { actor } : {})
     });
   }
 

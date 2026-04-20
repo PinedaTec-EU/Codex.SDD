@@ -62,6 +62,7 @@ Input:
 
 - `us.md`
 - additional user context when available
+- optional explicit human phase input persisted in `phases/01-spec.input.md`
 
 Output:
 
@@ -87,6 +88,7 @@ Operational Notes:
 - if the user story changes after `refinement` starts, those changes are not incorporated automatically
 - if the user wants to restart from the new user story, the system must clean already-processed derived work and reinitialize the flow
 - every agent modification to the spec file must add a `history log` block at the top with date and a short multiline summary
+- explicit human prompts used to steer spec regeneration must be persisted with actor and UTC timestamp before the phase is rerun
 - approving this phase freezes the spec baseline and creates the work branch that isolates implementation
 - approval must fail if the spec is structurally invalid or still contains placeholder-only required sections
 
@@ -270,6 +272,7 @@ Convention:
 - `yaml` for state, configuration, and technical metadata
 - `input.md` is not created by default if the phase input can be inferred from the previously approved baseline and active state
 - an explicit input artifact is materialized only when needed to freeze a non-inferable snapshot or attach extraordinary context
+- when an explicit phase input artifact exists, it must record actor identity, UTC timestamp, and the exact prompt used for regeneration
 
 Input resolution by phase:
 
@@ -288,6 +291,7 @@ Input resolution by phase:
       timeline.md
       phases/
         01-spec.md
+        01-spec.input.md
         02-technical-design.md
         02-technical-design.v02.md
         03-implementation.md
@@ -299,6 +303,7 @@ Location rule:
 
 - each user story lives under `.specs/us/us.<us-id>/`
 - this convention prioritizes visibility at the workspace root and clear separation from product code
+- `timeline.md` is the mandatory audit trail for who acted, when it happened, and which phase was affected
 
 ## Minimum `state.yaml` State
 

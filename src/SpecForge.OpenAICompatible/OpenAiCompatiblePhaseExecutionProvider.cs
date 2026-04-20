@@ -228,6 +228,21 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(context.HumanInputPath) && File.Exists(context.HumanInputPath))
+        {
+            var humanInput = await File.ReadAllTextAsync(context.HumanInputPath, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(humanInput))
+            {
+                builder
+                    .AppendLine("## Human Phase Input")
+                    .AppendLine()
+                    .AppendLine($"Path: `{context.HumanInputPath}`")
+                    .AppendLine()
+                    .AppendLine(humanInput.Trim())
+                    .AppendLine();
+            }
+        }
+
         builder
             .AppendLine("## Execution Rules")
             .AppendLine()

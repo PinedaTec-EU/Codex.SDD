@@ -272,6 +272,7 @@ Minimum input:
 usId: US-0001
 phaseId: refinement
 approvedBy: user
+actor: alice
 baseBranch: main
 ```
 
@@ -317,6 +318,7 @@ usId: US-0001
 targetPhaseId: technical_design
 reason: Review detected insufficient decoupling
 requestedBy: user
+actor: alice
 ```
 
 Minimum output:
@@ -348,6 +350,7 @@ Minimum input:
 ```yaml
 usId: US-0001
 requestedBy: user
+actor: alice
 reason: The user story changed after refinement started
 ```
 
@@ -367,6 +370,42 @@ Business errors:
 
 - `us_not_found`
 - `restart_not_allowed`
+
+### `register_phase_input`
+
+Purpose:
+
+- persist explicit human guidance for the current artifact phase and regenerate that phase using the new input
+
+Minimum input:
+
+```yaml
+usId: US-0001
+actor: alice
+prompt: |
+  Keep the current spec bounded to article ingestion only.
+  Do not expand into publishing workflows.
+```
+
+Minimum output:
+
+```yaml
+usId: US-0001
+status: waiting_user
+currentPhase: refinement
+inputArtifactPath: .specs/us/us.US-0001/phases/01-spec.input.md
+generatedArtifactPath: .specs/us/us.US-0001/phases/01-spec.v02.md
+messages:
+  - code: manual_intervention_registered
+    level: info
+    text: Human phase input was persisted and used to regenerate the current artifact
+```
+
+Business errors:
+
+- `us_not_found`
+- `phase_transition_not_allowed`
+- `validation_error`
 
 ### `list_user_story_files`
 

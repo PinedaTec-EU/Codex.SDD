@@ -89,14 +89,16 @@ static async Task<JsonNode> HandleToolCallAsync(
             title: GetRequired(arguments, "title"),
             kind: GetRequired(arguments, "kind"),
             category: GetRequired(arguments, "category"),
-            sourceText: GetRequired(arguments, "sourceText")),
+            sourceText: GetRequired(arguments, "sourceText"),
+            actor: GetOptional(arguments, "actor") ?? "user"),
         "import_us_from_markdown" => await applicationService.ImportUserStoryAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
             sourcePath: GetRequired(arguments, "sourcePath"),
             title: GetRequired(arguments, "title"),
             kind: GetRequired(arguments, "kind"),
-            category: GetRequired(arguments, "category")),
+            category: GetRequired(arguments, "category"),
+            actor: GetOptional(arguments, "actor") ?? "user"),
         "initialize_repo_prompts" => await applicationService.InitializeRepoPromptsAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             overwrite: GetOptionalBoolean(arguments, "overwrite")),
@@ -123,23 +125,32 @@ static async Task<JsonNode> HandleToolCallAsync(
         "approve_phase" => await applicationService.ApprovePhaseAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
-            baseBranch: GetOptional(arguments, "baseBranch")),
+            baseBranch: GetOptional(arguments, "baseBranch"),
+            actor: GetOptional(arguments, "actor") ?? "user"),
         "request_regression" => await applicationService.RequestRegressionAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
             targetPhase: GetRequired(arguments, "targetPhase"),
-            reason: GetOptional(arguments, "reason")),
+            reason: GetOptional(arguments, "reason"),
+            actor: GetOptional(arguments, "actor") ?? "user"),
         "restart_user_story_from_source" => await applicationService.RestartUserStoryFromSourceAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
-            reason: GetOptional(arguments, "reason")),
+            reason: GetOptional(arguments, "reason"),
+            actor: GetOptional(arguments, "actor") ?? "user"),
         "reset_user_story_to_capture" => await applicationService.ResetUserStoryToCaptureAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId")),
         "submit_clarification_answers" => await applicationService.SubmitClarificationAnswersAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
-            answers: GetStringArray(arguments, "answers")),
+            answers: GetStringArray(arguments, "answers"),
+            actor: GetOptional(arguments, "actor") ?? "user"),
+        "register_phase_input" => await applicationService.RegisterPhaseInputAndRegenerateCurrentPhaseAsync(
+            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+            usId: GetRequired(arguments, "usId"),
+            prompt: GetRequired(arguments, "prompt"),
+            actor: GetOptional(arguments, "actor") ?? "user"),
         "list_user_story_files" => await applicationService.ListUserStoryFilesAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId")),
@@ -192,6 +203,7 @@ static JsonObject BuildToolsList()
             Tool("restart_user_story_from_source", "Restart a user story after the source has changed."),
             Tool("reset_user_story_to_capture", "Reset a user story to capture and delete generated derived artifacts."),
             Tool("submit_clarification_answers", "Store clarification answers inside the user story so clarification can re-run."),
+            Tool("register_phase_input", "Persist explicit human phase input and regenerate the current artifact with that input."),
             Tool("list_user_story_files", "List context files and user-story files currently persisted for a user story."),
             Tool("add_user_story_files", "Copy files into a user story as either context or user-story info."),
             Tool("set_user_story_file_kind", "Move an existing user-story file between context and user-story info.")

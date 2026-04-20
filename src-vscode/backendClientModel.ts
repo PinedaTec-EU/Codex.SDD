@@ -1,7 +1,8 @@
 export function buildApprovePhaseArguments(
   workspaceRoot: string,
   usId: string,
-  baseBranch?: string
+  baseBranch?: string,
+  actor?: string
 ): Record<string, string> {
   const argumentsPayload: Record<string, string> = {
     workspaceRoot,
@@ -12,6 +13,10 @@ export function buildApprovePhaseArguments(
     argumentsPayload.baseBranch = baseBranch;
   }
 
+  if (actor && actor.trim().length > 0) {
+    argumentsPayload.actor = actor;
+  }
+
   return argumentsPayload;
 }
 
@@ -19,7 +24,8 @@ export function buildRequestRegressionArguments(
   workspaceRoot: string,
   usId: string,
   targetPhase: string,
-  reason?: string
+  reason?: string,
+  actor?: string
 ): Record<string, string> {
   const argumentsPayload: Record<string, string> = {
     workspaceRoot,
@@ -31,13 +37,18 @@ export function buildRequestRegressionArguments(
     argumentsPayload.reason = reason;
   }
 
+  if (actor && actor.trim().length > 0) {
+    argumentsPayload.actor = actor;
+  }
+
   return argumentsPayload;
 }
 
 export function buildRestartUserStoryArguments(
   workspaceRoot: string,
   usId: string,
-  reason?: string
+  reason?: string,
+  actor?: string
 ): Record<string, string> {
   const argumentsPayload: Record<string, string> = {
     workspaceRoot,
@@ -46,6 +57,10 @@ export function buildRestartUserStoryArguments(
 
   if (reason && reason.trim().length > 0) {
     argumentsPayload.reason = reason;
+  }
+
+  if (actor && actor.trim().length > 0) {
+    argumentsPayload.actor = actor;
   }
 
   return argumentsPayload;

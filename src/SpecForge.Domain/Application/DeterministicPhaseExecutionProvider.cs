@@ -82,6 +82,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         var ambiguity = string.IsNullOrWhiteSpace(initialScope)
             ? "The source does not yet distinguish clearly between in-scope behavior and deliberate exclusions."
             : "The source identifies baseline scope, but edge cases and non-functional expectations still need explicit validation.";
+        var humanInputSummary = await ReadHumanInputSummaryAsync(context.HumanInputPath, cancellationToken);
 
         return string.Join(
                    Environment.NewLine,
@@ -102,6 +103,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                        "## Inputs",
                        "- Source intent from `us.md`.",
                        "- Clarification answers when available.",
+                       humanInputSummary is null ? "- No explicit human phase input has been registered yet." : $"- Explicit human phase input from `{Path.GetFileName(context.HumanInputPath)}` is active.",
                        string.Empty,
                        "## Outputs",
                        "- A bounded implementation target for technical design.",
@@ -123,6 +125,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                        "## Constraints",
                        "- Keep the first implementation pass bounded to the current repository and workflow phase.",
                        "- Treat external integrations, security policy changes, and cross-cutting architecture shifts as explicit decisions, not defaults.",
+                       humanInputSummary is null ? "- No additional operator prompt is constraining this phase yet." : $"- Manual operator input must be honored: {humanInputSummary}",
                        string.Empty,
                        "## Detected Ambiguities",
                        $"- {ambiguity}",
@@ -353,5 +356,30 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
 
         var userStoryMarkdown = await File.ReadAllTextAsync(userStoryPath, cancellationToken);
         return UserStoryClarificationMarkdown.Parse(userStoryMarkdown);
+    }
+
+    private static async Task<string?> ReadHumanInputSummaryAsync(
+        string? humanInputPath,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(humanInputPath) || !File.Exists(humanInputPath))
+        {
+            return null;
+        }
+
+        var content = await File.ReadAllTextAsync(humanInputPath, cancellationToken);
+        var lines = content.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(static line => line.Trim())
+            .Where(static line => !line.StartsWith("#", StringComparison.Ordinal))
+            .ToArray();
+
+        var summary = string.Join(" ", lines);
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            return null;
+        }
+
+        return summary.Length <= 220 ? summary : $"{summary[..217]}...";
     }
 }

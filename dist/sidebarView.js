@@ -41,6 +41,7 @@ const extensionSettings_1 = require("./extensionSettings");
 const explorerModel_1 = require("./explorerModel");
 const specsExplorer_1 = require("./specsExplorer");
 const sidebarViewContent_1 = require("./sidebarViewContent");
+const userActor_1 = require("./userActor");
 const userStoryIntake_1 = require("./userStoryIntake");
 const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
 class SidebarViewProvider {
@@ -184,7 +185,7 @@ class SidebarViewProvider {
         const backendClient = (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot);
         const summaries = await backendClient.listUserStories();
         const usId = (0, explorerModel_1.nextUserStoryIdFromSummaries)(summaries);
-        const result = await backendClient.createUserStory(usId, title, kind, category, sourceText);
+        const result = await backendClient.createUserStory(usId, title, kind, category, sourceText, (0, userActor_1.getCurrentActor)());
         await this.materializeCreateFilesAsync(result.rootDirectory);
         this.showCreateForm = false;
         this.createFiles = [];

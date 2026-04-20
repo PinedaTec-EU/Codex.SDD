@@ -43,10 +43,11 @@ public sealed class SpecForgeApplicationService
         string kind,
         string category,
         string sourceText,
+        string actor = "user",
         CancellationToken cancellationToken = default)
     {
         repositoryCategoryCatalog.EnsureCategoryIsAllowed(workspaceRoot, category);
-        var rootDirectory = await workflowRunner.CreateUserStoryAsync(workspaceRoot, usId, title, kind, category, sourceText, cancellationToken);
+        var rootDirectory = await workflowRunner.CreateUserStoryAsync(workspaceRoot, usId, title, kind, category, sourceText, actor, cancellationToken);
         return new CreateOrImportUserStoryResult(usId, rootDirectory, Path.Combine(rootDirectory, "us.md"));
     }
 
@@ -57,10 +58,11 @@ public sealed class SpecForgeApplicationService
         string title,
         string kind,
         string category,
+        string actor = "user",
         CancellationToken cancellationToken = default)
     {
         var sourceText = await File.ReadAllTextAsync(sourcePath, cancellationToken);
-        return await CreateUserStoryAsync(workspaceRoot, usId, title, kind, category, sourceText, cancellationToken);
+        return await CreateUserStoryAsync(workspaceRoot, usId, title, kind, category, sourceText, actor, cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<UserStorySummary>> ListUserStoriesAsync(
@@ -259,9 +261,10 @@ public sealed class SpecForgeApplicationService
         string workspaceRoot,
         string usId,
         string? baseBranch,
+        string actor = "user",
         CancellationToken cancellationToken = default)
     {
-        await workflowRunner.ApproveCurrentPhaseAsync(workspaceRoot, usId, baseBranch, cancellationToken);
+        await workflowRunner.ApproveCurrentPhaseAsync(workspaceRoot, usId, baseBranch, actor, cancellationToken);
         var summary = await GetUserStorySummaryAsync(workspaceRoot, usId, cancellationToken);
         return new ApprovalResult(summary.UsId, summary.Status, summary.CurrentPhase, baseBranch, summary.WorkBranch);
     }
@@ -271,18 +274,20 @@ public sealed class SpecForgeApplicationService
         string usId,
         string targetPhase,
         string? reason = null,
+        string actor = "user",
         CancellationToken cancellationToken = default)
     {
         var phaseId = WorkflowPresentation.ParsePhaseSlug(targetPhase);
-        return workflowRunner.RequestRegressionAsync(workspaceRoot, usId, phaseId, reason, cancellationToken);
+        return workflowRunner.RequestRegressionAsync(workspaceRoot, usId, phaseId, reason, actor, cancellationToken);
     }
 
     public Task<RestartUserStoryResult> RestartUserStoryFromSourceAsync(
         string workspaceRoot,
         string usId,
         string? reason = null,
+        string actor = "user",
         CancellationToken cancellationToken = default) =>
-        workflowRunner.RestartUserStoryFromSourceAsync(workspaceRoot, usId, reason, cancellationToken);
+        workflowRunner.RestartUserStoryFromSourceAsync(workspaceRoot, usId, reason, actor, cancellationToken);
 
     public Task<ResetUserStoryResult> ResetUserStoryToCaptureAsync(
         string workspaceRoot,
@@ -294,8 +299,17 @@ public sealed class SpecForgeApplicationService
         string workspaceRoot,
         string usId,
         IReadOnlyList<string> answers,
+        string actor = "user",
         CancellationToken cancellationToken = default) =>
-        workflowRunner.SubmitClarificationAnswersAsync(workspaceRoot, usId, answers, cancellationToken);
+        workflowRunner.SubmitClarificationAnswersAsync(workspaceRoot, usId, answers, actor, cancellationToken);
+
+    public Task<RegisterPhaseInputResult> RegisterPhaseInputAndRegenerateCurrentPhaseAsync(
+        string workspaceRoot,
+        string usId,
+        string prompt,
+        string actor = "user",
+        CancellationToken cancellationToken = default) =>
+        workflowRunner.RegisterPhaseInputAndRegenerateCurrentPhaseAsync(workspaceRoot, usId, prompt, actor, cancellationToken);
 
     public Task<UserStoryFilesResult> ListUserStoryFilesAsync(
         string workspaceRoot,
@@ -418,6 +432,7 @@ public sealed class SpecForgeApplicationService
                 workflowRun.CurrentPhase == phaseId,
                 ResolvePhaseState(workflowRun, phaseId),
                 TryGetLatestArtifactPath(paths, phaseId),
+                TryGetLatestInputPath(paths, phaseId),
                 TryGetExecutePromptPath(paths, phaseId),
                 TryGetApprovePromptPath(paths, phaseId)))
             .ToArray();
@@ -505,6 +520,16 @@ public sealed class SpecForgeApplicationService
         }
 
         return paths.GetLatestExistingPhaseArtifactPath(phaseId);
+    }
+
+    private static string? TryGetLatestInputPath(UserStoryFilePaths paths, Workflow.PhaseId phaseId)
+    {
+        if (phaseId is Workflow.PhaseId.Capture or Workflow.PhaseId.Clarification or Workflow.PhaseId.ReleaseApproval or Workflow.PhaseId.PrPreparation)
+        {
+            return null;
+        }
+
+        return paths.GetLatestExistingPhaseInputPath(phaseId);
     }
 
     private static string? TryGetExecutePromptPath(UserStoryFilePaths paths, Workflow.PhaseId phaseId)
