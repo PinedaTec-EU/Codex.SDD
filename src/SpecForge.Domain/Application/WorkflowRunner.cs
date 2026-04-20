@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using SpecForge.Domain.Persistence;
 using SpecForge.Domain.Workflow;
 
@@ -8,6 +9,16 @@ namespace SpecForge.Domain.Application;
 
 public sealed class WorkflowRunner
 {
+    private static readonly HashSet<string> ClarificationQuestionStopWords =
+    [
+        "the", "and", "for", "with", "that", "this", "from", "into", "when", "where", "what", "which", "should", "does",
+        "must", "have", "there", "will", "then", "than", "user", "users", "field", "should", "exactly", "only",
+        "use", "used", "using", "see", "show", "shown", "visible", "label", "allow", "allowed", "require", "required",
+        "que", "del", "las", "los", "para", "por", "con", "una", "uno", "unos", "unas", "como", "debe", "deben",
+        "deberia", "tambien", "sobre", "desde", "esta", "este", "estos", "estas", "hay", "cual", "cuales", "campo",
+        "usuario", "de", "la", "el", "un", "es", "en", "si", "sin", "sea", "solo"
+    ];
+
     private readonly UserStoryFileStore fileStore;
     private readonly IPhaseExecutionProvider phaseExecutionProvider;
     private readonly RepositoryCategoryCatalog repositoryCategoryCatalog;
@@ -673,17 +684,18 @@ public sealed class WorkflowRunner
         var decision = ReadMarkdownSection(markdown, "## Decision").Trim();
         var reason = ReadMarkdownSection(markdown, "## Reason").Trim();
         var questionsSection = ReadMarkdownSection(markdown, "## Questions").Trim();
-        var questions = questionsSection
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(static line => line.Trim())
-            .Where(static line => line.Length > 0 && char.IsDigit(line[0]))
-            .Select(static line =>
-            {
-                var separator = line.IndexOf(". ", StringComparison.Ordinal);
-                return separator > 0 ? line[(separator + 2)..].Trim() : line;
-            })
-            .Where(static line => !string.Equals(line, "No clarification questions remain.", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
+        var questions = DeduplicateClarificationQuestions(
+            questionsSection
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(static line => line.Trim())
+                .Where(static line => line.Length > 0 && char.IsDigit(line[0]))
+                .Select(static line =>
+                {
+                    var separator = line.IndexOf(". ", StringComparison.Ordinal);
+                    return separator > 0 ? line[(separator + 2)..].Trim() : line;
+                })
+                .Where(static line => !string.Equals(line, "No clarification questions remain.", StringComparison.OrdinalIgnoreCase))
+                .ToArray());
         var isReady = string.Equals(decision, "ready_for_refinement", StringComparison.OrdinalIgnoreCase);
 
         return new ClarificationAssessment(
@@ -693,6 +705,139 @@ public sealed class WorkflowRunner
             isReady
                 ? "Clarification pre-flight passed. Advancing to refinement."
                 : "Clarification questions were generated and recorded in `us.md`.");
+    }
+
+    private static IReadOnlyCollection<string> DeduplicateClarificationQuestions(IReadOnlyCollection<string> questions)
+    {
+        var deduplicated = new List<string>();
+        var signatures = new List<HashSet<string>>();
+
+        foreach (var question in questions)
+        {
+            var normalizedQuestion = NormalizeClarificationQuestion(question);
+            if (string.IsNullOrWhiteSpace(normalizedQuestion))
+            {
+                continue;
+            }
+
+            var candidateSignature = BuildClarificationQuestionSignature(normalizedQuestion);
+            var isDuplicate = false;
+
+            for (var index = 0; index < deduplicated.Count; index++)
+            {
+                if (AreClarificationQuestionsEquivalent(
+                    deduplicated[index],
+                    signatures[index],
+                    normalizedQuestion,
+                    candidateSignature))
+                {
+                    isDuplicate = true;
+                    break;
+                }
+            }
+
+            if (!isDuplicate)
+            {
+                deduplicated.Add(normalizedQuestion);
+                signatures.Add(candidateSignature);
+            }
+        }
+
+        return deduplicated;
+    }
+
+    private static bool AreClarificationQuestionsEquivalent(
+        string existingQuestion,
+        HashSet<string> existingSignature,
+        string candidateQuestion,
+        HashSet<string> candidateSignature)
+    {
+        if (string.Equals(existingQuestion, candidateQuestion, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (existingSignature.Count == 0 || candidateSignature.Count == 0)
+        {
+            return false;
+        }
+
+        var overlap = existingSignature.Count(token => candidateSignature.Contains(token));
+        if (overlap == 0)
+        {
+            return false;
+        }
+
+        var union = existingSignature.Count + candidateSignature.Count - overlap;
+        var jaccard = union == 0 ? 0d : (double)overlap / union;
+        var coverage = (double)overlap / Math.Min(existingSignature.Count, candidateSignature.Count);
+
+        return overlap >= 4 && (jaccard >= 0.5d || coverage >= 0.75d);
+    }
+
+    private static string NormalizeClarificationQuestion(string question) =>
+        Regex.Replace(question.Trim(), "\\s+", " ");
+
+    private static HashSet<string> BuildClarificationQuestionSignature(string question)
+    {
+        var normalized = RemoveDiacritics(question).ToLowerInvariant();
+        var rawTokens = Regex.Split(normalized, "[^a-z0-9]+");
+        var tokens = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var rawToken in rawTokens)
+        {
+            var token = NormalizeClarificationQuestionToken(rawToken);
+            if (token.Length < 3 || ClarificationQuestionStopWords.Contains(token))
+            {
+                continue;
+            }
+
+            tokens.Add(token);
+        }
+
+        return tokens;
+    }
+
+    private static string NormalizeClarificationQuestionToken(string token)
+    {
+        var normalized = token;
+
+        if (normalized.EndsWith("ing", StringComparison.Ordinal) && normalized.Length > 5)
+        {
+            normalized = normalized[..^3];
+        }
+        else if (normalized.EndsWith("ed", StringComparison.Ordinal) && normalized.Length > 4)
+        {
+            normalized = normalized[..^2];
+        }
+        else if (normalized.EndsWith("es", StringComparison.Ordinal) && normalized.Length > 4)
+        {
+            normalized = normalized[..^2];
+        }
+        else if (normalized.EndsWith("s", StringComparison.Ordinal) && normalized.Length > 3)
+        {
+            normalized = normalized[..^1];
+        }
+
+        return normalized;
+    }
+
+    private static string RemoveDiacritics(string value)
+    {
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+
+        foreach (var character in normalized)
+        {
+            if (char.GetUnicodeCategory(character) == System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            builder.Append(character);
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 
     private static async Task UpdateClarificationLogAsync(

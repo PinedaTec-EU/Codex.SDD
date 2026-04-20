@@ -165,6 +165,38 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public void ParseClarificationArtifact_DeduplicatesSemanticallyEquivalentQuestions()
+    {
+        const string clarificationMarkdown =
+            """
+            # Clarification · US-0001 · v01
+
+            ## State
+            - State: `pending_user_input`
+
+            ## Decision
+            needs_clarification
+
+            ## Reason
+            More detail is required.
+
+            ## Questions
+            1. What visible label should the field use in the Recent events UI: Source, TrackId, or Source / TrackId?
+            2. Should the user see the field in Recent events as Source, TrackId, or Source / TrackId?
+            3. Should the source filter require exact match or allow case-insensitive partial search?
+            4. Must the source filter be exact, or can it use case-insensitive partial matching?
+            """;
+
+        var parseMethod = typeof(WorkflowRunner).GetMethod("ParseClarificationArtifact", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var assessment = parseMethod.Invoke(null, [clarificationMarkdown])!;
+        var questions = (IReadOnlyCollection<string>)assessment.GetType().GetProperty("Questions")!.GetValue(assessment)!;
+
+        Assert.Equal(2, questions.Count);
+        Assert.Contains("What visible label should the field use in the Recent events UI: Source, TrackId, or Source / TrackId?", questions);
+        Assert.Contains("Should the source filter require exact match or allow case-insensitive partial search?", questions);
+    }
+
+    [Fact]
     public async Task ContinuePhaseAsync_FromCapture_WithShortButConcreteSource_AllowsRefinement()
     {
         var runner = new WorkflowRunner();
