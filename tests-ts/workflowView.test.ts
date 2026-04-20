@@ -379,6 +379,80 @@ test("buildWorkflowHtml shows clarification as the active execution step from ca
   assert.match(html, /phase-node capture phase-tone-completed/);
 });
 
+test("buildWorkflowHtml keeps clarification visible in the graph even before any clarification history exists", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0004A",
+    title: "Clarification always visible",
+    category: "workflow",
+    status: "active",
+    currentPhase: "capture",
+    directoryPath: "/tmp/us.US-0004A",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "clarification",
+        title: "Clarification",
+        order: 1,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 2,
+        requiresApproval: true,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "capture",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /phase-node clarification /);
+  assert.match(html, /<h3>Clarification<\/h3>/);
+});
+
 test("buildWorkflowHtml advances the execution overlay to refinement after clarification passes", () => {
   const html = buildWorkflowHtml({
     usId: "US-0005",
@@ -878,7 +952,7 @@ test("buildWorkflowHtml proposes manual and suggested context files during clari
   assert.match(html, /Matches clarification keywords: tests, workflow\./);
 });
 
-test("buildWorkflowHtml hides clarification and draws a direct capture to refinement link when clarification was skipped", () => {
+test("buildWorkflowHtml keeps clarification visible after the model skips additional clarification questions", () => {
   const html = buildWorkflowHtml({
     usId: "US-0005",
     title: "Direct refinement flow",
@@ -974,8 +1048,9 @@ test("buildWorkflowHtml hides clarification and draws a direct capture to refine
     settingsMessage: null
   }, "idle");
 
-  assert.doesNotMatch(html, /phase-node clarification/);
-  assert.match(html, /<path class="completed" d="[^"]+"><\/path>/);
+  assert.match(html, /phase-node clarification phase-tone-completed/);
+  assert.match(html, /phase-node refinement phase-tone-waiting-user selected/);
+  assert.match(html, /<h3>Clarification<\/h3>/);
 });
 
 test("buildWorkflowHtml spaces same-column phases far enough apart to avoid overlap", () => {

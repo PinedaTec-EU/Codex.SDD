@@ -2170,16 +2170,8 @@ function buildGraphLinks(visiblePhases, executingTargetPhaseId, completedPhaseId
         .map((edge) => `<path class="${edge.className}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth)}"></path>`)
         .join("");
 }
-function hasClarificationHistory(workflow) {
-    return workflow.currentPhase === "clarification"
-        || workflow.clarification?.status === "needs_clarification"
-        || workflow.events.some((event) => event.phase === "clarification"
-            && event.code !== "clarification_passed");
-}
-function shouldShowClarificationPhase(workflow, executionPhaseId) {
-    return hasClarificationHistory(workflow)
-        || executionPhaseId === "clarification"
-        || executionPhaseId === "refinement";
+function shouldShowClarificationPhase(_workflow, _executionPhaseId) {
+    return true;
 }
 function linkClass(targetPhase, executingTargetPhaseId, completedPhaseIds) {
     if (executingTargetPhaseId === targetPhase.phaseId) {

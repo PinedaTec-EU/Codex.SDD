@@ -2286,21 +2286,11 @@ function buildGraphLinks(
     .join("");
 }
 
-function hasClarificationHistory(workflow: UserStoryWorkflowDetails): boolean {
-  return workflow.currentPhase === "clarification"
-    || workflow.clarification?.status === "needs_clarification"
-    || workflow.events.some((event) =>
-      event.phase === "clarification"
-      && event.code !== "clarification_passed");
-}
-
 function shouldShowClarificationPhase(
-  workflow: UserStoryWorkflowDetails,
-  executionPhaseId: string | null
+  _workflow: UserStoryWorkflowDetails,
+  _executionPhaseId: string | null
 ): boolean {
-  return hasClarificationHistory(workflow)
-    || executionPhaseId === "clarification"
-    || executionPhaseId === "refinement";
+  return true;
 }
 
 function linkClass(
