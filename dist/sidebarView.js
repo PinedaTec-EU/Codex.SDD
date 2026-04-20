@@ -41,6 +41,7 @@ const extensionSettings_1 = require("./extensionSettings");
 const explorerModel_1 = require("./explorerModel");
 const specsExplorer_1 = require("./specsExplorer");
 const sidebarViewContent_1 = require("./sidebarViewContent");
+const userStoryIntake_1 = require("./userStoryIntake");
 const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
 class SidebarViewProvider {
     extensionUri;
@@ -165,7 +166,17 @@ class SidebarViewProvider {
         const title = message.title?.trim();
         const kind = message.kind?.trim();
         const category = message.category?.trim();
-        const sourceText = message.sourceText?.trim();
+        const intakeMode = message.intakeMode === "wizard" ? "wizard" : "freeform";
+        const sourceText = intakeMode === "wizard"
+            ? (0, userStoryIntake_1.buildWizardSourceText)(message.wizardDraft).trim()
+            : message.sourceText?.trim();
+        if (intakeMode === "wizard") {
+            const missingFields = (0, userStoryIntake_1.getWizardMissingFields)(message.wizardDraft);
+            if (missingFields.length > 0) {
+                void vscode.window.showWarningMessage(`The guided wizard still needs ${missingFields.join(", ")}.`);
+                return;
+            }
+        }
         if (!title || !kind || !category || !sourceText) {
             void vscode.window.showWarningMessage("Title, kind, category, and source are required.");
             return;

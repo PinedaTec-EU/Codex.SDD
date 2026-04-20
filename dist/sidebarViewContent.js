@@ -95,13 +95,37 @@ function buildSidebarHtml(model) {
           <button class="ghost-action" data-command="hideCreateForm">Close</button>
         </div>
         <form id="create-user-story-form">
+          <div class="intake-shell">
+            <div class="intake-switch" role="tablist" aria-label="User story intake mode">
+              <button class="intake-switch__option intake-switch__option--active" type="button" data-intake-mode="freeform">Freeform</button>
+              <button class="intake-switch__option" type="button" data-intake-mode="wizard">Guided Wizard</button>
+            </div>
+            <div class="intake-guidance">
+              <div class="intake-guidance__group">
+                <span class="intake-guidance__title">Minimum</span>
+                <ul>
+                  <li>Who or what is affected</li>
+                  <li>What change is requested</li>
+                  <li>How success will be validated</li>
+                </ul>
+              </div>
+              <div class="intake-guidance__group">
+                <span class="intake-guidance__title">Recommended</span>
+                <ul>
+                  <li>Expected scope or touched areas</li>
+                  <li>Relevant repo context or files</li>
+                  <li>Constraints, out-of-scope, or extra notes</li>
+                </ul>
+              </div>
+            </div>
+          </div>
           <label>
             <span>Title</span>
-            <input name="title" type="text" placeholder="Workflow graph with audit stream" required />
+            <input name="title" type="text" placeholder="Workflow graph with audit stream" required data-create-field="title" />
           </label>
           <label>
             <span>Kind</span>
-            <select name="kind">
+            <select name="kind" data-create-field="kind">
               <option value="feature">feature</option>
               <option value="bug">bug</option>
               <option value="hotfix">hotfix</option>
@@ -109,14 +133,96 @@ function buildSidebarHtml(model) {
           </label>
           <label>
             <span>Category</span>
-            <select name="category">
+            <select name="category" data-create-field="category">
               ${model.categories.map((category) => `<option value="${escapeHtmlAttr(category)}">${escapeHtml(category)}</option>`).join("")}
             </select>
           </label>
-          <label>
-            <span>Source</span>
-            <textarea name="sourceText" rows="8" placeholder="Describe the user story objective and scope." required></textarea>
-          </label>
+          <section class="intake-panel intake-panel--active" data-intake-panel="freeform">
+            <label>
+              <span>Source</span>
+              <textarea name="sourceText" rows="8" placeholder="Describe the user story objective and scope." required data-create-field="sourceText"></textarea>
+            </label>
+          </section>
+          <section class="intake-panel" data-intake-panel="wizard">
+            <div class="wizard-shell">
+              <div class="wizard-header">
+                <div>
+                  <span class="intake-guidance__title">Guided Wizard</span>
+                  <p class="copy">Optional. Answer the prompts and SpecForge.AI will build the user-story source for you.</p>
+                </div>
+                <div class="wizard-steps" aria-label="Wizard steps">
+                  <button class="wizard-step wizard-step--active" type="button" data-wizard-step-trigger="0">1</button>
+                  <button class="wizard-step" type="button" data-wizard-step-trigger="1">2</button>
+                  <button class="wizard-step" type="button" data-wizard-step-trigger="2">3</button>
+                </div>
+              </div>
+              <div class="wizard-panel wizard-panel--active" data-wizard-step="0">
+                <div class="wizard-panel__heading">
+                  <strong>Step 1</strong>
+                  <span>Minimum story intent</span>
+                </div>
+                <label>
+                  <span>Who is affected?</span>
+                  <textarea rows="3" placeholder="Developer using the workflow view, backend MCP consumer, release approver..." data-create-field="wizard.actor"></textarea>
+                </label>
+                <label>
+                  <span>What change is requested?</span>
+                  <textarea rows="4" placeholder="Add, fix, or improve the workflow, tests, docs, provider behavior..." data-create-field="wizard.objective"></textarea>
+                </label>
+                <label>
+                  <span>Why does it matter? <em>(recommended)</em></span>
+                  <textarea rows="3" placeholder="Explain the outcome or user value expected from the change." data-create-field="wizard.value"></textarea>
+                </label>
+              </div>
+              <div class="wizard-panel" data-wizard-step="1">
+                <div class="wizard-panel__heading">
+                  <strong>Step 2</strong>
+                  <span>Scope and repo context</span>
+                </div>
+                <label>
+                  <span>Scope or touched areas <em>(recommended)</em></span>
+                  <textarea rows="4" placeholder="UI surface, backend service, workflow phase, tests, docs, prompts..." data-create-field="wizard.inScope"></textarea>
+                </label>
+                <label>
+                  <span>Relevant repo context or likely files <em>(recommended)</em></span>
+                  <textarea rows="3" placeholder="Mention folders, classes, views, tests, prompts, or artifacts that matter." data-create-field="wizard.repoContext"></textarea>
+                </label>
+                <label>
+                  <span>Out of scope <em>(recommended)</em></span>
+                  <textarea rows="3" placeholder="What should explicitly stay unchanged or outside this US?" data-create-field="wizard.outOfScope"></textarea>
+                </label>
+              </div>
+              <div class="wizard-panel" data-wizard-step="2">
+                <div class="wizard-panel__heading">
+                  <strong>Step 3</strong>
+                  <span>Validation and guardrails</span>
+                </div>
+                <label>
+                  <span>Acceptance criteria</span>
+                  <textarea rows="4" placeholder="What must be true for this US to be considered done?" data-create-field="wizard.acceptanceCriteria"></textarea>
+                </label>
+                <label>
+                  <span>Constraints or guardrails <em>(recommended)</em></span>
+                  <textarea rows="3" placeholder="Architectural limits, UX rules, provider constraints, compatibility requirements..." data-create-field="wizard.constraints"></textarea>
+                </label>
+                <label>
+                  <span>Extra notes <em>(recommended)</em></span>
+                  <textarea rows="3" placeholder="Anything else the model or reviewer should know." data-create-field="wizard.notes"></textarea>
+                </label>
+              </div>
+              <div class="wizard-footer">
+                <button class="ghost-action" type="button" data-wizard-nav="-1">Back</button>
+                <button class="ghost-action" type="button" data-wizard-nav="1">Next</button>
+              </div>
+              <section class="wizard-preview">
+                <div class="wizard-preview__header">
+                  <span class="intake-guidance__title">Generated Source Preview</span>
+                  <span class="copy">This is what the wizard will send as the user-story source.</span>
+                </div>
+                <pre class="wizard-preview__body" data-guided-source-preview></pre>
+              </section>
+            </div>
+          </section>
           <div class="form-files">
             <div class="form-files__header">
               <div>
@@ -467,6 +573,64 @@ function wrapHtml(content, busy) {
       display: grid;
       gap: 12px;
     }
+    .intake-shell {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .intake-switch {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      width: fit-content;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .intake-switch__option {
+      width: auto;
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.02);
+      color: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+    }
+    .intake-switch__option--active {
+      background: rgba(114, 241, 184, 0.14);
+      color: #dffff0;
+      border-color: rgba(114, 241, 184, 0.2);
+    }
+    .intake-guidance {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .intake-guidance__group {
+      display: grid;
+      gap: 6px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .intake-guidance__title {
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #72f1b8;
+    }
+    .intake-guidance__group ul {
+      margin: 0;
+      padding-left: 18px;
+      color: rgba(255, 255, 255, 0.74);
+      display: grid;
+      gap: 6px;
+      line-height: 1.4;
+    }
     label {
       display: grid;
       gap: 6px;
@@ -487,6 +651,96 @@ function wrapHtml(content, busy) {
     textarea {
       resize: vertical;
       min-height: 124px;
+    }
+    .intake-panel {
+      display: none;
+    }
+    .intake-panel--active {
+      display: block;
+    }
+    .wizard-shell {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(114, 241, 184, 0.12);
+      background: linear-gradient(180deg, rgba(16, 23, 29, 0.98), rgba(11, 17, 23, 0.98));
+    }
+    .wizard-header,
+    .wizard-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .wizard-steps {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .wizard-step {
+      width: 34px;
+      min-width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(255, 255, 255, 0.68);
+      cursor: pointer;
+      font-weight: 800;
+    }
+    .wizard-step--active {
+      background: rgba(114, 241, 184, 0.14);
+      color: #dffff0;
+      border-color: rgba(114, 241, 184, 0.2);
+      box-shadow: 0 0 0 6px rgba(114, 241, 184, 0.05);
+    }
+    .wizard-panel {
+      display: none;
+      gap: 10px;
+    }
+    .wizard-panel--active {
+      display: grid;
+    }
+    .wizard-panel__heading {
+      display: grid;
+      gap: 4px;
+    }
+    .wizard-panel__heading strong {
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.68);
+    }
+    .wizard-panel__heading span {
+      color: rgba(255, 255, 255, 0.82);
+      font-weight: 600;
+    }
+    .wizard-preview {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .wizard-preview__header {
+      display: grid;
+      gap: 4px;
+    }
+    .wizard-preview__body {
+      margin: 0;
+      max-height: 220px;
+      overflow: auto;
+      padding: 12px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.78);
+      white-space: pre-wrap;
+      word-break: break-word;
+      font: 0.78rem/1.5 ui-monospace, "SF Mono", Menlo, monospace;
     }
     .form-files {
       display: grid;
@@ -789,6 +1043,15 @@ function wrapHtml(content, busy) {
         transform: rotate(360deg);
       }
     }
+    @media (max-width: 520px) {
+      .wizard-footer {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+      .wizard-footer .ghost-action {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
@@ -796,6 +1059,120 @@ function wrapHtml(content, busy) {
   <script>
     const vscode = acquireVsCodeApi();
     const busy = ${busy ? "true" : "false"};
+    const initialCreateState = {
+      intakeMode: "freeform",
+      wizardStep: 0,
+      title: "",
+      kind: "feature",
+      category: "",
+      sourceText: "",
+      wizard: {
+        actor: "",
+        objective: "",
+        value: "",
+        inScope: "",
+        acceptanceCriteria: "",
+        repoContext: "",
+        outOfScope: "",
+        constraints: "",
+        notes: ""
+      }
+    };
+
+    const wizardLabels = {
+      actor: "who is affected",
+      objective: "objective or change",
+      acceptanceCriteria: "acceptance criteria"
+    };
+
+    function buildGuidedSourceText(state) {
+      const lines = [
+        "## Minimum Information",
+        "- Actor / affected area: " + fallback(state.wizard.actor),
+        "- Objective / requested change: " + fallback(state.wizard.objective),
+        "- Acceptance criteria: " + fallback(state.wizard.acceptanceCriteria)
+      ];
+
+      const recommended = [];
+      if (state.wizard.value.trim()) {
+        recommended.push("- Why this matters: " + state.wizard.value.trim());
+      }
+      if (state.wizard.inScope.trim()) {
+        recommended.push("- Scope / expected touchpoints: " + state.wizard.inScope.trim());
+      }
+      if (state.wizard.repoContext.trim()) {
+        recommended.push("- Repo context or likely files: " + state.wizard.repoContext.trim());
+      }
+      if (state.wizard.outOfScope.trim()) {
+        recommended.push("- Out of scope: " + state.wizard.outOfScope.trim());
+      }
+      if (state.wizard.constraints.trim()) {
+        recommended.push("- Constraints / guardrails: " + state.wizard.constraints.trim());
+      }
+      if (state.wizard.notes.trim()) {
+        recommended.push("- Extra notes: " + state.wizard.notes.trim());
+      }
+
+      if (recommended.length > 0) {
+        lines.push("", "## Recommended Detail", ...recommended);
+      }
+
+      return lines.join("\\n");
+    }
+
+    function fallback(value) {
+      return value.trim() ? value.trim() : "_missing_";
+    }
+
+    function getMissingWizardFields(state) {
+      return Object.entries(wizardLabels)
+        .filter(([key]) => !(state.wizard[key] ?? "").trim())
+        .map(([, label]) => label);
+    }
+
+    let createState = Object.assign({}, initialCreateState, vscode.getState() ?? {});
+    createState.wizard = Object.assign({}, initialCreateState.wizard, createState.wizard ?? {});
+
+    function persistCreateState() {
+      vscode.setState(createState);
+    }
+
+    function setInputValue(field, value) {
+      const element = document.querySelector('[data-create-field="' + field + '"]');
+      if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
+        element.value = value;
+      }
+    }
+
+    function applyCreateState() {
+      setInputValue("title", createState.title ?? "");
+      setInputValue("kind", createState.kind ?? "feature");
+      setInputValue("category", createState.category ?? "");
+      setInputValue("sourceText", createState.sourceText ?? "");
+
+      for (const [key, value] of Object.entries(createState.wizard)) {
+        setInputValue("wizard." + key, String(value ?? ""));
+      }
+
+      for (const element of document.querySelectorAll("[data-intake-mode]")) {
+        element.classList.toggle("intake-switch__option--active", element.dataset.intakeMode === createState.intakeMode);
+      }
+      for (const panel of document.querySelectorAll("[data-intake-panel]")) {
+        panel.classList.toggle("intake-panel--active", panel.dataset.intakePanel === createState.intakeMode);
+      }
+      for (const panel of document.querySelectorAll("[data-wizard-step]")) {
+        panel.classList.toggle("wizard-panel--active", Number(panel.dataset.wizardStep) === createState.wizardStep);
+      }
+      for (const trigger of document.querySelectorAll("[data-wizard-step-trigger]")) {
+        trigger.classList.toggle("wizard-step--active", Number(trigger.dataset.wizardStepTrigger) === createState.wizardStep);
+      }
+
+      const preview = document.querySelector("[data-guided-source-preview]");
+      if (preview) {
+        preview.textContent = buildGuidedSourceText(createState);
+      }
+    }
+
     for (const element of document.querySelectorAll("[data-command]")) {
       if (busy && element instanceof HTMLButtonElement) {
         element.disabled = true;
@@ -820,6 +1197,14 @@ function wrapHtml(content, busy) {
     }
     const form = document.getElementById("create-user-story-form");
     if (form) {
+      const kindField = form.querySelector('[data-create-field="kind"]');
+      const categoryField = form.querySelector('[data-create-field="category"]');
+      const sourceField = form.querySelector('[data-create-field="sourceText"]');
+      createState.title = createState.title ?? "";
+      createState.kind = createState.kind || (kindField instanceof HTMLSelectElement ? kindField.value : "feature");
+      createState.category = createState.category || (categoryField instanceof HTMLSelectElement ? categoryField.value : "");
+      createState.sourceText = createState.sourceText || (sourceField instanceof HTMLTextAreaElement ? sourceField.value : "");
+      persistCreateState();
       for (const field of form.querySelectorAll("input, select, textarea, button")) {
         field.disabled = busy;
       }
@@ -865,20 +1250,79 @@ function wrapHtml(content, busy) {
           });
         });
       }
+      for (const element of form.querySelectorAll("[data-create-field]")) {
+        const field = element.dataset.createField;
+        if (!field) {
+          continue;
+        }
+        element.addEventListener("input", () => {
+          if (field.startsWith("wizard.")) {
+            createState.wizard[field.slice("wizard.".length)] = element.value;
+          } else {
+            createState[field] = element.value;
+          }
+          persistCreateState();
+          applyCreateState();
+        });
+        element.addEventListener("change", () => {
+          if (field.startsWith("wizard.")) {
+            createState.wizard[field.slice("wizard.".length)] = element.value;
+          } else {
+            createState[field] = element.value;
+          }
+          persistCreateState();
+          applyCreateState();
+        });
+      }
+      for (const element of form.querySelectorAll("[data-intake-mode]")) {
+        element.addEventListener("click", () => {
+          createState.intakeMode = element.dataset.intakeMode === "wizard" ? "wizard" : "freeform";
+          persistCreateState();
+          applyCreateState();
+        });
+      }
+      for (const element of form.querySelectorAll("[data-wizard-nav]")) {
+        element.addEventListener("click", () => {
+          const offset = Number(element.dataset.wizardNav ?? "0");
+          createState.wizardStep = Math.min(2, Math.max(0, createState.wizardStep + offset));
+          persistCreateState();
+          applyCreateState();
+        });
+      }
+      for (const element of form.querySelectorAll("[data-wizard-step-trigger]")) {
+        element.addEventListener("click", () => {
+          createState.wizardStep = Math.min(2, Math.max(0, Number(element.dataset.wizardStepTrigger ?? "0")));
+          persistCreateState();
+          applyCreateState();
+        });
+      }
       form.addEventListener("submit", (event) => {
         event.preventDefault();
         if (busy) {
           return;
         }
         const data = new FormData(form);
+        const intakeMode = createState.intakeMode === "wizard" ? "wizard" : "freeform";
+        if (intakeMode === "wizard") {
+          const missingFields = getMissingWizardFields(createState);
+          if (missingFields.length > 0) {
+            alert("The guided wizard still needs " + missingFields.join(", ") + ".");
+            return;
+          }
+        }
         vscode.postMessage({
           command: "submitCreateForm",
-          title: String(data.get("title") ?? ""),
-          kind: String(data.get("kind") ?? "feature"),
-          category: String(data.get("category") ?? ""),
-          sourceText: String(data.get("sourceText") ?? "")
+          title: String(data.get("title") ?? createState.title ?? ""),
+          kind: String(data.get("kind") ?? createState.kind ?? "feature"),
+          category: String(data.get("category") ?? createState.category ?? ""),
+          intakeMode,
+          sourceText: intakeMode === "wizard"
+            ? buildGuidedSourceText(createState)
+            : String(data.get("sourceText") ?? createState.sourceText ?? ""),
+          wizardDraft: createState.wizard
         });
       });
+      applyCreateState();
     }
   </script>
 </body>

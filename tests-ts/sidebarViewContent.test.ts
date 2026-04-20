@@ -65,7 +65,12 @@ test("buildSidebarHtml renders the embedded creation form inside the sidebar", (
 
   assert.match(html, /Create from the sidebar/);
   assert.match(html, /create-user-story-form/);
+  assert.match(html, /Guided Wizard/);
+  assert.match(html, /Minimum/);
+  assert.match(html, /Recommended/);
   assert.match(html, /<textarea name="sourceText"/);
+  assert.match(html, /data-create-field="wizard\.actor"/);
+  assert.match(html, /Generated Source Preview/);
   assert.match(html, /<option value="workflow">workflow<\/option>/);
   assert.match(html, /Drag &amp; Drop Files|Drag & Drop Files/);
   assert.match(html, /data-create-dropzone/);

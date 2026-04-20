@@ -6,6 +6,12 @@ import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSet
 import { DEFAULT_USER_STORY_CATEGORIES, nextUserStoryIdFromSummaries, parseYamlSequence } from "./explorerModel";
 import { getOrCreateBackendClient } from "./specsExplorer";
 import { buildSidebarHtml } from "./sidebarViewContent";
+import {
+  buildWizardSourceText,
+  getWizardMissingFields,
+  type CreateIntakeMode,
+  type UserStoryWizardDraft
+} from "./userStoryIntake";
 import { readUserWorkspacePreferences, setStarredUserStory } from "./userWorkspacePreferences";
 
 type SidebarMessage =
@@ -22,7 +28,15 @@ type SidebarMessage =
   | { readonly command: "addCreateFilePaths"; readonly kind?: string; readonly paths?: readonly string[] }
   | { readonly command: "setCreateFileKind"; readonly sourcePath?: string; readonly kind?: string }
   | { readonly command: "removeCreateFile"; readonly sourcePath?: string }
-  | { readonly command: "submitCreateForm"; readonly title?: string; readonly kind?: string; readonly category?: string; readonly sourceText?: string };
+  | {
+    readonly command: "submitCreateForm";
+    readonly title?: string;
+    readonly kind?: string;
+    readonly category?: string;
+    readonly intakeMode?: CreateIntakeMode;
+    readonly sourceText?: string;
+    readonly wizardDraft?: Partial<UserStoryWizardDraft>;
+  };
 
 type DraftCreateFile = {
   readonly sourcePath: string;
@@ -169,7 +183,20 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     const title = message.title?.trim();
     const kind = message.kind?.trim();
     const category = message.category?.trim();
-    const sourceText = message.sourceText?.trim();
+    const intakeMode: CreateIntakeMode = message.intakeMode === "wizard" ? "wizard" : "freeform";
+    const sourceText = intakeMode === "wizard"
+      ? buildWizardSourceText(message.wizardDraft).trim()
+      : message.sourceText?.trim();
+
+    if (intakeMode === "wizard") {
+      const missingFields = getWizardMissingFields(message.wizardDraft);
+      if (missingFields.length > 0) {
+        void vscode.window.showWarningMessage(
+          `The guided wizard still needs ${missingFields.join(", ")}.`
+        );
+        return;
+      }
+    }
 
     if (!title || !kind || !category || !sourceText) {
       void vscode.window.showWarningMessage("Title, kind, category, and source are required.");

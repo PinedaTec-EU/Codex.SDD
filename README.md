@@ -183,6 +183,7 @@ The extension currently provides:
 
 - a `SpecForge.AI` activity bar view
 - a sidebar webview with embedded user-story intake
+- an optional guided wizard in that intake to collect the minimum and recommended user-story information before creating the workflow
 - a single high-contrast `Create User Story` empty state in the sidebar
 - a compact header action in the sidebar to initialize or reinitialize `.specs/prompts/`
 - per-user starred user stories persisted on disk inside the workspace
@@ -209,6 +210,7 @@ The extension currently provides:
 - `Continue Phase`
 - explicit `feature` / `bug` / `hotfix` selection when creating or importing a US
 - explicit category selection from the repo category catalog when creating or importing a US
+- user-story intake guidance that distinguishes minimum information from recommended extra detail
 - extension settings for provider, connection, API key, model, watcher, and attention notifications
 - visible configuration warnings with a direct link to extension settings when the active provider is not fully configured
 - auto-refresh watcher over `.specs/us/**` when enabled
@@ -220,6 +222,24 @@ Current limitation:
 - the extension still does not provide a richer prompt editor, diffing, or effective prompt inspection UX
 - the sidebar does not yet expose completed user stories through a visibility switch or search; for the MVP it stays focused on active work
 - workflow execution controls such as `Play` and `Continue` remain disabled until the active provider configuration is complete
+
+### User-story intake guidance
+
+SpecForge.AI now helps both the user and any MCP-driven model understand what a usable user story should contain.
+
+Minimum information:
+
+- who or what is affected
+- what change is requested
+- how success will be validated
+
+Recommended detail:
+
+- expected scope or touched areas
+- relevant repo context or likely files
+- constraints, out-of-scope notes, or extra reviewer context
+
+The sidebar intake keeps the original freeform source box, but also offers an optional guided wizard that turns those answers into structured source text before the user story is created.
 
 ### Workflow readability
 

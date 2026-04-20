@@ -177,6 +177,7 @@ Included in the MVP:
 - ✅ visible warning in the extension when the active provider is not configured, with a direct link to settings
 - ✅ optional watcher with attention notifications and `play/pause/stop` controls
 - ✅ extension sidebar with a single empty-state CTA and embedded creation form
+- ✅ optional guided wizard in the sidebar intake to capture minimum and recommended user-story information
 - ✅ visible distinction in UI and documentation between automatic phases and user checkpoints
 - ✅ compact action in the sidebar header to initialize or rebootstrap versioned repo prompts
 - ✅ initial visibility focused on active user stories and workflows in the sidebar and main views
@@ -226,6 +227,7 @@ Recently completed subtasks:
 - ✅ auto-refresh from `.specs/us/**` changes when the watcher is enabled
 - ✅ add `play/pause/stop` controls with best-effort `stop` on the local MCP backend
 - ✅ replace the side button bar with a sidebar webview with embedded creation form
+- ✅ keep freeform intake but add an optional guided wizard so the user or model can fill the minimum and recommended story fields in a structured way
 - ✅ lock the initial UX focus on active user stories; history and search stay post-MVP
 - ✅ allow attaching files to a user story from workflow view and opening them from the same screen
 - ✅ expose buttons to open the selected phase `execute` and `approve` prompts when they exist
