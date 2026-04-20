@@ -161,8 +161,9 @@ function buildExecutionOverlay(workflow, state, playbackState) {
         return "";
     }
     const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
-    const overlayPhase = playbackState === "playing" && state.executionPhaseId
-        ? workflow.phases.find((phase) => phase.phaseId === state.executionPhaseId) ?? currentPhase
+    const effectiveExecutionPhaseId = resolveEffectiveExecutionPhaseId(workflow, state, playbackState);
+    const overlayPhase = playbackState === "playing" && effectiveExecutionPhaseId
+        ? workflow.phases.find((phase) => phase.phaseId === effectiveExecutionPhaseId) ?? currentPhase
         : currentPhase;
     const overlay = playbackState === "playing"
         ? {
@@ -310,10 +311,11 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       </section>
     `
         : "";
-    const phaseGraph = buildPhaseGraph(workflow, state, selectedPhase.phaseId, playbackState);
+    const effectiveExecutionPhaseId = resolveEffectiveExecutionPhaseId(workflow, state, playbackState);
+    const phaseGraph = buildPhaseGraph(workflow, state, selectedPhase.phaseId, playbackState, effectiveExecutionPhaseId);
     const executionOverlay = buildExecutionOverlay(workflow, state, playbackState);
-    const displayedPhaseId = playbackState === "playing" && state.executionPhaseId
-        ? state.executionPhaseId
+    const displayedPhaseId = playbackState === "playing" && effectiveExecutionPhaseId
+        ? effectiveExecutionPhaseId
         : workflow.currentPhase;
     const isMarkdownArtifact = Boolean(selectedPhase.artifactPath?.toLowerCase().endsWith(".md"));
     const artifactPreviewHtml = isMarkdownArtifact
@@ -2084,9 +2086,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
 </body>
 </html>`;
 }
-function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState) {
+function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effectiveExecutionPhaseId) {
     const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
-    const executionPhaseId = playbackState === "playing" ? state.executionPhaseId ?? currentPhase.phaseId : null;
+    const executionPhaseId = playbackState === "playing" ? effectiveExecutionPhaseId : null;
     const completedPhaseIds = new Set(state.completedPhaseIds ?? []);
     const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);
     const visiblePhases = workflow.phases.filter((phase) => shouldShowPhase(phase.phaseId, clarificationVisible, currentPhase.phaseId, executionPhaseId));
@@ -2140,6 +2142,18 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState) {
       ${nodeActions}
     </div>
   `;
+}
+function resolveEffectiveExecutionPhaseId(workflow, state, playbackState) {
+    if (playbackState !== "playing") {
+        return null;
+    }
+    if (state.executionPhaseId) {
+        return state.executionPhaseId;
+    }
+    if (workflow.currentPhase === "capture") {
+        return "clarification";
+    }
+    return workflow.currentPhase;
 }
 function buildGraphLinks(visiblePhases, executingTargetPhaseId, completedPhaseIds, positions, nodeWidth) {
     const edges = [];

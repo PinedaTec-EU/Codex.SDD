@@ -210,8 +210,9 @@ function buildExecutionOverlay(
   }
 
   const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
-  const overlayPhase = playbackState === "playing" && state.executionPhaseId
-    ? workflow.phases.find((phase) => phase.phaseId === state.executionPhaseId) ?? currentPhase
+  const effectiveExecutionPhaseId = resolveEffectiveExecutionPhaseId(workflow, state, playbackState);
+  const overlayPhase = playbackState === "playing" && effectiveExecutionPhaseId
+    ? workflow.phases.find((phase) => phase.phaseId === effectiveExecutionPhaseId) ?? currentPhase
     : currentPhase;
   const overlay: ExecutionOverlayModel = playbackState === "playing"
     ? {
@@ -385,10 +386,11 @@ export function buildWorkflowHtml(
       </section>
     `
     : "";
-  const phaseGraph = buildPhaseGraph(workflow, state, selectedPhase.phaseId, playbackState);
+  const effectiveExecutionPhaseId = resolveEffectiveExecutionPhaseId(workflow, state, playbackState);
+  const phaseGraph = buildPhaseGraph(workflow, state, selectedPhase.phaseId, playbackState, effectiveExecutionPhaseId);
   const executionOverlay = buildExecutionOverlay(workflow, state, playbackState);
-  const displayedPhaseId = playbackState === "playing" && state.executionPhaseId
-    ? state.executionPhaseId
+  const displayedPhaseId = playbackState === "playing" && effectiveExecutionPhaseId
+    ? effectiveExecutionPhaseId
     : workflow.currentPhase;
   const isMarkdownArtifact = Boolean(selectedPhase.artifactPath?.toLowerCase().endsWith(".md"));
   const artifactPreviewHtml = isMarkdownArtifact
@@ -2170,10 +2172,11 @@ function buildPhaseGraph(
   workflow: UserStoryWorkflowDetails,
   state: WorkflowViewState,
   selectedPhaseId: string,
-  playbackState: "idle" | "playing" | "paused" | "stopping"
+  playbackState: "idle" | "playing" | "paused" | "stopping",
+  effectiveExecutionPhaseId: string | null
 ): string {
   const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
-  const executionPhaseId = playbackState === "playing" ? state.executionPhaseId ?? currentPhase.phaseId : null;
+  const executionPhaseId = playbackState === "playing" ? effectiveExecutionPhaseId : null;
   const completedPhaseIds = new Set(state.completedPhaseIds ?? []);
   const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);
   const visiblePhases = workflow.phases.filter((phase) =>
@@ -2237,6 +2240,26 @@ function buildPhaseGraph(
       ${nodeActions}
     </div>
   `;
+}
+
+function resolveEffectiveExecutionPhaseId(
+  workflow: UserStoryWorkflowDetails,
+  state: WorkflowViewState,
+  playbackState: "idle" | "playing" | "paused" | "stopping"
+): string | null {
+  if (playbackState !== "playing") {
+    return null;
+  }
+
+  if (state.executionPhaseId) {
+    return state.executionPhaseId;
+  }
+
+  if (workflow.currentPhase === "capture") {
+    return "clarification";
+  }
+
+  return workflow.currentPhase;
 }
 
 function buildGraphLinks(
