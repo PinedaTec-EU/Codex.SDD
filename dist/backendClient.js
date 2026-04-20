@@ -109,24 +109,26 @@ class StdioMcpBackendClient {
             usId
         });
     }
-    async createUserStory(usId, title, kind, category, sourceText) {
+    async createUserStory(usId, title, kind, category, sourceText, actor) {
         return this.callTool("create_us_from_chat", {
             workspaceRoot: this.workspaceRoot,
             usId,
             title,
             kind,
             category,
-            sourceText
+            sourceText,
+            ...(actor && actor.trim().length > 0 ? { actor } : {})
         });
     }
-    async importUserStory(usId, sourcePath, title, kind, category) {
+    async importUserStory(usId, sourcePath, title, kind, category, actor) {
         return this.callTool("import_us_from_markdown", {
             workspaceRoot: this.workspaceRoot,
             usId,
             sourcePath,
             title,
             kind,
-            category
+            category,
+            ...(actor && actor.trim().length > 0 ? { actor } : {})
         });
     }
     async initializeRepoPrompts(overwrite = false) {
@@ -141,14 +143,14 @@ class StdioMcpBackendClient {
             usId
         });
     }
-    async approveCurrentPhase(usId, baseBranch) {
-        return this.callTool("approve_phase", (0, backendClientModel_1.buildApprovePhaseArguments)(this.workspaceRoot, usId, baseBranch));
+    async approveCurrentPhase(usId, baseBranch, actor) {
+        return this.callTool("approve_phase", (0, backendClientModel_1.buildApprovePhaseArguments)(this.workspaceRoot, usId, baseBranch, actor));
     }
-    async requestRegression(usId, targetPhase, reason) {
-        return this.callTool("request_regression", (0, backendClientModel_1.buildRequestRegressionArguments)(this.workspaceRoot, usId, targetPhase, reason));
+    async requestRegression(usId, targetPhase, reason, actor) {
+        return this.callTool("request_regression", (0, backendClientModel_1.buildRequestRegressionArguments)(this.workspaceRoot, usId, targetPhase, reason, actor));
     }
-    async restartUserStoryFromSource(usId, reason) {
-        return this.callTool("restart_user_story_from_source", (0, backendClientModel_1.buildRestartUserStoryArguments)(this.workspaceRoot, usId, reason));
+    async restartUserStoryFromSource(usId, reason, actor) {
+        return this.callTool("restart_user_story_from_source", (0, backendClientModel_1.buildRestartUserStoryArguments)(this.workspaceRoot, usId, reason, actor));
     }
     async resetUserStoryToCapture(usId) {
         return this.callTool("reset_user_story_to_capture", {
@@ -156,11 +158,20 @@ class StdioMcpBackendClient {
             usId
         });
     }
-    async submitClarificationAnswers(usId, answers) {
+    async submitClarificationAnswers(usId, answers, actor) {
         await this.callTool("submit_clarification_answers", {
             workspaceRoot: this.workspaceRoot,
             usId,
-            answers
+            answers,
+            ...(actor && actor.trim().length > 0 ? { actor } : {})
+        });
+    }
+    async operateCurrentPhaseArtifact(usId, prompt, actor) {
+        return this.callTool("operate_current_phase_artifact", {
+            workspaceRoot: this.workspaceRoot,
+            usId,
+            prompt,
+            ...(actor && actor.trim().length > 0 ? { actor } : {})
         });
     }
     cancelActiveOperations() {

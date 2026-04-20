@@ -50,6 +50,7 @@ public sealed class WorkflowRunner
         string kind,
         string category,
         string sourceText,
+        string actor = "user",
         CancellationToken cancellationToken = default)
     {
         ValidateRequired(workspaceRoot, nameof(workspaceRoot));
@@ -69,7 +70,7 @@ public sealed class WorkflowRunner
         var workflowRun = new WorkflowRun(usId, ComputeSourceHash(sourceText), WorkflowDefinition.CanonicalV1);
 
         await File.WriteAllTextAsync(paths.MainArtifactPath, BuildUserStoryMarkdown(usId, title, kind, category, sourceText), cancellationToken);
-        await File.WriteAllTextAsync(paths.TimelineFilePath, BuildInitialTimeline(usId, title), cancellationToken);
+        await File.WriteAllTextAsync(paths.TimelineFilePath, BuildInitialTimeline(usId, title, actor), cancellationToken);
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
         return paths.RootDirectory;
     }
@@ -78,10 +79,12 @@ public sealed class WorkflowRunner
         string workspaceRoot,
         string usId,
         string? baseBranch = null,
+        string actor = "user",
         CancellationToken cancellationToken = default)
     {
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        await EnsureCurrentPhaseIsApprovableAsync(paths, workflowRun.CurrentPhase, cancellationToken);
         var metadata = await ReadUserStoryMetadataAsync(paths.MainArtifactPath, usId, cancellationToken);
         var workBranchName = BuildWorkBranchName(usId, metadata.Title, metadata.Kind);
         workflowRun.ApproveCurrentPhase(
@@ -96,7 +99,7 @@ public sealed class WorkflowRunner
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             "phase_approved",
-            "user",
+            NormalizeActor(actor),
             workflowRun.CurrentPhase,
             $"Phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}` approved.",
             cancellationToken);
@@ -118,6 +121,7 @@ public sealed class WorkflowRunner
         string usId,
         PhaseId targetPhase,
         string? reason = null,
+        string actor = "user",
         CancellationToken cancellationToken = default)
     {
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
@@ -134,7 +138,7 @@ public sealed class WorkflowRunner
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             "phase_regressed",
-            "user",
+            NormalizeActor(actor),
             workflowRun.CurrentPhase,
             summary,
             cancellationToken);
@@ -149,6 +153,7 @@ public sealed class WorkflowRunner
         string workspaceRoot,
         string usId,
         string? reason = null,
+        string actor = "user",
         CancellationToken cancellationToken = default)
     {
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
@@ -193,7 +198,7 @@ public sealed class WorkflowRunner
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             "us_restarted_from_source",
-            "user",
+            NormalizeActor(actor),
             restartedRun.CurrentPhase,
             summary,
             cancellationToken,
@@ -224,7 +229,7 @@ public sealed class WorkflowRunner
         var cleanedUserStory = UserStoryClarificationMarkdown.Remove(
             await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken));
         await File.WriteAllTextAsync(paths.MainArtifactPath, cleanedUserStory, cancellationToken);
-        await File.WriteAllTextAsync(paths.TimelineFilePath, BuildInitialTimeline(usId, metadata.Title), cancellationToken);
+        await File.WriteAllTextAsync(paths.TimelineFilePath, BuildInitialTimeline(usId, metadata.Title, "system"), cancellationToken);
 
         var resetRun = new WorkflowRun(usId, currentSourceHash, existingRun.Definition);
         await fileStore.SaveAsync(resetRun, paths.RootDirectory, cancellationToken);
@@ -265,7 +270,7 @@ public sealed class WorkflowRunner
         long? durationMs = null;
         if (HasArtifact(workflowRun.CurrentPhase))
         {
-            var generation = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+            var generation = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
             artifactPath = generation.ArtifactPath;
             usage = generation.Usage;
             durationMs = generation.DurationMs;
@@ -299,6 +304,7 @@ public sealed class WorkflowRunner
         string workspaceRoot,
         string usId,
         IReadOnlyList<string> answers,
+        string actor = "user",
         CancellationToken cancellationToken = default)
     {
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
@@ -319,7 +325,7 @@ public sealed class WorkflowRunner
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             "clarification_answered",
-            "user",
+            NormalizeActor(actor),
             workflowRun.CurrentPhase,
             $"Recorded {updatedSession.Items.Count(item => !string.IsNullOrWhiteSpace(item.Answer))} clarification answer(s) in `clarification.md`.",
             cancellationToken,
@@ -330,6 +336,62 @@ public sealed class WorkflowRunner
             WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
             WorkflowPresentation.ToStatusSlug(workflowRun.Status),
             updatedSession.Items.Count(item => !string.IsNullOrWhiteSpace(item.Answer)));
+    }
+
+    public async Task<OperateCurrentPhaseArtifactResult> OperateCurrentPhaseArtifactAsync(
+        string workspaceRoot,
+        string usId,
+        string prompt,
+        string actor = "user",
+        CancellationToken cancellationToken = default)
+    {
+        ValidateRequired(prompt, nameof(prompt));
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        if (!HasArtifact(workflowRun.CurrentPhase))
+        {
+            throw new WorkflowDomainException($"Phase '{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}' does not support direct artifact operations.");
+        }
+
+        var normalizedActor = NormalizeActor(actor);
+        var sourceArtifactPath = paths.GetLatestExistingPhaseArtifactPath(workflowRun.CurrentPhase)
+            ?? throw new WorkflowDomainException($"Phase '{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}' does not yet have a current artifact to operate on.");
+        var generation = await MaterializePhaseArtifactAsync(
+            workspaceRoot,
+            paths,
+            workflowRun,
+            sourceArtifactPath,
+            prompt,
+            cancellationToken);
+        var operationLogPath = paths.GetPhaseOperationLogPath(workflowRun.CurrentPhase);
+        await AppendArtifactOperationEntryAsync(
+            operationLogPath,
+            workflowRun.CurrentPhase,
+            normalizedActor,
+            sourceArtifactPath,
+            prompt,
+            generation.ArtifactPath,
+            cancellationToken);
+        await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "artifact_operated",
+            normalizedActor,
+            workflowRun.CurrentPhase,
+            $"Operated current artifact `{Path.GetFileName(sourceArtifactPath)}` and produced `{Path.GetFileName(generation.ArtifactPath)}`.",
+            cancellationToken,
+            operationLogPath,
+            generation.Usage,
+            generation.DurationMs);
+
+        return new OperateCurrentPhaseArtifactResult(
+            workflowRun.UsId,
+            WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
+            WorkflowPresentation.ToStatusSlug(workflowRun.Status),
+            operationLogPath,
+            sourceArtifactPath,
+            generation.ArtifactPath,
+            generation.Usage);
     }
 
     private async Task<CaptureTransitionResult> ContinueFromCaptureOrClarificationAsync(
@@ -343,7 +405,7 @@ public sealed class WorkflowRunner
             workflowRun.GenerateNextPhase();
         }
 
-        var clarificationGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+        var clarificationGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
         var clarification = ParseClarificationArtifact(await File.ReadAllTextAsync(clarificationGeneration.ArtifactPath, cancellationToken));
         await UpdateClarificationLogAsync(paths, clarification, cancellationToken);
         await AppendTimelineEventAsync(
@@ -364,7 +426,7 @@ public sealed class WorkflowRunner
         }
 
         workflowRun.GenerateNextPhase();
-        var refinementGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+        var refinementGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             "phase_completed",
@@ -383,6 +445,8 @@ public sealed class WorkflowRunner
         string workspaceRoot,
         UserStoryFilePaths paths,
         WorkflowRun workflowRun,
+        string? currentArtifactPath,
+        string? operationPrompt,
         CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
@@ -393,7 +457,9 @@ public sealed class WorkflowRunner
             workflowRun.CurrentPhase,
             paths.MainArtifactPath,
             BuildPreviousArtifactMap(paths, workflowRun.CurrentPhase),
-            BuildContextFilePaths(paths));
+            BuildContextFilePaths(paths),
+            currentArtifactPath,
+            operationPrompt);
         var stopwatch = Stopwatch.StartNew();
         var result = await phaseExecutionProvider.ExecuteAsync(executionContext, cancellationToken);
         stopwatch.Stop();
@@ -412,8 +478,8 @@ public sealed class WorkflowRunner
                 continue;
             }
 
-            var candidate = paths.GetPhaseArtifactPath(phaseId);
-            if (File.Exists(candidate))
+            var candidate = paths.GetLatestExistingPhaseArtifactPath(phaseId);
+            if (candidate is not null)
             {
                 result[phaseId] = candidate;
             }
@@ -602,11 +668,75 @@ public sealed class WorkflowRunner
         await File.AppendAllTextAsync(timelinePath, builder.ToString(), cancellationToken);
     }
 
+    private static async Task AppendArtifactOperationEntryAsync(
+        string operationLogPath,
+        PhaseId phaseId,
+        string actor,
+        string sourceArtifactPath,
+        string prompt,
+        string generatedArtifactPath,
+        CancellationToken cancellationToken)
+    {
+        var normalizedPrompt = prompt.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedPrompt))
+        {
+            throw new WorkflowDomainException("Artifact operation prompt cannot be empty.");
+        }
+
+        var timestamp = DateTimeOffset.UtcNow.ToString("O");
+        if (!File.Exists(operationLogPath))
+        {
+            var header = string.Join(
+                Environment.NewLine,
+                new[]
+                {
+                    $"# Artifact Operation Log · {WorkflowPresentation.ToPhaseSlug(phaseId)}",
+                    string.Empty,
+                    "This file records direct model-assisted operations over the current artifact.",
+                    string.Empty
+                });
+            await File.WriteAllTextAsync(operationLogPath, header, cancellationToken);
+        }
+
+        var builder = new StringBuilder()
+            .AppendLine()
+            .AppendLine($"## {timestamp} · `{actor}`")
+            .AppendLine()
+            .AppendLine($"- Source Artifact: `{sourceArtifactPath.Replace('\\', '/')}`")
+            .AppendLine($"- Result Artifact: `{generatedArtifactPath.Replace('\\', '/')}`")
+            .AppendLine("- Prompt:")
+            .AppendLine("```text")
+            .AppendLine(normalizedPrompt)
+            .AppendLine("```");
+
+        await File.AppendAllTextAsync(operationLogPath, builder.ToString(), cancellationToken);
+    }
+
+    private static async Task EnsureCurrentPhaseIsApprovableAsync(
+        UserStoryFilePaths paths,
+        PhaseId currentPhase,
+        CancellationToken cancellationToken)
+    {
+        if (currentPhase != PhaseId.Refinement)
+        {
+            return;
+        }
+
+        var artifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Refinement);
+        if (artifactPath is null || !File.Exists(artifactPath))
+        {
+            throw new WorkflowDomainException("The spec baseline cannot be approved because `01-spec.md` does not exist.");
+        }
+
+        var markdown = await File.ReadAllTextAsync(artifactPath, cancellationToken);
+        SpecBaselineSchemaValidator.EnsureValid(markdown);
+    }
+
     private sealed record ArtifactGenerationResult(string ArtifactPath, TokenUsage? Usage, long DurationMs);
     private sealed record ClarificationAssessment(bool IsReady, string Reason, IReadOnlyCollection<string> Questions, string Summary);
     private sealed record CaptureTransitionResult(string ArtifactPath, TokenUsage? Usage, long DurationMs);
 
-    private static string BuildInitialTimeline(string usId, string title)
+    private static string BuildInitialTimeline(string usId, string title, string actor)
     {
         var timestamp = DateTimeOffset.UtcNow.ToString("O");
         return string.Join(
@@ -626,12 +756,15 @@ public sealed class WorkflowRunner
                        string.Empty,
                        $"### {timestamp} · `us_created`",
                        string.Empty,
-                       "- Actor: `user`",
+                       $"- Actor: `{NormalizeActor(actor)}`",
                        "- Phase: `capture`",
                        "- Summary: The initial user story was created and `us.md`, `state.yaml`, and `timeline.md` were persisted."
                    }) +
                Environment.NewLine;
     }
+
+    private static string NormalizeActor(string? actor) =>
+        string.IsNullOrWhiteSpace(actor) ? "user" : actor.Trim();
 
     private static string BuildUserStoryMarkdown(string usId, string title, string kind, string category, string sourceText)
     {

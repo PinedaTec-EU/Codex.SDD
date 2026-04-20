@@ -17,14 +17,14 @@ Define the minimum technical design template that serves as the direct input to 
 # Technical Design · US-0001 · v01
 
 ## State
-- State: `pending_approval`
-- Based on: `01-refinement.md`
+- State: `generated`
+- Based on: `01-spec.md`
 
 ## Technical Summary
 What solution is being proposed and why.
 
 ## Technical Objective
-What must change in the system to satisfy the approved refinement.
+What must change in the system to satisfy the approved spec.
 
 ## Affected Components
 - ...
@@ -85,11 +85,10 @@ Describe pieces, responsibilities, and boundaries.
 - ...
 - ...
 
-## Required Approval
-- [ ] Design validated for implementation
 ```
 
 ## Usage Notes
 
 - if the phase is redone after a regression, a new version must be generated
 - the output must enable implementation without reinterpreting basic functionality
+- in phase 1 this artifact is derived from the approved spec and is not a mandatory human approval stop by default

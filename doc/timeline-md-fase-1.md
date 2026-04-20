@@ -67,20 +67,20 @@ It should reference those artifacts when needed.
 
 - Actor: `system`
 - Phase: `refinement`
-- Summary: Refinement was generated with `red-team` evaluation and `blue-team` reconstruction.
+- Summary: The spec baseline was generated with `red-team` evaluation and `blue-team` reconstruction.
 - Artifacts:
-  - `.specs/us/us.US-0001/phases/01-refinement.md`
+  - `.specs/us/us.US-0001/phases/01-spec.md`
 
 ### 2026-04-18T09:10:00Z · `phase_approved`
 
 - Actor: `user`
-- Phase: `refinement_approval`
-- Summary: The user approved the refinement and chose `main` as the base branch.
+- Phase: `refinement`
+- Summary: The user approved the spec baseline and chose `main` as the base branch.
 
 ### 2026-04-18T09:11:00Z · `branch_created`
 
 - Actor: `system`
-- Phase: `refinement_approval`
+- Phase: `refinement`
 - Summary: The branch `feature/us-0001-specforge-foundation` was created.
 - Artifacts:
   - `.specs/us/us.US-0001/branch.yaml`
@@ -136,7 +136,7 @@ It may optionally include:
 - `phase_completed`
 - `phase_approved`
 - `phase_regressed`
-- `manual_intervention_registered`
+- `artifact_operated`
 - `review_passed`
 - `review_failed`
 - `source_hash_mismatch_detected`

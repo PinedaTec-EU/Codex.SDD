@@ -9,6 +9,9 @@ namespace SpecForge.OpenAICompatible;
 
 public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProvider
 {
+    private const string StrictTolerance = "strict";
+    private const string BalancedTolerance = "balanced";
+    private const string InferentialTolerance = "inferential";
     private readonly HttpClient httpClient;
     private readonly OpenAiCompatibleProviderOptions options;
     private readonly RepositoryPromptCatalog promptCatalog;
@@ -43,6 +46,20 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         {
             throw new ArgumentException("Model is required.", nameof(options));
         }
+
+        if (!IsSupportedTolerance(options.ClarificationTolerance))
+        {
+            throw new ArgumentException(
+                "ClarificationTolerance must be one of: strict, balanced, inferential.",
+                nameof(options));
+        }
+
+        if (!IsSupportedTolerance(options.ReviewTolerance))
+        {
+            throw new ArgumentException(
+                "ReviewTolerance must be one of: strict, balanced, inferential.",
+                nameof(options));
+        }
     }
 
     public async Task<PhaseExecutionResult> ExecuteAsync(
@@ -52,7 +69,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         promptCatalog.EnsureRepositoryIsInitialized(context.WorkspaceRoot);
 
         var prompt = await BuildEffectivePromptAsync(context, cancellationToken);
-        var request = BuildRequest(prompt.SystemPrompt, prompt.UserPrompt);
+        var request = BuildRequest(context, prompt.SystemPrompt, prompt.UserPrompt);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         var payload = await response.Content.ReadAsStringAsync(cancellationToken);
 
@@ -79,7 +96,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return new PhaseExecutionResult(normalizedContent, ExecutionKind: "openai-compatible", usage);
     }
 
-    private HttpRequestMessage BuildRequest(string systemPrompt, string userPrompt)
+    private HttpRequestMessage BuildRequest(PhaseExecutionContext context, string systemPrompt, string userPrompt)
     {
         var endpoint = $"{options.BaseUrl.TrimEnd('/')}/chat/completions";
         var messages = new List<object>();
@@ -103,7 +120,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         {
             model = options.Model,
             messages,
-            temperature = 0.2
+            temperature = ResolveTemperature(context.PhaseId)
         });
 
         var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
@@ -211,6 +228,34 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(context.CurrentArtifactPath) && File.Exists(context.CurrentArtifactPath))
+        {
+            var currentArtifact = await File.ReadAllTextAsync(context.CurrentArtifactPath, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(currentArtifact))
+            {
+                builder
+                    .AppendLine("## Current Phase Artifact")
+                    .AppendLine()
+                    .AppendLine($"Path: `{context.CurrentArtifactPath}`")
+                    .AppendLine()
+                    .AppendLine(currentArtifact.Trim())
+                    .AppendLine();
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(context.OperationPrompt))
+        {
+            builder
+                .AppendLine("## Requested Artifact Operation")
+                .AppendLine()
+                .AppendLine("Apply this instruction directly to the current phase artifact:")
+                .AppendLine()
+                .AppendLine("```text")
+                .AppendLine(context.OperationPrompt.Trim())
+                .AppendLine("```")
+                .AppendLine();
+        }
+
         builder
             .AppendLine("## Execution Rules")
             .AppendLine()
@@ -218,9 +263,23 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine("- Stay strictly inside the requested phase contract.")
             .AppendLine("- Return only the markdown artifact for the current phase.");
 
+        if (!string.IsNullOrWhiteSpace(context.OperationPrompt))
+        {
+            builder
+                .AppendLine("- Treat the current phase artifact as the document under edit, not as a discarded draft.")
+                .AppendLine("- Preserve valid content unless the requested operation requires a change.")
+                .AppendLine("- Update the artifact so the requested correction becomes explicit in the markdown.")
+                .AppendLine("- Add a concise new entry at the top of the artifact history log describing the operation.");
+        }
+
         if (context.PhaseId == PhaseId.Clarification)
         {
             builder
+                .AppendLine()
+                .AppendLine("## Clarification Tolerance")
+                .AppendLine()
+                .AppendLine($"- Active tolerance: `{options.ClarificationTolerance}`")
+                .AppendLine($"- Guidance: {ResolveClarificationGuidance(options.ClarificationTolerance)}")
                 .AppendLine()
                 .AppendLine("## Internal Clarification Contract")
                 .AppendLine()
@@ -233,8 +292,65 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine("Do not replace these tokens with synonyms, labels, prose, or code fences.");
         }
 
+        if (context.PhaseId == PhaseId.Review)
+        {
+            builder
+                .AppendLine()
+                .AppendLine("## Review Tolerance")
+                .AppendLine()
+                .AppendLine($"- Active tolerance: `{options.ReviewTolerance}`")
+                .AppendLine($"- Guidance: {ResolveReviewGuidance(options.ReviewTolerance)}");
+        }
+
         return new EffectivePrompt(systemPrompt, builder.ToString().Trim());
     }
+
+    private double ResolveTemperature(PhaseId phaseId) =>
+        phaseId switch
+        {
+            PhaseId.Clarification => ResolveToleranceTemperature(options.ClarificationTolerance),
+            PhaseId.Review => ResolveToleranceTemperature(options.ReviewTolerance),
+            _ => 0.2d
+        };
+
+    private static double ResolveToleranceTemperature(string tolerance) =>
+        NormalizeTolerance(tolerance) switch
+        {
+            StrictTolerance => 0.0d,
+            BalancedTolerance => 0.2d,
+            InferentialTolerance => 0.4d,
+            _ => 0.2d
+        };
+
+    private static string ResolveClarificationGuidance(string tolerance) =>
+        NormalizeTolerance(tolerance) switch
+        {
+            StrictTolerance =>
+                "Be conservative. Ask for clarification whenever actor, trigger, business behavior, inputs, outputs, rules, or acceptance intent are materially ambiguous.",
+            InferentialTolerance =>
+                "Be permissive. Prefer `ready_for_refinement` when the core actor, outcome, and flow are understandable, and infer reasonable defaults unless a missing detail would likely invalidate refinement.",
+            _ =>
+                "Use balanced judgment. Ask only for gaps that would block a credible refinement, but do not invent business-critical facts."
+        };
+
+    private static string ResolveReviewGuidance(string tolerance) =>
+        NormalizeTolerance(tolerance) switch
+        {
+            StrictTolerance =>
+                "Be demanding. Surface weaker evidence, thinner validation, and smaller deviations as findings whenever they could undermine confidence in release readiness.",
+            InferentialTolerance =>
+                "Be pragmatic. Focus on material deviations, missing validation, or operational risks, and avoid blocking on minor imperfections that do not change the release decision.",
+            _ =>
+                "Use balanced judgment. Prioritize meaningful risks and missing evidence without inflating cosmetic or low-impact issues."
+        };
+
+    private static bool IsSupportedTolerance(string tolerance) =>
+        NormalizeTolerance(tolerance) is StrictTolerance or BalancedTolerance or InferentialTolerance;
+
+    private static string NormalizeTolerance(string tolerance) =>
+        string.IsNullOrWhiteSpace(tolerance)
+            ? BalancedTolerance
+            : tolerance.Trim().ToLowerInvariant();
 
     private static string NormalizePhaseContent(PhaseExecutionContext context, string content)
     {

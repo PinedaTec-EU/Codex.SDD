@@ -6,6 +6,7 @@ import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSet
 import { DEFAULT_USER_STORY_CATEGORIES, nextUserStoryIdFromSummaries, parseYamlSequence } from "./explorerModel";
 import { getOrCreateBackendClient } from "./specsExplorer";
 import { buildSidebarHtml } from "./sidebarViewContent";
+import { getCurrentActor } from "./userActor";
 import {
   buildWizardSourceText,
   getWizardMissingFields,
@@ -206,7 +207,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     const backendClient = getOrCreateBackendClient(workspaceRoot);
     const summaries = await backendClient.listUserStories();
     const usId = nextUserStoryIdFromSummaries(summaries);
-    const result = await backendClient.createUserStory(usId, title, kind, category, sourceText);
+    const result = await backendClient.createUserStory(usId, title, kind, category, sourceText, getCurrentActor());
     await this.materializeCreateFilesAsync(result.rootDirectory);
     this.showCreateForm = false;
     this.createFiles = [];

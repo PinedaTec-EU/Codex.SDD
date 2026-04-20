@@ -36,6 +36,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
         isCurrent: true,
         state: "current",
         artifactPath: "/tmp/01-refinement.md",
+        operationLogPath: "/tmp/01-refinement.ops.md",
         executePromptPath: "/tmp/refinement.execute.md",
         approvePromptPath: "/tmp/refinement.approve.md"
       }
@@ -82,6 +83,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   }, {
     selectedPhaseId: "refinement",
     selectedArtifactContent: "## Refinement\nBody",
+    selectedOperationContent: "# Artifact Operation Log · refinement\n\n## 2026-04-18T10:05:00Z · `alice`\n\n- Source Artifact: `/tmp/01-refinement.md`\n- Result Artifact: `/tmp/01-refinement.v02.md`\n- Prompt:\n```text\nPlease constrain export columns.\n```",
     contextSuggestions: [],
     settingsConfigured: true,
     settingsMessage: null
@@ -92,6 +94,8 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /phase-graph/);
   assert.match(html, /phase-node refinement phase-tone-waiting-user selected/);
   assert.match(html, /phase-tag phase-tag--waiting-user">waiting-user</);
+  assert.match(html, /<div class="phase-slug">US<\/div>/);
+  assert.match(html, /<span class="token">spec<\/span>/);
   assert.match(html, /currentFlow/);
   assert.match(html, /currentPulse/);
   assert.match(html, /Generated refinement artifact\./);
@@ -99,6 +103,14 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /Open Artifact/);
   assert.match(html, /Open Execute Prompt/);
   assert.match(html, /Open Approve Prompt/);
+  assert.match(html, /detail-card-shell[^]*detail-actions--phase-header[^]*data-command="approve">Approve</);
+  assert.match(html, /detail-card-shell[^]*detail-actions--phase-header[^]*workflow-action-button--danger[^]*data-command="restart">Reject</);
+  assert.match(html, /workflow-action-button--document[^]*Open Artifact/);
+  assert.match(html, /workflow-action-button--document[^]*Open Execute Prompt/);
+  assert.match(html, /workflow-action-button--document[^]*Open Approve Prompt/);
+  assert.match(html, /Open Operation Log/);
+  assert.doesNotMatch(html, /action-btn--approve/);
+  assert.doesNotMatch(html, /action-btn--reject/);
   assert.match(html, /data-open-workflow-files/);
   assert.doesNotMatch(html, />Reset</);
   assert.doesNotMatch(html, /debugResetToCapture/);
@@ -114,20 +126,166 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /draggable="true"/);
   assert.match(html, /service\.cs/);
   assert.match(html, /api-notes\.md/);
-  assert.match(html, /Duration/);
+  assert.match(html, /phase-duration-pill/);
+  assert.match(html, /Phase duration/);
   assert.match(html, /4\.88 s/);
-  assert.match(html, /Input\/Output Tokens/);
+  assert.match(html, /token-summary/);
+  assert.match(html, /<div class="token-summary__header">Tokens<\/div>/);
+  assert.match(html, /<h3>Operate Current Spec<\/h3>/);
+  assert.match(html, /Apply via Model/);
+  assert.match(html, /Current operation log/);
+  assert.match(html, /alice/);
+  assert.match(html, /Input \/ Output/);
   assert.match(html, />321 \/ 144</);
-  assert.match(html, /Total Tokens/);
+  assert.match(html, /Total/);
   assert.match(html, />465</);
   assert.match(html, /Response Speed/);
   assert.match(html, /29\.5 tok\/s/);
+  assert.match(html, /phase_completed[^]*badge\">system</);
+  assert.match(html, /phase_completed[^]*badge\">refinement</);
   assert.doesNotMatch(html, /<h3>Workflow Files<\/h3>/);
   assert.match(html, /attachment-item--dragging/);
   assert.match(html, /command: "setFileKind"/);
   assert.match(html, /vscode\.getState\(\)/);
   assert.match(html, /workflowFilesOpen/);
   assert.match(html, /vscode\.setState\(/);
+});
+
+test("buildWorkflowHtml shows phase actions in the selected detail only for the current phase", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0020",
+    title: "Approval placement",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0020",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Spec",
+        order: 1,
+        requiresApproval: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/01-spec.md",
+        executePromptPath: "/tmp/refinement.execute.md",
+        approvePromptPath: "/tmp/refinement.approve.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "refinement_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "capture",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.doesNotMatch(html, /data-command="approve">Approve</);
+  assert.doesNotMatch(html, /data-command="restart">Reject</);
+  assert.doesNotMatch(html, /phase-node-actions/);
+});
+
+test("buildWorkflowHtml uses US as the secondary label for capture and clarification", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0001",
+    title: "US-0001 · Clarification view",
+    category: "workflow",
+    status: "active",
+    currentPhase: "clarification",
+    directoryPath: "/tmp/us.US-0001",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "clarification",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/00-clarification.md",
+        executePromptPath: "/tmp/clarification.execute.md",
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: true,
+      regressionTargets: []
+    },
+    clarification: {
+      status: "needs_clarification",
+      tolerance: "balanced",
+      reason: "More user detail is required.",
+      items: []
+    },
+    events: [],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "clarification",
+    selectedArtifactContent: "## Refinement",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /<h1>US-0001 · Clarification view<\/h1>/);
+  assert.match(html, /phase-node capture[^]*?<div class="phase-slug">US<\/div>/);
+  assert.match(html, /phase-node clarification[^]*?<div class="phase-slug">US<\/div>/);
+  assert.match(html, /<h2>Refinement<\/h2>/);
+  assert.match(html, /<span class="token">US<\/span>/);
 });
 
 test("buildWorkflowHtml shows the debug reset action only in debug mode", () => {
@@ -637,8 +795,58 @@ test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
   assert.match(html, /Playback is paused at the phase boundary/);
   assert.doesNotMatch(html, /<span class="execution-overlay__elapsed"/);
   assert.match(html, /data-show-elapsed="false"/);
+  assert.match(html, /\.graph-stage\.graph-stage--overlay-active \.phase-graph[\s\S]*pointer-events: none;/);
   assert.match(html, /graphStage\.classList\.remove\("graph-stage--overlay-active"\)/);
   assert.match(html, /document\.addEventListener\("pointerdown"/);
+});
+
+test("buildWorkflowHtml locks background interaction while the workflow files modal is open", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0014",
+    title: "Modal lock",
+    category: "workflow",
+    status: "active",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0014",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [{
+      phaseId: "refinement",
+      title: "Refinement",
+      order: 0,
+      requiresApproval: true,
+      isApproved: false,
+      isCurrent: true,
+      state: "current",
+      artifactPath: "/tmp/01-refinement.md",
+      executePromptPath: "/tmp/refinement.execute.md",
+      approvePromptPath: "/tmp/refinement.approve.md"
+    }],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "refinement_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "refinement",
+    selectedArtifactContent: "## Refinement",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /<div class="shell" data-workflow-shell>/);
+  assert.match(html, /\.shell\.shell--interaction-locked[\s\S]*pointer-events: none;/);
+  assert.match(html, /workflowShell\.classList\.toggle\("shell--interaction-locked", open\)/);
 });
 
 test("buildWorkflowHtml highlights waiting-user and runner paused hero tokens as attention states", () => {

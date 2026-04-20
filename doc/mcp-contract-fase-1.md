@@ -18,7 +18,6 @@ Define the minimum MCP backend interface required to execute the canonical phase
 - phases use these canonical ids:
   - `capture`
   - `refinement`
-  - `refinement_approval`
   - `technical_design`
   - `implementation`
   - `review`
@@ -38,11 +37,11 @@ status: active
 currentPhase: refinement
 activeArtifacts:
   us: .specs/us/us.US-0001/us.md
-  refinement: .specs/us/us.US-0001/phases/01-refinement.md
+  refinement: .specs/us/us.US-0001/phases/01-spec.md
 messages:
-  - code: refinement_generated
+  - code: spec_generated
     level: info
-    text: Refinement generated and pending approval
+    text: Spec generated and pending approval
 ```
 
 ## Minimum Tools
@@ -151,10 +150,9 @@ status: waiting_user
 currentPhase: refinement
 phaseStates:
   refinement: waiting_user
-  refinementApproval: pending
 activeArtifacts:
   us: .specs/us/us.US-0001/us.md
-  refinement: .specs/us/us.US-0001/phases/01-refinement.md
+  refinement: .specs/us/us.US-0001/phases/01-spec.md
 branch:
   baseBranch: main
   workBranch: null
@@ -246,11 +244,11 @@ Minimum output:
 usId: US-0001
 status: waiting_user
 currentPhase: refinement
-generatedArtifact: .specs/us/us.US-0001/phases/01-refinement.md
+generatedArtifact: .specs/us/us.US-0001/phases/01-spec.md
 messages:
-  - code: refinement_generated
+  - code: spec_generated
     level: info
-    text: Refinement generated with red-team evaluation and blue-team reconstruction
+    text: Spec generated with red-team evaluation and blue-team reconstruction
 ```
 
 Business errors:
@@ -274,12 +272,13 @@ Minimum input:
 usId: US-0001
 phaseId: refinement
 approvedBy: user
+actor: alice
 baseBranch: main
 ```
 
 Notes:
 
-- `baseBranch` is required when the approval executes `refinement_approval`, because that is when the work branch is created
+- `baseBranch` is required when the approval executes `refinement`, because that is when the work branch is created
 - for other checkpoints `baseBranch` is optional or not applicable
 - in phase 1, branch creation is integrated into this operation and is not exposed as a separate tool
 
@@ -304,6 +303,7 @@ Business errors:
 - `phase_not_approvable`
 - `approval_not_required`
 - `missing_base_branch`
+- `validation_error`
 
 ### `request_regression`
 
@@ -318,6 +318,7 @@ usId: US-0001
 targetPhaseId: technical_design
 reason: Review detected insufficient decoupling
 requestedBy: user
+actor: alice
 ```
 
 Minimum output:
@@ -349,6 +350,7 @@ Minimum input:
 ```yaml
 usId: US-0001
 requestedBy: user
+actor: alice
 reason: The user story changed after refinement started
 ```
 
@@ -368,6 +370,43 @@ Business errors:
 
 - `us_not_found`
 - `restart_not_allowed`
+
+### `operate_current_phase_artifact`
+
+Purpose:
+
+- apply a prompt over the current artifact, generate a new artifact version, and persist the full operation trace
+
+Minimum input:
+
+```yaml
+usId: US-0001
+actor: alice
+prompt: |
+  Keep the current spec bounded to article ingestion only.
+  Do not expand into publishing workflows.
+```
+
+Minimum output:
+
+```yaml
+usId: US-0001
+status: waiting_user
+currentPhase: refinement
+operationLogPath: .specs/us/us.US-0001/phases/01-spec.ops.md
+sourceArtifactPath: .specs/us/us.US-0001/phases/01-spec.md
+generatedArtifactPath: .specs/us/us.US-0001/phases/01-spec.v02.md
+messages:
+  - code: artifact_operated
+    level: info
+    text: The current artifact was operated through a prompt and a new version was generated
+```
+
+Business errors:
+
+- `us_not_found`
+- `phase_transition_not_allowed`
+- `validation_error`
 
 ### `list_user_story_files`
 

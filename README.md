@@ -41,11 +41,13 @@ Not implemented yet:
   - `release_approval`
   - `pr_preparation`
 - Phase execution semantics are explicit:
-  - automatic/system-driven phases: `capture`, `refinement`, `technical_design`, `implementation`, `review`, `pr_preparation`
-  - user checkpoint phases: `release_approval`
+  - automatic/system-driven phases: `capture`, `clarification`, `technical_design`, `implementation`, `review`, `pr_preparation`
+  - human checkpoint phases: `refinement` and `release_approval`
 - Explicit approval gates and regression rules
 - Local workspace persistence under `.specs/us/us.<us-id>/`
 - Human-readable artifacts in Markdown
+- Shared audit trail in `timeline.md` with actor and UTC timestamp for user actions
+- Explicit artifact operation logs such as `phases/01-spec.ops.md` when a developer asks the model to operate over the current spec
 - Technical state in YAML
 - Minimal workflow automation through a .NET runner
 - Minimal VS Code extension for creating, importing, listing, and opening user stories
@@ -89,6 +91,7 @@ See the detailed design documents in:
 - [doc/product-vision.md](doc/product-vision.md)
 - [doc/architecture.md](doc/architecture.md)
 - [doc/workflow-canonico-fase-1.md](doc/workflow-canonico-fase-1.md)
+- [doc/spec-schema-fase-1.md](doc/spec-schema-fase-1.md)
 - [doc/mcp-contract-fase-1.md](doc/mcp-contract-fase-1.md)
 - [doc/implementation-plan.md](doc/implementation-plan.md)
 
@@ -145,6 +148,8 @@ export SPECFORGE_PHASE_PROVIDER=openai-compatible
 export SPECFORGE_OPENAI_BASE_URL=https://api.openai.com/v1
 export SPECFORGE_OPENAI_API_KEY=<your-api-key>
 export SPECFORGE_OPENAI_MODEL=gpt-4.1-mini
+export SPECFORGE_CAPTURE_TOLERANCE=balanced
+export SPECFORGE_REVIEW_TOLERANCE=balanced
 ```
 
 For local testing with Ollama:
@@ -154,9 +159,25 @@ export SPECFORGE_PHASE_PROVIDER=openai-compatible
 export SPECFORGE_OPENAI_BASE_URL=http://localhost:11434/v1
 export SPECFORGE_OPENAI_API_KEY=ollama-local
 export SPECFORGE_OPENAI_MODEL=llama3.1
+export SPECFORGE_CAPTURE_TOLERANCE=balanced
+export SPECFORGE_REVIEW_TOLERANCE=balanced
 ```
 
 The provider targets the OpenAI-compatible chat completions shape, so OpenAI and Ollama can share the same backend integration path.
+For clarification, the backend supports three tolerance levels: `strict`, `balanced`, and `inferential`.
+This value is sent as `SPECFORGE_CAPTURE_TOLERANCE`, adds explicit guidance to the clarification prompt, and maps clarification-only `temperature` as follows:
+
+- `strict` -> `0.0`
+- `balanced` -> `0.2`
+- `inferential` -> `0.4`
+
+For review, the backend supports the same three levels through `SPECFORGE_REVIEW_TOLERANCE`. It adds explicit review guidance to the prompt and maps review-only `temperature` using the same values:
+
+- `strict` -> `0.0`
+- `balanced` -> `0.2`
+- `inferential` -> `0.4`
+
+`temperature` is not exposed as an independent extension setting. The supported knobs are `clarificationTolerance` and `reviewTolerance`, and the provider derives `temperature` from them for the corresponding phases only.
 
 Before executing real provider-backed phases, initialize the repository prompt set through the MCP backend. This materializes `.specs/config.yaml` and `.specs/prompts/`, and the engine will fail fast if the required prompt files are missing.
 
@@ -171,7 +192,7 @@ The .NET core already supports:
 - validating explicit user-story categories against the repo catalog in `.specs/config.yaml`
 - advancing to the next valid phase
 - approving approval-required phases
-- creating the work branch metadata on refinement approval using `<kind>/us-xxxx-short-slug`
+- creating the work branch metadata when the refinement/spec phase is approved using `<kind>/us-xxxx-short-slug`
 - generating minimal phase artifacts and timeline entries
 - initializing versioned repo prompts under `.specs/prompts/`
 - requiring prompt initialization for real provider-backed phase execution
@@ -241,6 +262,25 @@ Recommended detail:
 
 The sidebar intake keeps the original freeform source box, but also offers an optional guided wizard that turns those answers into structured source text before the user story is created.
 
+### Spec baseline
+
+The `refinement` phase is the functional checkpoint of the workflow. Its output is no longer treated as lightweight prose; it is the approved baseline spec for downstream work.
+
+Current expectation for `01-spec.md`:
+
+- inputs
+- outputs
+- business rules
+- edge cases
+- errors and failure modes
+- constraints
+- acceptance criteria
+- explicit ambiguities and approval questions
+
+This reduces approval fatigue versus forcing the user to approve both a weak refinement and a separate technical design by default. The technical design remains important, but phase 1 now treats it as a derived execution artifact rather than as a mandatory blocking checkpoint in every story.
+
+The exact required schema for that artifact lives in [doc/spec-schema-fase-1.md](doc/spec-schema-fase-1.md). The approval path now validates that schema before the spec baseline can be frozen.
+
 ### Workflow readability
 
 The workflow view intentionally distinguishes between:
@@ -248,7 +288,7 @@ The workflow view intentionally distinguishes between:
 - automatic phases that the system can execute when the provider and prompts are ready
 - user-driven checkpoints that require explicit approval before the next transition
 
-Today the canonical checkpoint is `release_approval`. The graph and phase detail make this visible so the operator can see where the workflow will stop and wait for attention.
+Today the canonical checkpoints are `refinement` as the spec baseline and `release_approval` as the final human release gate. The graph and phase detail make this visible so the operator can see where the workflow will stop and wait for attention.
 
 ### Running the extension locally
 
@@ -265,6 +305,8 @@ The extension contributes these settings:
 - `specForge.execution.baseUrl`
 - `specForge.execution.apiKey`
 - `specForge.execution.model`
+- `specForge.execution.clarificationTolerance`
+- `specForge.execution.reviewTolerance`
 - `specForge.ui.enableWatcher`
 - `specForge.ui.notifyOnAttention`
 - `specForge.features.enableContextSuggestions`
@@ -287,7 +329,7 @@ Typical contents:
   branch.yaml
   timeline.md
   phases/
-    01-refinement.md
+    01-spec.md
     02-technical-design.md
     03-implementation.md
     04-review.md

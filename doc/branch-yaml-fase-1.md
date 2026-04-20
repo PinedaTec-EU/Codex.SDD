@@ -38,9 +38,9 @@ Does not include:
 
 ## Creation Time
 
-`branch.yaml` must be created in `refinement_approval`, when:
+`branch.yaml` must be created in `refinement`, when:
 
-- the user approves the refinement for the first time
+- the user approves the spec baseline for the first time
 - the system can already open an isolated work branch
 
 ## Location
@@ -62,7 +62,7 @@ baseBranch: main
 workBranch: feature/us-0001-specforge-foundation
 status: active
 createdAt: 2026-04-17T10:30:00Z
-createdFromPhase: refinement_approval
+createdFromPhase: refinement
 strategy: single-branch-per-user-story
 titleSnapshot: Group specs explorer by category
 sourceUsPath: .specs/us/us.US-0001/us.md
@@ -79,7 +79,7 @@ Stable identifier of the user story that owns the branch.
 
 ### `baseBranch`
 
-Base branch selected by the user when approving the first refinement.
+Base branch selected by the user when approving the first spec baseline.
 
 ### `kind`
 
@@ -130,7 +130,7 @@ Timestamp when the branch was created.
 
 ### `createdFromPhase`
 
-Workflow phase that originated branch creation. In phase 1 it must be `refinement_approval`.
+Workflow phase that originated branch creation. In phase 1 it must be `refinement`.
 
 ### `strategy`
 
@@ -157,7 +157,7 @@ Initial `pullRequest.status` values:
 - `workBranch` cannot exist without `baseBranch`
 - `workBranch` cannot exist without `kind`
 - `workBranch` cannot exist without `category`
-- `branch.yaml` is not created before the initial refinement approval
+- `branch.yaml` is not created before the initial spec approval
 - if a user story is restarted from source, the previous branch must be marked as `superseded` or `abandoned`, never silently reused
 
 ## Closed Decisions

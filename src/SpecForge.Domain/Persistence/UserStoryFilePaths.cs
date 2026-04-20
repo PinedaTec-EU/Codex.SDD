@@ -73,18 +73,35 @@ public sealed class UserStoryFilePaths
 
     public string GetPhaseArtifactPath(PhaseId phaseId, int version = 1)
     {
-        var fileName = phaseId switch
-        {
-            PhaseId.Clarification => "00-clarification",
-            PhaseId.Refinement => "01-refinement",
-            PhaseId.TechnicalDesign => "02-technical-design",
-            PhaseId.Implementation => "03-implementation",
-            PhaseId.Review => "04-review",
-            _ => throw new ArgumentOutOfRangeException(nameof(phaseId), phaseId, "No artifact path is defined for this phase.")
-        };
-
+        var fileName = GetPhaseArtifactFileStem(phaseId);
         var versionSuffix = version <= 1 ? string.Empty : $".v{version:00}";
         return Path.Combine(PhasesDirectoryPath, $"{fileName}{versionSuffix}.md");
+    }
+
+    public string? GetLatestExistingPhaseArtifactPath(PhaseId phaseId)
+    {
+        foreach (var fileStem in GetPhaseArtifactFileStems(phaseId))
+        {
+            string? latestPath = null;
+            for (var version = 1; version < 100; version++)
+            {
+                var versionSuffix = version <= 1 ? string.Empty : $".v{version:00}";
+                var candidate = Path.Combine(PhasesDirectoryPath, $"{fileStem}{versionSuffix}.md");
+                if (!File.Exists(candidate))
+                {
+                    break;
+                }
+
+                latestPath = candidate;
+            }
+
+            if (latestPath is not null)
+            {
+                return latestPath;
+            }
+        }
+
+        return null;
     }
 
     public string GetRestartArchiveDirectoryPath(DateTimeOffset timestampUtc)
@@ -92,4 +109,32 @@ public sealed class UserStoryFilePaths
         var directoryName = timestampUtc.UtcDateTime.ToString("yyyyMMdd'T'HHmmss'Z'");
         return Path.Combine(RestartsDirectoryPath, directoryName);
     }
+
+    public string GetPhaseOperationLogPath(PhaseId phaseId)
+    {
+        var fileStem = GetPhaseArtifactFileStem(phaseId);
+        return Path.Combine(PhasesDirectoryPath, $"{fileStem}.ops.md");
+    }
+
+    public string? GetLatestExistingPhaseOperationLogPath(PhaseId phaseId)
+    {
+        var candidate = GetPhaseOperationLogPath(phaseId);
+        return File.Exists(candidate) ? candidate : null;
+    }
+
+    private static string GetPhaseArtifactFileStem(PhaseId phaseId) => phaseId switch
+    {
+        PhaseId.Clarification => "00-clarification",
+        PhaseId.Refinement => "01-spec",
+        PhaseId.TechnicalDesign => "02-technical-design",
+        PhaseId.Implementation => "03-implementation",
+        PhaseId.Review => "04-review",
+        _ => throw new ArgumentOutOfRangeException(nameof(phaseId), phaseId, "No artifact path is defined for this phase.")
+    };
+
+    private static IReadOnlyList<string> GetPhaseArtifactFileStems(PhaseId phaseId) => phaseId switch
+    {
+        PhaseId.Refinement => ["01-spec", "01-refinement"],
+        _ => [GetPhaseArtifactFileStem(phaseId)]
+    };
 }

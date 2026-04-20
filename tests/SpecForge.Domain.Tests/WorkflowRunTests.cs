@@ -77,7 +77,7 @@ public sealed class WorkflowRunTests
         run.GenerateNextPhase();
 
         Assert.Equal(PhaseId.TechnicalDesign, run.CurrentPhase);
-        Assert.Equal(UserStoryStatus.WaitingUser, run.Status);
+        Assert.Equal(UserStoryStatus.Active, run.Status);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public sealed class WorkflowRunTests
         run.RequestRegression(PhaseId.TechnicalDesign);
 
         Assert.Equal(PhaseId.TechnicalDesign, run.CurrentPhase);
-        Assert.Equal(UserStoryStatus.WaitingUser, run.Status);
+        Assert.Equal(UserStoryStatus.Active, run.Status);
         Assert.False(run.IsPhaseApproved(PhaseId.TechnicalDesign));
     }
 
@@ -128,7 +128,6 @@ public sealed class WorkflowRunTests
         run.GenerateNextPhase();
         run.ApproveCurrentPhase("main", "feature/us-0001-test-story", "feature", "workflow", "Test story", ".specs/us/us.US-0001/us.md");
         run.GenerateNextPhase();
-        run.ApproveCurrentPhase();
         run.GenerateNextPhase();
     }
 

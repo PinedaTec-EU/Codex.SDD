@@ -136,7 +136,7 @@ test("buildSidebarHtml uses compact actions instead of a separate create card wh
   assert.match(html, /aria-label="Star US-0001"/);
   assert.match(html, /aria-label="Delete US-0001"/);
   assert.match(html, /story-card--active story-card--phase-refinement/);
-  assert.match(html, /story-card__phase-number">3</);
+  assert.match(html, /story-card__phase-label">SPEC</);
   assert.doesNotMatch(html, /Start another user story/);
   assert.doesNotMatch(html, /Keep the backlog focused on active work/);
 });
@@ -165,7 +165,7 @@ test("buildSidebarHtml keeps the phase rail for user stories that are still in p
 
   assert.match(html, /story-card--active story-card--phase-technical-design/);
   assert.match(html, /story-card--status-waiting-user/);
-  assert.match(html, /<span class="story-card__phase-number">4<\/span>/);
+  assert.match(html, /<span class="story-card__phase-label">TECH<\/span>/);
 });
 
 test("buildSidebarHtml uses the paused phase rail tone when a story is paused by the user", () => {
@@ -216,7 +216,7 @@ test("buildSidebarHtml hides the phase rail for completed user stories", () => {
   });
 
   assert.doesNotMatch(html, /<button class="story-card story-card--active/);
-  assert.doesNotMatch(html, /<span class="story-card__phase-number">/);
+  assert.doesNotMatch(html, /<span class="story-card__phase-label">/);
 });
 
 test("buildSidebarHtml shows a bootstrap block above the backlog when prompts are missing", () => {

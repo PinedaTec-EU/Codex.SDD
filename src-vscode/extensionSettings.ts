@@ -3,6 +3,8 @@ export interface SpecForgeSettings {
   readonly baseUrl: string | null;
   readonly apiKey: string | null;
   readonly model: string | null;
+  readonly clarificationTolerance: string;
+  readonly reviewTolerance: string;
   readonly watcherEnabled: boolean;
   readonly attentionNotificationsEnabled: boolean;
   readonly contextSuggestionsEnabled: boolean;
@@ -24,6 +26,8 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
     baseUrl: normalizeOptional(configuration.get<string>("execution.baseUrl")),
     apiKey: normalizeOptional(configuration.get<string>("execution.apiKey")),
     model: normalizeOptional(configuration.get<string>("execution.model")),
+    clarificationTolerance: normalizeTolerance(configuration.get<string>("execution.clarificationTolerance", "balanced")),
+    reviewTolerance: normalizeTolerance(configuration.get<string>("execution.reviewTolerance", "balanced")),
     watcherEnabled: configuration.get<boolean>("ui.enableWatcher", true),
     attentionNotificationsEnabled: configuration.get<boolean>("ui.notifyOnAttention", true),
     contextSuggestionsEnabled: configuration.get<boolean>("features.enableContextSuggestions", true)
@@ -46,6 +50,9 @@ export function buildBackendEnvironment(settings: SpecForgeSettings): NodeJS.Pro
   if (settings.model) {
     env.SPECFORGE_OPENAI_MODEL = settings.model;
   }
+
+  env.SPECFORGE_CAPTURE_TOLERANCE = settings.clarificationTolerance;
+  env.SPECFORGE_REVIEW_TOLERANCE = settings.reviewTolerance;
 
   return env;
 }
@@ -85,6 +92,11 @@ interface ConfigurationReader {
 function normalizeOptional(value: string | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function normalizeTolerance(value: string | undefined): string {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "strict" || normalized === "inferential" ? normalized : "balanced";
 }
 
 function isLocalOpenAiCompatibleEndpoint(baseUrl: string | null): boolean {

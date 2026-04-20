@@ -8,4 +8,6 @@ public sealed record PhaseExecutionContext(
     PhaseId PhaseId,
     string UserStoryPath,
     IReadOnlyDictionary<PhaseId, string> PreviousArtifactPaths,
-    IReadOnlyCollection<string> ContextFilePaths);
+    IReadOnlyCollection<string> ContextFilePaths,
+    string? CurrentArtifactPath = null,
+    string? OperationPrompt = null);

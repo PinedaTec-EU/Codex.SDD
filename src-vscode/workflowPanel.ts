@@ -5,6 +5,8 @@ import type { SpecForgeBackendClient, UserStorySummary, UserStoryWorkflowDetails
 import { suggestContextFiles } from "./contextSuggestions";
 import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSettings";
 import { appendSpecForgeDebugLog, appendSpecForgeLog, isSpecForgeDebugLoggingEnabled, showSpecForgeOutput } from "./outputChannel";
+import { getCurrentActor } from "./userActor";
+import { normalizePlaybackStateAfterManualWorkflowChange } from "./workflowPlaybackState";
 import { buildWorkflowHtml } from "./workflowView";
 
 type WorkflowPanelCommand =
@@ -23,6 +25,7 @@ type WorkflowPanelCommand =
   | { readonly command: "debugResetToCapture" }
   | { readonly command: "regress"; readonly phaseId?: string }
   | { readonly command: "submitClarificationAnswers"; readonly answers?: string[] }
+  | { readonly command: "submitPhaseInput"; readonly prompt?: string }
   | { readonly command: "play" }
   | { readonly command: "pause" }
   | { readonly command: "stop" };
@@ -234,6 +237,11 @@ class WorkflowPanelController {
       case "submitClarificationAnswers":
         await this.submitClarificationAnswersAsync(message.answers ?? []);
         return;
+      case "submitPhaseInput":
+        if (message.prompt) {
+          await this.submitPhaseInputAsync(message.prompt);
+        }
+        return;
       case "play":
         if (!this.isExecutionConfigured()) {
           await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
@@ -282,6 +290,7 @@ class WorkflowPanelController {
       currentPhase: result.currentPhase,
       status: result.status
     };
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
     this.selectedPhaseId = result.currentPhase;
     this.clearTransientExecutionPhase();
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' continueCurrentPhaseAsync requested explorer refresh.`);
@@ -290,11 +299,34 @@ class WorkflowPanelController {
   }
 
   private async submitClarificationAnswersAsync(answers: string[]): Promise<void> {
-    await this.getBackendClient().submitClarificationAnswers(this.summary.usId, answers);
+    await this.getBackendClient().submitClarificationAnswers(this.summary.usId, answers, getCurrentActor());
     appendSpecForgeLog(`Workflow '${this.summary.usId}' stored ${answers.length} clarification answer(s).`);
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' submitClarificationAnswersAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
     await this.refreshAsync("submitClarificationAnswersAsync");
+  }
+
+  private async submitPhaseInputAsync(prompt: string): Promise<void> {
+    const normalizedPrompt = prompt.trim();
+    if (normalizedPrompt.length === 0) {
+      return;
+    }
+
+    const result = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, normalizedPrompt, getCurrentActor());
+    appendSpecForgeLog(`Workflow '${this.summary.usId}' regenerated phase '${result.currentPhase}' after human input.`);
+    this.summary = {
+      ...this.summary,
+      currentPhase: result.currentPhase,
+      status: result.status
+    };
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
+    this.selectedPhaseId = result.currentPhase;
+    appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' submitPhaseInputAsync requested explorer refresh.`);
+    await this.callbacks.refreshExplorer();
+    await this.refreshAsync("submitPhaseInputAsync");
   }
 
   private isExecutionConfigured(): boolean {
@@ -389,8 +421,10 @@ class WorkflowPanelController {
       }
     }
 
-    this.summary = await this.getBackendClient().approveCurrentPhase(this.summary.usId, baseBranch);
+    this.summary = await this.getBackendClient().approveCurrentPhase(this.summary.usId, baseBranch, getCurrentActor());
     appendSpecForgeLog(`Workflow '${this.summary.usId}' approved phase '${this.summary.currentPhase}'.`);
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' approveCurrentPhaseAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
     await this.refreshAsync("approveCurrentPhaseAsync");
@@ -407,7 +441,7 @@ class WorkflowPanelController {
       return;
     }
 
-    const result = await this.getBackendClient().requestRegression(this.summary.usId, targetPhase, reason);
+    const result = await this.getBackendClient().requestRegression(this.summary.usId, targetPhase, reason, getCurrentActor());
     appendSpecForgeLog(
       `Workflow '${this.summary.usId}' regressed to '${result.currentPhase}' with status '${result.status}'.`
     );
@@ -416,6 +450,8 @@ class WorkflowPanelController {
       currentPhase: result.currentPhase,
       status: result.status
     };
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
     this.selectedPhaseId = result.currentPhase;
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' requestRegressionAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
@@ -433,7 +469,7 @@ class WorkflowPanelController {
       return;
     }
 
-    const result = await this.getBackendClient().restartUserStoryFromSource(this.summary.usId, reason);
+    const result = await this.getBackendClient().restartUserStoryFromSource(this.summary.usId, reason, getCurrentActor());
     appendSpecForgeLog(
       `Workflow '${this.summary.usId}' restarted from source. Current phase '${result.currentPhase}', status '${result.status}'.`
     );
@@ -442,6 +478,8 @@ class WorkflowPanelController {
       currentPhase: result.currentPhase,
       status: result.status
     };
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
     this.selectedPhaseId = result.currentPhase;
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' restartCurrentWorkflowAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
@@ -475,6 +513,8 @@ class WorkflowPanelController {
       status: result.status,
       workBranch: null
     };
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
     this.selectedPhaseId = result.currentPhase;
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' debugResetToCaptureAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
@@ -526,6 +566,7 @@ class WorkflowPanelController {
       ?? workflow.phases[0];
     this.selectedPhaseId = selectedPhase.phaseId;
     const selectedArtifactContent = await readArtifactContentAsync(selectedPhase.artifactPath);
+    const selectedOperationContent = await readArtifactContentAsync(selectedPhase.operationLogPath);
     const sourceText = await readArtifactContentAsync(workflow.mainArtifactPath) ?? "";
     const settings = getSpecForgeSettings();
     const settingsStatus = getSpecForgeSettingsStatus(settings);
@@ -536,6 +577,7 @@ class WorkflowPanelController {
     this.panel.webview.html = buildWorkflowHtml(workflow, {
       selectedPhaseId: this.selectedPhaseId,
       selectedArtifactContent,
+      selectedOperationContent,
       contextSuggestions,
       settingsConfigured: settingsStatus.executionConfigured,
       settingsMessage: settingsStatus.message,
@@ -576,7 +618,7 @@ class WorkflowPanelController {
       return "refinement";
     }
 
-    if (normalizedPath.endsWith("/phases/01-refinement.md")) {
+    if (normalizedPath.endsWith("/phases/01-spec.md") || normalizedPath.endsWith("/phases/01-refinement.md")) {
       return "refinement";
     }
 
@@ -604,7 +646,7 @@ class WorkflowPanelController {
   }
 }
 
-async function readArtifactContentAsync(artifactPath: string | null): Promise<string | null> {
+async function readArtifactContentAsync(artifactPath: string | null | undefined): Promise<string | null> {
   if (!artifactPath) {
     return null;
   }

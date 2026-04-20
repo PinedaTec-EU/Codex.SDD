@@ -5,7 +5,7 @@ exports.buildRequestRegressionArguments = buildRequestRegressionArguments;
 exports.buildRestartUserStoryArguments = buildRestartUserStoryArguments;
 exports.parseToolContent = parseToolContent;
 exports.buildServerProjectPath = buildServerProjectPath;
-function buildApprovePhaseArguments(workspaceRoot, usId, baseBranch) {
+function buildApprovePhaseArguments(workspaceRoot, usId, baseBranch, actor) {
     const argumentsPayload = {
         workspaceRoot,
         usId
@@ -13,9 +13,12 @@ function buildApprovePhaseArguments(workspaceRoot, usId, baseBranch) {
     if (baseBranch) {
         argumentsPayload.baseBranch = baseBranch;
     }
+    if (actor && actor.trim().length > 0) {
+        argumentsPayload.actor = actor;
+    }
     return argumentsPayload;
 }
-function buildRequestRegressionArguments(workspaceRoot, usId, targetPhase, reason) {
+function buildRequestRegressionArguments(workspaceRoot, usId, targetPhase, reason, actor) {
     const argumentsPayload = {
         workspaceRoot,
         usId,
@@ -24,15 +27,21 @@ function buildRequestRegressionArguments(workspaceRoot, usId, targetPhase, reaso
     if (reason && reason.trim().length > 0) {
         argumentsPayload.reason = reason;
     }
+    if (actor && actor.trim().length > 0) {
+        argumentsPayload.actor = actor;
+    }
     return argumentsPayload;
 }
-function buildRestartUserStoryArguments(workspaceRoot, usId, reason) {
+function buildRestartUserStoryArguments(workspaceRoot, usId, reason, actor) {
     const argumentsPayload = {
         workspaceRoot,
         usId
     };
     if (reason && reason.trim().length > 0) {
         argumentsPayload.reason = reason;
+    }
+    if (actor && actor.trim().length > 0) {
+        argumentsPayload.actor = actor;
     }
     return argumentsPayload;
 }

@@ -53,6 +53,7 @@ const path = __importStar(require("node:path"));
 const vscode = __importStar(require("vscode"));
 const backendClient_1 = require("./backendClient");
 const extensionSettings_1 = require("./extensionSettings");
+const userActor_1 = require("./userActor");
 const workflowPanel_1 = require("./workflowPanel");
 const explorerModel_1 = require("./explorerModel");
 const backendClients = new Map();
@@ -187,7 +188,7 @@ async function createUserStoryFromInput() {
         return;
     }
     const usId = await nextUserStoryId(workspaceRoot);
-    const result = await getBackendClient(workspaceRoot).createUserStory(usId, title, kind, category, sourceText);
+    const result = await getBackendClient(workspaceRoot).createUserStory(usId, title, kind, category, sourceText, (0, userActor_1.getCurrentActor)());
     await openTextDocument(result.mainArtifactPath);
 }
 async function importUserStoryFromMarkdown() {
@@ -221,7 +222,7 @@ async function importUserStoryFromMarkdown() {
         return;
     }
     const usId = await nextUserStoryId(workspaceRoot);
-    const result = await getBackendClient(workspaceRoot).importUserStory(usId, sourceUri.fsPath, title, kind, category);
+    const result = await getBackendClient(workspaceRoot).importUserStory(usId, sourceUri.fsPath, title, kind, category, (0, userActor_1.getCurrentActor)());
     await openTextDocument(result.mainArtifactPath);
 }
 async function initializeRepoPrompts(overwrite = false) {
@@ -306,7 +307,7 @@ async function approveCurrentPhase(summary) {
         }
     }
     try {
-        const updatedSummary = await getBackendClient(workspaceRoot).approveCurrentPhase(summary.usId, baseBranch);
+        const updatedSummary = await getBackendClient(workspaceRoot).approveCurrentPhase(summary.usId, baseBranch, (0, userActor_1.getCurrentActor)());
         void vscode.window.showInformationMessage(`${updatedSummary.usId} approved. Current phase remains ${updatedSummary.currentPhase} until you continue the workflow.`);
     }
     catch (error) {
@@ -348,7 +349,7 @@ async function requestRegression(summary) {
         return;
     }
     try {
-        const result = await getBackendClient(workspaceRoot).requestRegression(summary.usId, targetPhase.label, reason);
+        const result = await getBackendClient(workspaceRoot).requestRegression(summary.usId, targetPhase.label, reason, (0, userActor_1.getCurrentActor)());
         void vscode.window.showInformationMessage(`${summary.usId} regressed to ${result.currentPhase} with status ${result.status}.`);
     }
     catch (error) {
@@ -374,7 +375,7 @@ async function restartUserStoryFromSource(summary) {
         return;
     }
     try {
-        const result = await getBackendClient(workspaceRoot).restartUserStoryFromSource(summary.usId, reason);
+        const result = await getBackendClient(workspaceRoot).restartUserStoryFromSource(summary.usId, reason, (0, userActor_1.getCurrentActor)());
         if (result.generatedArtifactPath) {
             await openTextDocument(result.generatedArtifactPath);
         }

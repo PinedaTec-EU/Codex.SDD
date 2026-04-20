@@ -7,6 +7,7 @@ import {
   type UserStorySummary
 } from "./backendClient";
 import { getSpecForgeSettings } from "./extensionSettings";
+import { getCurrentActor } from "./userActor";
 import { closeWorkflowView } from "./workflowPanel";
 import {
   compareUserStories,
@@ -169,7 +170,7 @@ export async function createUserStoryFromInput(): Promise<void> {
   }
 
   const usId = await nextUserStoryId(workspaceRoot);
-  const result = await getBackendClient(workspaceRoot).createUserStory(usId, title, kind, category, sourceText);
+  const result = await getBackendClient(workspaceRoot).createUserStory(usId, title, kind, category, sourceText, getCurrentActor());
 
   await openTextDocument(result.mainArtifactPath);
 }
@@ -208,7 +209,7 @@ export async function importUserStoryFromMarkdown(): Promise<void> {
     return;
   }
   const usId = await nextUserStoryId(workspaceRoot);
-  const result = await getBackendClient(workspaceRoot).importUserStory(usId, sourceUri.fsPath, title, kind, category);
+  const result = await getBackendClient(workspaceRoot).importUserStory(usId, sourceUri.fsPath, title, kind, category, getCurrentActor());
 
   await openTextDocument(result.mainArtifactPath);
 }
@@ -313,7 +314,7 @@ export async function approveCurrentPhase(summary?: UserStorySummary): Promise<v
   }
 
   try {
-    const updatedSummary = await getBackendClient(workspaceRoot).approveCurrentPhase(summary.usId, baseBranch);
+    const updatedSummary = await getBackendClient(workspaceRoot).approveCurrentPhase(summary.usId, baseBranch, getCurrentActor());
     void vscode.window.showInformationMessage(
       `${updatedSummary.usId} approved. Current phase remains ${updatedSummary.currentPhase} until you continue the workflow.`
     );
@@ -369,7 +370,7 @@ export async function requestRegression(summary?: UserStorySummary): Promise<voi
   }
 
   try {
-    const result = await getBackendClient(workspaceRoot).requestRegression(summary.usId, targetPhase.label, reason);
+    const result = await getBackendClient(workspaceRoot).requestRegression(summary.usId, targetPhase.label, reason, getCurrentActor());
     void vscode.window.showInformationMessage(
       `${summary.usId} regressed to ${result.currentPhase} with status ${result.status}.`
     );
@@ -401,7 +402,7 @@ export async function restartUserStoryFromSource(summary?: UserStorySummary): Pr
   }
 
   try {
-    const result = await getBackendClient(workspaceRoot).restartUserStoryFromSource(summary.usId, reason);
+    const result = await getBackendClient(workspaceRoot).restartUserStoryFromSource(summary.usId, reason, getCurrentActor());
 
     if (result.generatedArtifactPath) {
       await openTextDocument(result.generatedArtifactPath);
