@@ -319,8 +319,8 @@ test("buildWorkflowHtml animates capture toward refinement when clarification is
     settingsMessage: null
   }, "playing");
 
-  assert.match(html, /<path class="disabled"/);
   assert.match(html, /<path class="executing"/);
+  assert.doesNotMatch(html, /phase-node clarification/);
 });
 
 test("buildWorkflowHtml embeds a broad rotating execution message catalog for long runs", () => {
@@ -745,7 +745,7 @@ test("buildWorkflowHtml proposes manual and suggested context files during clari
   assert.match(html, /Matches clarification keywords: tests, workflow\./);
 });
 
-test("buildWorkflowHtml disables clarification and draws a direct capture to refinement link when clarification was skipped", () => {
+test("buildWorkflowHtml hides clarification and draws a direct capture to refinement link when clarification was skipped", () => {
   const html = buildWorkflowHtml({
     usId: "US-0005",
     title: "Direct refinement flow",
@@ -826,9 +826,7 @@ test("buildWorkflowHtml disables clarification and draws a direct capture to ref
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /phase-node clarification phase-tone-disabled/);
-  assert.match(html, /phase-tag phase-tag--disabled">disabled</);
-  assert.match(html, /<path class="disabled" d="[^"]+"><\/path>/);
+  assert.doesNotMatch(html, /phase-node clarification/);
   assert.match(html, /<path class="completed" d="[^"]+"><\/path>/);
 });
 

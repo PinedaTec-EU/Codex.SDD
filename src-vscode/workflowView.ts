@@ -2144,28 +2144,29 @@ function buildPhaseGraph(
 ): string {
   const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
   const clarificationVisited = hasClarificationHistory(workflow);
+  const visiblePhases = workflow.phases.filter((phase) => shouldShowPhase(phase.phaseId, clarificationVisited, currentPhase.phaseId));
   const rejectCommand = currentPhase && workflow.controls.regressionTargets.length > 0
     ? { command: "regress", phaseId: workflow.controls.regressionTargets[0], label: `Regress to ${workflow.controls.regressionTargets[0]}` }
     : workflow.controls.canRestartFromSource
       ? { command: "restart", phaseId: undefined, label: "Restart from source" }
       : null;
   const executingTargetPhaseId = playbackState === "playing"
-    ? getExecutingTargetPhaseId(workflow, clarificationVisited, currentPhase.phaseId)
+    ? getExecutingTargetPhaseId(visiblePhases, currentPhase.phaseId)
     : null;
-  const links = buildGraphLinks(workflow, clarificationVisited, executingTargetPhaseId, desktopPhasePositions, phaseNodeWidth);
-  const mobileLinks = buildGraphLinks(workflow, clarificationVisited, executingTargetPhaseId, mobilePhasePositions, mobilePhaseNodeWidth);
+  const links = buildGraphLinks(visiblePhases, executingTargetPhaseId, desktopPhasePositions, phaseNodeWidth);
+  const mobileLinks = buildGraphLinks(visiblePhases, executingTargetPhaseId, mobilePhasePositions, mobilePhaseNodeWidth);
 
-  const nodes = workflow.phases.map((phase) => {
-    const disabled = isPhaseDisabled(phase.phaseId, clarificationVisited, currentPhase.phaseId);
+  const nodes = visiblePhases.map((phase, index) => {
+    const disabled = false;
     const visualTone = resolvePhaseVisualTone(workflow.status, playbackState, phase, disabled);
-    const displayState = phaseToneLabel(visualTone, disabled ? "disabled" : phase.state);
+    const displayState = phaseToneLabel(visualTone, phase.state);
     return `
     <button
       class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phase.phaseId === selectedPhaseId ? " selected" : ""}"
       data-command="selectPhase"
       data-phase-id="${escapeHtmlAttribute(phase.phaseId)}">
       <div class="phase-node-header">
-        <span class="phase-index">${phase.order + 1}</span>
+        <span class="phase-index">${index + 1}</span>
         <span class="phase-status-dot"></span>
       </div>
       <h3>${escapeHtml(phase.title)}</h3>
@@ -2203,36 +2204,21 @@ function buildPhaseGraph(
 }
 
 function buildGraphLinks(
-  workflow: UserStoryWorkflowDetails,
-  clarificationVisited: boolean,
+  visiblePhases: readonly WorkflowPhaseDetails[],
   executingTargetPhaseId: string | null,
   positions: Record<string, PhasePosition>,
   nodeWidth: number
 ): string {
-  const phaseById = new Map(workflow.phases.map((phase) => [phase.phaseId, phase]));
   const edges: Array<{ fromPhaseId: string; toPhaseId: string; className: string }> = [];
 
-  for (let index = 0; index < workflow.phases.length - 1; index++) {
-    const fromPhase = workflow.phases[index];
-    const toPhase = workflow.phases[index + 1];
-    const disabled = (fromPhase.phaseId === "capture" && toPhase.phaseId === "clarification" && !clarificationVisited)
-      || (fromPhase.phaseId === "clarification" && !clarificationVisited);
+  for (let index = 0; index < visiblePhases.length - 1; index++) {
+    const fromPhase = visiblePhases[index];
+    const toPhase = visiblePhases[index + 1];
     edges.push({
       fromPhaseId: fromPhase.phaseId,
       toPhaseId: toPhase.phaseId,
-      className: disabled ? "disabled" : linkClass(toPhase, executingTargetPhaseId)
+      className: linkClass(toPhase, executingTargetPhaseId)
     });
-  }
-
-  if (!clarificationVisited) {
-    const refinement = phaseById.get("refinement");
-    if (refinement) {
-      edges.push({
-        fromPhaseId: "capture",
-        toPhaseId: "refinement",
-        className: linkClass(refinement, executingTargetPhaseId)
-      });
-    }
   }
 
   return edges
@@ -2244,12 +2230,6 @@ function hasClarificationHistory(workflow: UserStoryWorkflowDetails): boolean {
   return workflow.currentPhase === "clarification"
     || workflow.clarification !== null
     || workflow.events.some((event) => event.phase === "clarification");
-}
-
-function isPhaseDisabled(phaseId: string, clarificationVisited: boolean, currentPhaseId: string): boolean {
-  return phaseId === "clarification"
-    && !clarificationVisited
-    && currentPhaseId !== "clarification";
 }
 
 function linkClass(targetPhase: WorkflowPhaseDetails, executingTargetPhaseId: string | null): string {
@@ -2265,20 +2245,21 @@ function linkClass(targetPhase: WorkflowPhaseDetails, executingTargetPhaseId: st
 }
 
 function getExecutingTargetPhaseId(
-  workflow: UserStoryWorkflowDetails,
-  clarificationVisited: boolean,
+  visiblePhases: readonly WorkflowPhaseDetails[],
   currentPhaseId: string
 ): string | null {
-  if (currentPhaseId === "capture" && !clarificationVisited) {
-    return workflow.phases.some((phase) => phase.phaseId === "refinement") ? "refinement" : null;
-  }
-
-  const currentPhaseIndex = workflow.phases.findIndex((phase) => phase.phaseId === currentPhaseId);
-  if (currentPhaseIndex < 0 || currentPhaseIndex >= workflow.phases.length - 1) {
+  const currentPhaseIndex = visiblePhases.findIndex((phase) => phase.phaseId === currentPhaseId);
+  if (currentPhaseIndex < 0 || currentPhaseIndex >= visiblePhases.length - 1) {
     return null;
   }
 
-  return workflow.phases[currentPhaseIndex + 1].phaseId;
+  return visiblePhases[currentPhaseIndex + 1].phaseId;
+}
+
+function shouldShowPhase(phaseId: string, clarificationVisited: boolean, currentPhaseId: string): boolean {
+  return phaseId !== "clarification"
+    || clarificationVisited
+    || currentPhaseId === "clarification";
 }
 
 function graphPath(
