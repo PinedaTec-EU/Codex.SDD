@@ -47,7 +47,7 @@ Not implemented yet:
 - Local workspace persistence under `.specs/us/us.<us-id>/`
 - Human-readable artifacts in Markdown
 - Shared audit trail in `timeline.md` with actor and UTC timestamp for user actions
-- Explicit phase input logs such as `phases/01-spec.input.md` when a developer steers regeneration with a manual prompt
+- Explicit artifact operation logs such as `phases/01-spec.ops.md` when a developer asks the model to operate over the current spec
 - Technical state in YAML
 - Minimal workflow automation through a .NET runner
 - Minimal VS Code extension for creating, importing, listing, and opening user stories

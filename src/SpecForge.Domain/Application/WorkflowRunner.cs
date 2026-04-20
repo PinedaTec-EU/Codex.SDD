@@ -259,7 +259,7 @@ public sealed class WorkflowRunner
         long? durationMs = null;
         if (HasArtifact(workflowRun.CurrentPhase))
         {
-            var generation = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+            var generation = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
             artifactPath = generation.ArtifactPath;
             usage = generation.Usage;
             durationMs = generation.DurationMs;
@@ -327,7 +327,7 @@ public sealed class WorkflowRunner
             updatedSession.Items.Count(item => !string.IsNullOrWhiteSpace(item.Answer)));
     }
 
-    public async Task<RegisterPhaseInputResult> RegisterPhaseInputAndRegenerateCurrentPhaseAsync(
+    public async Task<OperateCurrentPhaseArtifactResult> OperateCurrentPhaseArtifactAsync(
         string workspaceRoot,
         string usId,
         string prompt,
@@ -339,40 +339,46 @@ public sealed class WorkflowRunner
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         if (!HasArtifact(workflowRun.CurrentPhase))
         {
-            throw new WorkflowDomainException($"Phase '{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}' does not support persisted phase input.");
+            throw new WorkflowDomainException($"Phase '{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}' does not support direct artifact operations.");
         }
 
-        Directory.CreateDirectory(paths.PhasesDirectoryPath);
         var normalizedActor = NormalizeActor(actor);
-        var inputPath = paths.GetPhaseInputPath(workflowRun.CurrentPhase);
-        await AppendPhaseInputEntryAsync(inputPath, workflowRun.CurrentPhase, normalizedActor, prompt, cancellationToken);
-        await AppendTimelineEventAsync(
-            paths.TimelineFilePath,
-            "manual_intervention_registered",
-            normalizedActor,
+        var sourceArtifactPath = paths.GetLatestExistingPhaseArtifactPath(workflowRun.CurrentPhase)
+            ?? throw new WorkflowDomainException($"Phase '{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}' does not yet have a current artifact to operate on.");
+        var generation = await MaterializePhaseArtifactAsync(
+            workspaceRoot,
+            paths,
+            workflowRun,
+            sourceArtifactPath,
+            prompt,
+            cancellationToken);
+        var operationLogPath = paths.GetPhaseOperationLogPath(workflowRun.CurrentPhase);
+        await AppendArtifactOperationEntryAsync(
+            operationLogPath,
             workflowRun.CurrentPhase,
-            $"Registered manual input for phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}`.",
-            cancellationToken,
-            inputPath);
-
-        var generation = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+            normalizedActor,
+            sourceArtifactPath,
+            prompt,
+            generation.ArtifactPath,
+            cancellationToken);
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
-            "phase_completed",
-            "system",
+            "artifact_operated",
+            normalizedActor,
             workflowRun.CurrentPhase,
-            $"Regenerated artifact for phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}` after manual input.",
+            $"Operated current artifact `{Path.GetFileName(sourceArtifactPath)}` and produced `{Path.GetFileName(generation.ArtifactPath)}`.",
             cancellationToken,
-            generation.ArtifactPath,
+            operationLogPath,
             generation.Usage,
             generation.DurationMs);
 
-        return new RegisterPhaseInputResult(
+        return new OperateCurrentPhaseArtifactResult(
             workflowRun.UsId,
             WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
             WorkflowPresentation.ToStatusSlug(workflowRun.Status),
-            inputPath,
+            operationLogPath,
+            sourceArtifactPath,
             generation.ArtifactPath,
             generation.Usage);
     }
@@ -388,7 +394,7 @@ public sealed class WorkflowRunner
             workflowRun.GenerateNextPhase();
         }
 
-        var clarificationGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+        var clarificationGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
         var clarification = ParseClarificationArtifact(await File.ReadAllTextAsync(clarificationGeneration.ArtifactPath, cancellationToken));
         await UpdateClarificationLogAsync(paths, clarification, cancellationToken);
         await AppendTimelineEventAsync(
@@ -409,7 +415,7 @@ public sealed class WorkflowRunner
         }
 
         workflowRun.GenerateNextPhase();
-        var refinementGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+        var refinementGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             "phase_completed",
@@ -428,6 +434,8 @@ public sealed class WorkflowRunner
         string workspaceRoot,
         UserStoryFilePaths paths,
         WorkflowRun workflowRun,
+        string? currentArtifactPath,
+        string? operationPrompt,
         CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
@@ -439,7 +447,8 @@ public sealed class WorkflowRunner
             paths.MainArtifactPath,
             BuildPreviousArtifactMap(paths, workflowRun.CurrentPhase),
             BuildContextFilePaths(paths),
-            paths.GetLatestExistingPhaseInputPath(workflowRun.CurrentPhase));
+            currentArtifactPath,
+            operationPrompt);
         var stopwatch = Stopwatch.StartNew();
         var result = await phaseExecutionProvider.ExecuteAsync(executionContext, cancellationToken);
         stopwatch.Stop();
@@ -648,41 +657,48 @@ public sealed class WorkflowRunner
         await File.AppendAllTextAsync(timelinePath, builder.ToString(), cancellationToken);
     }
 
-    private static async Task AppendPhaseInputEntryAsync(
-        string inputPath,
+    private static async Task AppendArtifactOperationEntryAsync(
+        string operationLogPath,
         PhaseId phaseId,
         string actor,
+        string sourceArtifactPath,
         string prompt,
+        string generatedArtifactPath,
         CancellationToken cancellationToken)
     {
         var normalizedPrompt = prompt.Trim();
         if (string.IsNullOrWhiteSpace(normalizedPrompt))
         {
-            throw new WorkflowDomainException("Phase input cannot be empty.");
+            throw new WorkflowDomainException("Artifact operation prompt cannot be empty.");
         }
 
         var timestamp = DateTimeOffset.UtcNow.ToString("O");
-        if (!File.Exists(inputPath))
+        if (!File.Exists(operationLogPath))
         {
             var header = string.Join(
                 Environment.NewLine,
                 new[]
                 {
-                    $"# Phase Input · {WorkflowPresentation.ToPhaseSlug(phaseId)}",
+                    $"# Artifact Operation Log · {WorkflowPresentation.ToPhaseSlug(phaseId)}",
                     string.Empty,
-                    "This file stores explicit human interventions that must become part of the phase input.",
+                    "This file records direct model-assisted operations over the current artifact.",
                     string.Empty
                 });
-            await File.WriteAllTextAsync(inputPath, header, cancellationToken);
+            await File.WriteAllTextAsync(operationLogPath, header, cancellationToken);
         }
 
         var builder = new StringBuilder()
             .AppendLine()
             .AppendLine($"## {timestamp} · `{actor}`")
             .AppendLine()
-            .AppendLine(normalizedPrompt);
+            .AppendLine($"- Source Artifact: `{sourceArtifactPath.Replace('\\', '/')}`")
+            .AppendLine($"- Result Artifact: `{generatedArtifactPath.Replace('\\', '/')}`")
+            .AppendLine("- Prompt:")
+            .AppendLine("```text")
+            .AppendLine(normalizedPrompt)
+            .AppendLine("```");
 
-        await File.AppendAllTextAsync(inputPath, builder.ToString(), cancellationToken);
+        await File.AppendAllTextAsync(operationLogPath, builder.ToString(), cancellationToken);
     }
 
     private static async Task EnsureCurrentPhaseIsApprovableAsync(

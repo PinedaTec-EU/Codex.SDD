@@ -371,11 +371,11 @@ Business errors:
 - `us_not_found`
 - `restart_not_allowed`
 
-### `register_phase_input`
+### `operate_current_phase_artifact`
 
 Purpose:
 
-- persist explicit human guidance for the current artifact phase and regenerate that phase using the new input
+- apply a prompt over the current artifact, generate a new artifact version, and persist the full operation trace
 
 Minimum input:
 
@@ -393,12 +393,13 @@ Minimum output:
 usId: US-0001
 status: waiting_user
 currentPhase: refinement
-inputArtifactPath: .specs/us/us.US-0001/phases/01-spec.input.md
+operationLogPath: .specs/us/us.US-0001/phases/01-spec.ops.md
+sourceArtifactPath: .specs/us/us.US-0001/phases/01-spec.md
 generatedArtifactPath: .specs/us/us.US-0001/phases/01-spec.v02.md
 messages:
-  - code: manual_intervention_registered
+  - code: artifact_operated
     level: info
-    text: Human phase input was persisted and used to regenerate the current artifact
+    text: The current artifact was operated through a prompt and a new version was generated
 ```
 
 Business errors:

@@ -55,11 +55,12 @@ export interface CreateOrImportUserStoryResult {
   readonly mainArtifactPath: string;
 }
 
-export interface RegisterPhaseInputResult {
+export interface OperateCurrentPhaseArtifactResult {
   readonly usId: string;
   readonly currentPhase: string;
   readonly status: string;
-  readonly inputArtifactPath: string;
+  readonly operationLogPath: string;
+  readonly sourceArtifactPath: string;
   readonly generatedArtifactPath: string;
   readonly usage: TokenUsage | null;
 }
@@ -102,7 +103,7 @@ export interface WorkflowPhaseDetails {
   readonly isCurrent: boolean;
   readonly state: string;
   readonly artifactPath: string | null;
-  readonly inputArtifactPath?: string | null;
+  readonly operationLogPath?: string | null;
   readonly executePromptPath: string | null;
   readonly approvePromptPath: string | null;
 }
@@ -180,7 +181,7 @@ export interface SpecForgeBackendClient {
   restartUserStoryFromSource(usId: string, reason?: string, actor?: string): Promise<RestartUserStoryResult>;
   resetUserStoryToCapture(usId: string): Promise<ResetUserStoryResult>;
   submitClarificationAnswers(usId: string, answers: readonly string[], actor?: string): Promise<void>;
-  registerPhaseInput(usId: string, prompt: string, actor?: string): Promise<RegisterPhaseInputResult>;
+  operateCurrentPhaseArtifact(usId: string, prompt: string, actor?: string): Promise<OperateCurrentPhaseArtifactResult>;
   cancelActiveOperations(): void;
   dispose(): void;
 }
@@ -349,8 +350,8 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     });
   }
 
-  public async registerPhaseInput(usId: string, prompt: string, actor?: string): Promise<RegisterPhaseInputResult> {
-    return this.callTool<RegisterPhaseInputResult>("register_phase_input", {
+  public async operateCurrentPhaseArtifact(usId: string, prompt: string, actor?: string): Promise<OperateCurrentPhaseArtifactResult> {
+    return this.callTool<OperateCurrentPhaseArtifactResult>("operate_current_phase_artifact", {
       workspaceRoot: this.workspaceRoot,
       usId,
       prompt,

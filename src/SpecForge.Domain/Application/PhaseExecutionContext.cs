@@ -9,4 +9,5 @@ public sealed record PhaseExecutionContext(
     string UserStoryPath,
     IReadOnlyDictionary<PhaseId, string> PreviousArtifactPaths,
     IReadOnlyCollection<string> ContextFilePaths,
-    string? HumanInputPath = null);
+    string? CurrentArtifactPath = null,
+    string? OperationPrompt = null);

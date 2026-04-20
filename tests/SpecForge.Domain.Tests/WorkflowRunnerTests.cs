@@ -111,13 +111,13 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task RegisterPhaseInputAndRegenerateCurrentPhaseAsync_PersistsInputWithActorAndRegeneratesSpec()
+    public async Task OperateCurrentPhaseArtifactAsync_PersistsOperationSequenceAndRegeneratesSpec()
     {
         var runner = new WorkflowRunner();
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text", "alice");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
-        var result = await runner.RegisterPhaseInputAndRegenerateCurrentPhaseAsync(
+        var result = await runner.OperateCurrentPhaseArtifactAsync(
             workspaceRoot,
             "US-0001",
             "Do not expand scope into roadmap work. Keep the export columns fixed.",
@@ -126,18 +126,21 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal("US-0001", result.UsId);
         Assert.Equal("refinement", result.CurrentPhase);
         Assert.Equal("waiting-user", result.Status);
-        Assert.True(File.Exists(result.InputArtifactPath));
+        Assert.True(File.Exists(result.OperationLogPath));
+        Assert.True(File.Exists(result.SourceArtifactPath));
         Assert.True(File.Exists(result.GeneratedArtifactPath));
 
-        var inputMarkdown = await File.ReadAllTextAsync(result.InputArtifactPath);
-        Assert.Contains("`bob`", inputMarkdown);
-        Assert.Contains("Keep the export columns fixed.", inputMarkdown);
+        var operationMarkdown = await File.ReadAllTextAsync(result.OperationLogPath);
+        Assert.Contains("`bob`", operationMarkdown);
+        Assert.Contains("Keep the export columns fixed.", operationMarkdown);
+        Assert.Contains(Path.GetFileName(result.SourceArtifactPath), operationMarkdown);
+        Assert.Contains(Path.GetFileName(result.GeneratedArtifactPath), operationMarkdown);
 
         var regeneratedSpec = await File.ReadAllTextAsync(result.GeneratedArtifactPath);
-        Assert.Contains("Manual operator input must be honored", regeneratedSpec);
+        Assert.Contains("Applied artifact operation", regeneratedSpec);
 
         var timeline = await File.ReadAllTextAsync(UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath);
-        Assert.Contains("`manual_intervention_registered`", timeline);
+        Assert.Contains("`artifact_operated`", timeline);
         Assert.Contains("- Actor: `alice`", timeline);
         Assert.Contains("- Actor: `bob`", timeline);
     }

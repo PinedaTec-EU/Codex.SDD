@@ -146,7 +146,7 @@ static async Task<JsonNode> HandleToolCallAsync(
             usId: GetRequired(arguments, "usId"),
             answers: GetStringArray(arguments, "answers"),
             actor: GetOptional(arguments, "actor") ?? "user"),
-        "register_phase_input" => await applicationService.RegisterPhaseInputAndRegenerateCurrentPhaseAsync(
+        "operate_current_phase_artifact" => await applicationService.OperateCurrentPhaseArtifactAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
             prompt: GetRequired(arguments, "prompt"),
@@ -203,7 +203,7 @@ static JsonObject BuildToolsList()
             Tool("restart_user_story_from_source", "Restart a user story after the source has changed."),
             Tool("reset_user_story_to_capture", "Reset a user story to capture and delete generated derived artifacts."),
             Tool("submit_clarification_answers", "Store clarification answers inside the user story so clarification can re-run."),
-            Tool("register_phase_input", "Persist explicit human phase input and regenerate the current artifact with that input."),
+            Tool("operate_current_phase_artifact", "Apply a model-assisted operation over the current phase artifact and persist the operation trace."),
             Tool("list_user_story_files", "List context files and user-story files currently persisted for a user story."),
             Tool("add_user_story_files", "Copy files into a user story as either context or user-story info."),
             Tool("set_user_story_file_kind", "Move an existing user-story file between context and user-story info.")

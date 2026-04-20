@@ -36,7 +36,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
         isCurrent: true,
         state: "current",
         artifactPath: "/tmp/01-refinement.md",
-        inputArtifactPath: "/tmp/01-refinement.input.md",
+        operationLogPath: "/tmp/01-refinement.ops.md",
         executePromptPath: "/tmp/refinement.execute.md",
         approvePromptPath: "/tmp/refinement.approve.md"
       }
@@ -83,7 +83,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   }, {
     selectedPhaseId: "refinement",
     selectedArtifactContent: "## Refinement\nBody",
-    selectedInputContent: "# Phase Input · refinement\n\n## 2026-04-18T10:05:00Z · `alice`\n\nPlease constrain export columns.",
+    selectedOperationContent: "# Artifact Operation Log · refinement\n\n## 2026-04-18T10:05:00Z · `alice`\n\n- Source Artifact: `/tmp/01-refinement.md`\n- Result Artifact: `/tmp/01-refinement.v02.md`\n- Prompt:\n```text\nPlease constrain export columns.\n```",
     contextSuggestions: [],
     settingsConfigured: true,
     settingsMessage: null
@@ -108,7 +108,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /workflow-action-button--document[^]*Open Artifact/);
   assert.match(html, /workflow-action-button--document[^]*Open Execute Prompt/);
   assert.match(html, /workflow-action-button--document[^]*Open Approve Prompt/);
-  assert.match(html, /Open Input Log/);
+  assert.match(html, /Open Operation Log/);
   assert.doesNotMatch(html, /action-btn--approve/);
   assert.doesNotMatch(html, /action-btn--reject/);
   assert.match(html, /data-open-workflow-files/);
@@ -131,9 +131,9 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /4\.88 s/);
   assert.match(html, /token-summary/);
   assert.match(html, /<div class="token-summary__header">Tokens<\/div>/);
-  assert.match(html, /<h3>Phase Input<\/h3>/);
-  assert.match(html, /Regenerate Spec/);
-  assert.match(html, /Current input log/);
+  assert.match(html, /<h3>Operate Current Spec<\/h3>/);
+  assert.match(html, /Apply via Model/);
+  assert.match(html, /Current operation log/);
   assert.match(html, /alice/);
   assert.match(html, /Input \/ Output/);
   assert.match(html, />321 \/ 144</);

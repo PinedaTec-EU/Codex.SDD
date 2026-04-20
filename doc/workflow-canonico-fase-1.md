@@ -62,7 +62,7 @@ Input:
 
 - `us.md`
 - additional user context when available
-- optional explicit human phase input persisted in `phases/01-spec.input.md`
+- optional model-assisted operations over the current spec, traced in `phases/01-spec.ops.md`
 
 Output:
 
@@ -88,7 +88,7 @@ Operational Notes:
 - if the user story changes after `refinement` starts, those changes are not incorporated automatically
 - if the user wants to restart from the new user story, the system must clean already-processed derived work and reinitialize the flow
 - every agent modification to the spec file must add a `history log` block at the top with date and a short multiline summary
-- explicit human prompts used to steer spec regeneration must be persisted with actor and UTC timestamp before the phase is rerun
+- model-assisted operations over the current spec must persist actor, UTC timestamp, source artifact, prompt text, and result artifact as one traceable unit
 - approving this phase freezes the spec baseline and creates the work branch that isolates implementation
 - approval must fail if the spec is structurally invalid or still contains placeholder-only required sections
 
@@ -272,7 +272,7 @@ Convention:
 - `yaml` for state, configuration, and technical metadata
 - `input.md` is not created by default if the phase input can be inferred from the previously approved baseline and active state
 - an explicit input artifact is materialized only when needed to freeze a non-inferable snapshot or attach extraordinary context
-- when an explicit phase input artifact exists, it must record actor identity, UTC timestamp, and the exact prompt used for regeneration
+- when an explicit artifact operation log exists, it must record actor identity, UTC timestamp, source artifact, exact prompt text, and result artifact
 
 Input resolution by phase:
 
@@ -291,7 +291,7 @@ Input resolution by phase:
       timeline.md
       phases/
         01-spec.md
-        01-spec.input.md
+        01-spec.ops.md
         02-technical-design.md
         02-technical-design.v02.md
         03-implementation.md
@@ -341,7 +341,7 @@ metrics:
 - `phase_completed`
 - `phase_approved`
 - `phase_regressed`
-- `manual_intervention_registered`
+- `artifact_operated`
 - `review_passed`
 - `review_failed`
 - `source_hash_mismatch_detected`

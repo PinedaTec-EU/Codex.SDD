@@ -136,7 +136,7 @@ It may optionally include:
 - `phase_completed`
 - `phase_approved`
 - `phase_regressed`
-- `manual_intervention_registered`
+- `artifact_operated`
 - `review_passed`
 - `review_failed`
 - `source_hash_mismatch_detected`

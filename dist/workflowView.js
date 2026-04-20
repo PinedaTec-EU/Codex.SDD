@@ -395,27 +395,27 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     const promptSection = promptButtons
         ? `<div class="detail-actions">${promptButtons}</div>`
         : "<p class=\"muted\">This phase does not expose prompt templates from the current repo bootstrap.</p>";
-    const phaseInputSection = selectedPhase.phaseId === "refinement"
+    const phaseOperationSection = selectedPhase.phaseId === "refinement"
         ? `
       <div class="phase-input-shell">
         <p class="phase-input-copy">
-          Add explicit human guidance for this shared workflow. The next regeneration persists the prompt with actor and timestamp,
-          then uses it as part of the spec input.
+          Operate over the current spec without leaving the workflow. The prompt is recorded as an auditable operation with
+          source artifact, actor, UTC timestamp, and resulting spec version.
         </p>
-        <label class="phase-input-label" for="phase-input-textarea">Prompt</label>
+        <label class="phase-input-label" for="phase-input-textarea">Operate Current Spec</label>
         <textarea
           id="phase-input-textarea"
           class="phase-input-textarea"
           rows="8"
-          placeholder="Add the clarification, constraint, correction, or direction that should shape the next spec output."
+          placeholder="Describe the correction or adjustment to apply over the current spec. Example: the background color is not green, it is blue."
           ${selectedPhase.isCurrent ? "" : "disabled"}></textarea>
         <div class="detail-actions detail-actions--phase-input">
-          <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.inputArtifactPath ?? "")}" ${selectedPhase.inputArtifactPath ? "" : "disabled"}>Open Input Log</button>
-          <button id="submit-phase-input" class="workflow-action-button" ${selectedPhase.isCurrent ? "" : "disabled"}>Regenerate Spec</button>
+          <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.operationLogPath ?? "")}" ${selectedPhase.operationLogPath ? "" : "disabled"}>Open Operation Log</button>
+          <button id="submit-phase-input" class="workflow-action-button" ${selectedPhase.isCurrent ? "" : "disabled"}>Apply via Model</button>
         </div>
-        ${state.selectedInputContent
-            ? `<div class="phase-input-log"><div class="phase-input-log__header">Current input log</div><pre class="artifact-preview">${escapeHtml(state.selectedInputContent)}</pre></div>`
-            : "<p class=\"muted\">No explicit human phase input has been registered yet.</p>"}
+        ${state.selectedOperationContent
+            ? `<div class="phase-input-log"><div class="phase-input-log__header">Current operation log</div><pre class="artifact-preview">${escapeHtml(state.selectedOperationContent)}</pre></div>`
+            : "<p class=\"muted\">No model-assisted operations have been recorded for this spec yet.</p>"}
       </div>
     `
         : "";
@@ -1938,11 +1938,11 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           <h3>Artifact</h3>
           ${artifactSection}
         </section>
-        ${phaseInputSection
+        ${phaseOperationSection
         ? `
             <section class="detail-card">
-              <h3>Phase Input</h3>
-              ${phaseInputSection}
+              <h3>Operate Current Spec</h3>
+              ${phaseOperationSection}
             </section>
           `
         : ""}

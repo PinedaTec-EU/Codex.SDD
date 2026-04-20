@@ -166,8 +166,8 @@ class StdioMcpBackendClient {
             ...(actor && actor.trim().length > 0 ? { actor } : {})
         });
     }
-    async registerPhaseInput(usId, prompt, actor) {
-        return this.callTool("register_phase_input", {
+    async operateCurrentPhaseArtifact(usId, prompt, actor) {
+        return this.callTool("operate_current_phase_artifact", {
             workspaceRoot: this.workspaceRoot,
             usId,
             prompt,

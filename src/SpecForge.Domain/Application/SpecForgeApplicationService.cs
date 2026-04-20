@@ -303,13 +303,13 @@ public sealed class SpecForgeApplicationService
         CancellationToken cancellationToken = default) =>
         workflowRunner.SubmitClarificationAnswersAsync(workspaceRoot, usId, answers, actor, cancellationToken);
 
-    public Task<RegisterPhaseInputResult> RegisterPhaseInputAndRegenerateCurrentPhaseAsync(
+    public Task<OperateCurrentPhaseArtifactResult> OperateCurrentPhaseArtifactAsync(
         string workspaceRoot,
         string usId,
         string prompt,
         string actor = "user",
         CancellationToken cancellationToken = default) =>
-        workflowRunner.RegisterPhaseInputAndRegenerateCurrentPhaseAsync(workspaceRoot, usId, prompt, actor, cancellationToken);
+        workflowRunner.OperateCurrentPhaseArtifactAsync(workspaceRoot, usId, prompt, actor, cancellationToken);
 
     public Task<UserStoryFilesResult> ListUserStoryFilesAsync(
         string workspaceRoot,
@@ -432,7 +432,7 @@ public sealed class SpecForgeApplicationService
                 workflowRun.CurrentPhase == phaseId,
                 ResolvePhaseState(workflowRun, phaseId),
                 TryGetLatestArtifactPath(paths, phaseId),
-                TryGetLatestInputPath(paths, phaseId),
+                TryGetLatestOperationLogPath(paths, phaseId),
                 TryGetExecutePromptPath(paths, phaseId),
                 TryGetApprovePromptPath(paths, phaseId)))
             .ToArray();
@@ -522,14 +522,14 @@ public sealed class SpecForgeApplicationService
         return paths.GetLatestExistingPhaseArtifactPath(phaseId);
     }
 
-    private static string? TryGetLatestInputPath(UserStoryFilePaths paths, Workflow.PhaseId phaseId)
+    private static string? TryGetLatestOperationLogPath(UserStoryFilePaths paths, Workflow.PhaseId phaseId)
     {
         if (phaseId is Workflow.PhaseId.Capture or Workflow.PhaseId.Clarification or Workflow.PhaseId.ReleaseApproval or Workflow.PhaseId.PrPreparation)
         {
             return null;
         }
 
-        return paths.GetLatestExistingPhaseInputPath(phaseId);
+        return paths.GetLatestExistingPhaseOperationLogPath(phaseId);
     }
 
     private static string? TryGetExecutePromptPath(UserStoryFilePaths paths, Workflow.PhaseId phaseId)

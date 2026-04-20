@@ -287,7 +287,7 @@ class WorkflowPanelController {
         if (normalizedPrompt.length === 0) {
             return;
         }
-        const result = await this.getBackendClient().registerPhaseInput(this.summary.usId, normalizedPrompt, (0, userActor_1.getCurrentActor)());
+        const result = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, normalizedPrompt, (0, userActor_1.getCurrentActor)());
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regenerated phase '${result.currentPhase}' after human input.`);
         this.summary = {
             ...this.summary,
@@ -485,7 +485,7 @@ class WorkflowPanelController {
             ?? workflow.phases[0];
         this.selectedPhaseId = selectedPhase.phaseId;
         const selectedArtifactContent = await readArtifactContentAsync(selectedPhase.artifactPath);
-        const selectedInputContent = await readArtifactContentAsync(selectedPhase.inputArtifactPath);
+        const selectedOperationContent = await readArtifactContentAsync(selectedPhase.operationLogPath);
         const sourceText = await readArtifactContentAsync(workflow.mainArtifactPath) ?? "";
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
         const settingsStatus = (0, extensionSettings_1.getSpecForgeSettingsStatus)(settings);
@@ -496,7 +496,7 @@ class WorkflowPanelController {
         this.panel.webview.html = (0, workflowView_1.buildWorkflowHtml)(workflow, {
             selectedPhaseId: this.selectedPhaseId,
             selectedArtifactContent,
-            selectedInputContent,
+            selectedOperationContent,
             contextSuggestions,
             settingsConfigured: settingsStatus.executionConfigured,
             settingsMessage: settingsStatus.message,

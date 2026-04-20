@@ -29,7 +29,7 @@ public sealed record WorkflowPhaseDetails(
     bool IsCurrent,
     string State,
     string? ArtifactPath,
-    string? InputArtifactPath,
+    string? OperationLogPath,
     string? ExecutePromptPath,
     string? ApprovePromptPath);
 

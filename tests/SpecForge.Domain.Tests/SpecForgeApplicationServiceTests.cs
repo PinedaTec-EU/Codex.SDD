@@ -93,7 +93,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         await promptInitializer.InitializeAsync(workspaceRoot);
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
-        await runner.RegisterPhaseInputAndRegenerateCurrentPhaseAsync(workspaceRoot, "US-0001", "Keep the spec implementation-only.", "alice");
+        await runner.OperateCurrentPhaseArtifactAsync(workspaceRoot, "US-0001", "Keep the spec implementation-only.", "alice");
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
         Directory.CreateDirectory(paths.ContextDirectoryPath);
         await File.WriteAllTextAsync(Path.Combine(paths.ContextDirectoryPath, "service.cs"), "Context");
@@ -110,7 +110,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         Assert.NotNull(workflow.Clarification);
         Assert.Equal("ready_for_refinement", workflow.Clarification!.Status);
         Assert.Contains(workflow.Phases, phase => phase.PhaseId == "clarification" && phase.Title == "Refinement" && phase.ExecutePromptPath is not null);
-        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.IsCurrent && phase.Title == "Spec" && phase.ArtifactPath is not null && phase.InputArtifactPath is not null);
+        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.IsCurrent && phase.Title == "Spec" && phase.ArtifactPath is not null && phase.OperationLogPath is not null);
         Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.ExecutePromptPath is not null && phase.ApprovePromptPath is not null);
         Assert.True(workflow.Controls.CanApprove);
         Assert.False(workflow.Controls.CanContinue);
@@ -122,9 +122,9 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         var userStory = await File.ReadAllTextAsync(paths.MainArtifactPath);
         Assert.DoesNotContain("## Clarification Log", userStory);
         Assert.Contains("`phase_completed`", workflow.RawTimeline);
-        Assert.Contains("`manual_intervention_registered`", workflow.RawTimeline);
+        Assert.Contains("`artifact_operated`", workflow.RawTimeline);
         Assert.Contains(workflow.Events, timelineEvent => timelineEvent.Code == "phase_completed");
-        Assert.Contains(workflow.Events, timelineEvent => timelineEvent.Code == "manual_intervention_registered" && timelineEvent.Actor == "alice");
+        Assert.Contains(workflow.Events, timelineEvent => timelineEvent.Code == "artifact_operated" && timelineEvent.Actor == "alice");
     }
 
     [Fact]

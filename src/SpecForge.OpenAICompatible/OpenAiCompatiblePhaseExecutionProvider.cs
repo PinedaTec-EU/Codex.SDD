@@ -228,19 +228,32 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(context.HumanInputPath) && File.Exists(context.HumanInputPath))
+        if (!string.IsNullOrWhiteSpace(context.CurrentArtifactPath) && File.Exists(context.CurrentArtifactPath))
         {
-            var humanInput = await File.ReadAllTextAsync(context.HumanInputPath, cancellationToken);
-            if (!string.IsNullOrWhiteSpace(humanInput))
+            var currentArtifact = await File.ReadAllTextAsync(context.CurrentArtifactPath, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(currentArtifact))
             {
                 builder
-                    .AppendLine("## Human Phase Input")
+                    .AppendLine("## Current Phase Artifact")
                     .AppendLine()
-                    .AppendLine($"Path: `{context.HumanInputPath}`")
+                    .AppendLine($"Path: `{context.CurrentArtifactPath}`")
                     .AppendLine()
-                    .AppendLine(humanInput.Trim())
+                    .AppendLine(currentArtifact.Trim())
                     .AppendLine();
             }
+        }
+
+        if (!string.IsNullOrWhiteSpace(context.OperationPrompt))
+        {
+            builder
+                .AppendLine("## Requested Artifact Operation")
+                .AppendLine()
+                .AppendLine("Apply this instruction directly to the current phase artifact:")
+                .AppendLine()
+                .AppendLine("```text")
+                .AppendLine(context.OperationPrompt.Trim())
+                .AppendLine("```")
+                .AppendLine();
         }
 
         builder
@@ -249,6 +262,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine("- Use the repository artifacts as the source of truth.")
             .AppendLine("- Stay strictly inside the requested phase contract.")
             .AppendLine("- Return only the markdown artifact for the current phase.");
+
+        if (!string.IsNullOrWhiteSpace(context.OperationPrompt))
+        {
+            builder
+                .AppendLine("- Treat the current phase artifact as the document under edit, not as a discarded draft.")
+                .AppendLine("- Preserve valid content unless the requested operation requires a change.")
+                .AppendLine("- Update the artifact so the requested correction becomes explicit in the markdown.")
+                .AppendLine("- Add a concise new entry at the top of the artifact history log describing the operation.");
+        }
 
         if (context.PhaseId == PhaseId.Clarification)
         {

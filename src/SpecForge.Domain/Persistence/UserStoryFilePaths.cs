@@ -110,15 +110,15 @@ public sealed class UserStoryFilePaths
         return Path.Combine(RestartsDirectoryPath, directoryName);
     }
 
-    public string GetPhaseInputPath(PhaseId phaseId)
+    public string GetPhaseOperationLogPath(PhaseId phaseId)
     {
         var fileStem = GetPhaseArtifactFileStem(phaseId);
-        return Path.Combine(PhasesDirectoryPath, $"{fileStem}.input.md");
+        return Path.Combine(PhasesDirectoryPath, $"{fileStem}.ops.md");
     }
 
-    public string? GetLatestExistingPhaseInputPath(PhaseId phaseId)
+    public string? GetLatestExistingPhaseOperationLogPath(PhaseId phaseId)
     {
-        var candidate = GetPhaseInputPath(phaseId);
+        var candidate = GetPhaseOperationLogPath(phaseId);
         return File.Exists(candidate) ? candidate : null;
     }
 

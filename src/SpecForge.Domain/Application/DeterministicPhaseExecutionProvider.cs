@@ -72,17 +72,21 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         PhaseExecutionContext context,
         CancellationToken cancellationToken)
     {
+        if (!string.IsNullOrWhiteSpace(context.CurrentArtifactPath) &&
+            !string.IsNullOrWhiteSpace(context.OperationPrompt) &&
+            File.Exists(context.CurrentArtifactPath))
+        {
+            var currentArtifact = await File.ReadAllTextAsync(context.CurrentArtifactPath, cancellationToken);
+            return ApplyDeterministicArtifactOperation(currentArtifact, context.OperationPrompt);
+        }
+
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
         var title = ReadHeading(userStory, fallback: context.UsId);
         var objective = ReadSection(userStory, "## Objective", "## Objetivo");
         var initialScope = ReadSection(userStory, "## Initial Scope", "## Alcance inicial");
-        var scope = string.IsNullOrWhiteSpace(initialScope)
-            ? "- Core happy-path behavior requested in `us.md`.\n- Explicit exclusions still need approval if they affect architecture or timeline."
-            : initialScope;
         var ambiguity = string.IsNullOrWhiteSpace(initialScope)
             ? "The source does not yet distinguish clearly between in-scope behavior and deliberate exclusions."
             : "The source identifies baseline scope, but edge cases and non-functional expectations still need explicit validation.";
-        var humanInputSummary = await ReadHumanInputSummaryAsync(context.HumanInputPath, cancellationToken);
 
         return string.Join(
                    Environment.NewLine,
@@ -103,7 +107,6 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                        "## Inputs",
                        "- Source intent from `us.md`.",
                        "- Clarification answers when available.",
-                       humanInputSummary is null ? "- No explicit human phase input has been registered yet." : $"- Explicit human phase input from `{Path.GetFileName(context.HumanInputPath)}` is active.",
                        string.Empty,
                        "## Outputs",
                        "- A bounded implementation target for technical design.",
@@ -125,7 +128,6 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                        "## Constraints",
                        "- Keep the first implementation pass bounded to the current repository and workflow phase.",
                        "- Treat external integrations, security policy changes, and cross-cutting architecture shifts as explicit decisions, not defaults.",
-                       humanInputSummary is null ? "- No additional operator prompt is constraining this phase yet." : $"- Manual operator input must be honored: {humanInputSummary}",
                        string.Empty,
                        "## Detected Ambiguities",
                        $"- {ambiguity}",
@@ -358,28 +360,56 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         return UserStoryClarificationMarkdown.Parse(userStoryMarkdown);
     }
 
-    private static async Task<string?> ReadHumanInputSummaryAsync(
-        string? humanInputPath,
-        CancellationToken cancellationToken)
+    private static string ApplyDeterministicArtifactOperation(string currentArtifact, string operationPrompt)
     {
-        if (string.IsNullOrWhiteSpace(humanInputPath) || !File.Exists(humanInputPath))
+        var normalizedArtifact = currentArtifact.Replace("\r\n", "\n", StringComparison.Ordinal);
+        var summary = NormalizeOperationSummary(operationPrompt);
+        var entry = $"- `{DateTimeOffset.UtcNow:O}` · Applied artifact operation: {summary}";
+
+        if (normalizedArtifact.Contains("## History Log", StringComparison.Ordinal))
         {
-            return null;
+            return InsertHistoryEntry(normalizedArtifact, entry);
         }
 
-        var content = await File.ReadAllTextAsync(humanInputPath, cancellationToken);
-        var lines = content.Replace("\r\n", "\n", StringComparison.Ordinal)
+        return string.Join(
+                   Environment.NewLine,
+                   new[]
+                   {
+                       $"# Spec · Generated operation",
+                       string.Empty,
+                       "## History Log",
+                       entry,
+                       string.Empty,
+                       normalizedArtifact.Trim()
+                   }) +
+               Environment.NewLine;
+    }
+
+    private static string InsertHistoryEntry(string markdown, string entry)
+    {
+        var marker = "## History Log";
+        var markerIndex = markdown.IndexOf(marker, StringComparison.Ordinal);
+        if (markerIndex < 0)
+        {
+            return markdown;
+        }
+
+        var insertIndex = markerIndex + marker.Length;
+        return markdown.Insert(insertIndex, $"{Environment.NewLine}{entry}");
+    }
+
+    private static string NormalizeOperationSummary(string operationPrompt)
+    {
+        var singleLine = string.Join(" ", operationPrompt
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(static line => line.Trim())
-            .Where(static line => !line.StartsWith("#", StringComparison.Ordinal))
-            .ToArray();
+            .Select(static line => line.Trim()));
 
-        var summary = string.Join(" ", lines);
-        if (string.IsNullOrWhiteSpace(summary))
+        if (string.IsNullOrWhiteSpace(singleLine))
         {
-            return null;
+            return "No summary provided.";
         }
 
-        return summary.Length <= 220 ? summary : $"{summary[..217]}...";
+        return singleLine.Length <= 180 ? singleLine : $"{singleLine[..177]}...";
     }
 }
