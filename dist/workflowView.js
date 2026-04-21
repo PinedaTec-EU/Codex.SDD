@@ -367,6 +367,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     const displayedPhaseId = playbackState === "playing" && effectiveExecutionPhaseId
         ? effectiveExecutionPhaseId
         : workflow.currentPhase;
+    const playDisabled = playbackState === "playing" || !state.settingsConfigured || !workflow.controls.canContinue;
     const isMarkdownArtifact = Boolean(selectedPhase.artifactPath?.toLowerCase().endsWith(".md"));
     const artifactPreviewHtml = isMarkdownArtifact
         ? renderMarkdownToHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")
@@ -657,7 +658,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     `
         : "";
     const playbackButtons = `
-    <button class="icon-button icon-button--primary" data-command="play" aria-label="Play workflow"${playbackState === "playing" || !state.settingsConfigured ? " disabled" : ""}>
+    <button class="icon-button icon-button--primary" data-command="play" aria-label="Play workflow"${playDisabled ? " disabled" : ""}>
       ${playIcon()}
     </button>
     <button class="icon-button" data-command="pause" aria-label="Pause workflow"${playbackState !== "playing" ? " disabled" : ""}>
