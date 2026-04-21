@@ -53,6 +53,7 @@ const path = __importStar(require("node:path"));
 const vscode = __importStar(require("vscode"));
 const backendClient_1 = require("./backendClient");
 const extensionSettings_1 = require("./extensionSettings");
+const outputChannel_1 = require("./outputChannel");
 const userActor_1 = require("./userActor");
 const workflowPanel_1 = require("./workflowPanel");
 const explorerModel_1 = require("./explorerModel");
@@ -133,7 +134,15 @@ class SpecsExplorerProvider {
         if (!workspaceRoot) {
             return [];
         }
-        const summaries = await getBackendClient(workspaceRoot).listUserStories();
+        let summaries;
+        try {
+            summaries = await getBackendClient(workspaceRoot).listUserStories();
+            await logUserStoryDiscoveryAsync(workspaceRoot, summaries, "explorer.getChildren");
+        }
+        catch (error) {
+            await logUserStoryDiscoveryFailureAsync(workspaceRoot, error, "explorer.getChildren");
+            throw error;
+        }
         if (element instanceof UserStoryCategoryTreeItem) {
             return summaries
                 .filter((summary) => (0, explorerModel_1.normalizeCategory)(summary.category) === element.category)
@@ -499,5 +508,37 @@ function asErrorMessage(error) {
         return error.message;
     }
     return "Unknown extension error.";
+}
+async function logUserStoryDiscoveryAsync(workspaceRoot, summaries, source) {
+    const specsRoot = path.join(workspaceRoot, ".specs", "us");
+    const physicalEntries = await describeSpecsUserStoryTreeAsync(specsRoot);
+    (0, outputChannel_1.appendSpecForgeLog)(`[${source}] discovered ${summaries.length} user story item(s) for '${workspaceRoot}'. physical='${physicalEntries.join(", ") || "empty"}'.`);
+}
+async function logUserStoryDiscoveryFailureAsync(workspaceRoot, error, source) {
+    const specsRoot = path.join(workspaceRoot, ".specs", "us");
+    const physicalEntries = await describeSpecsUserStoryTreeAsync(specsRoot);
+    (0, outputChannel_1.appendSpecForgeLog)(`[${source}] failed to list user stories for '${workspaceRoot}': ${asErrorMessage(error)}. physical='${physicalEntries.join(", ") || "empty"}'.`);
+}
+async function describeSpecsUserStoryTreeAsync(specsRoot) {
+    try {
+        const entries = await fs.promises.readdir(specsRoot, { withFileTypes: true });
+        const categories = entries
+            .filter((entry) => entry.isDirectory())
+            .map((entry) => entry.name)
+            .sort((left, right) => left.localeCompare(right));
+        const descriptions = [];
+        for (const category of categories) {
+            const categoryPath = path.join(specsRoot, category);
+            const userStoryDirectories = (await fs.promises.readdir(categoryPath, { withFileTypes: true }))
+                .filter((entry) => entry.isDirectory())
+                .map((entry) => entry.name)
+                .sort((left, right) => left.localeCompare(right));
+            descriptions.push(`${category}[${userStoryDirectories.join(", ") || "no-us"}]`);
+        }
+        return descriptions;
+    }
+    catch (error) {
+        return [`error:${asErrorMessage(error)}`];
+    }
 }
 //# sourceMappingURL=specsExplorer.js.map

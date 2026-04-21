@@ -7,6 +7,7 @@ import {
   type UserStorySummary
 } from "./backendClient";
 import { getSpecForgeSettings } from "./extensionSettings";
+import { appendSpecForgeLog } from "./outputChannel";
 import { getCurrentActor } from "./userActor";
 import { closeWorkflowView } from "./workflowPanel";
 import {
@@ -105,7 +106,15 @@ export class SpecsExplorerProvider implements vscode.TreeDataProvider<vscode.Tre
       return [];
     }
 
-    const summaries = await getBackendClient(workspaceRoot).listUserStories();
+    let summaries: readonly UserStorySummary[];
+    try {
+      summaries = await getBackendClient(workspaceRoot).listUserStories();
+      await logUserStoryDiscoveryAsync(workspaceRoot, summaries, "explorer.getChildren");
+    } catch (error) {
+      await logUserStoryDiscoveryFailureAsync(workspaceRoot, error, "explorer.getChildren");
+      throw error;
+    }
+
     if (element instanceof UserStoryCategoryTreeItem) {
       return summaries
         .filter((summary) => normalizeCategory(summary.category) === element.category)
@@ -561,4 +570,52 @@ function asErrorMessage(error: unknown): string {
   }
 
   return "Unknown extension error.";
+}
+
+async function logUserStoryDiscoveryAsync(
+  workspaceRoot: string,
+  summaries: readonly UserStorySummary[],
+  source: string
+): Promise<void> {
+  const specsRoot = path.join(workspaceRoot, ".specs", "us");
+  const physicalEntries = await describeSpecsUserStoryTreeAsync(specsRoot);
+  appendSpecForgeLog(
+    `[${source}] discovered ${summaries.length} user story item(s) for '${workspaceRoot}'. physical='${physicalEntries.join(", ") || "empty"}'.`
+  );
+}
+
+async function logUserStoryDiscoveryFailureAsync(
+  workspaceRoot: string,
+  error: unknown,
+  source: string
+): Promise<void> {
+  const specsRoot = path.join(workspaceRoot, ".specs", "us");
+  const physicalEntries = await describeSpecsUserStoryTreeAsync(specsRoot);
+  appendSpecForgeLog(
+    `[${source}] failed to list user stories for '${workspaceRoot}': ${asErrorMessage(error)}. physical='${physicalEntries.join(", ") || "empty"}'.`
+  );
+}
+
+async function describeSpecsUserStoryTreeAsync(specsRoot: string): Promise<readonly string[]> {
+  try {
+    const entries = await fs.promises.readdir(specsRoot, { withFileTypes: true });
+    const categories = entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort((left, right) => left.localeCompare(right));
+
+    const descriptions: string[] = [];
+    for (const category of categories) {
+      const categoryPath = path.join(specsRoot, category);
+      const userStoryDirectories = (await fs.promises.readdir(categoryPath, { withFileTypes: true }))
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+        .sort((left, right) => left.localeCompare(right));
+      descriptions.push(`${category}[${userStoryDirectories.join(", ") || "no-us"}]`);
+    }
+
+    return descriptions;
+  } catch (error) {
+    return [`error:${asErrorMessage(error)}`];
+  }
 }
