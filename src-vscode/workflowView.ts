@@ -35,7 +35,7 @@ type PhaseGraphLayout = {
   readonly width: number;
   readonly height: number;
 };
-type GraphAnchor = "entry-top" | "entry-left" | "exit-right" | "exit-left" | "exit-bottom-left" | "exit-bottom-mid";
+type GraphAnchor = "entry-top" | "entry-left" | "exit-right" | "exit-left" | "exit-bottom-left" | "exit-bottom-mid" | "exit-bottom-right";
 type PhaseLayoutConfig = {
   readonly columns: Record<PhaseColumn, number>;
   readonly topOffset: number;
@@ -2753,7 +2753,7 @@ function resolveAnchors(from: PhasePosition, to: PhasePosition): { fromAnchor: G
 
   if (deltaX === 0) {
     return {
-      fromAnchor: fromColumn === "left" ? "exit-bottom-left" : "exit-bottom-mid",
+      fromAnchor: "exit-bottom-right",
       toAnchor: "entry-top"
     };
   }
@@ -2779,6 +2779,8 @@ function getAnchorPoint(position: PhasePosition, anchor: GraphAnchor, nodeWidth:
       return { x: position.left + nodeWidth * 0.08, y: position.top + phaseNodeHeight };
     case "exit-bottom-mid":
       return { x: position.left + nodeWidth * 0.72, y: position.top + phaseNodeHeight };
+    case "exit-bottom-right":
+      return { x: position.left + nodeWidth * 0.92, y: position.top + phaseNodeHeight };
   }
 }
 

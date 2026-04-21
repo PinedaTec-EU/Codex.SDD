@@ -2588,7 +2588,7 @@ function resolveAnchors(from, to) {
     const fromColumn = deltaX === 0 ? (from.left <= 100 ? "left" : "right") : deltaX > 0 ? "left" : "right";
     if (deltaX === 0) {
         return {
-            fromAnchor: fromColumn === "left" ? "exit-bottom-left" : "exit-bottom-mid",
+            fromAnchor: "exit-bottom-right",
             toAnchor: "entry-top"
         };
     }
@@ -2611,6 +2611,8 @@ function getAnchorPoint(position, anchor, nodeWidth) {
             return { x: position.left + nodeWidth * 0.08, y: position.top + phaseNodeHeight };
         case "exit-bottom-mid":
             return { x: position.left + nodeWidth * 0.72, y: position.top + phaseNodeHeight };
+        case "exit-bottom-right":
+            return { x: position.left + nodeWidth * 0.92, y: position.top + phaseNodeHeight };
     }
 }
 function playIcon() {
