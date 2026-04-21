@@ -28,40 +28,25 @@ internal static class BranchYamlSerializer
 
     public static WorkBranch Deserialize(string yaml)
     {
-        var values = yaml
-            .Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(static line => line.Split(':', 2, StringSplitOptions.TrimEntries))
-            .Where(static parts => parts.Length == 2)
-            .ToDictionary(static parts => parts[0], static parts => parts[1], StringComparer.Ordinal);
+        var values = YamlMapParser.ParseTopLevelMappings(yaml);
 
         var branch = new WorkBranch(
-            GetRequired(values, "baseBranch"),
-            GetRequired(values, "workBranch"),
-            GetOptional(values, "kind") ?? InferKindFromWorkBranch(GetRequired(values, "workBranch")),
-            GetOptional(values, "category") ?? "uncategorized",
-            GetOptional(values, "titleSnapshot"),
-            GetOptional(values, "sourceUsPath"),
-            DateTimeOffset.Parse(GetRequired(values, "createdAt"), CultureInfo.InvariantCulture),
-            GetOptional(values, "strategy") ?? WorkBranch.SingleBranchPerUserStoryStrategy);
+            YamlMapParser.GetRequired(values, "baseBranch"),
+            YamlMapParser.GetRequired(values, "workBranch"),
+            YamlMapParser.GetOptional(values, "kind") ?? InferKindFromWorkBranch(YamlMapParser.GetRequired(values, "workBranch")),
+            YamlMapParser.GetOptional(values, "category") ?? "uncategorized",
+            YamlMapParser.GetOptional(values, "titleSnapshot"),
+            YamlMapParser.GetOptional(values, "sourceUsPath"),
+            DateTimeOffset.Parse(YamlMapParser.GetRequired(values, "createdAt"), CultureInfo.InvariantCulture),
+            YamlMapParser.GetOptional(values, "strategy") ?? WorkBranch.SingleBranchPerUserStoryStrategy);
 
-        var status = GetRequired(values, "status");
+        var status = YamlMapParser.GetRequired(values, "status");
         if (status == "superseded")
         {
             branch.MarkSuperseded();
         }
 
         return branch;
-    }
-
-    private static string? GetOptional(IReadOnlyDictionary<string, string> values, string key)
-    {
-        if (!values.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        return value;
     }
 
     private static string InferKindFromWorkBranch(string workBranch)
@@ -75,13 +60,4 @@ internal static class BranchYamlSerializer
         return workBranch[..separatorIndex];
     }
 
-    private static string GetRequired(IReadOnlyDictionary<string, string> values, string key)
-    {
-        if (!values.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
-        {
-            throw new InvalidDataException($"Required YAML key '{key}' was not found.");
-        }
-
-        return value;
-    }
 }

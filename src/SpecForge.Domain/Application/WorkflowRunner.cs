@@ -523,40 +523,10 @@ public sealed class WorkflowRunner
     private static async Task<string> ReadSourceTextFromUserStoryAsync(string userStoryPath, CancellationToken cancellationToken)
     {
         var userStory = await File.ReadAllTextAsync(userStoryPath, cancellationToken);
-        var objective = ReadMarkdownSection(userStory, "## Objective", "## Objetivo");
+        var objective = MarkdownHelper.ReadSection(userStory, "## Objective", "## Objetivo");
         return objective == "..." ? userStory.Trim() : objective;
     }
 
-    private static string ReadMarkdownSection(string markdown, params string[] headings)
-    {
-        var lines = markdown.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
-        for (var index = 0; index < lines.Length; index++)
-        {
-            if (!headings.Contains(lines[index], StringComparer.Ordinal))
-            {
-                continue;
-            }
-
-            var builder = new StringBuilder();
-            for (var cursor = index + 1; cursor < lines.Length; cursor++)
-            {
-                if (lines[cursor].StartsWith("## ", StringComparison.Ordinal))
-                {
-                    break;
-                }
-
-                builder.AppendLine(lines[cursor]);
-            }
-
-            var content = builder.ToString().Trim();
-            if (!string.IsNullOrWhiteSpace(content))
-            {
-                return content;
-            }
-        }
-
-        return "...";
-    }
 
     private static async Task ArchiveDerivedArtifactsAsync(
         UserStoryFilePaths paths,
@@ -799,7 +769,7 @@ public sealed class WorkflowRunner
         CancellationToken cancellationToken)
     {
         var userStory = await File.ReadAllTextAsync(userStoryPath, cancellationToken);
-        var title = ReadHeading(userStory, usId);
+        var title = MarkdownHelper.ReadHeading(userStory, usId);
         var normalizedTitle = title.Replace($"{usId} · ", string.Empty, StringComparison.Ordinal)
             .Replace($"{usId} - ", string.Empty, StringComparison.Ordinal)
             .Trim();
@@ -817,9 +787,9 @@ public sealed class WorkflowRunner
 
     private static ClarificationAssessment ParseClarificationArtifact(string markdown)
     {
-        var decision = ReadMarkdownSection(markdown, "## Decision").Trim();
-        var reason = ReadMarkdownSection(markdown, "## Reason").Trim();
-        var questionsSection = ReadMarkdownSection(markdown, "## Questions").Trim();
+        var decision = MarkdownHelper.ReadSection(markdown, "## Decision").Trim();
+        var reason = MarkdownHelper.ReadSection(markdown, "## Reason").Trim();
+        var questionsSection = MarkdownHelper.ReadSection(markdown, "## Questions").Trim();
         var questions = DeduplicateClarificationQuestions(
             questionsSection
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries)
@@ -1057,20 +1027,6 @@ public sealed class WorkflowRunner
         }
     }
 
-    private static string ReadHeading(string markdown, string fallback)
-    {
-        using var reader = new StringReader(markdown);
-        string? line;
-        while ((line = reader.ReadLine()) is not null)
-        {
-            if (line.StartsWith("# ", StringComparison.Ordinal))
-            {
-                return line[2..].Trim();
-            }
-        }
-
-        return fallback;
-    }
 
     private static string ReadUserStoryKind(string markdown)
     {

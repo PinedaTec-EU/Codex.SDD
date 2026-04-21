@@ -31,7 +31,7 @@ internal static class SpecBaselineSchemaValidator
 
         foreach (var heading in RequiredSections)
         {
-            var content = ReadSection(markdown, heading);
+            var content = MarkdownHelper.TryReadSection(markdown, heading);
             if (content is null)
             {
                 missingSections.Add(heading[3..]);
@@ -74,33 +74,6 @@ internal static class SpecBaselineSchemaValidator
         }
 
         throw new Workflow.WorkflowDomainException(builder.ToString());
-    }
-
-    private static string? ReadSection(string markdown, string heading)
-    {
-        var lines = markdown.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
-        for (var index = 0; index < lines.Length; index++)
-        {
-            if (!string.Equals(lines[index], heading, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var builder = new StringBuilder();
-            for (var cursor = index + 1; cursor < lines.Length; cursor++)
-            {
-                if (lines[cursor].StartsWith("## ", StringComparison.Ordinal))
-                {
-                    break;
-                }
-
-                builder.AppendLine(lines[cursor]);
-            }
-
-            return builder.ToString().Trim();
-        }
-
-        return null;
     }
 
     private static bool LooksPlaceholder(string content)

@@ -439,18 +439,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return builder.ToString().Trim();
     }
 
-    private static bool RequiresApiKey(string baseUrl)
-    {
-        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var parsed))
-        {
-            return true;
-        }
-
-        return !parsed.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
-               && !parsed.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
-               && !parsed.Host.Equals("0.0.0.0", StringComparison.OrdinalIgnoreCase)
-               && !parsed.Host.Equals("::1", StringComparison.OrdinalIgnoreCase);
-    }
+    private static bool RequiresApiKey(string baseUrl) => !LocalEndpointHelper.IsLocal(baseUrl);
 
     private static TokenUsage? TryReadUsage(JsonElement root)
     {

@@ -31,43 +31,16 @@ internal static class StateYamlSerializer
 
     public static StateDocument Deserialize(string yaml)
     {
-        var values = ParseTopLevelMappings(yaml);
+        var values = YamlMapParser.ParseTopLevelMappings(yaml);
         var approvedPhases = ParseSequence(yaml, "approvedPhases").Select(ParsePhaseId).ToArray();
 
         return new StateDocument(
-            GetRequired(values, "usId"),
-            GetRequired(values, "workflowId"),
-            ParseUserStoryStatus(GetRequired(values, "status")),
-            ParsePhaseId(GetRequired(values, "currentPhase")),
-            GetRequired(values, "sourceHash"),
+            YamlMapParser.GetRequired(values, "usId"),
+            YamlMapParser.GetRequired(values, "workflowId"),
+            ParseUserStoryStatus(YamlMapParser.GetRequired(values, "status")),
+            ParsePhaseId(YamlMapParser.GetRequired(values, "currentPhase")),
+            YamlMapParser.GetRequired(values, "sourceHash"),
             approvedPhases);
-    }
-
-    private static Dictionary<string, string> ParseTopLevelMappings(string yaml)
-    {
-        var result = new Dictionary<string, string>(StringComparer.Ordinal);
-        using var reader = new StringReader(yaml);
-
-        string? line;
-        while ((line = reader.ReadLine()) is not null)
-        {
-            if (string.IsNullOrWhiteSpace(line) || char.IsWhiteSpace(line[0]))
-            {
-                continue;
-            }
-
-            var separatorIndex = line.IndexOf(':');
-            if (separatorIndex < 0)
-            {
-                continue;
-            }
-
-            var key = line[..separatorIndex].Trim();
-            var value = line[(separatorIndex + 1)..].Trim();
-            result[key] = value;
-        }
-
-        return result;
     }
 
     private static IReadOnlyList<string> ParseSequence(string yaml, string key)
@@ -113,16 +86,6 @@ internal static class StateYamlSerializer
         }
 
         return result;
-    }
-
-    private static string GetRequired(IReadOnlyDictionary<string, string> values, string key)
-    {
-        if (!values.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
-        {
-            throw new InvalidDataException($"Required YAML key '{key}' was not found.");
-        }
-
-        return value;
     }
 
     private static string ToKebabCase(PhaseId phaseId) => phaseId switch

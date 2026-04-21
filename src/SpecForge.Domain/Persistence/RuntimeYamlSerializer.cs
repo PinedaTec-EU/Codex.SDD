@@ -22,11 +22,11 @@ internal static class RuntimeYamlSerializer
 
     public static RuntimeStatusDocument Deserialize(string yaml)
     {
-        var values = ParseTopLevelMappings(yaml);
+        var values = YamlMapParser.ParseTopLevelMappings(yaml);
         return new RuntimeStatusDocument(
-            GetRequired(values, "usId"),
-            GetRequired(values, "status"),
-            GetRequired(values, "currentPhase"),
+            YamlMapParser.GetRequired(values, "usId"),
+            YamlMapParser.GetRequired(values, "status"),
+            YamlMapParser.GetRequired(values, "currentPhase"),
             GetOptional(values, "lastOutcome"),
             GetOptional(values, "activeOperation"),
             ParseDateTimeOffset(GetOptional(values, "startedAtUtc")),
@@ -35,46 +35,10 @@ internal static class RuntimeYamlSerializer
             GetOptional(values, "message"));
     }
 
-    private static Dictionary<string, string> ParseTopLevelMappings(string yaml)
-    {
-        var result = new Dictionary<string, string>(StringComparer.Ordinal);
-        using var reader = new StringReader(yaml);
-
-        string? line;
-        while ((line = reader.ReadLine()) is not null)
-        {
-            if (string.IsNullOrWhiteSpace(line) || char.IsWhiteSpace(line[0]))
-            {
-                continue;
-            }
-
-            var separatorIndex = line.IndexOf(':');
-            if (separatorIndex < 0)
-            {
-                continue;
-            }
-
-            var key = line[..separatorIndex].Trim();
-            var value = line[(separatorIndex + 1)..].Trim();
-            result[key] = value;
-        }
-
-        return result;
-    }
-
-    private static string GetRequired(IReadOnlyDictionary<string, string> values, string key)
-    {
-        if (!values.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
-        {
-            throw new InvalidDataException($"Required YAML key '{key}' was not found.");
-        }
-
-        return value;
-    }
-
     private static string? GetOptional(IReadOnlyDictionary<string, string> values, string key)
     {
-        if (!values.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value) || value == "null")
+        var value = YamlMapParser.GetOptional(values, key);
+        if (value is null || value == "null")
         {
             return null;
         }

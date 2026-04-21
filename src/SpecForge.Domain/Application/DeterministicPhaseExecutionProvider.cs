@@ -1,4 +1,3 @@
-using System.Text;
 using SpecForge.Domain.Workflow;
 
 namespace SpecForge.Domain.Application;
@@ -27,7 +26,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         CancellationToken cancellationToken)
     {
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
-        var objective = ReadSection(userStory, "## Objective", "## Objetivo");
+        var objective = MarkdownHelper.ReadSection(userStory, "## Objective", "## Objetivo");
         var clarification = await ReadClarificationSessionAsync(context.UserStoryPath, cancellationToken);
         var hasAnswers = clarification is not null && clarification.Items.Any(item => !string.IsNullOrWhiteSpace(item.Answer));
         var looksPlaceholder = objective.Contains("sample", StringComparison.OrdinalIgnoreCase)
@@ -81,9 +80,9 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         }
 
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
-        var title = ReadHeading(userStory, fallback: context.UsId);
-        var objective = ReadSection(userStory, "## Objective", "## Objetivo");
-        var initialScope = ReadSection(userStory, "## Initial Scope", "## Alcance inicial");
+        var title = MarkdownHelper.ReadHeading(userStory, fallback: context.UsId);
+        var objective = MarkdownHelper.ReadSection(userStory, "## Objective", "## Objetivo");
+        var initialScope = MarkdownHelper.ReadSection(userStory, "## Initial Scope", "## Alcance inicial");
         var ambiguity = string.IsNullOrWhiteSpace(initialScope)
             ? "The source does not yet distinguish clearly between in-scope behavior and deliberate exclusions."
             : "The source identifies baseline scope, but edge cases and non-functional expectations still need explicit validation.";
@@ -162,9 +161,9 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         var refinement = await File.ReadAllTextAsync(
             GetRequiredPath(context, PhaseId.Refinement),
             cancellationToken);
-        var specSummary = ReadSection(refinement, "## Spec Summary");
-        var businessRules = ReadSection(refinement, "## Business Rules");
-        var constraints = ReadSection(refinement, "## Constraints");
+        var specSummary = MarkdownHelper.ReadSection(refinement, "## Spec Summary");
+        var businessRules = MarkdownHelper.ReadSection(refinement, "## Business Rules");
+        var constraints = MarkdownHelper.ReadSection(refinement, "## Constraints");
 
         return string.Join(
                    Environment.NewLine,
@@ -219,7 +218,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         var technicalDesign = await File.ReadAllTextAsync(
             GetRequiredPath(context, PhaseId.TechnicalDesign),
             cancellationToken);
-        var objective = ReadSection(technicalDesign, "## Technical Objective", "## Objetivo técnico");
+        var objective = MarkdownHelper.ReadSection(technicalDesign, "## Technical Objective", "## Objetivo técnico");
 
         return string.Join(
                    Environment.NewLine,
@@ -284,51 +283,6 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                Environment.NewLine;
     }
 
-    private static string ReadHeading(string markdown, string fallback)
-    {
-        using var reader = new StringReader(markdown);
-        string? line;
-        while ((line = reader.ReadLine()) is not null)
-        {
-            if (line.StartsWith("# ", StringComparison.Ordinal))
-            {
-                return line[2..].Trim();
-            }
-        }
-
-        return fallback;
-    }
-
-    private static string ReadSection(string markdown, params string[] headings)
-    {
-        var lines = markdown.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
-        for (var index = 0; index < lines.Length; index++)
-        {
-            if (!headings.Contains(lines[index], StringComparer.Ordinal))
-            {
-                continue;
-            }
-
-            var builder = new StringBuilder();
-            for (var cursor = index + 1; cursor < lines.Length; cursor++)
-            {
-                if (lines[cursor].StartsWith("## ", StringComparison.Ordinal))
-                {
-                    break;
-                }
-
-                builder.AppendLine(lines[cursor]);
-            }
-
-            var content = builder.ToString().Trim();
-            if (!string.IsNullOrWhiteSpace(content))
-            {
-                return content;
-            }
-        }
-
-        return "...";
-    }
 
     private static string GetRequiredPath(PhaseExecutionContext context, PhaseId phaseId)
     {
