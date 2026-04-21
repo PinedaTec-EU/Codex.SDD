@@ -109,6 +109,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /workflow-action-button--document[^]*Open Artifact/);
   assert.match(html, /workflow-action-button--document[^]*Open Execute Prompt/);
   assert.match(html, /workflow-action-button--document[^]*Open Approve Prompt/);
+  assert.match(html, /id="submit-phase-input" class="workflow-action-button workflow-action-button--progress"/);
   assert.match(html, /Open Operation Log/);
   assert.doesNotMatch(html, /action-btn--approve/);
   assert.doesNotMatch(html, /action-btn--reject/);
@@ -119,7 +120,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /<h4>User Story<\/h4>/);
   assert.match(html, /us\.md/);
   assert.match(html, /Add Files/);
-  assert.match(html, /class="workflow-action-button" data-command="attachFiles" data-kind="context" data-attach-files-button>Add Files</);
+  assert.match(html, /class="workflow-action-button workflow-action-button--document" data-command="attachFiles" data-kind="context" data-attach-files-button>Add Files</);
   assert.match(html, /Context Files/);
   assert.match(html, /User Story Info/);
   assert.match(html, /data-file-drop-zone/);
@@ -336,6 +337,7 @@ test("buildWorkflowHtml shows the debug reset action only in debug mode", () => 
   }, "idle");
 
   assert.match(html, /Reset to Capture/);
+  assert.match(html, /workflow-action-button--danger" type="button" data-command="debugResetToCapture"/);
   assert.match(html, /data-command="debugResetToCapture"/);
 });
 
@@ -385,6 +387,7 @@ test("buildWorkflowHtml shows configuration warning and disables execution contr
 
   assert.match(html, /SpecForge\.AI settings are incomplete/);
   assert.match(html, /Configure Settings/);
+  assert.match(html, /workflow-action-button--progress" data-command="openSettings"/);
   assert.match(html, /data-command="play"[^>]*disabled/);
   assert.doesNotMatch(html, /data-command="continue"/);
 });
@@ -1092,6 +1095,7 @@ test("buildWorkflowHtml renders clarification questions and embedded answer inpu
   assert.match(html, /data-clarification-answer/);
   assert.match(html, /A backoffice operator\./);
   assert.match(html, /Submit Answers/);
+  assert.match(html, /id="submit-clarification-answers" class="workflow-action-button workflow-action-button--progress"/);
   assert.match(html, /submitClarificationAnswers/);
   assert.match(html, /Raw Artifact/);
   assert.match(html, /markdown-preview--raw-artifact/);
@@ -1162,8 +1166,10 @@ test("buildWorkflowHtml proposes manual and suggested context files during clari
 
   assert.match(html, /Need more repo context\?/);
   assert.match(html, /Add Context Files/);
+  assert.match(html, /workflow-action-button--document" data-command="attachFiles" data-kind="context">Add Context Files</);
   assert.match(html, /tests\/SpecForge\.Domain\.Tests\/WorkflowRunnerTests\.cs/);
   assert.match(html, /Add to Context/);
+  assert.match(html, /workflow-action-button workflow-action-button--document workflow-action-button--compact" data-command="addSuggestedContextFile"/);
   assert.match(html, /Matches clarification keywords: tests, workflow\./);
 });
 

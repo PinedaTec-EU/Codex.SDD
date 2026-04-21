@@ -398,7 +398,7 @@ export function buildWorkflowHtml(
           <h2>SpecForge.AI settings are incomplete</h2>
           <p class="panel-copy warning-copy">${escapeHtml(state.settingsMessage)}</p>
         </div>
-        <button class="workflow-action-button" data-command="openSettings">Configure Settings</button>
+        <button class="workflow-action-button workflow-action-button--progress" data-command="openSettings">Configure Settings</button>
       </section>
     `
     : "";
@@ -502,7 +502,7 @@ export function buildWorkflowHtml(
           ${selectedPhase.isCurrent ? "" : "disabled"}></textarea>
         <div class="detail-actions detail-actions--phase-input">
           <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.operationLogPath ?? "")}" ${selectedPhase.operationLogPath ? "" : "disabled"}>Open Operation Log</button>
-          <button id="submit-phase-input" class="workflow-action-button" ${selectedPhase.isCurrent ? "" : "disabled"}>Apply via Model</button>
+          <button id="submit-phase-input" class="workflow-action-button workflow-action-button--progress" ${selectedPhase.isCurrent ? "" : "disabled"}>Apply via Model</button>
         </div>
         ${state.selectedOperationContent
           ? `<div class="phase-input-log"><div class="phase-input-log__header">Current operation log</div><pre class="artifact-preview">${escapeHtml(state.selectedOperationContent)}</pre></div>`
@@ -531,7 +531,7 @@ export function buildWorkflowHtml(
         <button class="file-kind-toggle__option file-kind-toggle__option--active" type="button" data-file-kind-option="context">Context</button>
         <button class="file-kind-toggle__option" type="button" data-file-kind-option="attachment">US Info</button>
       </div>
-      <button class="workflow-action-button" data-command="attachFiles" data-kind="context" data-attach-files-button>Add Files</button>
+      <button class="workflow-action-button workflow-action-button--document" data-command="attachFiles" data-kind="context" data-attach-files-button>Add Files</button>
     </div>
     <div class="file-groups">
       <section class="file-group" data-file-drop-zone data-drop-kind="context">
@@ -583,9 +583,9 @@ export function buildWorkflowHtml(
         </p>
       </div>
       <div class="detail-actions detail-actions--files detail-actions--clarification">
-        <button class="workflow-action-button" data-command="attachFiles" data-kind="context">Add Context Files</button>
+        <button class="workflow-action-button workflow-action-button--document" data-command="attachFiles" data-kind="context">Add Context Files</button>
         ${state.contextSuggestions.length > 1
-          ? `<button class="workflow-action-button" data-add-suggested-context-files='${escapeHtmlAttribute(JSON.stringify(state.contextSuggestions.map((item) => item.path)))}'>Add All Suggested</button>`
+          ? `<button class="workflow-action-button workflow-action-button--document" data-add-suggested-context-files='${escapeHtmlAttribute(JSON.stringify(state.contextSuggestions.map((item) => item.path)))}'>Add All Suggested</button>`
           : ""}
       </div>
       ${state.contextSuggestions.length > 0
@@ -597,7 +597,7 @@ export function buildWorkflowHtml(
                   <strong>${escapeHtml(suggestion.relativePath)}</strong>
                   <span>${escapeHtml(suggestion.reason)}</span>
                 </div>
-                <button class="workflow-action-button workflow-action-button--compact" data-command="addSuggestedContextFile" data-path="${escapeHtmlAttribute(suggestion.path)}">Add to Context</button>
+                <button class="workflow-action-button workflow-action-button--document workflow-action-button--compact" data-command="addSuggestedContextFile" data-path="${escapeHtmlAttribute(suggestion.path)}">Add to Context</button>
               </div>
             `).join("")}
           </div>
@@ -629,7 +629,7 @@ export function buildWorkflowHtml(
               `).join("")}
             </div>
             <div class="detail-actions">
-              <button id="submit-clarification-answers" class="workflow-action-button" ${selectedPhase.isCurrent ? "" : "disabled"}>
+              <button id="submit-clarification-answers" class="workflow-action-button workflow-action-button--progress" ${selectedPhase.isCurrent ? "" : "disabled"}>
                 Submit Answers
               </button>
             </div>
@@ -652,7 +652,7 @@ export function buildWorkflowHtml(
     </button>
   `;
   const debugResetButton = state.debugMode
-    ? `<button class="workflow-action-button workflow-action-button--debug-reset" type="button" data-command="debugResetToCapture">Reset to Capture</button>`
+    ? `<button class="workflow-action-button workflow-action-button--danger" type="button" data-command="debugResetToCapture">Reset to Capture</button>`
     : "";
 
   const auditRows = workflow.events.length > 0
@@ -691,10 +691,16 @@ export function buildWorkflowHtml(
       --attention-egg-soft: rgba(255, 213, 90, 0.16);
       --attention-egg-border: rgba(255, 213, 90, 0.34);
       --attention-egg-shadow: rgba(255, 213, 90, 0.26);
-      --action-primary-bg: linear-gradient(180deg, rgba(114, 241, 184, 0.16), rgba(18, 33, 28, 0.92));
-      --action-primary-bg-hover: linear-gradient(180deg, rgba(114, 241, 184, 0.24), rgba(18, 33, 28, 0.94));
-      --action-primary-border: rgba(114, 241, 184, 0.18);
-      --action-primary-border-hover: rgba(114, 241, 184, 0.38);
+      --action-progress-bg: linear-gradient(180deg, rgba(48, 112, 76, 0.96), rgba(18, 43, 35, 0.98));
+      --action-progress-bg-hover: linear-gradient(180deg, rgba(58, 130, 88, 0.98), rgba(20, 54, 42, 1));
+      --action-progress-border: rgba(114, 241, 184, 0.22);
+      --action-progress-border-hover: rgba(114, 241, 184, 0.4);
+      --action-progress-shadow: rgba(20, 72, 53, 0.24);
+      --action-document-bg: linear-gradient(180deg, rgba(92, 181, 255, 0.18), rgba(16, 31, 52, 0.94));
+      --action-document-bg-hover: linear-gradient(180deg, rgba(92, 181, 255, 0.26), rgba(18, 39, 64, 0.98));
+      --action-document-border: rgba(92, 181, 255, 0.28);
+      --action-document-border-hover: rgba(92, 181, 255, 0.42);
+      --action-document-shadow: rgba(22, 52, 92, 0.24);
     }
     * {
       box-sizing: border-box;
@@ -978,11 +984,27 @@ export function buildWorkflowHtml(
     .icon-button--primary {
       width: 74px;
       height: 74px;
-      box-shadow: 0 10px 28px rgba(31, 216, 155, 0.28);
+      background: var(--action-progress-bg);
+      border-color: var(--action-progress-border);
+      box-shadow: 0 10px 28px var(--action-progress-shadow);
+    }
+    .icon-button--primary:hover {
+      border-color: var(--action-progress-border-hover);
+      background: var(--action-progress-bg-hover);
     }
     .icon-button--danger {
       background: linear-gradient(180deg, rgba(255, 139, 139, 0.2), rgba(40, 18, 18, 0.92));
       border-color: rgba(255, 139, 139, 0.26);
+    }
+    .icon-button--document {
+      background: var(--action-document-bg);
+      border-color: var(--action-document-border);
+      color: #e7f3ff;
+    }
+    .icon-button--document:hover {
+      border-color: var(--action-document-border-hover);
+      background: var(--action-document-bg-hover);
+      box-shadow: 0 10px 24px var(--action-document-shadow);
     }
     .icon-button svg {
       width: 24px;
@@ -995,10 +1017,10 @@ export function buildWorkflowHtml(
       margin-left: 2px;
     }
     .control-strip button, .attachment-item, .settings-warning button, .workflow-files-dialog__close {
-      border: 1px solid var(--action-primary-border);
+      border: 1px solid var(--action-progress-border);
       border-radius: 14px;
       padding: 10px 14px;
-      background: var(--action-primary-bg);
+      background: var(--action-progress-bg);
       color: #f2fff9;
       cursor: pointer;
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
@@ -1006,8 +1028,8 @@ export function buildWorkflowHtml(
     }
     .control-strip button:hover, .attachment-item:hover, .settings-warning button:hover, .workflow-files-dialog__close:hover {
       transform: translateY(-1px);
-      border-color: var(--action-primary-border-hover);
-      background: var(--action-primary-bg-hover);
+      border-color: var(--action-progress-border-hover);
+      background: var(--action-progress-bg-hover);
     }
     .control-strip button:disabled, .workflow-files-dialog__close:disabled {
       opacity: 0.46;
@@ -1557,11 +1579,17 @@ export function buildWorkflowHtml(
     }
     .attachment-item {
       padding: 12px 14px;
-      background: rgba(255, 255, 255, 0.035);
-      color: inherit;
+      background: var(--action-document-bg);
+      border-color: var(--action-document-border);
+      color: #e7f3ff;
       text-align: left;
       display: grid;
       gap: 4px;
+    }
+    .attachment-item:hover {
+      border-color: var(--action-document-border-hover);
+      background: var(--action-document-bg-hover);
+      box-shadow: 0 10px 24px var(--action-document-shadow);
     }
     .attachment-item[data-file-path] {
       cursor: grab;
@@ -1663,10 +1691,10 @@ export function buildWorkflowHtml(
       justify-content: flex-start;
     }
     .workflow-action-button {
-      border: 1px solid var(--action-primary-border);
+      border: 1px solid var(--action-progress-border);
       border-radius: 14px;
       padding: 10px 14px;
-      background: var(--action-primary-bg);
+      background: var(--action-progress-bg);
       color: #f2fff9;
       cursor: pointer;
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
@@ -1675,8 +1703,8 @@ export function buildWorkflowHtml(
     }
     .workflow-action-button:hover {
       transform: translateY(-1px);
-      border-color: var(--action-primary-border-hover);
-      background: var(--action-primary-bg-hover);
+      border-color: var(--action-progress-border-hover);
+      background: var(--action-progress-bg-hover);
     }
     .workflow-action-button:disabled {
       opacity: 0.46;
@@ -1684,15 +1712,17 @@ export function buildWorkflowHtml(
       transform: none;
       box-shadow: none;
     }
+    .workflow-action-button.workflow-action-button--progress,
     .workflow-action-button.workflow-action-button--approve {
-      border-color: rgba(114, 241, 184, 0.28);
-      background: linear-gradient(180deg, rgba(114, 241, 184, 0.22), rgba(18, 43, 35, 0.96));
+      border-color: var(--action-progress-border);
+      background: var(--action-progress-bg);
       color: #f2fff9;
     }
+    .workflow-action-button.workflow-action-button--progress:hover,
     .workflow-action-button.workflow-action-button--approve:hover {
-      border-color: rgba(114, 241, 184, 0.44);
-      background: linear-gradient(180deg, rgba(114, 241, 184, 0.3), rgba(20, 54, 42, 0.98));
-      box-shadow: 0 10px 24px rgba(20, 72, 53, 0.24);
+      border-color: var(--action-progress-border-hover);
+      background: var(--action-progress-bg-hover);
+      box-shadow: 0 10px 24px var(--action-progress-shadow);
     }
     .workflow-action-button.workflow-action-button--danger {
       border-color: rgba(255, 139, 139, 0.3);
@@ -1705,19 +1735,14 @@ export function buildWorkflowHtml(
       box-shadow: 0 10px 24px rgba(88, 28, 28, 0.24);
     }
     .workflow-action-button.workflow-action-button--document {
-      border-color: rgba(92, 181, 255, 0.28);
-      background: linear-gradient(180deg, rgba(92, 181, 255, 0.18), rgba(16, 31, 52, 0.94));
+      border-color: var(--action-document-border);
+      background: var(--action-document-bg);
       color: #e7f3ff;
     }
     .workflow-action-button.workflow-action-button--document:hover {
-      border-color: rgba(92, 181, 255, 0.42);
-      background: linear-gradient(180deg, rgba(92, 181, 255, 0.26), rgba(18, 39, 64, 0.98));
-      box-shadow: 0 10px 24px rgba(22, 52, 92, 0.24);
-    }
-    .workflow-action-button--debug-reset {
-      border-color: rgba(255, 170, 84, 0.28);
-      background: linear-gradient(180deg, rgba(255, 170, 84, 0.18), rgba(46, 31, 14, 0.94));
-      color: #ffe3b8;
+      border-color: var(--action-document-border-hover);
+      background: var(--action-document-bg-hover);
+      box-shadow: 0 10px 24px var(--action-document-shadow);
     }
     .artifact-preview--raw-artifact, .markdown-preview--raw-artifact {
       border-color: rgba(255, 213, 90, 0.18);
@@ -2077,7 +2102,7 @@ export function buildWorkflowHtml(
         <div class="control-strip">
           ${debugResetButton}
           ${playbackButtons}
-          <button class="icon-button" type="button" data-open-workflow-files aria-label="Open workflow files">
+          <button class="icon-button icon-button--document" type="button" data-open-workflow-files aria-label="Open workflow files">
             ${fileIcon()}
           </button>
         </div>
