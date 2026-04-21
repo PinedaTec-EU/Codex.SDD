@@ -603,6 +603,9 @@ function wrapHtml(content: string, busy: boolean): string {
       gap: 6px;
       z-index: 20;
     }
+    .action-menu__panel[hidden] {
+      display: none;
+    }
     .action-menu__item {
       width: 100%;
       text-align: left;
