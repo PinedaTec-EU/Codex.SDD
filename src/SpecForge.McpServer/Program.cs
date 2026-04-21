@@ -288,7 +288,8 @@ static JsonObject BuildErrorResponse(JsonNode? id, int code, string message)
 
 static async Task<JsonNode?> ReadMessageAsync(Stream input)
 {
-    var headerBytes = new List<byte>();
+    const int maxHeaderSize = 8192;
+    var headerBytes = new List<byte>(256);
     var buffer = new byte[1];
     while (true)
     {
@@ -299,6 +300,12 @@ static async Task<JsonNode?> ReadMessageAsync(Stream input)
         }
 
         headerBytes.Add(buffer[0]);
+
+        if (headerBytes.Count > maxHeaderSize)
+        {
+            throw new InvalidOperationException($"MCP message header exceeds maximum allowed size of {maxHeaderSize} bytes.");
+        }
+
         var headerString = Encoding.UTF8.GetString(headerBytes.ToArray());
         if (headerString.EndsWith("\r\n\r\n", StringComparison.Ordinal))
         {

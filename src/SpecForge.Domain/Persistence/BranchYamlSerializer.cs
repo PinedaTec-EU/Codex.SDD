@@ -1,3 +1,4 @@
+using System.Globalization;
 using SpecForge.Domain.Workflow;
 
 namespace SpecForge.Domain.Persistence;
@@ -41,7 +42,7 @@ internal static class BranchYamlSerializer
             GetOptional(values, "category") ?? "uncategorized",
             GetOptional(values, "titleSnapshot"),
             GetOptional(values, "sourceUsPath"),
-            DateTimeOffset.Parse(GetRequired(values, "createdAt")),
+            DateTimeOffset.Parse(GetRequired(values, "createdAt"), CultureInfo.InvariantCulture),
             GetOptional(values, "strategy") ?? WorkBranch.SingleBranchPerUserStoryStrategy);
 
         var status = GetRequired(values, "status");

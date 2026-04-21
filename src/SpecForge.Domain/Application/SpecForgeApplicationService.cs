@@ -131,7 +131,7 @@ public sealed class SpecForgeApplicationService
             BuildPhaseDetails(workflowRun, paths),
             new CurrentPhaseControls(
                 currentPhase.CanAdvance,
-                currentPhase.RequiresApproval,
+                currentPhase.RequiresApproval && !currentPhase.CanAdvance,
                 currentPhase.RequiresApproval,
                 currentPhase.BlockingReason,
                 workflowRun.CurrentPhase != Workflow.PhaseId.Capture,
