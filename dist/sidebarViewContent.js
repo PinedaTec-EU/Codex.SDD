@@ -935,28 +935,10 @@ function wrapHtml(content, busy) {
       overflow: visible;
     }
     .story-row--selected::before {
-      content: "";
-      position: absolute;
-      left: -2px;
-      top: 10px;
-      bottom: 10px;
-      width: 8px;
-      border-radius: 999px;
-      background: linear-gradient(180deg, rgba(117, 191, 255, 0.96), rgba(29, 101, 181, 0.94));
-      box-shadow: 0 0 0 1px rgba(117, 191, 255, 0.12), 0 10px 22px rgba(35, 113, 201, 0.18);
-      z-index: -1;
+      content: none;
     }
     .story-row--selected::after {
-      content: "";
-      position: absolute;
-      right: -4px;
-      top: 10px;
-      bottom: 10px;
-      width: 8px;
-      border-radius: 999px;
-      background: linear-gradient(180deg, rgba(117, 191, 255, 0.96), rgba(29, 101, 181, 0.94));
-      box-shadow: 0 0 0 1px rgba(117, 191, 255, 0.1), 0 10px 22px rgba(35, 113, 201, 0.14);
-      z-index: -1;
+      content: none;
     }
     .story-row--shell > .story-card,
     .story-row--shell > .story-actions,
@@ -987,12 +969,22 @@ function wrapHtml(content, busy) {
       min-height: 100%;
       border-radius: 18px 0 0 18px;
     }
+    .story-row--selected .story-card {
+      box-shadow:
+        inset 5px 0 0 rgba(96, 185, 255, 0.9),
+        inset 14px 0 18px rgba(44, 120, 210, 0.32);
+    }
     .story-actions {
       background:
         linear-gradient(180deg, rgba(18, 24, 31, 0.985), rgba(12, 17, 23, 0.99)),
         rgba(14, 20, 26, 0.99);
       border-radius: 0 18px 18px 0;
       overflow: hidden;
+    }
+    .story-row--selected .story-actions {
+      box-shadow:
+        inset -5px 0 0 rgba(96, 185, 255, 0.88),
+        inset -14px 0 18px rgba(44, 120, 210, 0.28);
     }
     .story-card__content {
       display: grid;
