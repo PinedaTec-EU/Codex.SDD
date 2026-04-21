@@ -1170,6 +1170,13 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       border-color: rgba(92, 181, 255, 0.42);
       box-shadow: 0 20px 34px rgba(26, 72, 124, 0.18);
     }
+    .phase-node-content {
+      position: relative;
+      z-index: 1;
+    }
+    .phase-node-content--current {
+      padding-left: 56px;
+    }
     .phase-node.phase-tone-pending.selected {
       outline: 2px solid rgba(255, 255, 255, 0.24);
       outline-offset: 2px;
@@ -1246,6 +1253,35 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       position: relative;
       z-index: 1;
     }
+    .phase-current-rail {
+      position: absolute;
+      top: 18px;
+      bottom: 18px;
+      left: 18px;
+      width: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-top-left-radius: 18px;
+      border-bottom-left-radius: 18px;
+      border-top-right-radius: 8px;
+      border-bottom-right-radius: 8px;
+      border-right: 1px solid rgba(92, 181, 255, 0.3);
+      background: linear-gradient(180deg, rgba(92, 181, 255, 0.32), rgba(15, 34, 56, 0.96));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      z-index: 1;
+    }
+    .phase-current-rail__label {
+      display: inline-block;
+      transform: rotate(-90deg);
+      color: rgba(7, 17, 28, 0.92);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      line-height: 1;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
     .phase-index {
       width: 34px;
       height: 34px;
@@ -1272,25 +1308,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .phase-node.phase-tone-waiting-user .phase-status-dot {
       background: var(--attention-egg);
       box-shadow: 0 0 0 8px rgba(255, 213, 90, 0.14);
-    }
-    .phase-current-indicator {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 7px 12px 6px;
-      border-radius: 999px;
-      border: 1px solid rgba(92, 181, 255, 0.38);
-      background: linear-gradient(180deg, rgba(92, 181, 255, 0.9), rgba(62, 153, 237, 0.88));
-      color: rgba(7, 17, 28, 0.92);
-      font-size: 0.7rem;
-      font-weight: 800;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      position: relative;
-      z-index: 1;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.18),
-        0 8px 20px rgba(22, 52, 92, 0.18);
     }
     .phase-node.phase-tone-paused .phase-status-dot {
       background: #b3bbc6;
@@ -2412,16 +2429,19 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
       class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phase.phaseId === selectedPhaseId ? " selected" : ""}${phase.isCurrent ? " phase-node--current" : ""}"
       data-command="selectPhase"
       data-phase-id="${escapeHtmlAttribute(phase.phaseId)}">
-      <div class="phase-node-header">
-        <span class="phase-index">${index + 1}</span>
-        ${phase.isCurrent ? `<span class="phase-current-indicator">Current</span>` : `<span class="phase-status-dot"></span>`}
-      </div>
-      <h3>${escapeHtml(phase.title)}</h3>
-      <div class="phase-slug">${escapeHtml(phaseSecondaryLabel(phase))}</div>
-      <div class="phase-tags">
-        <span class="phase-tag phase-tag--${escapeHtmlAttribute(visualTone)}">${escapeHtml(displayState)}</span>
-        ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
-        ${phase.isApproved ? `<span class="phase-tag">approved</span>` : ""}
+      ${phase.isCurrent ? `<span class="phase-current-rail"><span class="phase-current-rail__label">Current</span></span>` : ""}
+      <div class="phase-node-content${phase.isCurrent ? " phase-node-content--current" : ""}">
+        <div class="phase-node-header">
+          <span class="phase-index">${index + 1}</span>
+          <span class="phase-status-dot"></span>
+        </div>
+        <h3>${escapeHtml(phase.title)}</h3>
+        <div class="phase-slug">${escapeHtml(phaseSecondaryLabel(phase))}</div>
+        <div class="phase-tags">
+          <span class="phase-tag phase-tag--${escapeHtmlAttribute(visualTone)}">${escapeHtml(displayState)}</span>
+          ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
+          ${phase.isApproved ? `<span class="phase-tag">approved</span>` : ""}
+        </div>
       </div>
     </button>
   `;
