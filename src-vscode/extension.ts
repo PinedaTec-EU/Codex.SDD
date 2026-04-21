@@ -40,7 +40,7 @@ export function activate(context: vscode.ExtensionContext): void {
     await refreshWorkspaceUiAsync("sidebar:onDidCreateUserStory");
   });
   const refreshableProvider = { refresh: () => sidebarProvider.refresh() };
-  activateExtension(context, createVsCodeHost(), refreshableProvider, createExtensionActions(refreshableProvider));
+  activateExtension(context, createVsCodeHost(), refreshableProvider, createExtensionActions(refreshableProvider, sidebarProvider));
   const refreshWorkspaceUiAsync = async (reason: string) => {
     if (reason.startsWith("watcher:") && hasActiveWorkflowPlayback()) {
       appendSpecForgeDebugLog(`Skipping workspace UI refresh while workflow playback is active. reason='${reason}'.`);
@@ -70,7 +70,7 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  void autoOpenStarredUserStoryAsync();
+  void autoOpenStarredUserStoryAsync(sidebarProvider);
 }
 
 export function deactivate(): void {
@@ -86,7 +86,7 @@ function createVsCodeHost(): ExtensionHost {
   };
 }
 
-function createExtensionActions(explorerProvider: { refresh(): void }): ExtensionActions {
+function createExtensionActions(explorerProvider: { refresh(): void }, sidebarProvider: SidebarViewProvider): ExtensionActions {
   return {
     createUserStoryFromInput,
     importUserStoryFromMarkdown,
@@ -106,6 +106,9 @@ function createExtensionActions(explorerProvider: { refresh(): void }): Extensio
           refreshExplorer: async () => {
             explorerProvider.refresh();
             await notifyAttentionChangesAsync();
+          },
+          setActiveWorkflowUsId: (usId) => {
+            sidebarProvider.setActiveWorkflowUsId(usId);
           },
           notifyAttention: (message) => {
             if (getSpecForgeSettings().attentionNotificationsEnabled) {
@@ -212,7 +215,7 @@ function createWorkspaceWatcher(onChange: (reason: string) => Promise<void>): vs
   });
 }
 
-async function autoOpenStarredUserStoryAsync(): Promise<void> {
+async function autoOpenStarredUserStoryAsync(sidebarProvider: SidebarViewProvider): Promise<void> {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceRoot) {
     return;
@@ -233,6 +236,9 @@ async function autoOpenStarredUserStoryAsync(): Promise<void> {
         refreshExplorer: async () => {
           await vscode.commands.executeCommand("specForge.refreshUserStories");
           await notifyAttentionChangesAsync();
+        },
+        setActiveWorkflowUsId: (usId) => {
+          sidebarProvider.setActiveWorkflowUsId(usId);
         },
         notifyAttention: (message) => {
           if (getSpecForgeSettings().attentionNotificationsEnabled) {

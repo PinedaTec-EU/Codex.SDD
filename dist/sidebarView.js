@@ -53,6 +53,7 @@ class SidebarViewProvider {
     showCreateForm = false;
     busyMessage = null;
     viewMode = "category";
+    activeWorkflowUsId = null;
     createFileMode = "context";
     createFiles = [];
     constructor(extensionUri, onDidCreateUserStory) {
@@ -61,6 +62,13 @@ class SidebarViewProvider {
     }
     refresh() {
         void this.renderAsync();
+    }
+    setActiveWorkflowUsId(usId) {
+        if (this.activeWorkflowUsId === usId) {
+            return;
+        }
+        this.activeWorkflowUsId = usId;
+        void this.safeRenderAsync();
     }
     resolveWebviewView(webviewView) {
         this.webviewView = webviewView;
@@ -313,6 +321,7 @@ class SidebarViewProvider {
                 settingsConfigured: settingsStatus.executionConfigured,
                 settingsMessage: settingsStatus.message,
                 starredUserStoryId: null,
+                activeWorkflowUsId: this.activeWorkflowUsId,
                 runtimeVersion,
                 viewMode: this.viewMode,
                 createFileMode: this.createFileMode,
@@ -340,6 +349,7 @@ class SidebarViewProvider {
             settingsConfigured: settingsStatus.executionConfigured,
             settingsMessage: settingsStatus.message,
             starredUserStoryId: preferences.starredUserStoryId,
+            activeWorkflowUsId: this.activeWorkflowUsId,
             runtimeVersion,
             viewMode: this.viewMode,
             createFileMode: this.createFileMode,
@@ -364,6 +374,7 @@ class SidebarViewProvider {
                 settingsConfigured: false,
                 settingsMessage: "SpecForge.AI settings could not be evaluated.",
                 starredUserStoryId: null,
+                activeWorkflowUsId: this.activeWorkflowUsId,
                 runtimeVersion: await (0, runtimeVersion_1.readRuntimeVersionAsync)(),
                 viewMode: this.viewMode,
                 createFileMode: this.createFileMode,

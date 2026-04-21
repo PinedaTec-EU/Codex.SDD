@@ -38,6 +38,7 @@ export interface WorkflowPanelCallbacks {
   refreshExplorer(): Promise<void>;
   notifyAttention(message: string): void;
   stopBackend(workspaceRoot: string): void;
+  setActiveWorkflowUsId(usId: string | null): void;
 }
 
 export async function openWorkflowView(
@@ -110,7 +111,13 @@ class WorkflowPanelController {
     );
 
     this.panel.onDidDispose(() => {
+      this.callbacks.setActiveWorkflowUsId(null);
       panels.delete(this.key);
+    });
+    this.panel.onDidChangeViewState((event) => {
+      if (event.webviewPanel.active) {
+        this.callbacks.setActiveWorkflowUsId(this.summary.usId);
+      }
     });
 
     this.panel.webview.onDidReceiveMessage(async (message: WorkflowPanelCommand) => {
@@ -133,6 +140,7 @@ class WorkflowPanelController {
 
   public async showAsync(): Promise<void> {
     this.panel.reveal(vscode.ViewColumn.Active);
+    this.callbacks.setActiveWorkflowUsId(this.summary.usId);
     await this.refreshAsync("showAsync");
   }
 

@@ -14,6 +14,7 @@ export interface SidebarViewModel {
   readonly settingsConfigured: boolean;
   readonly settingsMessage: string | null;
   readonly starredUserStoryId: string | null;
+  readonly activeWorkflowUsId: string | null;
   readonly runtimeVersion: string | null;
   readonly viewMode: "category" | "phase";
   readonly createFileMode?: "context" | "attachment";
@@ -80,7 +81,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
   const storiesMarkup = storySections.map((section) => `
     <section class="story-group${section.heading ? "" : " story-group--flat"}">
       ${section.heading ? `<div class="group-header">${escapeHtml(section.heading)}</div>` : ""}
-      ${section.items.map((summary) => buildStoryRowMarkup(summary, model.starredUserStoryId)).join("")}
+      ${section.items.map((summary) => buildStoryRowMarkup(summary, model.starredUserStoryId, model.activeWorkflowUsId)).join("")}
     </section>
   `).join("");
 
@@ -423,9 +424,11 @@ function wrapHtml(content: string, busy: boolean): string {
       margin: 0;
       padding: 14px;
       background:
-        radial-gradient(circle at top, rgba(114, 241, 184, 0.12), transparent 28%),
-        linear-gradient(180deg, rgba(9, 16, 22, 0.98), rgba(11, 15, 20, 1));
+        radial-gradient(140% 95% at 12% -8%, rgba(114, 241, 184, 0.08), transparent 42%),
+        radial-gradient(120% 80% at 88% 112%, rgba(92, 181, 255, 0.08), transparent 38%),
+        linear-gradient(180deg, rgba(8, 14, 20, 0.985), rgba(10, 15, 21, 1));
       color: var(--vscode-editor-foreground);
+      background-attachment: fixed;
     }
     .empty-state, .form-card, .action-card {
       border: 1px solid rgba(114, 241, 184, 0.12);
@@ -963,6 +966,7 @@ function wrapHtml(content: string, busy: boolean): string {
       align-items: stretch;
     }
     .story-row--shell {
+      position: relative;
       padding: 10px;
       border-radius: 24px;
       border: 1px solid rgba(114, 241, 184, 0.12);
@@ -970,6 +974,21 @@ function wrapHtml(content: string, busy: boolean): string {
         linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.01)),
         rgba(14, 20, 26, 0.92);
       box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+      isolation: isolate;
+      overflow: visible;
+    }
+    .story-row--selected::before {
+      content: "";
+      position: absolute;
+      left: -8px;
+      right: -10px;
+      top: 50%;
+      height: 26px;
+      transform: translateY(-50%);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(86, 171, 255, 0.94), rgba(23, 82, 152, 0.92));
+      box-shadow: 0 12px 28px rgba(35, 113, 201, 0.3);
+      z-index: -1;
     }
     .story-row--shell > .story-card,
     .story-row--shell > .story-actions,
@@ -1497,9 +1516,10 @@ function sortStoriesByPhase(items: readonly UserStorySummary[]): UserStorySummar
   });
 }
 
-function buildStoryRowMarkup(summary: UserStorySummary, starredUserStoryId: string | null): string {
+function buildStoryRowMarkup(summary: UserStorySummary, starredUserStoryId: string | null, activeWorkflowUsId: string | null): string {
+  const isActiveWorkflow = activeWorkflowUsId === summary.usId;
   return `
-    <div class="story-row story-row--shell">
+    <div class="story-row story-row--shell${isActiveWorkflow ? " story-row--selected" : ""}">
       <button class="story-card${shouldRenderPhaseRail(summary.status) ? ` story-card--active story-card--phase-${escapeHtmlAttr(summary.currentPhase)} story-card--status-${escapeHtmlAttr(phaseRailStatus(summary.status))}` : ""}" data-command="openWorkflow" data-us-id="${escapeHtmlAttr(summary.usId)}">
         ${shouldRenderPhaseRail(summary.status)
           ? `

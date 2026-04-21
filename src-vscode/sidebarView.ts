@@ -53,6 +53,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   private showCreateForm = false;
   private busyMessage: string | null = null;
   private viewMode: "category" | "phase" = "category";
+  private activeWorkflowUsId: string | null = null;
   private createFileMode: "context" | "attachment" = "context";
   private createFiles: DraftCreateFile[] = [];
 
@@ -63,6 +64,15 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
   public refresh(): void {
     void this.renderAsync();
+  }
+
+  public setActiveWorkflowUsId(usId: string | null): void {
+    if (this.activeWorkflowUsId === usId) {
+      return;
+    }
+
+    this.activeWorkflowUsId = usId;
+    void this.safeRenderAsync();
   }
 
   public resolveWebviewView(webviewView: vscode.WebviewView): void | Thenable<void> {
@@ -362,6 +372,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         settingsConfigured: settingsStatus.executionConfigured,
         settingsMessage: settingsStatus.message,
         starredUserStoryId: null,
+        activeWorkflowUsId: this.activeWorkflowUsId,
         runtimeVersion,
         viewMode: this.viewMode,
         createFileMode: this.createFileMode,
@@ -390,6 +401,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       settingsConfigured: settingsStatus.executionConfigured,
       settingsMessage: settingsStatus.message,
       starredUserStoryId: preferences.starredUserStoryId,
+      activeWorkflowUsId: this.activeWorkflowUsId,
       runtimeVersion,
       viewMode: this.viewMode,
       createFileMode: this.createFileMode,
@@ -415,6 +427,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         settingsConfigured: false,
         settingsMessage: "SpecForge.AI settings could not be evaluated.",
         starredUserStoryId: null,
+        activeWorkflowUsId: this.activeWorkflowUsId,
         runtimeVersion: await readRuntimeVersionAsync(),
         viewMode: this.viewMode,
         createFileMode: this.createFileMode,

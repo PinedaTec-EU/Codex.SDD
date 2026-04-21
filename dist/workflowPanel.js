@@ -104,7 +104,13 @@ class WorkflowPanelController {
             retainContextWhenHidden: true
         });
         this.panel.onDidDispose(() => {
+            this.callbacks.setActiveWorkflowUsId(null);
             panels.delete(this.key);
+        });
+        this.panel.onDidChangeViewState((event) => {
+            if (event.webviewPanel.active) {
+                this.callbacks.setActiveWorkflowUsId(this.summary.usId);
+            }
         });
         this.panel.webview.onDidReceiveMessage(async (message) => {
             try {
@@ -125,6 +131,7 @@ class WorkflowPanelController {
     }
     async showAsync() {
         this.panel.reveal(vscode.ViewColumn.Active);
+        this.callbacks.setActiveWorkflowUsId(this.summary.usId);
         await this.refreshAsync("showAsync");
     }
     dispose() {
