@@ -223,6 +223,7 @@ The extension currently provides:
 - duplicate `generate_next_phase` requests are rejected while the same user story already has a live runtime operation
 - inline audit stream sourced from `timeline.md`
 - play / pause / stop controls for workflow execution
+- unified workflow/sidebar state colors documented in `doc/workflow-visual-states.md`
 - `Create User Story`
 - `Import User Story`
 - `Initialize Repo Prompts`

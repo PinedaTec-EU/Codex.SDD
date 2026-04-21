@@ -923,8 +923,11 @@ function wrapHtml(content, busy) {
       align-items: stretch;
     }
     .story-row--shell {
-      --story-selection-edge-solid: rgba(96, 185, 255, 0.9);
-      --story-selection-edge-glow: rgba(44, 120, 210, 0.32);
+      --story-selection-edge-solid: rgba(176, 186, 199, 0.82);
+      --story-selection-edge-glow: rgba(96, 108, 124, 0.24);
+      --story-rail-top: rgba(176, 186, 199, 0.18);
+      --story-rail-bottom: rgba(44, 50, 60, 0.96);
+      --story-rail-border: rgba(176, 186, 199, 0.18);
       position: relative;
       padding: 10px;
       border-radius: 24px;
@@ -988,25 +991,34 @@ function wrapHtml(content, busy) {
         inset -5px 0 0 var(--story-selection-edge-solid),
         inset -14px 0 18px var(--story-selection-edge-glow);
     }
-    .story-row--phase-capture,
-    .story-row--phase-clarification {
-      --story-selection-edge-solid: rgba(134, 255, 202, 0.96);
-      --story-selection-edge-glow: rgba(74, 191, 141, 0.34);
+    .story-row--status-active,
+    .story-row--status-paused {
+      --story-selection-edge-solid: rgba(128, 205, 255, 0.94);
+      --story-selection-edge-glow: rgba(62, 142, 224, 0.3);
+      --story-rail-top: rgba(92, 181, 255, 0.24);
+      --story-rail-bottom: rgba(15, 34, 56, 0.92);
+      --story-rail-border: rgba(92, 181, 255, 0.22);
     }
-    .story-row--phase-refinement,
-    .story-row--phase-technical-design {
-      --story-selection-edge-solid: rgba(128, 205, 255, 0.96);
-      --story-selection-edge-glow: rgba(62, 142, 224, 0.34);
+    .story-row--status-waiting-user {
+      --story-selection-edge-solid: rgba(255, 221, 138, 0.94);
+      --story-selection-edge-glow: rgba(214, 153, 58, 0.28);
+      --story-rail-top: rgba(255, 193, 120, 0.24);
+      --story-rail-bottom: rgba(52, 34, 15, 0.92);
+      --story-rail-border: rgba(255, 193, 120, 0.22);
     }
-    .story-row--phase-implementation,
-    .story-row--phase-review {
-      --story-selection-edge-solid: rgba(255, 209, 142, 0.96);
-      --story-selection-edge-glow: rgba(214, 142, 58, 0.32);
+    .story-row--status-blocked {
+      --story-selection-edge-solid: rgba(255, 171, 171, 0.94);
+      --story-selection-edge-glow: rgba(204, 86, 86, 0.28);
+      --story-rail-top: rgba(255, 139, 139, 0.24);
+      --story-rail-bottom: rgba(56, 18, 18, 0.92);
+      --story-rail-border: rgba(255, 139, 139, 0.22);
     }
-    .story-row--phase-release-approval,
-    .story-row--phase-pr-preparation {
-      --story-selection-edge-solid: rgba(255, 171, 171, 0.96);
-      --story-selection-edge-glow: rgba(204, 86, 86, 0.32);
+    .story-row--status-completed {
+      --story-selection-edge-solid: rgba(134, 255, 202, 0.94);
+      --story-selection-edge-glow: rgba(74, 191, 141, 0.28);
+      --story-rail-top: rgba(114, 241, 184, 0.24);
+      --story-rail-bottom: rgba(18, 46, 36, 0.92);
+      --story-rail-border: rgba(114, 241, 184, 0.22);
     }
     .story-card__content {
       display: grid;
@@ -1021,8 +1033,8 @@ function wrapHtml(content, busy) {
       display: flex;
       align-items: center;
       justify-content: center;
-      border-right: 1px solid rgba(255, 255, 255, 0.08);
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+      border-right: 1px solid var(--story-rail-border);
+      background: linear-gradient(180deg, var(--story-rail-top), var(--story-rail-bottom));
       border-top-left-radius: 13px;
       border-bottom-left-radius: 13px;
     }
@@ -1036,26 +1048,6 @@ function wrapHtml(content, busy) {
       color: rgba(255, 255, 255, 0.92);
       line-height: 1;
       white-space: nowrap;
-    }
-    .story-card--phase-capture .story-card__phase-rail,
-    .story-card--phase-clarification .story-card__phase-rail {
-      background: linear-gradient(180deg, rgba(114, 241, 184, 0.22), rgba(18, 46, 36, 0.92));
-      border-right-color: rgba(114, 241, 184, 0.18);
-    }
-    .story-card--phase-refinement .story-card__phase-rail,
-    .story-card--phase-technical-design .story-card__phase-rail {
-      background: linear-gradient(180deg, rgba(92, 181, 255, 0.24), rgba(15, 34, 56, 0.92));
-      border-right-color: rgba(92, 181, 255, 0.2);
-    }
-    .story-card--phase-implementation .story-card__phase-rail,
-    .story-card--phase-review .story-card__phase-rail {
-      background: linear-gradient(180deg, rgba(255, 193, 120, 0.22), rgba(52, 34, 15, 0.92));
-      border-right-color: rgba(255, 193, 120, 0.18);
-    }
-    .story-card--phase-release-approval .story-card__phase-rail,
-    .story-card--phase-pr-preparation .story-card__phase-rail {
-      background: linear-gradient(180deg, rgba(255, 139, 139, 0.22), rgba(56, 18, 18, 0.92));
-      border-right-color: rgba(255, 139, 139, 0.18);
     }
     .story-actions {
       display: grid;
@@ -1478,8 +1470,9 @@ function sortStoriesByPhase(items) {
 }
 function buildStoryRowMarkup(summary, starredUserStoryId, activeWorkflowUsId) {
     const isActiveWorkflow = activeWorkflowUsId === summary.usId;
+    const statusTone = phaseRailStatus(summary.status);
     return `
-    <div class="story-row story-row--shell story-row--phase-${escapeHtmlAttr(summary.currentPhase)}${isActiveWorkflow ? " story-row--selected" : ""}">
+    <div class="story-row story-row--shell story-row--status-${escapeHtmlAttr(statusTone)}${isActiveWorkflow ? " story-row--selected" : ""}">
       <button class="story-card${shouldRenderPhaseRail(summary.status) ? ` story-card--active story-card--phase-${escapeHtmlAttr(summary.currentPhase)} story-card--status-${escapeHtmlAttr(phaseRailStatus(summary.status))}` : ""}" data-command="openWorkflow" data-us-id="${escapeHtmlAttr(summary.usId)}">
         ${shouldRenderPhaseRail(summary.status)
         ? `
@@ -1551,6 +1544,18 @@ function phaseRailStatus(status) {
         case "stopped":
         case "stopping":
             return "paused";
+        case "superseded":
+        case "abandoned":
+            return "pending";
+        case "pending":
+        case "not-started":
+        case "idle":
+            return "pending";
+        case "failed":
+        case "error":
+        case "errored":
+        case "invalid":
+            return "blocked";
         case "blocked":
             return "blocked";
         case "completed":

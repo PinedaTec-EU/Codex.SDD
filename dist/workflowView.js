@@ -1340,10 +1340,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       display: none;
     }
     .phase-node {
-      --phase-surface-top: rgb(24, 49, 82);
-      --phase-surface-bottom: rgb(10, 20, 32);
-      --phase-surface-border: rgba(92, 181, 255, 0.3);
-      --phase-surface-shadow: rgba(48, 120, 255, 0.14);
       position: absolute;
       left: var(--phase-left-desktop);
       top: var(--phase-top-desktop);
@@ -1401,34 +1397,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       position: relative;
       z-index: 2;
     }
-    .phase-node.capture,
-    .phase-node.clarification {
-      --phase-surface-top: rgb(18, 44, 34);
-      --phase-surface-bottom: rgb(10, 20, 17);
-      --phase-surface-border: rgba(114, 241, 184, 0.32);
-      --phase-surface-shadow: rgba(40, 126, 92, 0.16);
-    }
-    .phase-node.refinement,
-    .phase-node.technical-design {
-      --phase-surface-top: rgb(24, 49, 82);
-      --phase-surface-bottom: rgb(10, 20, 32);
-      --phase-surface-border: rgba(92, 181, 255, 0.34);
-      --phase-surface-shadow: rgba(48, 120, 255, 0.16);
-    }
-    .phase-node.implementation,
-    .phase-node.review {
-      --phase-surface-top: rgb(74, 56, 12);
-      --phase-surface-bottom: rgb(24, 18, 7);
-      --phase-surface-border: rgba(255, 193, 120, 0.32);
-      --phase-surface-shadow: rgba(154, 118, 24, 0.18);
-    }
-    .phase-node.release-approval,
-    .phase-node.pr-preparation {
-      --phase-surface-top: rgb(54, 23, 23);
-      --phase-surface-bottom: rgb(20, 10, 10);
-      --phase-surface-border: rgba(255, 139, 139, 0.32);
-      --phase-surface-shadow: rgba(140, 38, 38, 0.16);
-    }
     .phase-node.phase-tone-pending.selected {
       outline: 2px solid rgba(255, 255, 255, 0.24);
       outline-offset: 2px;
@@ -1446,7 +1414,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       outline-offset: 2px;
     }
     .phase-node.phase-tone-paused.selected {
-      outline: 2px solid rgba(179, 187, 198, 0.38);
+      outline: 2px solid rgba(92, 181, 255, 0.5);
       outline-offset: 2px;
     }
     .phase-node.phase-tone-blocked.selected {
@@ -1469,9 +1437,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       box-shadow: 0 20px 34px rgba(154, 118, 24, 0.24);
     }
     .phase-node.phase-tone-paused {
-      background: linear-gradient(180deg, rgb(34, 39, 46), rgb(16, 20, 27));
-      border-color: rgba(179, 187, 198, 0.22);
-      box-shadow: 0 18px 30px rgba(84, 92, 104, 0.14);
+      background: linear-gradient(180deg, rgb(24, 49, 82), rgb(10, 20, 32));
+      border-color: rgba(92, 181, 255, 0.34);
+      box-shadow: 0 18px 30px rgba(48, 120, 255, 0.14);
     }
     .phase-node.phase-tone-blocked {
       background: linear-gradient(180deg, rgb(54, 23, 23), rgb(20, 10, 10));
@@ -1479,8 +1447,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       box-shadow: 0 18px 30px rgba(140, 38, 38, 0.16);
     }
     .phase-node.phase-tone-completed {
-      background: linear-gradient(180deg, var(--phase-surface-top), var(--phase-surface-bottom));
-      border-color: color-mix(in srgb, var(--phase-surface-border) 78%, rgba(114, 241, 184, 0.14) 22%);
+      background: linear-gradient(180deg, rgb(18, 44, 34), rgb(10, 20, 17));
+      border-color: rgba(114, 241, 184, 0.24);
     }
     .phase-node.phase-tone-pending {
       background:
@@ -1571,8 +1539,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       box-shadow: 0 0 0 8px rgba(255, 213, 90, 0.14);
     }
     .phase-node.phase-tone-paused .phase-status-dot {
-      background: #b3bbc6;
-      box-shadow: 0 0 0 8px rgba(179, 187, 198, 0.08);
+      background: #59bbff;
+      box-shadow: 0 0 0 8px rgba(89, 187, 255, 0.1);
     }
     .phase-node.phase-tone-blocked .phase-status-dot {
       background: #ff8b8b;
@@ -1624,8 +1592,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       border: 1px solid rgba(255, 213, 90, 0.22);
     }
     .phase-tag.phase-tag--paused {
-      background: rgba(179, 187, 198, 0.14);
-      color: #d3d8df;
+      background: rgba(92, 181, 255, 0.14);
+      color: #90d2ff;
     }
     .phase-tag.phase-tag--blocked {
       background: rgba(255, 120, 120, 0.14);
