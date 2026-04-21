@@ -1455,6 +1455,7 @@ export function buildWorkflowHtml(
       box-shadow: 0 18px 28px rgba(0, 0, 0, 0.24);
       transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
       overflow: visible;
+      isolation: isolate;
       animation: nodeRise 420ms ease both;
       z-index: 1;
     }
@@ -1571,18 +1572,19 @@ export function buildWorkflowHtml(
       position: absolute;
       top: 22px;
       bottom: 22px;
-      left: -54px;
-      width: 64px;
+      left: -56px;
+      right: -10px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      border-radius: 18px 0 0 18px;
-      border-right: 1px solid rgba(92, 181, 255, 0.18);
+      justify-content: flex-start;
+      padding-left: 10px;
+      border-radius: 18px;
+      border-right: 1px solid rgba(92, 181, 255, 0.12);
       background: linear-gradient(180deg, rgba(74, 156, 229, 0.94), rgba(14, 42, 76, 0.98));
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.14),
         0 8px 18px rgba(22, 52, 92, 0.16);
-      z-index: 0;
+      z-index: -1;
       pointer-events: none;
     }
     .phase-current-rail__label {
