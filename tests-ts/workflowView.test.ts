@@ -617,6 +617,82 @@ test("buildWorkflowHtml keeps clarification visible in the graph even before any
   assert.match(html, /<h3>Clarification<\/h3>/);
 });
 
+test("buildWorkflowHtml computes deterministic two-column graph positions with overlap and same-column spacing", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0099",
+    title: "Graph layout",
+    category: "workflow",
+    status: "active",
+    currentPhase: "capture",
+    directoryPath: "/tmp/us.US-0099",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "clarification",
+        title: "Clarification",
+        order: 1,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 2,
+        requiresApproval: true,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "capture",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /phase-node capture[\s\S]*?--phase-left-desktop: 20px; --phase-top-desktop: 40px; --phase-left-mobile: 0px; --phase-top-mobile: 16px/);
+  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 121px; --phase-left-mobile: 176px; --phase-top-mobile: 97px/);
+  assert.match(html, /phase-node refinement[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 285px; --phase-left-mobile: 176px; --phase-top-mobile: 247px/);
+  assert.match(html, /phase-graph" aria-label="Workflow graph" style="--graph-width-desktop: 708px; --graph-height-desktop: 497px; --graph-width-mobile: 452px; --graph-height-mobile: 459px;/);
+});
+
 test("buildWorkflowHtml advances the execution overlay to refinement after clarification passes", () => {
   const html = buildWorkflowHtml({
     usId: "US-0005",
@@ -1405,9 +1481,10 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /\.phase-node\.clarification \{ left: \d+px; top: \d+px; \}/);
-  assert.match(html, /\.phase-node\.technical-design \{ left: \d+px; top: \d+px; \}/);
-  assert.match(html, /\.phase-node\.implementation \{ left: \d+px; top: \d+px; \}/);
-  assert.match(html, /\.phase-node\.review \{ left: \d+px; top: \d+px; \}/);
+  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 121px;/);
+  assert.match(html, /phase-node technical-design[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 449px;/);
+  assert.match(html, /phase-node implementation[\s\S]*?--phase-left-desktop: 20px; --phase-top-desktop: 530px;/);
+  assert.match(html, /phase-node review[\s\S]*?--phase-left-desktop: 20px; --phase-top-desktop: 694px;/);
+  assert.match(html, /phase-node review[\s\S]*?--phase-left-mobile: 0px; --phase-top-mobile: 628px;/);
   assert.match(html, /viewBox="0 0 \d+ \d+"/);
 });

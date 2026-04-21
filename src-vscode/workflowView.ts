@@ -25,48 +25,67 @@ interface ExecutionOverlayModel {
 type PhaseVisualTone = "active" | "waiting-user" | "paused" | "blocked" | "completed" | "pending" | "disabled";
 
 type PhasePosition = { left: number; top: number };
-type AnchorSide = "left" | "right" | "top" | "bottom";
+type PhaseColumn = "left" | "right";
+type PhaseGraphLayout = {
+  readonly positions: Record<string, PhasePosition>;
+  readonly width: number;
+  readonly height: number;
+};
+type GraphAnchor = "entry-upper" | "entry-lower" | "exit-upper" | "exit-lower";
+type PhaseLayoutConfig = {
+  readonly columns: Record<PhaseColumn, number>;
+  readonly topOffset: number;
+  readonly sameColumnGap: number;
+  readonly overlapRatio: number;
+  readonly rightPadding: number;
+  readonly bottomPadding: number;
+};
 
 const phaseNodeWidth = 220;
 const phaseNodeHeight = 116;
-const leftColumnX = 20;
-const rightColumnX = 400;
-const topRowY = 40;
-const rowSpacingY = 200;
-
-const desktopPhasePositions: Record<string, PhasePosition> = {
-  "capture": { left: leftColumnX, top: topRowY },
-  "clarification": { left: rightColumnX, top: topRowY },
-  "refinement": { left: rightColumnX, top: topRowY + rowSpacingY },
-  "technical-design": { left: rightColumnX, top: topRowY + 2 * rowSpacingY },
-  "implementation": { left: leftColumnX, top: topRowY + 3 * rowSpacingY },
-  "review": { left: leftColumnX, top: topRowY + 4 * rowSpacingY },
-  "release-approval": { left: rightColumnX, top: topRowY + 5 * rowSpacingY },
-  "pr-preparation": { left: leftColumnX, top: topRowY + 6 * rowSpacingY }
-};
-
-const mobilePhasePositions: Record<string, PhasePosition> = {
-  "capture": { left: 0, top: 16 },
-  "clarification": { left: 176, top: 154 },
-  "refinement": { left: 176, top: 330 },
-  "technical-design": { left: 176, top: 530 },
-  "implementation": { left: 0, top: 730 },
-  "review": { left: 0, top: 930 },
-  "release-approval": { left: 176, top: 1130 },
-  "pr-preparation": { left: 0, top: 1330 }
-};
-
-const desktopGraphHeight = computeGraphHeight(desktopPhasePositions, phaseNodeHeight, 96);
-const mobileGraphHeight = computeGraphHeight(mobilePhasePositions, phaseNodeHeight, 96);
-const desktopGraphWidth = computeGraphWidth(desktopPhasePositions, phaseNodeWidth, 88);
 const mobilePhaseNodeWidth = 188;
-const mobileGraphWidth = computeGraphWidth(mobilePhasePositions, mobilePhaseNodeWidth, 88);
-
-function buildPhasePositionCss(positions: Record<string, PhasePosition>): string {
-  return Object.entries(positions)
-    .map(([phaseId, position]) => `.phase-node.${phaseId} { left: ${position.left}px; top: ${position.top}px; }`)
-    .join("\n");
-}
+const phaseSequence = [
+  "capture",
+  "clarification",
+  "refinement",
+  "technical-design",
+  "implementation",
+  "review",
+  "release-approval",
+  "pr-preparation"
+] as const;
+const phaseColumns: Record<string, PhaseColumn> = {
+  "capture": "left",
+  "clarification": "right",
+  "refinement": "right",
+  "technical-design": "right",
+  "implementation": "left",
+  "review": "left",
+  "release-approval": "right",
+  "pr-preparation": "left"
+};
+const desktopLayoutConfig: PhaseLayoutConfig = {
+  columns: { left: 20, right: 400 },
+  topOffset: 40,
+  sameColumnGap: 48,
+  overlapRatio: 0.30,
+  rightPadding: 88,
+  bottomPadding: 96
+};
+const mobileLayoutConfig: PhaseLayoutConfig = {
+  columns: { left: 0, right: 176 },
+  topOffset: 16,
+  sameColumnGap: 34,
+  overlapRatio: 0.30,
+  rightPadding: 88,
+  bottomPadding: 96
+};
+const defaultDesktopLayout = buildPhaseLayout(phaseSequence, desktopLayoutConfig, phaseNodeWidth);
+const defaultMobileLayout = buildPhaseLayout(phaseSequence, mobileLayoutConfig, mobilePhaseNodeWidth);
+const desktopGraphHeight = defaultDesktopLayout.height;
+const mobileGraphHeight = defaultMobileLayout.height;
+const desktopGraphWidth = defaultDesktopLayout.width;
+const mobileGraphWidth = defaultMobileLayout.width;
 
 function computeGraphHeight(positions: Record<string, PhasePosition>, nodeHeight: number, bottomPadding: number): number {
   const maxTop = Math.max(...Object.values(positions).map((position) => position.top));
@@ -76,6 +95,40 @@ function computeGraphHeight(positions: Record<string, PhasePosition>, nodeHeight
 function computeGraphWidth(positions: Record<string, PhasePosition>, nodeWidth: number, rightPadding: number): number {
   const maxLeft = Math.max(...Object.values(positions).map((position) => position.left));
   return maxLeft + nodeWidth + rightPadding;
+}
+
+function buildPhaseLayout(
+  phaseIds: readonly string[],
+  config: PhaseLayoutConfig,
+  nodeWidth: number
+): PhaseGraphLayout {
+  const positions: Record<string, PhasePosition> = {};
+  let previousPhaseId: string | null = null;
+
+  for (const phaseId of phaseIds) {
+    const column = phaseColumns[phaseId] ?? "left";
+    const left = config.columns[column];
+    let top = config.topOffset;
+
+    if (previousPhaseId) {
+      const previousPosition = positions[previousPhaseId];
+      const previousColumn = phaseColumns[previousPhaseId] ?? "left";
+      const sameColumn = previousColumn === column;
+      const verticalStep = sameColumn
+        ? phaseNodeHeight + config.sameColumnGap
+        : phaseNodeHeight * (1 - config.overlapRatio);
+      top = previousPosition.top + Math.round(verticalStep);
+    }
+
+    positions[phaseId] = { left, top };
+    previousPhaseId = phaseId;
+  }
+
+  return {
+    positions,
+    width: computeGraphWidth(positions, nodeWidth, config.rightPadding),
+    height: computeGraphHeight(positions, phaseNodeHeight, config.bottomPadding)
+  };
 }
 
 function formatDuration(durationMs: number): string {
@@ -1207,15 +1260,17 @@ export function buildWorkflowHtml(
     }
     .phase-graph {
       position: relative;
-      width: ${desktopGraphWidth}px;
-      min-width: ${desktopGraphWidth}px;
-      min-height: ${desktopGraphHeight}px;
+      width: var(--graph-width-desktop, ${desktopGraphWidth}px);
+      min-width: var(--graph-width-desktop, ${desktopGraphWidth}px);
+      min-height: var(--graph-height-desktop, ${desktopGraphHeight}px);
     }
     .graph-links--mobile {
       display: none;
     }
     .phase-node {
       position: absolute;
+      left: var(--phase-left-desktop);
+      top: var(--phase-top-desktop);
       width: ${phaseNodeWidth}px;
       min-height: ${phaseNodeHeight}px;
       border-radius: 26px;
@@ -1320,7 +1375,6 @@ export function buildWorkflowHtml(
       background: rgba(255, 255, 255, 0.14);
       box-shadow: none;
     }
-    ${buildPhasePositionCss(desktopPhasePositions)}
     .phase-node-header {
       display: flex;
       justify-content: space-between;
@@ -1993,8 +2047,8 @@ export function buildWorkflowHtml(
         min-height: auto;
       }
       .graph-stage, .phase-graph {
-        min-width: ${desktopGraphWidth}px;
-        min-height: ${desktopGraphHeight}px;
+        min-width: var(--graph-width-desktop, ${desktopGraphWidth}px);
+        min-height: var(--graph-height-desktop, ${desktopGraphHeight}px);
       }
     }
     @media (max-width: 760px) {
@@ -2013,12 +2067,14 @@ export function buildWorkflowHtml(
         justify-content: flex-start;
       }
       .phase-node {
+        left: var(--phase-left-mobile);
+        top: var(--phase-top-mobile);
         width: ${mobilePhaseNodeWidth}px;
       }
       .graph-stage, .phase-graph {
-        width: ${mobileGraphWidth}px;
-        min-width: ${mobileGraphWidth}px;
-        min-height: ${mobileGraphHeight}px;
+        width: var(--graph-width-mobile, ${mobileGraphWidth}px);
+        min-width: var(--graph-width-mobile, ${mobileGraphWidth}px);
+        min-height: var(--graph-height-mobile, ${mobileGraphHeight}px);
       }
       .graph-links--desktop {
         display: none;
@@ -2057,7 +2113,6 @@ export function buildWorkflowHtml(
       .file-kind-action {
         min-width: 0;
       }
-      ${buildPhasePositionCss(mobilePhasePositions)}
     }
   </style>
 </head>
@@ -2503,8 +2558,11 @@ function buildPhaseGraph(
   const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);
   const visiblePhases = workflow.phases.filter((phase) =>
     shouldShowPhase(phase.phaseId, clarificationVisible, currentPhase.phaseId, executionPhaseId));
-  const links = buildGraphLinks(visiblePhases, executionPhaseId, completedPhaseIds, desktopPhasePositions, phaseNodeWidth);
-  const mobileLinks = buildGraphLinks(visiblePhases, executionPhaseId, completedPhaseIds, mobilePhasePositions, mobilePhaseNodeWidth);
+  const phaseIds = visiblePhases.map((phase) => phase.phaseId);
+  const desktopLayout = buildPhaseLayout(phaseIds, desktopLayoutConfig, phaseNodeWidth);
+  const mobileLayout = buildPhaseLayout(phaseIds, mobileLayoutConfig, mobilePhaseNodeWidth);
+  const links = buildGraphLinks(visiblePhases, executionPhaseId, completedPhaseIds, desktopLayout.positions, phaseNodeWidth);
+  const mobileLinks = buildGraphLinks(visiblePhases, executionPhaseId, completedPhaseIds, mobileLayout.positions, mobilePhaseNodeWidth);
 
   const nodes = visiblePhases.map((phase, index) => {
     const disabled = false;
@@ -2515,12 +2573,15 @@ function buildPhaseGraph(
       disabled,
       executionPhaseId,
       completedPhaseIds);
+    const desktopPosition = desktopLayout.positions[phase.phaseId] ?? { left: desktopLayoutConfig.columns.left, top: desktopLayoutConfig.topOffset };
+    const mobilePosition = mobileLayout.positions[phase.phaseId] ?? { left: mobileLayoutConfig.columns.left, top: mobileLayoutConfig.topOffset };
     const displayState = phaseToneLabel(visualTone, phase.state);
     return `
     <button
       class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phase.phaseId === selectedPhaseId ? " selected" : ""}${phase.isCurrent ? " phase-node--current" : ""}"
       data-command="selectPhase"
-      data-phase-id="${escapeHtmlAttribute(phase.phaseId)}">
+      data-phase-id="${escapeHtmlAttribute(phase.phaseId)}"
+      style="--phase-left-desktop: ${desktopPosition.left}px; --phase-top-desktop: ${desktopPosition.top}px; --phase-left-mobile: ${mobilePosition.left}px; --phase-top-mobile: ${mobilePosition.top}px;">
       ${phase.isCurrent ? `<span class="phase-current-rail"><span class="phase-current-rail__label">Current</span></span>` : ""}
       <div class="phase-node-content${phase.isCurrent ? " phase-node-content--current" : ""}">
         <div class="phase-node-header">
@@ -2540,11 +2601,11 @@ function buildPhaseGraph(
   }).join("");
 
   return `
-    <div class="phase-graph" aria-label="Workflow graph">
-      <svg class="graph-links graph-links--desktop" viewBox="0 0 ${desktopGraphWidth} ${desktopGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
+    <div class="phase-graph" aria-label="Workflow graph" style="--graph-width-desktop: ${desktopLayout.width}px; --graph-height-desktop: ${desktopLayout.height}px; --graph-width-mobile: ${mobileLayout.width}px; --graph-height-mobile: ${mobileLayout.height}px;">
+      <svg class="graph-links graph-links--desktop" viewBox="0 0 ${desktopLayout.width} ${desktopLayout.height}" preserveAspectRatio="none" aria-hidden="true">
         ${links}
       </svg>
-      <svg class="graph-links graph-links--mobile" viewBox="0 0 ${mobileGraphWidth} ${mobileGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
+      <svg class="graph-links graph-links--mobile" viewBox="0 0 ${mobileLayout.width} ${mobileLayout.height}" preserveAspectRatio="none" aria-hidden="true">
         ${mobileLinks}
       </svg>
       ${nodes}
@@ -2643,46 +2704,49 @@ function graphPath(
     return "";
   }
 
-  const { fromSide, toSide } = resolveAnchorSides(fromPosition, toPosition);
-  const from = getAnchorPoint(fromPosition, fromSide, nodeWidth);
-  const to = getAnchorPoint(toPosition, toSide, nodeWidth);
+  const { fromAnchor, toAnchor } = resolveAnchors(fromPosition, toPosition);
+  const from = getAnchorPoint(fromPosition, fromAnchor, nodeWidth);
+  const to = getAnchorPoint(toPosition, toAnchor, nodeWidth);
+
+  if (fromAnchor === "exit-lower" && toAnchor === "entry-upper") {
+    const column = phaseColumns[fromPhaseId] ?? "left";
+    const bendDirection = column === "left" ? 1 : -1;
+    const lateralOffset = Math.max(34, nodeWidth * 0.16) * bendDirection;
+    const verticalSpread = Math.max(32, Math.abs(to.y - from.y) * 0.22);
+    return `M ${from.x} ${from.y} C ${from.x + lateralOffset} ${from.y + verticalSpread}, ${to.x + lateralOffset} ${to.y - verticalSpread}, ${to.x} ${to.y}`;
+  }
+
   const horizontalDirection = to.x >= from.x ? 1 : -1;
   const verticalDirection = to.y >= from.y ? 1 : -1;
-  const horizontalOffset = Math.max(54, Math.abs(to.x - from.x) * 0.32);
-  const verticalOffset = Math.max(44, Math.abs(to.y - from.y) * 0.24);
+  const horizontalOffset = Math.max(44, Math.abs(to.x - from.x) * 0.28);
+  const verticalOffset = Math.max(18, Math.abs(to.y - from.y) * 0.2);
 
-  if ((fromSide === "right" || fromSide === "left") && (toSide === "right" || toSide === "left")) {
-    return `M ${from.x} ${from.y} C ${from.x + horizontalOffset * horizontalDirection} ${from.y}, ${to.x - horizontalOffset * horizontalDirection} ${to.y}, ${to.x} ${to.y}`;
-  }
-
-  return `M ${from.x} ${from.y} C ${from.x} ${from.y + verticalOffset * verticalDirection}, ${to.x} ${to.y - verticalOffset * verticalDirection}, ${to.x} ${to.y}`;
+  return `M ${from.x} ${from.y} C ${from.x + horizontalOffset * horizontalDirection} ${from.y + verticalOffset * verticalDirection}, ${to.x - horizontalOffset * horizontalDirection} ${to.y - verticalOffset * verticalDirection}, ${to.x} ${to.y}`;
 }
 
-function resolveAnchorSides(from: PhasePosition, to: PhasePosition): { fromSide: AnchorSide; toSide: AnchorSide } {
+function resolveAnchors(from: PhasePosition, to: PhasePosition): { fromAnchor: GraphAnchor; toAnchor: GraphAnchor } {
   const deltaX = to.left - from.left;
-  const deltaY = to.top - from.top;
-
-  if (Math.abs(deltaX) >= Math.abs(deltaY) * 0.6) {
-    return deltaX >= 0
-      ? { fromSide: "right", toSide: "left" }
-      : { fromSide: "left", toSide: "right" };
+  if (deltaX === 0) {
+    return { fromAnchor: "exit-lower", toAnchor: "entry-upper" };
   }
 
-  return deltaY >= 0
-    ? { fromSide: "bottom", toSide: "top" }
-    : { fromSide: "top", toSide: "bottom" };
+  if (deltaX > 0) {
+    return { fromAnchor: "exit-upper", toAnchor: "entry-lower" };
+  }
+
+  return { fromAnchor: "exit-lower", toAnchor: "entry-upper" };
 }
 
-function getAnchorPoint(position: PhasePosition, side: AnchorSide, nodeWidth: number): { x: number; y: number } {
-  switch (side) {
-    case "left":
-      return { x: position.left, y: position.top + phaseNodeHeight / 2 };
-    case "right":
-      return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight / 2 };
-    case "top":
-      return { x: position.left + nodeWidth / 2, y: position.top };
-    case "bottom":
-      return { x: position.left + nodeWidth / 2, y: position.top + phaseNodeHeight };
+function getAnchorPoint(position: PhasePosition, anchor: GraphAnchor, nodeWidth: number): { x: number; y: number } {
+  switch (anchor) {
+    case "entry-upper":
+      return { x: position.left + nodeWidth * 0.18, y: position.top };
+    case "entry-lower":
+      return { x: position.left, y: position.top + phaseNodeHeight * 0.28 };
+    case "exit-upper":
+      return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.52 };
+    case "exit-lower":
+      return { x: position.left + nodeWidth * 0.74, y: position.top + phaseNodeHeight };
   }
 }
 
