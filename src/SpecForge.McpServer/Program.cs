@@ -190,40 +190,207 @@ static JsonObject BuildToolsList()
     {
         ["tools"] = new JsonArray
         {
-            Tool("create_us_from_chat", "Create a user story from free text."),
-            Tool("import_us_from_markdown", "Import a user story from a markdown file."),
-            Tool("initialize_repo_prompts", "Export the repo prompt templates into .specs/prompts/."),
-            Tool("list_user_stories", "List user stories persisted in the workspace."),
-            Tool("get_user_story_summary", "Get the operational summary of a user story."),
-            Tool("get_user_story_workflow", "Get workflow phases, controls, and audit trail for a user story."),
-            Tool("get_current_phase", "Get the current phase and advanceability of a user story."),
-            Tool("get_user_story_runtime_status", "Get the persisted runtime status of a user story, including whether a phase generation is still running."),
-            Tool("generate_next_phase", "Advance to the next linear phase and generate its artifact."),
-            Tool("approve_phase", "Approve the current phase and create the work branch if required."),
-            Tool("request_regression", "Regress a user story to an earlier valid phase."),
-            Tool("restart_user_story_from_source", "Restart a user story after the source has changed."),
-            Tool("reset_user_story_to_capture", "Reset a user story to capture and delete generated derived artifacts."),
-            Tool("submit_clarification_answers", "Store clarification answers inside the user story so clarification can re-run."),
-            Tool("operate_current_phase_artifact", "Apply a model-assisted operation over the current phase artifact and persist the operation trace."),
-            Tool("list_user_story_files", "List context files and user-story files currently persisted for a user story."),
-            Tool("add_user_story_files", "Copy files into a user story as either context or user-story info."),
-            Tool("set_user_story_file_kind", "Move an existing user-story file between context and user-story info.")
+            Tool("create_us_from_chat", "Create a user story from free text.",
+                Schema(
+                    required: ["workspaceRoot", "usId", "title", "kind", "category", "sourceText"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root (folder containing .specs/).")),
+                        ("usId",          Prop("string", "User story identifier, e.g. US-001.")),
+                        ("title",         Prop("string", "Short descriptive title for the user story.")),
+                        ("kind",          Prop("string", "User story kind: feature, bug, task, spike, or chore.")),
+                        ("category",      Prop("string", "Category that groups the user story, e.g. core, ux, api.")),
+                        ("sourceText",    Prop("string", "Free-text description of the user story intent.")),
+                        ("actor",         Prop("string", "Actor performing the action. Defaults to 'user'."))))),
+
+            Tool("import_us_from_markdown", "Import a user story from an existing markdown file.",
+                Schema(
+                    required: ["workspaceRoot", "usId", "sourcePath", "title", "kind", "category"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier, e.g. US-001.")),
+                        ("sourcePath",    Prop("string", "Absolute path to the source markdown file to import.")),
+                        ("title",         Prop("string", "Short descriptive title for the user story.")),
+                        ("kind",          Prop("string", "User story kind: feature, bug, task, spike, or chore.")),
+                        ("category",      Prop("string", "Category that groups the user story.")),
+                        ("actor",         Prop("string", "Actor performing the action. Defaults to 'user'."))))),
+
+            Tool("initialize_repo_prompts", "Export the repo prompt templates into .specs/prompts/.",
+                Schema(
+                    required: ["workspaceRoot"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("overwrite",     Prop("boolean", "If true, overwrite existing prompt files. Defaults to false."))))),
+
+            Tool("list_user_stories", "List all user stories persisted in the workspace.",
+                Schema(
+                    required: ["workspaceRoot"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root."))))),
+
+            Tool("get_user_story_summary", "Get the operational summary of a user story.",
+                Schema(
+                    required: ["workspaceRoot", "usId"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier."))))),
+
+            Tool("get_user_story_workflow", "Get workflow phases, controls, clarification session, and audit trail for a user story.",
+                Schema(
+                    required: ["workspaceRoot", "usId"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier."))))),
+
+            Tool("get_current_phase", "Get the current phase and whether it can advance for a user story.",
+                Schema(
+                    required: ["workspaceRoot", "usId"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier."))))),
+
+            Tool("get_user_story_runtime_status", "Get the persisted runtime status, including whether a phase generation is still running.",
+                Schema(
+                    required: ["workspaceRoot", "usId"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier."))))),
+
+            Tool("generate_next_phase", "Advance to the next linear phase and generate its artifact via the configured AI provider.",
+                Schema(
+                    required: ["workspaceRoot", "usId"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier."))))),
+
+            Tool("approve_phase", "Approve the current phase. Creates the work branch when reaching the branch-creation phase.",
+                Schema(
+                    required: ["workspaceRoot", "usId"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier.")),
+                        ("baseBranch",    Prop("string", "Base branch name for the work branch. Optional.")),
+                        ("workBranch",    Prop("string", "Override for the work branch name. Optional.")),
+                        ("actor",         Prop("string", "Actor performing the approval. Defaults to 'user'."))))),
+
+            Tool("request_regression", "Regress a user story to an earlier valid phase.",
+                Schema(
+                    required: ["workspaceRoot", "usId", "targetPhase"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier.")),
+                        ("targetPhase",   Prop("string", "Phase slug to regress to, e.g. clarification, refinement, technical-design.")),
+                        ("reason",        Prop("string", "Optional reason for the regression.")),
+                        ("actor",         Prop("string", "Actor requesting the regression. Defaults to 'user'."))))),
+
+            Tool("restart_user_story_from_source", "Restart the workflow after the source user story file has been modified.",
+                Schema(
+                    required: ["workspaceRoot", "usId"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier.")),
+                        ("reason",        Prop("string", "Optional reason for the restart.")),
+                        ("actor",         Prop("string", "Actor requesting the restart. Defaults to 'user'."))))),
+
+            Tool("reset_user_story_to_capture", "Reset a user story to the capture phase and delete all generated derived artifacts.",
+                Schema(
+                    required: ["workspaceRoot", "usId"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier."))))),
+
+            Tool("submit_clarification_answers", "Store clarification answers so the clarification phase can re-run with the new context.",
+                Schema(
+                    required: ["workspaceRoot", "usId", "answers"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier.")),
+                        ("answers",       ArrayProp("string", "Ordered list of answers matching the clarification questions.")),
+                        ("actor",         Prop("string", "Actor submitting the answers. Defaults to 'user'."))))),
+
+            Tool("operate_current_phase_artifact", "Apply a model-assisted operation over the current phase artifact and persist the trace.",
+                Schema(
+                    required: ["workspaceRoot", "usId", "prompt"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier.")),
+                        ("prompt",        Prop("string", "Instruction describing what to change or verify in the current artifact.")),
+                        ("actor",         Prop("string", "Actor requesting the operation. Defaults to 'user'."))))),
+
+            Tool("list_user_story_files", "List context files and user-story info files for a user story.",
+                Schema(
+                    required: ["workspaceRoot", "usId"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier."))))),
+
+            Tool("add_user_story_files", "Copy external files into a user story as context or user-story info.",
+                Schema(
+                    required: ["workspaceRoot", "usId", "sourcePaths", "kind"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier.")),
+                        ("sourcePaths",   ArrayProp("string", "Absolute paths of the files to copy into the user story.")),
+                        ("kind",          Prop("string", "File kind: 'context' or 'attachment'."))))),
+
+            Tool("set_user_story_file_kind", "Move an existing user-story file between context and user-story info.",
+                Schema(
+                    required: ["workspaceRoot", "usId", "filePath", "kind"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier.")),
+                        ("filePath",      Prop("string", "Absolute path of the file to reclassify.")),
+                        ("kind",          Prop("string", "Target file kind: 'context' or 'attachment'.")))))
         }
     };
 }
 
-static JsonObject Tool(string name, string description)
+static JsonObject Tool(string name, string description, JsonObject inputSchema)
 {
     return new JsonObject
     {
         ["name"] = name,
         ["description"] = description,
-        ["inputSchema"] = new JsonObject
-        {
-            ["type"] = "object"
-        }
+        ["inputSchema"] = inputSchema
     };
 }
+
+static JsonObject Schema(string[] required, JsonObject properties)
+{
+    var req = new JsonArray();
+    foreach (var r in required)
+    {
+        req.Add((JsonNode)r);
+    }
+
+    return new JsonObject
+    {
+        ["type"] = "object",
+        ["properties"] = properties,
+        ["required"] = req
+    };
+}
+
+static JsonObject Props(params (string name, JsonObject schema)[] entries)
+{
+    var obj = new JsonObject();
+    foreach (var (name, schema) in entries)
+    {
+        obj[name] = schema;
+    }
+
+    return obj;
+}
+
+static JsonObject Prop(string type, string description) =>
+    new JsonObject { ["type"] = type, ["description"] = description };
+
+static JsonObject ArrayProp(string itemType, string description) =>
+    new JsonObject
+    {
+        ["type"] = "array",
+        ["items"] = new JsonObject { ["type"] = itemType },
+        ["description"] = description
+    };
 
 static string GetRequired(JsonObject arguments, string key)
 {
