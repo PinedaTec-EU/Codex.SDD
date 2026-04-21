@@ -29,7 +29,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
             PhaseId: PhaseId.Refinement,
-            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
 
@@ -74,7 +74,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
             PhaseId: PhaseId.Clarification,
-            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
 
@@ -108,7 +108,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
             PhaseId: PhaseId.Review,
-            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
 
@@ -124,7 +124,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_IncludesContextFileContentsInRuntimeContext()
     {
         await PrepareInitializedWorkspaceAsync();
-        var attachmentDirectory = Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "context");
+        var attachmentDirectory = Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "context");
         Directory.CreateDirectory(attachmentDirectory);
         var attachmentPath = Path.Combine(attachmentDirectory, "notes.md");
         await File.WriteAllTextAsync(attachmentPath, "# Notes\nUseful attachment");
@@ -139,7 +139,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
             PhaseId: PhaseId.Refinement,
-            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: [attachmentPath]);
 
@@ -165,7 +165,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
             PhaseId: PhaseId.Refinement,
-            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
 
@@ -190,7 +190,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
             PhaseId: PhaseId.Clarification,
-            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
 
@@ -234,7 +234,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
             PhaseId: PhaseId.Clarification,
-            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
 
@@ -263,9 +263,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     [Fact]
     public async Task ExecuteAsync_WithoutInitializedPromptSet_ThrowsClearError()
     {
-        Directory.CreateDirectory(Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001"));
+        Directory.CreateDirectory(Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001"));
         await File.WriteAllTextAsync(
-            Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             "# US-0001");
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(new CapturingFakeHttpMessageHandler()),
@@ -277,7 +277,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
             PhaseId: PhaseId.Refinement,
-            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001", "us.md"),
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
 
@@ -299,7 +299,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var initializer = new RepositoryPromptInitializer();
         await initializer.InitializeAsync(workspaceRoot);
 
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "workflow", "US-0001");
         Directory.CreateDirectory(paths.RootDirectory);
         await File.WriteAllTextAsync(paths.MainArtifactPath, "# US-0001\n\n## Objective\nInitial text");
     }

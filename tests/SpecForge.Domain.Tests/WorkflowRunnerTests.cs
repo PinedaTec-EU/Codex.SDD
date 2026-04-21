@@ -15,7 +15,7 @@ public sealed class WorkflowRunnerTests : IDisposable
 
         var rootDirectory = await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
 
-        Assert.Equal(Path.Combine(workspaceRoot, ".specs", "us", "us.US-0001"), rootDirectory);
+        Assert.Equal(Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001"), rootDirectory);
         Assert.True(File.Exists(Path.Combine(rootDirectory, "us.md")));
         Assert.True(File.Exists(Path.Combine(rootDirectory, "state.yaml")));
         Assert.True(File.Exists(Path.Combine(rootDirectory, "timeline.md")));
@@ -54,10 +54,10 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal(UserStoryStatus.WaitingUser, result.Status);
         Assert.NotNull(result.GeneratedArtifactPath);
         var loadedRun = await new UserStoryFileStore().LoadAsync(
-            UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
+            UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
         Assert.Equal(PhaseId.Clarification, loadedRun.CurrentPhase);
 
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         var userStoryPath = paths.MainArtifactPath;
         var userStory = await File.ReadAllTextAsync(userStoryPath);
         Assert.DoesNotContain("## Clarification Log", userStory);
@@ -67,7 +67,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Contains("### Questions", clarification);
         Assert.Contains("### Answers", clarification);
 
-        var timelinePath = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
+        var timelinePath = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
         var timeline = await File.ReadAllTextAsync(timelinePath);
         Assert.Contains("`clarification_requested`", timeline);
     }
@@ -98,12 +98,12 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal(UserStoryStatus.WaitingUser, continueResult.Status);
         Assert.NotNull(continueResult.GeneratedArtifactPath);
 
-        var timelinePath = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
+        var timelinePath = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
         var timeline = await File.ReadAllTextAsync(timelinePath);
         Assert.Contains("`clarification_answered`", timeline);
         Assert.Contains("`clarification_passed`", timeline);
 
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         var userStory = await File.ReadAllTextAsync(paths.MainArtifactPath);
         Assert.DoesNotContain("## Clarification Log", userStory);
         var clarification = await File.ReadAllTextAsync(paths.ClarificationFilePath);
@@ -140,7 +140,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         var regeneratedSpec = await File.ReadAllTextAsync(result.GeneratedArtifactPath);
         Assert.Contains("Applied artifact operation", regeneratedSpec);
 
-        var timeline = await File.ReadAllTextAsync(UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath);
+        var timeline = await File.ReadAllTextAsync(UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath);
         Assert.Contains("`artifact_operated`", timeline);
         Assert.Contains("- Actor: `alice`", timeline);
         Assert.Contains("- Actor: `bob`", timeline);
@@ -150,7 +150,7 @@ public sealed class WorkflowRunnerTests : IDisposable
     public async Task ContinuePhaseAsync_FromClarification_ReplacesPreviousQuestionsWithNewOnes()
     {
         var runner = new WorkflowRunner();
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "workflow", "US-0001");
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "sample US");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         await File.WriteAllTextAsync(
@@ -270,7 +270,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Contains("## Validation Strategy", technicalDesignContent);
 
         var loadedRun = await new UserStoryFileStore().LoadAsync(
-            UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
+            UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
         Assert.NotNull(loadedRun.Branch);
         Assert.Equal("main", loadedRun.Branch!.BaseBranch);
         Assert.Equal("feature/us-0001-test-story", loadedRun.Branch.WorkBranchName);
@@ -285,7 +285,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         await File.WriteAllTextAsync(
             paths.GetPhaseArtifactPath(PhaseId.Refinement),
             """
@@ -326,11 +326,11 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal("active", result.Status);
 
         var loadedRun = await new UserStoryFileStore().LoadAsync(
-            UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
+            UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
         Assert.Equal(PhaseId.TechnicalDesign, loadedRun.CurrentPhase);
         Assert.False(loadedRun.IsPhaseApproved(PhaseId.TechnicalDesign));
 
-        var timelinePath = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
+        var timelinePath = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
         var timeline = await File.ReadAllTextAsync(timelinePath);
         Assert.Contains("`phase_regressed`", timeline);
         Assert.Contains("Review found a design gap", timeline);
@@ -345,7 +345,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         await File.WriteAllTextAsync(
             paths.MainArtifactPath,
             "# US-0001 · Test story\n\n## Objective\nUpdated source text\n\n## Initial Scope\n- Includes:\n  - restart flow");
@@ -392,7 +392,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         Assert.True(Directory.Exists(paths.PhasesDirectoryPath));
         Assert.True(File.Exists(paths.BranchFilePath));
 
@@ -448,7 +448,7 @@ public sealed class WorkflowRunnerTests : IDisposable
 - Phase: `refinement`
 - Summary: Phase `refinement` approved.
 - Artifacts:
-  - .specs/us/us.US-0001/branch.yaml
+  - .specs/us/workflow/US-0001/branch.yaml
 """;
 
         var events = TimelineMarkdownParser.ParseEvents(timeline);
@@ -476,7 +476,7 @@ public sealed class WorkflowRunnerTests : IDisposable
 - Phase: `refinement`
 - Summary: Generated artifact for phase `refinement`.
 - Artifacts:
-  - .specs/us/us.US-0001/phases/01-spec.md
+  - .specs/us/workflow/US-0001/phases/01-spec.md
 - Tokens:
   - input: `486`
   - output: `1644`
@@ -507,7 +507,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal(123, result.Usage.OutputTokens);
         Assert.Equal(444, result.Usage.TotalTokens);
 
-        var timelinePath = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
+        var timelinePath = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
         var timeline = await File.ReadAllTextAsync(timelinePath);
         Assert.Contains("- Tokens:", timeline);
         Assert.Contains("input: `321`", timeline);

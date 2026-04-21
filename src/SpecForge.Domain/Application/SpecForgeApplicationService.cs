@@ -79,7 +79,9 @@ public sealed class SpecForgeApplicationService
             return [];
         }
 
-        var directories = Directory.GetDirectories(specsRoot, "us.*", SearchOption.TopDirectoryOnly);
+        var directories = Directory.GetDirectories(specsRoot, "*", SearchOption.TopDirectoryOnly)
+            .SelectMany(categoryDirectory => Directory.GetDirectories(categoryDirectory, "US-*", SearchOption.TopDirectoryOnly))
+            .ToArray();
         var summaries = new List<UserStorySummary>(directories.Length);
 
         foreach (var directory in directories.OrderBy(static directory => directory, StringComparer.Ordinal))
@@ -95,7 +97,7 @@ public sealed class SpecForgeApplicationService
         string usId,
         CancellationToken cancellationToken = default)
     {
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         return await GetUserStorySummaryFromDirectoryAsync(paths.RootDirectory, cancellationToken);
     }
 
@@ -104,7 +106,7 @@ public sealed class SpecForgeApplicationService
         string usId,
         CancellationToken cancellationToken = default)
     {
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         var title = await ReadTitleAsync(paths.MainArtifactPath, cancellationToken);
         var metadata = await WorkflowRunner.ReadUserStoryMetadataAsync(paths.MainArtifactPath, workflowRun.UsId, cancellationToken);
@@ -172,7 +174,7 @@ public sealed class SpecForgeApplicationService
         string usId,
         CancellationToken cancellationToken = default)
     {
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         if (workflowRun.CurrentPhase == Workflow.PhaseId.Clarification)
         {
@@ -208,7 +210,7 @@ public sealed class SpecForgeApplicationService
         CancellationToken cancellationToken = default)
     {
         var currentPhase = await GetCurrentPhaseAsync(workspaceRoot, usId, cancellationToken);
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         await using var operation = await runtimeStatusStore.StartOperationAsync(
             paths.RootDirectory,
             usId,
@@ -242,7 +244,7 @@ public sealed class SpecForgeApplicationService
         CancellationToken cancellationToken = default)
     {
         var currentPhase = await GetCurrentPhaseAsync(workspaceRoot, usId, cancellationToken);
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var runtime = await runtimeStatusStore.GetAsync(paths.RootDirectory, usId, currentPhase.CurrentPhase, cancellationToken);
         return new UserStoryRuntimeStatus(
             runtime.UsId,
@@ -316,7 +318,7 @@ public sealed class SpecForgeApplicationService
         string usId,
         CancellationToken cancellationToken = default)
     {
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         return Task.FromResult(new UserStoryFilesResult(
             usId,
             BuildFileDetails(paths.ContextDirectoryPath),
@@ -333,7 +335,7 @@ public sealed class SpecForgeApplicationService
         ArgumentException.ThrowIfNullOrWhiteSpace(workspaceRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(usId);
         var normalizedKind = NormalizeUserStoryFileKind(kind);
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var targetDirectoryPath = GetDirectoryPathForFileKind(paths, normalizedKind);
         Directory.CreateDirectory(targetDirectoryPath);
 
@@ -366,7 +368,7 @@ public sealed class SpecForgeApplicationService
         ArgumentException.ThrowIfNullOrWhiteSpace(usId);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         var normalizedKind = NormalizeUserStoryFileKind(kind);
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var resolvedFilePath = ResolveWorkspaceOrAbsolutePath(workspaceRoot, filePath);
         var normalizedFilePath = Path.GetFullPath(resolvedFilePath);
         var normalizedContextDirectory = Path.GetFullPath(paths.ContextDirectoryPath);
@@ -563,8 +565,10 @@ public sealed class SpecForgeApplicationService
 
     private static string FindWorkspaceRoot(UserStoryFilePaths paths)
     {
-        var userStoriesRoot = Path.GetDirectoryName(paths.RootDirectory)
+        var categoryRoot = Path.GetDirectoryName(paths.RootDirectory)
             ?? throw new InvalidOperationException("User story directory root is invalid.");
+        var userStoriesRoot = Path.GetDirectoryName(categoryRoot)
+            ?? throw new InvalidOperationException("User stories root is invalid.");
         var specsRoot = Path.GetDirectoryName(userStoriesRoot)
             ?? throw new InvalidOperationException("Specs root is invalid.");
         return Path.GetDirectoryName(specsRoot)

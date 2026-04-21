@@ -41,7 +41,7 @@ public sealed class WorkflowRunTests
             "feature",
             "workflow",
             "Test story",
-            ".specs/us/us.US-0001/us.md",
+            ".specs/us/workflow/US-0001/us.md",
             new DateTimeOffset(2026, 4, 18, 10, 0, 0, TimeSpan.Zero));
 
         Assert.True(run.IsPhaseApproved(PhaseId.Refinement));
@@ -72,7 +72,7 @@ public sealed class WorkflowRunTests
         var run = CreateRun();
         run.GenerateNextPhase();
         run.GenerateNextPhase();
-        run.ApproveCurrentPhase("main", "feature/us-0001-test-story", "feature", "workflow", "Test story", ".specs/us/us.US-0001/us.md");
+        run.ApproveCurrentPhase("main", "feature/us-0001-test-story", "feature", "workflow", "Test story", ".specs/us/workflow/US-0001/us.md");
 
         run.GenerateNextPhase();
 
@@ -126,7 +126,7 @@ public sealed class WorkflowRunTests
     {
         run.GenerateNextPhase();
         run.GenerateNextPhase();
-        run.ApproveCurrentPhase("main", "feature/us-0001-test-story", "feature", "workflow", "Test story", ".specs/us/us.US-0001/us.md");
+        run.ApproveCurrentPhase("main", "feature/us-0001-test-story", "feature", "workflow", "Test story", ".specs/us/workflow/US-0001/us.md");
         run.GenerateNextPhase();
         run.GenerateNextPhase();
     }

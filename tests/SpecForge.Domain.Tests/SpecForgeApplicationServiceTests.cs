@@ -70,7 +70,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         await File.WriteAllTextAsync(paths.MainArtifactPath, "# US-0001 · Story one\n\n## Objective\nUpdated source");
 
         var result = await applicationService.RestartUserStoryFromSourceAsync(
@@ -94,7 +94,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         await runner.OperateCurrentPhaseArtifactAsync(workspaceRoot, "US-0001", "Keep the spec implementation-only.", "alice");
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         Directory.CreateDirectory(paths.ContextDirectoryPath);
         await File.WriteAllTextAsync(Path.Combine(paths.ContextDirectoryPath, "service.cs"), "Context");
         Directory.CreateDirectory(paths.AttachmentsDirectoryPath);
@@ -155,7 +155,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         var runner = new WorkflowRunner();
         var applicationService = new SpecForgeApplicationService();
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "US-0001");
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         Directory.CreateDirectory(paths.AttachmentsDirectoryPath);
         var attachmentPath = Path.Combine(paths.AttachmentsDirectoryPath, "notes.md");
         await File.WriteAllTextAsync(attachmentPath, "Attachment");

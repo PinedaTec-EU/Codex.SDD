@@ -28,11 +28,16 @@ public sealed class UserStoryFilePaths
         AttachmentsDirectoryPath = Path.Combine(rootDirectory, "attachments");
     }
 
-    public static UserStoryFilePaths FromWorkspaceRoot(string workspaceRoot, string usId)
+    public static UserStoryFilePaths FromWorkspaceRoot(string workspaceRoot, string category, string usId)
     {
         if (string.IsNullOrWhiteSpace(workspaceRoot))
         {
             throw new ArgumentException("Workspace root is required.", nameof(workspaceRoot));
+        }
+
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            throw new ArgumentException("Category is required.", nameof(category));
         }
 
         if (string.IsNullOrWhiteSpace(usId))
@@ -44,9 +49,41 @@ public sealed class UserStoryFilePaths
             workspaceRoot,
             SpecsDirectoryName,
             UserStoriesDirectoryName,
-            $"us.{usId}");
+            category.Trim().ToLowerInvariant(),
+            usId.Trim().ToUpperInvariant());
 
         return new UserStoryFilePaths(userStoryDirectory);
+    }
+
+    public static UserStoryFilePaths ResolveFromWorkspaceRoot(string workspaceRoot, string usId)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceRoot))
+        {
+            throw new ArgumentException("Workspace root is required.", nameof(workspaceRoot));
+        }
+
+        if (string.IsNullOrWhiteSpace(usId))
+        {
+            throw new ArgumentException("US id is required.", nameof(usId));
+        }
+
+        var specsRoot = Path.Combine(workspaceRoot, SpecsDirectoryName, UserStoriesDirectoryName);
+        var normalizedUsId = usId.Trim().ToUpperInvariant();
+        if (!Directory.Exists(specsRoot))
+        {
+            throw new DirectoryNotFoundException($"User stories root '{specsRoot}' was not found.");
+        }
+
+        foreach (var categoryDirectory in Directory.GetDirectories(specsRoot, "*", SearchOption.TopDirectoryOnly))
+        {
+            var candidate = Path.Combine(categoryDirectory, normalizedUsId);
+            if (Directory.Exists(candidate))
+            {
+                return new UserStoryFilePaths(candidate);
+            }
+        }
+
+        throw new DirectoryNotFoundException($"User story '{normalizedUsId}' was not found under '{specsRoot}'.");
     }
 
     public string RootDirectory { get; }

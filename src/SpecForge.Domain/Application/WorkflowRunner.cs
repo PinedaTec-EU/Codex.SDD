@@ -62,7 +62,7 @@ public sealed class WorkflowRunner
         ValidateUserStoryKind(kind);
         repositoryCategoryCatalog.EnsureCategoryIsAllowed(workspaceRoot, category);
 
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, category, usId);
         Directory.CreateDirectory(paths.RootDirectory);
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
         Directory.CreateDirectory(paths.AttachmentsDirectoryPath);
@@ -82,7 +82,7 @@ public sealed class WorkflowRunner
         string actor = "user",
         CancellationToken cancellationToken = default)
     {
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         await EnsureCurrentPhaseIsApprovableAsync(paths, workflowRun.CurrentPhase, cancellationToken);
         var metadata = await ReadUserStoryMetadataAsync(paths.MainArtifactPath, usId, cancellationToken);
@@ -124,7 +124,7 @@ public sealed class WorkflowRunner
         string actor = "user",
         CancellationToken cancellationToken = default)
     {
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         workflowRun.RequestRegression(targetPhase);
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
@@ -156,7 +156,7 @@ public sealed class WorkflowRunner
         string actor = "user",
         CancellationToken cancellationToken = default)
     {
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var existingRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
 
         if (existingRun.CurrentPhase == PhaseId.Capture)
@@ -218,7 +218,7 @@ public sealed class WorkflowRunner
         string usId,
         CancellationToken cancellationToken = default)
     {
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var existingRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         var metadata = await ReadUserStoryMetadataAsync(paths.MainArtifactPath, usId, cancellationToken);
         var currentSourceText = await ReadSourceTextFromUserStoryAsync(paths.MainArtifactPath, cancellationToken);
@@ -253,7 +253,7 @@ public sealed class WorkflowRunner
         string usId,
         CancellationToken cancellationToken = default)
     {
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
 
         if (workflowRun.CurrentPhase is PhaseId.Capture or PhaseId.Clarification)
@@ -307,7 +307,7 @@ public sealed class WorkflowRunner
         string actor = "user",
         CancellationToken cancellationToken = default)
     {
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         if (workflowRun.CurrentPhase != PhaseId.Clarification)
         {
@@ -346,7 +346,7 @@ public sealed class WorkflowRunner
         CancellationToken cancellationToken = default)
     {
         ValidateRequired(prompt, nameof(prompt));
-        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, usId);
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         if (!HasArtifact(workflowRun.CurrentPhase))
         {
