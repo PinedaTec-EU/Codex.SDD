@@ -119,6 +119,7 @@ public sealed class SpecForgeApplicationService
         return new UserStoryWorkflowDetails(
             workflowRun.UsId,
             title,
+            metadata.Kind,
             metadata.Category,
             WorkflowPresentation.ToStatusSlug(workflowRun.Status),
             WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
@@ -263,10 +264,11 @@ public sealed class SpecForgeApplicationService
         string workspaceRoot,
         string usId,
         string? baseBranch,
+        string? workBranch = null,
         string actor = "user",
         CancellationToken cancellationToken = default)
     {
-        await workflowRunner.ApproveCurrentPhaseAsync(workspaceRoot, usId, baseBranch, actor, cancellationToken);
+        await workflowRunner.ApproveCurrentPhaseAsync(workspaceRoot, usId, baseBranch, workBranch, actor, cancellationToken);
         var summary = await GetUserStorySummaryAsync(workspaceRoot, usId, cancellationToken);
         return new ApprovalResult(summary.UsId, summary.Status, summary.CurrentPhase, baseBranch, summary.WorkBranch);
     }

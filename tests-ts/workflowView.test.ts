@@ -159,6 +159,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /vscode\.setState\(/);
   assert.match(html, /approvalBaseBranchDraft/);
   assert.match(html, /approvalBaseBranchAccepted/);
+  assert.match(html, /approvalWorkBranchDraft/);
 });
 
 test("buildWorkflowHtml requires explicit base-branch acceptance before approve when the flag is enabled", () => {
@@ -228,6 +229,9 @@ test("buildWorkflowHtml requires explicit base-branch acceptance before approve 
   assert.match(html, /value="develop"/);
   assert.match(html, /data-approval-branch-accept>Accept</);
   assert.match(html, /Accepted ✓/);
+  assert.match(html, /approval-branch__accepted\[hidden\]/);
+  assert.match(html, /for="approval-work-branch">Work Branch</);
+  assert.match(html, /data-approval-work-branch-input/);
   assert.match(html, /Approve stays disabled until you accept this branch value explicitly\./);
 });
 

@@ -13,6 +13,7 @@ export interface WorkflowViewState {
   readonly completedPhaseIds?: readonly string[];
   readonly debugMode?: boolean;
   readonly approvalBaseBranchProposal?: string | null;
+  readonly approvalWorkBranchProposal?: string | null;
   readonly requireExplicitApprovalBranchAcceptance?: boolean;
 }
 
@@ -489,6 +490,7 @@ export function buildWorkflowHtml(
       : null;
   const approvalBranchEditorVisible = shouldRenderApprovalBranchEditor(workflow, selectedPhase);
   const approvalBaseBranchProposal = state.approvalBaseBranchProposal?.trim() || "main";
+  const approvalWorkBranchProposal = state.approvalWorkBranchProposal?.trim() || workflow.workBranch?.trim() || "";
   const requiresExplicitApprovalBranchAcceptance = Boolean(state.requireExplicitApprovalBranchAcceptance);
   const detailActions = selectedPhase.isCurrent && (workflow.controls.canApprove || detailRejectCommand)
     ? `
@@ -528,6 +530,16 @@ export function buildWorkflowHtml(
               ? "Approve stays disabled until you accept this branch value explicitly."
               : "You can approve directly, and the current branch value will be sent with the action."}
           </p>
+          <label class="approval-branch__field" for="approval-work-branch">Work Branch</label>
+          <input
+            id="approval-work-branch"
+            class="approval-branch__input"
+            type="text"
+            value="${escapeHtmlAttribute(approvalWorkBranchProposal)}"
+            data-approval-work-branch-input
+            spellcheck="false"
+            autocomplete="off" />
+          <p class="approval-branch__hint">This is the branch that will be created after approval. You can edit the proposed name before continuing.</p>
         </div>
       </section>
     `
@@ -1788,6 +1800,9 @@ export function buildWorkflowHtml(
       font-size: 0.84rem;
       font-weight: 700;
     }
+    .approval-branch__accepted[hidden] {
+      display: none !important;
+    }
     .approval-branch__hint {
       margin: 0;
       font-size: 0.82rem;
@@ -2496,6 +2511,7 @@ export function buildWorkflowHtml(
     }
 
     const approvalBranchInput = document.querySelector("[data-approval-base-branch-input]");
+    const approvalWorkBranchInput = document.querySelector("[data-approval-work-branch-input]");
     const approvalBranchAccept = document.querySelector("[data-approval-branch-accept]");
     const approvalBranchAccepted = document.querySelector("[data-approval-branch-accepted]");
     const approvalBranchShell = document.querySelector("[data-approval-branch-shell]");
@@ -2509,7 +2525,8 @@ export function buildWorkflowHtml(
         phaseInputDraft: typeof viewState.phaseInputDraft === "string" ? viewState.phaseInputDraft : "",
         approvalBaseBranchDraft: nextState.draft,
         approvalBaseBranchAccepted: nextState.accepted,
-        approvalBaseBranchAcceptedValue: nextState.acceptedValue
+        approvalBaseBranchAcceptedValue: nextState.acceptedValue,
+        approvalWorkBranchDraft: nextState.workBranchDraft
       });
     };
     const syncApprovalBranchUi = () => {
@@ -2518,16 +2535,19 @@ export function buildWorkflowHtml(
       }
 
       const draft = normalizeBranchValue(approvalBranchInput.value);
+      const workBranchDraft = approvalWorkBranchInput instanceof HTMLInputElement
+        ? normalizeBranchValue(approvalWorkBranchInput.value)
+        : "";
       const acceptedValue = normalizeBranchValue(viewState.approvalBaseBranchAcceptedValue);
       const accepted = Boolean(viewState.approvalBaseBranchAccepted) && draft.length > 0 && draft === acceptedValue;
       if (approveButton instanceof HTMLButtonElement) {
-        approveButton.disabled = draft.length === 0 || (requiresExplicitApprovalBranchAcceptance && !accepted);
+        approveButton.disabled = draft.length === 0 || workBranchDraft.length === 0 || (requiresExplicitApprovalBranchAcceptance && !accepted);
       }
       if (approvalBranchAccept instanceof HTMLElement) {
         approvalBranchAccept.hidden = !requiresExplicitApprovalBranchAcceptance || accepted;
       }
       if (approvalBranchAccepted instanceof HTMLElement) {
-        approvalBranchAccepted.hidden = !accepted;
+        approvalBranchAccepted.hidden = !requiresExplicitApprovalBranchAcceptance || !accepted;
       }
     };
 
@@ -2547,7 +2567,28 @@ export function buildWorkflowHtml(
         setApprovalBranchState({
           draft,
           accepted,
-          acceptedValue
+          acceptedValue,
+          workBranchDraft: approvalWorkBranchInput instanceof HTMLInputElement ? approvalWorkBranchInput.value : ""
+        });
+        syncApprovalBranchUi();
+      });
+      syncApprovalBranchUi();
+    }
+
+    if (approvalWorkBranchInput instanceof HTMLInputElement) {
+      const restoredWorkBranchDraft = typeof viewState.approvalWorkBranchDraft === "string"
+        ? viewState.approvalWorkBranchDraft
+        : approvalWorkBranchInput.value;
+      approvalWorkBranchInput.value = restoredWorkBranchDraft;
+      approvalWorkBranchInput.addEventListener("input", () => {
+        viewState.approvalWorkBranchDraft = approvalWorkBranchInput.value;
+        setApprovalBranchState({
+          draft: approvalBranchInput instanceof HTMLInputElement ? approvalBranchInput.value : "",
+          accepted: Boolean(viewState.approvalBaseBranchAccepted),
+          acceptedValue: typeof viewState.approvalBaseBranchAcceptedValue === "string"
+            ? viewState.approvalBaseBranchAcceptedValue
+            : "",
+          workBranchDraft: approvalWorkBranchInput.value
         });
         syncApprovalBranchUi();
       });
@@ -2564,7 +2605,8 @@ export function buildWorkflowHtml(
         setApprovalBranchState({
           draft,
           accepted: true,
-          acceptedValue
+          acceptedValue,
+          workBranchDraft: approvalWorkBranchInput instanceof HTMLInputElement ? approvalWorkBranchInput.value : ""
         });
         syncApprovalBranchUi();
       });
@@ -2575,13 +2617,17 @@ export function buildWorkflowHtml(
         const baseBranch = approvalBranchInput instanceof HTMLInputElement
           ? normalizeBranchValue(approvalBranchInput.value)
           : undefined;
+        const workBranch = approvalWorkBranchInput instanceof HTMLInputElement
+          ? normalizeBranchValue(approvalWorkBranchInput.value)
+          : undefined;
         if (approveButton.disabled) {
           return;
         }
 
         vscode.postMessage({
           command: "approve",
-          baseBranch
+          baseBranch,
+          workBranch
         });
       });
     }

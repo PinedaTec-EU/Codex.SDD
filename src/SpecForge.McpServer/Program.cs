@@ -126,6 +126,7 @@ static async Task<JsonNode> HandleToolCallAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
             baseBranch: GetOptional(arguments, "baseBranch"),
+            workBranch: GetOptional(arguments, "workBranch"),
             actor: GetOptional(arguments, "actor") ?? "user"),
         "request_regression" => await applicationService.RequestRegressionAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),

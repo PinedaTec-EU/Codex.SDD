@@ -202,7 +202,7 @@ class WorkflowPanelController {
                 await this.continueCurrentPhaseAsync();
                 return;
             case "approve":
-                await this.approveCurrentPhaseAsync(message.baseBranch);
+                await this.approveCurrentPhaseAsync(message.baseBranch, message.workBranch);
                 return;
             case "restart":
                 await this.restartCurrentWorkflowAsync();
@@ -360,11 +360,14 @@ class WorkflowPanelController {
         await this.refreshAsync();
         void vscode.window.showInformationMessage(`Moved ${path.basename(sourcePath)} to ${targetKind === "context" ? "context" : "user story info"} in ${this.summary.usId}.`);
     }
-    async approveCurrentPhaseAsync(baseBranch) {
+    async approveCurrentPhaseAsync(baseBranch, workBranch) {
         const normalizedBaseBranch = this.summary.currentPhase === "refinement"
             ? (baseBranch?.trim() || this.refinementApprovalBaseBranchProposal)
             : undefined;
-        this.summary = await this.getBackendClient().approveCurrentPhase(this.summary.usId, normalizedBaseBranch, (0, userActor_1.getCurrentActor)());
+        const normalizedWorkBranch = this.summary.currentPhase === "refinement"
+            ? (workBranch?.trim() || this.buildRefinementApprovalWorkBranchProposal(this.lastWorkflow))
+            : undefined;
+        this.summary = await this.getBackendClient().approveCurrentPhase(this.summary.usId, normalizedBaseBranch, normalizedWorkBranch, (0, userActor_1.getCurrentActor)());
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' approved phase '${this.summary.currentPhase}'.`);
         this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
         this.clearTransientExecutionPhase();
@@ -499,9 +502,26 @@ class WorkflowPanelController {
             completedPhaseIds: this.transientCompletedPhaseIds,
             debugMode: (0, outputChannel_1.isSpecForgeDebugLoggingEnabled)(),
             approvalBaseBranchProposal: this.refinementApprovalBaseBranchProposal,
+            approvalWorkBranchProposal: this.buildRefinementApprovalWorkBranchProposal(workflow),
             requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance
         }, this.playbackState);
         return contextSuggestions.length;
+    }
+    buildRefinementApprovalWorkBranchProposal(workflow) {
+        if (workflow?.workBranch?.trim()) {
+            return workflow.workBranch.trim();
+        }
+        if (!workflow) {
+            return `feature/${this.summary.usId.toLowerCase()}-work`;
+        }
+        const slug = workflow.title
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^-|-$/g, "") || "work";
+        return `${(workflow.kind?.trim() || "feature")}/${workflow.usId.toLowerCase()}-${slug}`;
     }
     async renderCachedWorkflowAsync(reason) {
         if (!this.lastWorkflow) {

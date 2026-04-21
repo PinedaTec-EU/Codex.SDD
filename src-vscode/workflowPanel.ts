@@ -21,7 +21,7 @@ type WorkflowPanelCommand =
   | { readonly command: "addSuggestedContextFiles"; readonly paths?: readonly string[] }
   | { readonly command: "setFileKind"; readonly path?: string; readonly kind?: string }
   | { readonly command: "continue" }
-  | { readonly command: "approve"; readonly baseBranch?: string }
+  | { readonly command: "approve"; readonly baseBranch?: string; readonly workBranch?: string }
   | { readonly command: "restart" }
   | { readonly command: "debugResetToCapture" }
   | { readonly command: "regress"; readonly phaseId?: string }
@@ -223,7 +223,7 @@ class WorkflowPanelController {
         await this.continueCurrentPhaseAsync();
         return;
       case "approve":
-        await this.approveCurrentPhaseAsync(message.baseBranch);
+        await this.approveCurrentPhaseAsync(message.baseBranch, message.workBranch);
         return;
       case "restart":
         await this.restartCurrentWorkflowAsync();
@@ -408,12 +408,20 @@ class WorkflowPanelController {
     );
   }
 
-  private async approveCurrentPhaseAsync(baseBranch?: string): Promise<void> {
+  private async approveCurrentPhaseAsync(baseBranch?: string, workBranch?: string): Promise<void> {
     const normalizedBaseBranch = this.summary.currentPhase === "refinement"
       ? (baseBranch?.trim() || this.refinementApprovalBaseBranchProposal)
       : undefined;
+    const normalizedWorkBranch = this.summary.currentPhase === "refinement"
+      ? (workBranch?.trim() || this.buildRefinementApprovalWorkBranchProposal(this.lastWorkflow))
+      : undefined;
 
-    this.summary = await this.getBackendClient().approveCurrentPhase(this.summary.usId, normalizedBaseBranch, getCurrentActor());
+    this.summary = await this.getBackendClient().approveCurrentPhase(
+      this.summary.usId,
+      normalizedBaseBranch,
+      normalizedWorkBranch,
+      getCurrentActor()
+    );
     appendSpecForgeLog(`Workflow '${this.summary.usId}' approved phase '${this.summary.currentPhase}'.`);
     this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
     this.clearTransientExecutionPhase();
@@ -579,9 +587,29 @@ class WorkflowPanelController {
       completedPhaseIds: this.transientCompletedPhaseIds,
       debugMode: isSpecForgeDebugLoggingEnabled(),
       approvalBaseBranchProposal: this.refinementApprovalBaseBranchProposal,
+      approvalWorkBranchProposal: this.buildRefinementApprovalWorkBranchProposal(workflow),
       requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance
     }, this.playbackState);
     return contextSuggestions.length;
+  }
+
+  private buildRefinementApprovalWorkBranchProposal(workflow: UserStoryWorkflowDetails | null): string {
+    if (workflow?.workBranch?.trim()) {
+      return workflow.workBranch.trim();
+    }
+
+    if (!workflow) {
+      return `feature/${this.summary.usId.toLowerCase()}-work`;
+    }
+
+    const slug = workflow.title
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "") || "work";
+    return `${(workflow.kind?.trim() || "feature")}/${workflow.usId.toLowerCase()}-${slug}`;
   }
 
   private async renderCachedWorkflowAsync(reason: string): Promise<void> {

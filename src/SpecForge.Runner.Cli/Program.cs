@@ -124,13 +124,15 @@ static async Task HandleApprovePhaseAsync(
     SpecForgeApplicationService applicationService,
     IReadOnlyList<string> args)
 {
-    EnsureArgumentCount(args, expectedCount: 4);
+    EnsureArgumentCount(args, expectedCount: 5);
 
     var workspaceRoot = args[1];
     var usId = args[2];
     var baseBranch = args[3];
+    var workBranch = args[4];
     var normalizedBaseBranch = string.Equals(baseBranch, "-", StringComparison.Ordinal) ? null : baseBranch;
-    await runner.ApproveCurrentPhaseAsync(workspaceRoot, usId, normalizedBaseBranch);
+    var normalizedWorkBranch = string.Equals(workBranch, "-", StringComparison.Ordinal) ? null : workBranch;
+    await runner.ApproveCurrentPhaseAsync(workspaceRoot, usId, normalizedBaseBranch, normalizedWorkBranch);
     var summary = await applicationService.GetUserStorySummaryAsync(workspaceRoot, usId);
     WriteJson(summary);
 }

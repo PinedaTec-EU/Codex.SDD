@@ -5,13 +5,16 @@ exports.buildRequestRegressionArguments = buildRequestRegressionArguments;
 exports.buildRestartUserStoryArguments = buildRestartUserStoryArguments;
 exports.parseToolContent = parseToolContent;
 exports.buildServerProjectPath = buildServerProjectPath;
-function buildApprovePhaseArguments(workspaceRoot, usId, baseBranch, actor) {
+function buildApprovePhaseArguments(workspaceRoot, usId, baseBranch, workBranch, actor) {
     const argumentsPayload = {
         workspaceRoot,
         usId
     };
     if (baseBranch) {
         argumentsPayload.baseBranch = baseBranch;
+    }
+    if (workBranch) {
+        argumentsPayload.workBranch = workBranch;
     }
     if (actor && actor.trim().length > 0) {
         argumentsPayload.actor = actor;

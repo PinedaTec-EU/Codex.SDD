@@ -145,8 +145,8 @@ class StdioMcpBackendClient {
             usId
         });
     }
-    async approveCurrentPhase(usId, baseBranch, actor) {
-        return this.callTool("approve_phase", (0, backendClientModel_1.buildApprovePhaseArguments)(this.workspaceRoot, usId, baseBranch, actor));
+    async approveCurrentPhase(usId, baseBranch, workBranch, actor) {
+        return this.callTool("approve_phase", (0, backendClientModel_1.buildApprovePhaseArguments)(this.workspaceRoot, usId, baseBranch, workBranch, actor));
     }
     async requestRegression(usId, targetPhase, reason, actor) {
         return this.callTool("request_regression", (0, backendClientModel_1.buildRequestRegressionArguments)(this.workspaceRoot, usId, targetPhase, reason, actor));

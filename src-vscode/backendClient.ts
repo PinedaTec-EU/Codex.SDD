@@ -149,6 +149,7 @@ export interface UserStoryFileDetails {
 export interface UserStoryWorkflowDetails {
   readonly usId: string;
   readonly title: string;
+  readonly kind?: string;
   readonly category: string;
   readonly status: string;
   readonly currentPhase: string;
@@ -176,7 +177,7 @@ export interface SpecForgeBackendClient {
   importUserStory(usId: string, sourcePath: string, title: string, kind: string, category: string, actor?: string): Promise<CreateOrImportUserStoryResult>;
   initializeRepoPrompts(overwrite?: boolean): Promise<InitializeRepoPromptsResult>;
   continuePhase(usId: string): Promise<ContinuePhaseResult>;
-  approveCurrentPhase(usId: string, baseBranch?: string, actor?: string): Promise<UserStorySummary>;
+  approveCurrentPhase(usId: string, baseBranch?: string, workBranch?: string, actor?: string): Promise<UserStorySummary>;
   requestRegression(usId: string, targetPhase: string, reason?: string, actor?: string): Promise<RequestRegressionResult>;
   restartUserStoryFromSource(usId: string, reason?: string, actor?: string): Promise<RestartUserStoryResult>;
   resetUserStoryToCapture(usId: string): Promise<ResetUserStoryResult>;
@@ -317,10 +318,10 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     });
   }
 
-  public async approveCurrentPhase(usId: string, baseBranch?: string, actor?: string): Promise<UserStorySummary> {
+  public async approveCurrentPhase(usId: string, baseBranch?: string, workBranch?: string, actor?: string): Promise<UserStorySummary> {
     return this.callTool<UserStorySummary>(
       "approve_phase",
-      buildApprovePhaseArguments(this.workspaceRoot, usId, baseBranch, actor)
+      buildApprovePhaseArguments(this.workspaceRoot, usId, baseBranch, workBranch, actor)
     );
   }
 

@@ -3,6 +3,7 @@ namespace SpecForge.Domain.Application;
 public sealed record UserStoryWorkflowDetails(
     string UsId,
     string Title,
+    string Kind,
     string Category,
     string Status,
     string CurrentPhase,

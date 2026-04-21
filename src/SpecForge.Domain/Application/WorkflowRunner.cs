@@ -79,6 +79,7 @@ public sealed class WorkflowRunner
         string workspaceRoot,
         string usId,
         string? baseBranch = null,
+        string? workBranch = null,
         string actor = "user",
         CancellationToken cancellationToken = default)
     {
@@ -86,7 +87,9 @@ public sealed class WorkflowRunner
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         await EnsureCurrentPhaseIsApprovableAsync(paths, workflowRun.CurrentPhase, cancellationToken);
         var metadata = await ReadUserStoryMetadataAsync(paths.MainArtifactPath, usId, cancellationToken);
-        var workBranchName = BuildWorkBranchName(usId, metadata.Title, metadata.Kind);
+        var workBranchName = string.IsNullOrWhiteSpace(workBranch)
+            ? BuildWorkBranchName(usId, metadata.Title, metadata.Kind)
+            : workBranch.Trim();
         workflowRun.ApproveCurrentPhase(
             baseBranch,
             workBranchName,

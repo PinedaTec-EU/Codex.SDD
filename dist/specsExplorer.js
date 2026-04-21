@@ -316,7 +316,7 @@ async function approveCurrentPhase(summary) {
         }
     }
     try {
-        const updatedSummary = await getBackendClient(workspaceRoot).approveCurrentPhase(summary.usId, baseBranch, (0, userActor_1.getCurrentActor)());
+        const updatedSummary = await getBackendClient(workspaceRoot).approveCurrentPhase(summary.usId, baseBranch, undefined, (0, userActor_1.getCurrentActor)());
         void vscode.window.showInformationMessage(`${updatedSummary.usId} approved. Current phase remains ${updatedSummary.currentPhase} until you continue the workflow.`);
     }
     catch (error) {

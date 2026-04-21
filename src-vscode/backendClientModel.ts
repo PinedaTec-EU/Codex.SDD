@@ -2,6 +2,7 @@ export function buildApprovePhaseArguments(
   workspaceRoot: string,
   usId: string,
   baseBranch?: string,
+  workBranch?: string,
   actor?: string
 ): Record<string, string> {
   const argumentsPayload: Record<string, string> = {
@@ -11,6 +12,10 @@ export function buildApprovePhaseArguments(
 
   if (baseBranch) {
     argumentsPayload.baseBranch = baseBranch;
+  }
+
+  if (workBranch) {
+    argumentsPayload.workBranch = workBranch;
   }
 
   if (actor && actor.trim().length > 0) {
