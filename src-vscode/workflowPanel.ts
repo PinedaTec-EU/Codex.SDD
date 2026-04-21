@@ -8,6 +8,7 @@ import { appendSpecForgeDebugLog, appendSpecForgeLog, isSpecForgeDebugLoggingEna
 import { readRuntimeVersionAsync } from "./runtimeVersion";
 import { getCurrentActor } from "./userActor";
 import { normalizePlaybackStateAfterManualWorkflowChange } from "./workflowPlaybackState";
+import { buildWorkBranchProposal } from "./workflowBranchName";
 import { buildWorkflowHtml } from "./workflowView";
 
 type WorkflowPanelCommand =
@@ -602,14 +603,7 @@ class WorkflowPanelController {
       return `feature/${this.summary.usId.toLowerCase()}-work`;
     }
 
-    const slug = workflow.title
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "") || "work";
-    return `${(workflow.kind?.trim() || "feature")}/${workflow.usId.toLowerCase()}-${slug}`;
+    return buildWorkBranchProposal(workflow.usId, workflow.title, workflow.kind?.trim() || "feature");
   }
 
   private async renderCachedWorkflowAsync(reason: string): Promise<void> {

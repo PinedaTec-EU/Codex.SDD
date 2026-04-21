@@ -1112,8 +1112,38 @@ public sealed class WorkflowRunner
 
     private static string BuildWorkBranchName(string usId, string title, string kind)
     {
+        var normalizedUsId = usId.ToLowerInvariant();
+        var normalizedKind = kind.ToLowerInvariant();
         var slug = BuildShortSlug(title);
-        return $"{kind}/{usId.ToLowerInvariant()}-{slug}";
+        slug = StripDuplicatePrefix(slug, normalizedKind);
+        slug = StripDuplicatePrefix(slug, normalizedUsId);
+        slug = StripDuplicatePrefix(slug, normalizedKind);
+
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            slug = "work";
+        }
+
+        return $"{normalizedKind}/{normalizedUsId}-{slug}";
+    }
+
+    private static string StripDuplicatePrefix(string slug, string prefix)
+    {
+        if (string.IsNullOrWhiteSpace(slug) || string.IsNullOrWhiteSpace(prefix))
+        {
+            return slug;
+        }
+
+        var nextSlug = slug;
+        while (string.Equals(nextSlug, prefix, StringComparison.Ordinal) ||
+               nextSlug.StartsWith(prefix + "-", StringComparison.Ordinal))
+        {
+            nextSlug = string.Equals(nextSlug, prefix, StringComparison.Ordinal)
+                ? string.Empty
+                : nextSlug[(prefix.Length + 1)..];
+        }
+
+        return nextSlug;
     }
 
     private static string BuildShortSlug(string title)

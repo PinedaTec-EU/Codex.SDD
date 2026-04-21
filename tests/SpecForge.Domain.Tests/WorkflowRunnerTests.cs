@@ -279,6 +279,27 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ApproveCurrentPhaseAsync_WhenTitleRepeatsKindAndUsId_DeduplicatesWorkBranchProposal()
+    {
+        var runner = new WorkflowRunner();
+        await runner.CreateUserStoryAsync(
+            workspaceRoot,
+            "US-0001",
+            "Feature US-0001 Checkout Flow",
+            "feature",
+            "workflow",
+            "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+
+        var loadedRun = await new UserStoryFileStore().LoadAsync(
+            UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
+        Assert.NotNull(loadedRun.Branch);
+        Assert.Equal("feature/us-0001-checkout-flow", loadedRun.Branch!.WorkBranchName);
+    }
+
+    [Fact]
     public async Task ApproveCurrentPhaseAsync_WhenSpecSchemaIsInvalid_ThrowsValidationError()
     {
         var runner = new WorkflowRunner();

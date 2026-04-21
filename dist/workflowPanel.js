@@ -47,6 +47,7 @@ const outputChannel_1 = require("./outputChannel");
 const runtimeVersion_1 = require("./runtimeVersion");
 const userActor_1 = require("./userActor");
 const workflowPlaybackState_1 = require("./workflowPlaybackState");
+const workflowBranchName_1 = require("./workflowBranchName");
 const workflowView_1 = require("./workflowView");
 const panels = new Map();
 async function openWorkflowView(workspaceRoot, summary, getBackendClient, callbacks) {
@@ -514,14 +515,7 @@ class WorkflowPanelController {
         if (!workflow) {
             return `feature/${this.summary.usId.toLowerCase()}-work`;
         }
-        const slug = workflow.title
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/-+/g, "-")
-            .replace(/^-|-$/g, "") || "work";
-        return `${(workflow.kind?.trim() || "feature")}/${workflow.usId.toLowerCase()}-${slug}`;
+        return (0, workflowBranchName_1.buildWorkBranchProposal)(workflow.usId, workflow.title, workflow.kind?.trim() || "feature");
     }
     async renderCachedWorkflowAsync(reason) {
         if (!this.lastWorkflow) {
