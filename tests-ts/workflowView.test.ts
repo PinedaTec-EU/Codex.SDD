@@ -106,7 +106,10 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /Open Artifact/);
   assert.match(html, /Open Execute Prompt/);
   assert.match(html, /Open Approve Prompt/);
-  assert.match(html, /detail-card-shell[^]*detail-actions--phase-header[^]*data-command="approve">Approve</);
+  assert.match(html, /detail-card-shell[^]*detail-actions--phase-header[^]*data-command="approve"[^>]*>Approve</);
+  assert.match(html, /<h3>Approval Branch<\/h3>/);
+  assert.match(html, /data-approval-base-branch-input/);
+  assert.match(html, /value="main"/);
   assert.match(html, /detail-card-shell[^]*detail-actions--phase-header[^]*workflow-action-button--danger[^]*data-command="restart">Reject</);
   assert.match(html, /workflow-action-button--document[^]*Open Artifact/);
   assert.match(html, /workflow-action-button--document[^]*Open Execute Prompt/);
@@ -154,6 +157,78 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /vscode\.getState\(\)/);
   assert.match(html, /workflowFilesOpen/);
   assert.match(html, /vscode\.setState\(/);
+  assert.match(html, /approvalBaseBranchDraft/);
+  assert.match(html, /approvalBaseBranchAccepted/);
+});
+
+test("buildWorkflowHtml requires explicit base-branch acceptance before approve when the flag is enabled", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0042",
+    title: "Approval branch validation",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0042",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/01-spec.md",
+        executePromptPath: "/tmp/refinement.execute.md",
+        approvePromptPath: "/tmp/refinement.approve.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "refinement_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "refinement",
+    selectedArtifactContent: "## Refinement\nBody",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    approvalBaseBranchProposal: "develop",
+    requireExplicitApprovalBranchAcceptance: true
+  }, "idle");
+
+  assert.match(html, /data-command="approve" data-approve-button disabled>Approve</);
+  assert.match(html, /data-require-explicit-approval-branch-acceptance="true"/);
+  assert.match(html, /value="develop"/);
+  assert.match(html, /data-approval-branch-accept>Accept</);
+  assert.match(html, /Accepted ✓/);
+  assert.match(html, /Approve stays disabled until you accept this branch value explicitly\./);
 });
 
 test("buildWorkflowHtml shows phase actions in the selected detail only for the current phase", () => {

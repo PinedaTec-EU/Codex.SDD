@@ -20,7 +20,7 @@ type WorkflowPanelCommand =
   | { readonly command: "addSuggestedContextFiles"; readonly paths?: readonly string[] }
   | { readonly command: "setFileKind"; readonly path?: string; readonly kind?: string }
   | { readonly command: "continue" }
-  | { readonly command: "approve" }
+  | { readonly command: "approve"; readonly baseBranch?: string }
   | { readonly command: "restart" }
   | { readonly command: "debugResetToCapture" }
   | { readonly command: "regress"; readonly phaseId?: string }
@@ -88,6 +88,7 @@ class WorkflowPanelController {
   private lastWorkflow: UserStoryWorkflowDetails | null = null;
   private transientExecutionPhaseId: string | null = null;
   private transientCompletedPhaseIds: readonly string[] = [];
+  private readonly refinementApprovalBaseBranchProposal = "main";
 
   public constructor(
     private readonly workspaceRoot: string,
@@ -221,7 +222,7 @@ class WorkflowPanelController {
         await this.continueCurrentPhaseAsync();
         return;
       case "approve":
-        await this.approveCurrentPhaseAsync();
+        await this.approveCurrentPhaseAsync(message.baseBranch);
         return;
       case "restart":
         await this.restartCurrentWorkflowAsync();
@@ -406,22 +407,12 @@ class WorkflowPanelController {
     );
   }
 
-  private async approveCurrentPhaseAsync(): Promise<void> {
-    let baseBranch: string | undefined;
-    if (this.summary.currentPhase === "refinement") {
-      baseBranch = await vscode.window.showInputBox({
-        prompt: "Base branch used to create the work branch",
-        value: "main",
-        ignoreFocusOut: true,
-        validateInput: (value) => value.trim().length > 0 ? undefined : "Base branch is required."
-      });
+  private async approveCurrentPhaseAsync(baseBranch?: string): Promise<void> {
+    const normalizedBaseBranch = this.summary.currentPhase === "refinement"
+      ? (baseBranch?.trim() || this.refinementApprovalBaseBranchProposal)
+      : undefined;
 
-      if (!baseBranch) {
-        return;
-      }
-    }
-
-    this.summary = await this.getBackendClient().approveCurrentPhase(this.summary.usId, baseBranch, getCurrentActor());
+    this.summary = await this.getBackendClient().approveCurrentPhase(this.summary.usId, normalizedBaseBranch, getCurrentActor());
     appendSpecForgeLog(`Workflow '${this.summary.usId}' approved phase '${this.summary.currentPhase}'.`);
     this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
     this.clearTransientExecutionPhase();
@@ -583,7 +574,9 @@ class WorkflowPanelController {
       settingsMessage: settingsStatus.message,
       executionPhaseId: this.transientExecutionPhaseId,
       completedPhaseIds: this.transientCompletedPhaseIds,
-      debugMode: isSpecForgeDebugLoggingEnabled()
+      debugMode: isSpecForgeDebugLoggingEnabled(),
+      approvalBaseBranchProposal: this.refinementApprovalBaseBranchProposal,
+      requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance
     }, this.playbackState);
     return contextSuggestions.length;
   }

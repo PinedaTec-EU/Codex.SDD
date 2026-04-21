@@ -167,6 +167,11 @@
           "type": "boolean",
           "default": true,
           "description": "Suggest repository context files during clarification using local heuristics and repo neighborhood rules."
+        },
+        "specForge.features.requireApprovalBranchAcceptance": {
+          "type": "boolean",
+          "default": false,
+          "description": "Require explicit acceptance of the proposed base branch in the workflow detail before approving refinement."
         }
       }
     },

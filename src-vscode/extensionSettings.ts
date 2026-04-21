@@ -8,6 +8,7 @@ export interface SpecForgeSettings {
   readonly watcherEnabled: boolean;
   readonly attentionNotificationsEnabled: boolean;
   readonly contextSuggestionsEnabled: boolean;
+  readonly requireExplicitApprovalBranchAcceptance: boolean;
 }
 
 export interface SpecForgeSettingsStatus {
@@ -30,7 +31,8 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
     reviewTolerance: normalizeTolerance(configuration.get<string>("execution.reviewTolerance", "balanced")),
     watcherEnabled: configuration.get<boolean>("ui.enableWatcher", true),
     attentionNotificationsEnabled: configuration.get<boolean>("ui.notifyOnAttention", true),
-    contextSuggestionsEnabled: configuration.get<boolean>("features.enableContextSuggestions", true)
+    contextSuggestionsEnabled: configuration.get<boolean>("features.enableContextSuggestions", true),
+    requireExplicitApprovalBranchAcceptance: configuration.get<boolean>("features.requireApprovalBranchAcceptance", false)
   };
 }
 

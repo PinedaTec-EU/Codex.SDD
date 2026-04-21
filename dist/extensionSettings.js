@@ -18,7 +18,8 @@ function readSpecForgeSettings(configuration) {
         reviewTolerance: normalizeTolerance(configuration.get("execution.reviewTolerance", "balanced")),
         watcherEnabled: configuration.get("ui.enableWatcher", true),
         attentionNotificationsEnabled: configuration.get("ui.notifyOnAttention", true),
-        contextSuggestionsEnabled: configuration.get("features.enableContextSuggestions", true)
+        contextSuggestionsEnabled: configuration.get("features.enableContextSuggestions", true),
+        requireExplicitApprovalBranchAcceptance: configuration.get("features.requireApprovalBranchAcceptance", false)
     };
 }
 function buildBackendEnvironment(settings) {

@@ -11,6 +11,8 @@ export interface WorkflowViewState {
   readonly executionPhaseId?: string | null;
   readonly completedPhaseIds?: readonly string[];
   readonly debugMode?: boolean;
+  readonly approvalBaseBranchProposal?: string | null;
+  readonly requireExplicitApprovalBranchAcceptance?: boolean;
 }
 
 interface ExecutionOverlayModel {
@@ -437,6 +439,15 @@ function buildWorkflowHeroTitle(workflow: UserStoryWorkflowDetails): string {
   return `${workflow.usId} · ${normalizedTitle}`;
 }
 
+function shouldRenderApprovalBranchEditor(
+  workflow: UserStoryWorkflowDetails,
+  selectedPhase: WorkflowPhaseDetails
+): boolean {
+  return selectedPhase.phaseId === "refinement"
+    && selectedPhase.isCurrent
+    && workflow.controls.canApprove;
+}
+
 export function buildWorkflowHtml(
   workflow: UserStoryWorkflowDetails,
   state: WorkflowViewState,
@@ -475,12 +486,49 @@ export function buildWorkflowHtml(
     : selectedPhase.isCurrent && workflow.controls.canRestartFromSource
       ? { command: "restart", phaseId: undefined }
       : null;
+  const approvalBranchEditorVisible = shouldRenderApprovalBranchEditor(workflow, selectedPhase);
+  const approvalBaseBranchProposal = state.approvalBaseBranchProposal?.trim() || "main";
+  const requiresExplicitApprovalBranchAcceptance = Boolean(state.requireExplicitApprovalBranchAcceptance);
   const detailActions = selectedPhase.isCurrent && (workflow.controls.canApprove || detailRejectCommand)
     ? `
       <div class="detail-actions detail-actions--phase-header">
-        ${workflow.controls.canApprove ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve">Approve</button>` : ""}
+        ${workflow.controls.canApprove
+          ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button${approvalBranchEditorVisible && requiresExplicitApprovalBranchAcceptance ? " disabled" : ""}>Approve</button>`
+          : ""}
         ${detailRejectCommand ? `<button class="workflow-action-button workflow-action-button--danger" data-command="${detailRejectCommand.command}"${detailRejectCommand.phaseId ? ` data-phase-id="${escapeHtmlAttribute(detailRejectCommand.phaseId)}"` : ""}>Reject</button>` : ""}
       </div>
+    `
+    : "";
+  const approvalBranchSection = approvalBranchEditorVisible
+    ? `
+      <section class="detail-card detail-card--approval-branch" data-approval-branch-shell data-require-explicit-approval-branch-acceptance="${requiresExplicitApprovalBranchAcceptance ? "true" : "false"}">
+        <div class="approval-branch__copy">
+          <h3>Approval Branch</h3>
+          <p>Confirm the base branch used to create the user story work branch before approving the refinement.</p>
+        </div>
+        <div class="approval-branch__controls">
+          <label class="approval-branch__field" for="approval-base-branch">Base Branch</label>
+          <div class="approval-branch__input-row">
+            <input
+              id="approval-base-branch"
+              class="approval-branch__input"
+              type="text"
+              value="${escapeHtmlAttribute(approvalBaseBranchProposal)}"
+              data-approval-base-branch-input
+              spellcheck="false"
+              autocomplete="off" />
+            ${requiresExplicitApprovalBranchAcceptance
+              ? `<button type="button" class="workflow-action-button workflow-action-button--progress approval-branch__accept" data-approval-branch-accept>Accept</button>`
+              : ""}
+            <span class="approval-branch__accepted" data-approval-branch-accepted hidden>Accepted ✓</span>
+          </div>
+          <p class="approval-branch__hint" data-approval-branch-hint>
+            ${requiresExplicitApprovalBranchAcceptance
+              ? "Approve stays disabled until you accept this branch value explicitly."
+              : "You can approve directly, and the current branch value will be sent with the action."}
+          </p>
+        </div>
+      </section>
     `
     : "";
   const durationMetric = selectedPhaseEvent?.durationMs !== null && selectedPhaseEvent
@@ -1546,6 +1594,69 @@ export function buildWorkflowHtml(
       position: relative;
       z-index: 1;
     }
+    .detail-card--approval-branch {
+      display: grid;
+      gap: 14px;
+      border-color: rgba(92, 181, 255, 0.18);
+      background: linear-gradient(180deg, rgba(14, 22, 31, 0.92), rgba(10, 16, 22, 0.98));
+    }
+    .approval-branch__copy h3 {
+      margin: 0 0 8px;
+    }
+    .approval-branch__copy p {
+      margin: 0;
+      opacity: 0.78;
+    }
+    .approval-branch__controls {
+      display: grid;
+      gap: 10px;
+    }
+    .approval-branch__field {
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(189, 219, 246, 0.84);
+    }
+    .approval-branch__input-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .approval-branch__input {
+      flex: 1 1 220px;
+      min-width: 0;
+      border-radius: 14px;
+      border: 1px solid rgba(92, 181, 255, 0.24);
+      background: rgba(8, 14, 22, 0.88);
+      color: rgba(246, 250, 255, 0.96);
+      padding: 11px 14px;
+      font: inherit;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+    .approval-branch__input:focus {
+      outline: none;
+      border-color: rgba(92, 181, 255, 0.44);
+      box-shadow: 0 0 0 3px rgba(92, 181, 255, 0.14);
+    }
+    .approval-branch__accepted {
+      display: inline-flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: rgba(46, 160, 67, 0.16);
+      color: #7ff0a5;
+      border: 1px solid rgba(127, 240, 165, 0.22);
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+    .approval-branch__hint {
+      margin: 0;
+      font-size: 0.82rem;
+      color: rgba(214, 223, 236, 0.72);
+    }
     .detail-card h2, .detail-card h3 {
       margin-top: 0;
     }
@@ -2195,6 +2306,7 @@ export function buildWorkflowHtml(
           ${selectedPhaseMetrics ? `<div class="detail-metrics">${selectedPhaseMetrics}</div>` : ""}
           </section>
         </div>
+        ${approvalBranchSection}
         <section class="detail-card">
           <h3>Artifact</h3>
           ${artifactSection}
@@ -2230,12 +2342,107 @@ export function buildWorkflowHtml(
     const vscode = acquireVsCodeApi();
     const viewState = vscode.getState() ?? {};
     for (const element of document.querySelectorAll("[data-command]")) {
+      if (element instanceof HTMLElement && element.dataset.command === "approve") {
+        continue;
+      }
+
       element.addEventListener("click", () => {
         vscode.postMessage({
           command: element.dataset.command,
           phaseId: element.dataset.phaseId,
           path: element.dataset.path,
           kind: element.dataset.kind
+        });
+      });
+    }
+
+    const approvalBranchInput = document.querySelector("[data-approval-base-branch-input]");
+    const approvalBranchAccept = document.querySelector("[data-approval-branch-accept]");
+    const approvalBranchAccepted = document.querySelector("[data-approval-branch-accepted]");
+    const approvalBranchShell = document.querySelector("[data-approval-branch-shell]");
+    const approveButton = document.querySelector("[data-approve-button]");
+    const requiresExplicitApprovalBranchAcceptance = approvalBranchShell?.dataset.requireExplicitApprovalBranchAcceptance === "true";
+    const normalizeBranchValue = (value) => (value ?? "").trim();
+    const setApprovalBranchState = (nextState) => {
+      vscode.setState({
+        ...viewState,
+        workflowFilesOpen: Boolean(viewState.workflowFilesOpen),
+        phaseInputDraft: typeof viewState.phaseInputDraft === "string" ? viewState.phaseInputDraft : "",
+        approvalBaseBranchDraft: nextState.draft,
+        approvalBaseBranchAccepted: nextState.accepted,
+        approvalBaseBranchAcceptedValue: nextState.acceptedValue
+      });
+    };
+    const syncApprovalBranchUi = () => {
+      if (!(approvalBranchInput instanceof HTMLInputElement)) {
+        return;
+      }
+
+      const draft = normalizeBranchValue(approvalBranchInput.value);
+      const acceptedValue = normalizeBranchValue(viewState.approvalBaseBranchAcceptedValue);
+      const accepted = Boolean(viewState.approvalBaseBranchAccepted) && draft.length > 0 && draft === acceptedValue;
+      if (approveButton instanceof HTMLButtonElement) {
+        approveButton.disabled = draft.length === 0 || (requiresExplicitApprovalBranchAcceptance && !accepted);
+      }
+      if (approvalBranchAccept instanceof HTMLElement) {
+        approvalBranchAccept.hidden = !requiresExplicitApprovalBranchAcceptance || accepted;
+      }
+      if (approvalBranchAccepted instanceof HTMLElement) {
+        approvalBranchAccepted.hidden = !accepted;
+      }
+    };
+
+    if (approvalBranchInput instanceof HTMLInputElement) {
+      const restoredDraft = typeof viewState.approvalBaseBranchDraft === "string"
+        ? viewState.approvalBaseBranchDraft
+        : approvalBranchInput.value;
+      approvalBranchInput.value = restoredDraft;
+      approvalBranchInput.addEventListener("input", () => {
+        const draft = approvalBranchInput.value;
+        const acceptedValue = typeof viewState.approvalBaseBranchAcceptedValue === "string"
+          ? viewState.approvalBaseBranchAcceptedValue
+          : "";
+        const accepted = Boolean(viewState.approvalBaseBranchAccepted) && normalizeBranchValue(draft) === normalizeBranchValue(acceptedValue);
+        viewState.approvalBaseBranchDraft = draft;
+        viewState.approvalBaseBranchAccepted = accepted;
+        setApprovalBranchState({
+          draft,
+          accepted,
+          acceptedValue
+        });
+        syncApprovalBranchUi();
+      });
+      syncApprovalBranchUi();
+    }
+
+    if (approvalBranchAccept instanceof HTMLElement && approvalBranchInput instanceof HTMLInputElement) {
+      approvalBranchAccept.addEventListener("click", () => {
+        const draft = approvalBranchInput.value;
+        const acceptedValue = normalizeBranchValue(draft);
+        viewState.approvalBaseBranchDraft = draft;
+        viewState.approvalBaseBranchAccepted = true;
+        viewState.approvalBaseBranchAcceptedValue = acceptedValue;
+        setApprovalBranchState({
+          draft,
+          accepted: true,
+          acceptedValue
+        });
+        syncApprovalBranchUi();
+      });
+    }
+
+    if (approveButton instanceof HTMLButtonElement) {
+      approveButton.addEventListener("click", () => {
+        const baseBranch = approvalBranchInput instanceof HTMLInputElement
+          ? normalizeBranchValue(approvalBranchInput.value)
+          : undefined;
+        if (approveButton.disabled) {
+          return;
+        }
+
+        vscode.postMessage({
+          command: "approve",
+          baseBranch
         });
       });
     }
