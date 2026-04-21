@@ -937,14 +937,25 @@ function wrapHtml(content, busy) {
     .story-row--selected::before {
       content: "";
       position: absolute;
-      left: -8px;
-      right: -10px;
-      top: 50%;
-      height: 52px;
-      transform: translateY(-50%);
-      border-radius: 14px;
-      background: linear-gradient(180deg, rgba(86, 171, 255, 0.94), rgba(23, 82, 152, 0.92));
-      box-shadow: 0 12px 28px rgba(35, 113, 201, 0.3);
+      left: -2px;
+      top: 10px;
+      bottom: 10px;
+      width: 8px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(117, 191, 255, 0.96), rgba(29, 101, 181, 0.94));
+      box-shadow: 0 0 0 1px rgba(117, 191, 255, 0.12), 0 10px 22px rgba(35, 113, 201, 0.18);
+      z-index: -1;
+    }
+    .story-row--selected::after {
+      content: "";
+      position: absolute;
+      right: -4px;
+      top: 10px;
+      bottom: 10px;
+      width: 8px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(117, 191, 255, 0.96), rgba(29, 101, 181, 0.94));
+      box-shadow: 0 0 0 1px rgba(117, 191, 255, 0.1), 0 10px 22px rgba(35, 113, 201, 0.14);
       z-index: -1;
     }
     .story-row--shell > .story-card,
