@@ -1227,7 +1227,7 @@ export function buildWorkflowHtml(
       cursor: pointer;
       box-shadow: 0 18px 28px rgba(0, 0, 0, 0.24);
       transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
-      overflow: hidden;
+      overflow: visible;
       animation: nodeRise 420ms ease both;
     }
     .phase-node::before {
@@ -1252,9 +1252,6 @@ export function buildWorkflowHtml(
     .phase-node-content {
       position: relative;
       z-index: 1;
-    }
-    .phase-node-content--current {
-      padding-left: 56px;
     }
     .phase-node.phase-tone-pending.selected {
       outline: 2px solid rgba(255, 255, 255, 0.24);
@@ -1334,21 +1331,21 @@ export function buildWorkflowHtml(
     }
     .phase-current-rail {
       position: absolute;
-      top: 18px;
-      bottom: 18px;
-      left: 18px;
+      top: 22px;
+      bottom: 22px;
+      left: -48px;
       width: 42px;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-top-left-radius: 18px;
-      border-bottom-left-radius: 18px;
-      border-top-right-radius: 8px;
-      border-bottom-right-radius: 8px;
-      border-right: 1px solid rgba(92, 181, 255, 0.3);
+      border-radius: 18px 0 0 18px;
+      border-right: 1px solid rgba(92, 181, 255, 0.28);
       background: linear-gradient(180deg, rgba(92, 181, 255, 0.32), rgba(15, 34, 56, 0.96));
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-      z-index: 1;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 12px 22px rgba(22, 52, 92, 0.18);
+      z-index: 0;
+      pointer-events: none;
     }
     .phase-current-rail__label {
       display: inline-block;
