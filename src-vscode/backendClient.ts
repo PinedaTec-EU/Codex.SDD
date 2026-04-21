@@ -10,6 +10,7 @@ import {
 import type { SpecForgeSettings } from "./extensionSettings";
 import { buildBackendEnvironment } from "./extensionSettings";
 import { appendSpecForgeDebugLog, appendSpecForgeLog } from "./outputChannel";
+import { asErrorMessage } from "./utils";
 
 export interface UserStorySummary {
   readonly usId: string;
@@ -578,12 +579,4 @@ async function writeAsync(stream: NodeJS.WritableStream, payload: Buffer): Promi
       resolve();
     });
   });
-}
-
-function asErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Unknown backend client error.";
 }

@@ -8,6 +8,7 @@ import {
 } from "./backendClient";
 import { getSpecForgeSettings } from "./extensionSettings";
 import { appendSpecForgeLog } from "./outputChannel";
+import { asErrorMessage } from "./utils";
 import { getCurrentActor } from "./userActor";
 import { closeWorkflowView } from "./workflowPanel";
 import {
@@ -562,14 +563,6 @@ export function disposeBackendClients(): void {
   }
 
   backendClients.clear();
-}
-
-function asErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Unknown extension error.";
 }
 
 async function logUserStoryDiscoveryAsync(

@@ -16,6 +16,7 @@ import {
   type UserStoryWizardDraft
 } from "./userStoryIntake";
 import { readUserWorkspacePreferences, setStarredUserStory } from "./userWorkspacePreferences";
+import { asErrorMessage, getNextAttachmentPathAsync } from "./utils";
 
 type SidebarMessage =
   | { readonly command: "showCreateForm" }
@@ -495,29 +496,6 @@ async function hasInitializedRepoPromptsAsync(workspaceRoot: string): Promise<bo
 async function openTextDocument(filePath: string): Promise<void> {
   const document = await vscode.workspace.openTextDocument(filePath);
   await vscode.window.showTextDocument(document, { preview: false });
-}
-
-async function getNextAttachmentPathAsync(directoryPath: string, fileName: string): Promise<string> {
-  const extension = path.extname(fileName);
-  const baseName = extension.length > 0 ? fileName.slice(0, -extension.length) : fileName;
-
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    const suffix = attempt === 0 ? "" : `.${String(attempt + 1).padStart(2, "0")}`;
-    const candidate = path.join(directoryPath, `${baseName}${suffix}${extension}`);
-    if (!await pathExistsAsync(candidate)) {
-      return candidate;
-    }
-  }
-
-  throw new Error(`Unable to persist '${fileName}' after 100 attempts.`);
-}
-
-function asErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Unknown sidebar error.";
 }
 
 async function openSpecForgeSettingsAsync(): Promise<void> {

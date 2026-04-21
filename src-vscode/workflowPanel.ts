@@ -10,6 +10,7 @@ import { getCurrentActor } from "./userActor";
 import { normalizePlaybackStateAfterManualWorkflowChange } from "./workflowPlaybackState";
 import { buildWorkBranchProposal } from "./workflowBranchName";
 import { buildWorkflowHtml } from "./workflowView";
+import { asErrorMessage, getNextAttachmentPathAsync } from "./utils";
 
 type WorkflowPanelCommand =
   | { readonly command: "selectPhase"; readonly phaseId?: string }
@@ -684,32 +685,7 @@ async function readArtifactContentAsync(artifactPath: string | null | undefined)
   }
 }
 
-async function getNextAttachmentPathAsync(directoryPath: string, fileName: string): Promise<string> {
-  const extension = path.extname(fileName);
-  const baseName = extension.length > 0 ? fileName.slice(0, -extension.length) : fileName;
-
-  for (let version = 1; version < 1000; version++) {
-    const suffix = version === 1 ? "" : `.v${String(version).padStart(2, "0")}`;
-    const candidate = path.join(directoryPath, `${baseName}${suffix}${extension}`);
-    try {
-      await fs.promises.access(candidate, fs.constants.F_OK);
-    } catch {
-      return candidate;
-    }
-  }
-
-  throw new Error(`Unable to allocate attachment path for '${fileName}'.`);
-}
-
 async function openTextDocument(filePath: string): Promise<void> {
   const document = await vscode.workspace.openTextDocument(filePath);
   await vscode.window.showTextDocument(document, { preview: false });
-}
-
-function asErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Unknown workflow view error.";
 }
