@@ -39,6 +39,7 @@ const path = __importStar(require("node:path"));
 const vscode = __importStar(require("vscode"));
 const extensionSettings_1 = require("./extensionSettings");
 const explorerModel_1 = require("./explorerModel");
+const outputChannel_1 = require("./outputChannel");
 const specsExplorer_1 = require("./specsExplorer");
 const sidebarViewContent_1 = require("./sidebarViewContent");
 const userActor_1 = require("./userActor");
@@ -313,6 +314,7 @@ class SidebarViewProvider {
             return;
         }
         const hasPersistedStories = await hasPersistedUserStoriesAsync(workspaceRoot);
+        (0, outputChannel_1.appendSpecForgeLog)(`Sidebar persisted user story probe for '${workspaceRoot}': ${hasPersistedStories}.`);
         const userStories = hasPersistedStories
             ? await (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot).listUserStories()
             : [];
@@ -386,8 +388,18 @@ async function hasPersistedUserStoriesAsync(workspaceRoot) {
     if (!await pathExistsAsync(storiesRoot)) {
         return false;
     }
-    const entries = await fs.promises.readdir(storiesRoot, { withFileTypes: true });
-    return entries.some((entry) => entry.isDirectory() && entry.name.startsWith("us."));
+    const categoryEntries = await fs.promises.readdir(storiesRoot, { withFileTypes: true });
+    for (const categoryEntry of categoryEntries) {
+        if (!categoryEntry.isDirectory()) {
+            continue;
+        }
+        const categoryPath = path.join(storiesRoot, categoryEntry.name);
+        const userStoryEntries = await fs.promises.readdir(categoryPath, { withFileTypes: true });
+        if (userStoryEntries.some((entry) => entry.isDirectory() && /^US-\d+$/i.test(entry.name))) {
+            return true;
+        }
+    }
+    return false;
 }
 async function hasInitializedRepoPromptsAsync(workspaceRoot) {
     const configPath = path.join(workspaceRoot, ".specs", "config.yaml");

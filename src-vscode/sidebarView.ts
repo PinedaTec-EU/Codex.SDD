@@ -4,6 +4,7 @@ import * as vscode from "vscode";
 import type { UserStorySummary } from "./backendClient";
 import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSettings";
 import { DEFAULT_USER_STORY_CATEGORIES, nextUserStoryIdFromSummaries, parseYamlSequence } from "./explorerModel";
+import { appendSpecForgeLog } from "./outputChannel";
 import { getOrCreateBackendClient } from "./specsExplorer";
 import { buildSidebarHtml } from "./sidebarViewContent";
 import { getCurrentActor } from "./userActor";
@@ -362,6 +363,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     }
 
     const hasPersistedStories = await hasPersistedUserStoriesAsync(workspaceRoot);
+    appendSpecForgeLog(`Sidebar persisted user story probe for '${workspaceRoot}': ${hasPersistedStories}.`);
     const userStories = hasPersistedStories
       ? await getOrCreateBackendClient(workspaceRoot).listUserStories()
       : [];
@@ -440,8 +442,20 @@ async function hasPersistedUserStoriesAsync(workspaceRoot: string): Promise<bool
     return false;
   }
 
-  const entries = await fs.promises.readdir(storiesRoot, { withFileTypes: true });
-  return entries.some((entry) => entry.isDirectory() && entry.name.startsWith("us."));
+  const categoryEntries = await fs.promises.readdir(storiesRoot, { withFileTypes: true });
+  for (const categoryEntry of categoryEntries) {
+    if (!categoryEntry.isDirectory()) {
+      continue;
+    }
+
+    const categoryPath = path.join(storiesRoot, categoryEntry.name);
+    const userStoryEntries = await fs.promises.readdir(categoryPath, { withFileTypes: true });
+    if (userStoryEntries.some((entry) => entry.isDirectory() && /^US-\d+$/i.test(entry.name))) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 async function hasInitializedRepoPromptsAsync(workspaceRoot: string): Promise<boolean> {
