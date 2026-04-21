@@ -1057,32 +1057,6 @@ function wrapHtml(content, busy) {
       background: linear-gradient(180deg, rgba(255, 139, 139, 0.22), rgba(56, 18, 18, 0.92));
       border-right-color: rgba(255, 139, 139, 0.18);
     }
-    .story-card--status-active .story-card__phase-rail,
-    .story-card--status-running .story-card__phase-rail,
-    .story-card--status-executing .story-card__phase-rail,
-    .story-card--status-in-progress .story-card__phase-rail {
-      background: linear-gradient(180deg, rgba(92, 181, 255, 0.3), rgba(15, 34, 56, 0.96));
-      border-right-color: rgba(92, 181, 255, 0.28);
-    }
-    .story-card--status-waiting-user .story-card__phase-rail,
-    .story-card--status-needs-user-input .story-card__phase-rail {
-      background: linear-gradient(180deg, rgba(255, 213, 90, 0.32), rgba(74, 52, 9, 0.96));
-      border-right-color: rgba(255, 213, 90, 0.28);
-    }
-    .story-card--status-paused .story-card__phase-rail,
-    .story-card--status-stopped .story-card__phase-rail,
-    .story-card--status-stopping .story-card__phase-rail {
-      background: linear-gradient(180deg, rgba(151, 161, 176, 0.26), rgba(39, 44, 54, 0.96));
-      border-right-color: rgba(151, 161, 176, 0.24);
-    }
-    .story-card--status-blocked .story-card__phase-rail {
-      background: linear-gradient(180deg, rgba(255, 139, 139, 0.3), rgba(56, 18, 18, 0.96));
-      border-right-color: rgba(255, 139, 139, 0.28);
-    }
-    .story-card--status-completed .story-card__phase-rail {
-      background: linear-gradient(180deg, rgba(114, 241, 184, 0.28), rgba(18, 46, 36, 0.96));
-      border-right-color: rgba(114, 241, 184, 0.26);
-    }
     .story-actions {
       display: grid;
       grid-template-rows: 1fr 1fr;
