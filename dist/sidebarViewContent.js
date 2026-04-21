@@ -923,6 +923,8 @@ function wrapHtml(content, busy) {
       align-items: stretch;
     }
     .story-row--shell {
+      --story-selection-edge-solid: rgba(96, 185, 255, 0.9);
+      --story-selection-edge-glow: rgba(44, 120, 210, 0.32);
       position: relative;
       padding: 10px;
       border-radius: 24px;
@@ -971,8 +973,8 @@ function wrapHtml(content, busy) {
     }
     .story-row--selected .story-card {
       box-shadow:
-        inset 5px 0 0 rgba(96, 185, 255, 0.9),
-        inset 14px 0 18px rgba(44, 120, 210, 0.32);
+        inset 5px 0 0 var(--story-selection-edge-solid),
+        inset 14px 0 18px var(--story-selection-edge-glow);
     }
     .story-actions {
       background:
@@ -983,8 +985,28 @@ function wrapHtml(content, busy) {
     }
     .story-row--selected .story-actions {
       box-shadow:
-        inset -5px 0 0 rgba(96, 185, 255, 0.88),
-        inset -14px 0 18px rgba(44, 120, 210, 0.28);
+        inset -5px 0 0 var(--story-selection-edge-solid),
+        inset -14px 0 18px var(--story-selection-edge-glow);
+    }
+    .story-row--phase-capture,
+    .story-row--phase-clarification {
+      --story-selection-edge-solid: rgba(134, 255, 202, 0.96);
+      --story-selection-edge-glow: rgba(74, 191, 141, 0.34);
+    }
+    .story-row--phase-refinement,
+    .story-row--phase-technical-design {
+      --story-selection-edge-solid: rgba(128, 205, 255, 0.96);
+      --story-selection-edge-glow: rgba(62, 142, 224, 0.34);
+    }
+    .story-row--phase-implementation,
+    .story-row--phase-review {
+      --story-selection-edge-solid: rgba(255, 209, 142, 0.96);
+      --story-selection-edge-glow: rgba(214, 142, 58, 0.32);
+    }
+    .story-row--phase-release-approval,
+    .story-row--phase-pr-preparation {
+      --story-selection-edge-solid: rgba(255, 171, 171, 0.96);
+      --story-selection-edge-glow: rgba(204, 86, 86, 0.32);
     }
     .story-card__content {
       display: grid;
@@ -1483,7 +1505,7 @@ function sortStoriesByPhase(items) {
 function buildStoryRowMarkup(summary, starredUserStoryId, activeWorkflowUsId) {
     const isActiveWorkflow = activeWorkflowUsId === summary.usId;
     return `
-    <div class="story-row story-row--shell${isActiveWorkflow ? " story-row--selected" : ""}">
+    <div class="story-row story-row--shell story-row--phase-${escapeHtmlAttr(summary.currentPhase)}${isActiveWorkflow ? " story-row--selected" : ""}">
       <button class="story-card${shouldRenderPhaseRail(summary.status) ? ` story-card--active story-card--phase-${escapeHtmlAttr(summary.currentPhase)} story-card--status-${escapeHtmlAttr(phaseRailStatus(summary.status))}` : ""}" data-command="openWorkflow" data-us-id="${escapeHtmlAttr(summary.usId)}">
         ${shouldRenderPhaseRail(summary.status)
         ? `
