@@ -1452,6 +1452,10 @@ export function buildWorkflowHtml(
       display: none;
     }
     .phase-node {
+      --phase-surface-top: rgb(24, 49, 82);
+      --phase-surface-bottom: rgb(10, 20, 32);
+      --phase-surface-border: rgba(92, 181, 255, 0.3);
+      --phase-surface-shadow: rgba(48, 120, 255, 0.14);
       position: absolute;
       left: var(--phase-left-desktop);
       top: var(--phase-top-desktop);
@@ -1509,6 +1513,34 @@ export function buildWorkflowHtml(
       position: relative;
       z-index: 2;
     }
+    .phase-node.capture,
+    .phase-node.clarification {
+      --phase-surface-top: rgb(18, 44, 34);
+      --phase-surface-bottom: rgb(10, 20, 17);
+      --phase-surface-border: rgba(114, 241, 184, 0.32);
+      --phase-surface-shadow: rgba(40, 126, 92, 0.16);
+    }
+    .phase-node.refinement,
+    .phase-node.technical-design {
+      --phase-surface-top: rgb(24, 49, 82);
+      --phase-surface-bottom: rgb(10, 20, 32);
+      --phase-surface-border: rgba(92, 181, 255, 0.34);
+      --phase-surface-shadow: rgba(48, 120, 255, 0.16);
+    }
+    .phase-node.implementation,
+    .phase-node.review {
+      --phase-surface-top: rgb(74, 56, 12);
+      --phase-surface-bottom: rgb(24, 18, 7);
+      --phase-surface-border: rgba(255, 193, 120, 0.32);
+      --phase-surface-shadow: rgba(154, 118, 24, 0.18);
+    }
+    .phase-node.release-approval,
+    .phase-node.pr-preparation {
+      --phase-surface-top: rgb(54, 23, 23);
+      --phase-surface-bottom: rgb(20, 10, 10);
+      --phase-surface-border: rgba(255, 139, 139, 0.32);
+      --phase-surface-shadow: rgba(140, 38, 38, 0.16);
+    }
     .phase-node.phase-tone-pending.selected {
       outline: 2px solid rgba(255, 255, 255, 0.24);
       outline-offset: 2px;
@@ -1559,8 +1591,8 @@ export function buildWorkflowHtml(
       box-shadow: 0 18px 30px rgba(140, 38, 38, 0.16);
     }
     .phase-node.phase-tone-completed {
-      background: linear-gradient(180deg, rgb(18, 44, 34), rgb(10, 20, 17));
-      border-color: rgba(114, 241, 184, 0.24);
+      background: linear-gradient(180deg, var(--phase-surface-top), var(--phase-surface-bottom));
+      border-color: color-mix(in srgb, var(--phase-surface-border) 78%, rgba(114, 241, 184, 0.14) 22%);
     }
     .phase-node.phase-tone-pending {
       background:
