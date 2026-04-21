@@ -6,14 +6,14 @@ const phaseNodeWidth = 220;
 const phaseNodeHeight = 152;
 const mobilePhaseNodeWidth = 188;
 const phaseSequence = [
-    { phaseId: "capture", requiresApproval: false },
-    { phaseId: "clarification", requiresApproval: false },
-    { phaseId: "refinement", requiresApproval: true },
-    { phaseId: "technical-design", requiresApproval: true },
-    { phaseId: "implementation", requiresApproval: false },
-    { phaseId: "review", requiresApproval: false },
-    { phaseId: "release-approval", requiresApproval: true },
-    { phaseId: "pr-preparation", requiresApproval: false }
+    { phaseId: "capture", expectsHumanIntervention: false },
+    { phaseId: "clarification", expectsHumanIntervention: true },
+    { phaseId: "refinement", expectsHumanIntervention: true },
+    { phaseId: "technical-design", expectsHumanIntervention: false },
+    { phaseId: "implementation", expectsHumanIntervention: false },
+    { phaseId: "review", expectsHumanIntervention: false },
+    { phaseId: "release-approval", expectsHumanIntervention: true },
+    { phaseId: "pr-preparation", expectsHumanIntervention: false }
 ];
 const desktopLayoutConfig = {
     columns: { left: 20, right: 400 },
@@ -45,19 +45,22 @@ function computeGraphWidth(positions, nodeWidth, rightPadding) {
     const maxLeft = Math.max(...Object.values(positions).map((position) => position.left));
     return maxLeft + nodeWidth + rightPadding;
 }
-function resolvePhaseColumn(requiresApproval) {
-    return requiresApproval ? "right" : "left";
+function expectsHumanIntervention(phaseId, requiresApproval) {
+    return phaseId === "clarification" || requiresApproval;
+}
+function resolvePhaseColumn(expectsHumanIntervention) {
+    return expectsHumanIntervention ? "right" : "left";
 }
 function buildPhaseLayout(phases, config, nodeWidth) {
     const positions = {};
     let previousPhase = null;
     for (const phase of phases) {
-        const column = resolvePhaseColumn(phase.requiresApproval);
+        const column = resolvePhaseColumn(phase.expectsHumanIntervention);
         const left = config.columns[column];
         let top = config.topOffset;
         if (previousPhase) {
             const previousPosition = positions[previousPhase.phaseId];
-            const previousColumn = resolvePhaseColumn(previousPhase.requiresApproval);
+            const previousColumn = resolvePhaseColumn(previousPhase.expectsHumanIntervention);
             const sameColumn = previousColumn === column;
             const verticalStep = sameColumn
                 ? phaseNodeHeight + config.sameColumnGap
@@ -2459,7 +2462,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
     const visiblePhases = workflow.phases.filter((phase) => shouldShowPhase(phase.phaseId, clarificationVisible, currentPhase.phaseId, executionPhaseId));
     const layoutPhases = visiblePhases.map((phase) => ({
         phaseId: phase.phaseId,
-        requiresApproval: phase.requiresApproval
+        expectsHumanIntervention: expectsHumanIntervention(phase.phaseId, phase.requiresApproval)
     }));
     const desktopLayout = buildPhaseLayout(layoutPhases, desktopLayoutConfig, phaseNodeWidth);
     const mobileLayout = buildPhaseLayout(layoutPhases, mobileLayoutConfig, mobilePhaseNodeWidth);

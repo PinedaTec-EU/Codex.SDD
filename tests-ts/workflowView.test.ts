@@ -689,7 +689,7 @@ test("buildWorkflowHtml computes deterministic two-column graph positions with o
   }, "idle");
 
   assert.match(html, /phase-node capture[\s\S]*?--phase-left-desktop: 20px; --phase-top-desktop: 40px; --phase-left-mobile: 0px; --phase-top-mobile: 16px/);
-  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop: 20px; --phase-top-desktop: 224px; --phase-left-mobile: 0px; --phase-top-mobile: 194px/);
+  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 146px; --phase-left-mobile: 176px; --phase-top-mobile: 122px/);
   assert.match(html, /phase-node refinement[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 330px; --phase-left-mobile: 176px; --phase-top-mobile: 300px/);
   assert.match(html, /phase-graph" aria-label="Workflow graph" style="--graph-width-desktop: 708px; --graph-height-desktop: 578px; --graph-width-mobile: 452px; --graph-height-mobile: 548px;/);
 });
@@ -1482,7 +1482,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop: 20px; --phase-top-desktop: 224px;/);
+  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 146px;/);
   assert.match(html, /phase-node technical-design[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 514px;/);
   assert.match(html, /phase-node implementation[\s\S]*?--phase-left-desktop: 20px; --phase-top-desktop: 620px;/);
   assert.match(html, /phase-node review[\s\S]*?--phase-left-desktop: 20px; --phase-top-desktop: 804px;/);
