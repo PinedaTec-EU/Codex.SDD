@@ -5,6 +5,7 @@ import type { SpecForgeBackendClient, UserStorySummary, UserStoryWorkflowDetails
 import { suggestContextFiles } from "./contextSuggestions";
 import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSettings";
 import { appendSpecForgeDebugLog, appendSpecForgeLog, isSpecForgeDebugLoggingEnabled, showSpecForgeOutput } from "./outputChannel";
+import { readRuntimeVersionAsync } from "./runtimeVersion";
 import { getCurrentActor } from "./userActor";
 import { normalizePlaybackStateAfterManualWorkflowChange } from "./workflowPlaybackState";
 import { buildWorkflowHtml } from "./workflowView";
@@ -564,6 +565,7 @@ class WorkflowPanelController {
     const contextSuggestions = settings.contextSuggestionsEnabled && workflow.currentPhase === "clarification"
       ? await suggestContextFiles(this.workspaceRoot, workflow, sourceText)
       : [];
+    const runtimeVersion = await readRuntimeVersionAsync();
     this.panel.title = `${workflow.usId} workflow`;
     this.panel.webview.html = buildWorkflowHtml(workflow, {
       selectedPhaseId: this.selectedPhaseId,
@@ -572,6 +574,7 @@ class WorkflowPanelController {
       contextSuggestions,
       settingsConfigured: settingsStatus.executionConfigured,
       settingsMessage: settingsStatus.message,
+      runtimeVersion,
       executionPhaseId: this.transientExecutionPhaseId,
       completedPhaseIds: this.transientCompletedPhaseIds,
       debugMode: isSpecForgeDebugLoggingEnabled(),

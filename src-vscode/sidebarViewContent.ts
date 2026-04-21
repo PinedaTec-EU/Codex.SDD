@@ -14,6 +14,7 @@ export interface SidebarViewModel {
   readonly settingsConfigured: boolean;
   readonly settingsMessage: string | null;
   readonly starredUserStoryId: string | null;
+  readonly runtimeVersion: string | null;
   readonly viewMode: "category" | "phase";
   readonly createFileMode?: "context" | "attachment";
   readonly createFiles?: readonly DraftCreateFile[];
@@ -31,7 +32,10 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
     return wrapHtml(`
       ${busyIndicatorMarkup}
       <section class="empty-state">
-        <p class="eyebrow">SpecForge.AI</p>
+        <div class="panel-caption">
+          <p class="eyebrow">SpecForge.AI</p>
+          ${buildRuntimeVersionMarkup(model.runtimeVersion)}
+        </div>
         <h1>Open a workspace to start.</h1>
         <p class="copy">The sidebar needs a workspace folder to persist user stories under <code>.specs/</code>.</p>
       </section>
@@ -57,7 +61,10 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
       <section class="empty-state hero">
         <div class="hero-header">
           <div>
-            <p class="eyebrow">SpecForge.AI</p>
+            <div class="panel-caption">
+              <p class="eyebrow">SpecForge.AI</p>
+              ${buildRuntimeVersionMarkup(model.runtimeVersion)}
+            </div>
             <h1>Create your first user story</h1>
           </div>
         </div>
@@ -265,7 +272,10 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
     <section class="story-list">
       <div class="section-header">
         <div>
-          <p class="eyebrow">User Stories</p>
+          <div class="panel-caption">
+            <p class="eyebrow">User Stories</p>
+            ${buildRuntimeVersionMarkup(model.runtimeVersion)}
+          </div>
           <h2>${model.viewMode === "phase" ? "Workflow backlog by phase" : "Workflow backlog"}</h2>
         </div>
         ${buildCompactActions(model)}
@@ -307,6 +317,12 @@ function buildBusyIndicatorMarkup(model: SidebarViewModel): string {
       </div>
     </section>
   `;
+}
+
+function buildRuntimeVersionMarkup(runtimeVersion: string | null): string {
+  return runtimeVersion
+    ? `<span class="runtime-version">v.${escapeHtml(runtimeVersion)}</span>`
+    : "";
 }
 
 function buildCreateActionButton(enabled: boolean): string {
@@ -488,6 +504,17 @@ function wrapHtml(content: string, busy: boolean): string {
       letter-spacing: 0.16em;
       font-size: 0.72rem;
       color: #72f1b8;
+    }
+    .panel-caption {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .runtime-version {
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      color: rgba(166, 255, 206, 0.78);
     }
     .eyebrow.warning {
       color: #ffd75a;

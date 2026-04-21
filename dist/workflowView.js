@@ -755,6 +755,21 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       font-size: 0.72rem;
       color: var(--accent);
     }
+    .hero-caption {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .hero-caption .eyebrow {
+      margin: 0;
+    }
+    .runtime-version {
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      color: rgba(166, 255, 206, 0.78);
+    }
     h1 {
       margin: 0;
       font-size: clamp(1.7rem, 3vw, 2.55rem);
@@ -2154,7 +2169,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     <section class="panel hero">
       <div class="hero-head">
         <div>
-          <p class="eyebrow">SpecForge.AI Workflow Graph</p>
+          <div class="hero-caption">
+            <p class="eyebrow">SpecForge.AI Workflow Graph</p>
+            ${state.runtimeVersion ? `<span class="runtime-version">v.${escapeHtml(state.runtimeVersion)}</span>` : ""}
+          </div>
           <h1>${escapeHtml(buildWorkflowHeroTitle(workflow))}</h1>
           <div class="hero-meta">
             <span class="token accent">${escapeHtml(workflow.category)}</span>

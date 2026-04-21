@@ -44,6 +44,7 @@ const vscode = __importStar(require("vscode"));
 const contextSuggestions_1 = require("./contextSuggestions");
 const extensionSettings_1 = require("./extensionSettings");
 const outputChannel_1 = require("./outputChannel");
+const runtimeVersion_1 = require("./runtimeVersion");
 const userActor_1 = require("./userActor");
 const workflowPlaybackState_1 = require("./workflowPlaybackState");
 const workflowView_1 = require("./workflowView");
@@ -484,6 +485,7 @@ class WorkflowPanelController {
         const contextSuggestions = settings.contextSuggestionsEnabled && workflow.currentPhase === "clarification"
             ? await (0, contextSuggestions_1.suggestContextFiles)(this.workspaceRoot, workflow, sourceText)
             : [];
+        const runtimeVersion = await (0, runtimeVersion_1.readRuntimeVersionAsync)();
         this.panel.title = `${workflow.usId} workflow`;
         this.panel.webview.html = (0, workflowView_1.buildWorkflowHtml)(workflow, {
             selectedPhaseId: this.selectedPhaseId,
@@ -492,6 +494,7 @@ class WorkflowPanelController {
             contextSuggestions,
             settingsConfigured: settingsStatus.executionConfigured,
             settingsMessage: settingsStatus.message,
+            runtimeVersion,
             executionPhaseId: this.transientExecutionPhaseId,
             completedPhaseIds: this.transientCompletedPhaseIds,
             debugMode: (0, outputChannel_1.isSpecForgeDebugLoggingEnabled)(),

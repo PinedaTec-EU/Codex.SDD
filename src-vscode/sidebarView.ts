@@ -5,6 +5,7 @@ import type { UserStorySummary } from "./backendClient";
 import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSettings";
 import { DEFAULT_USER_STORY_CATEGORIES, nextUserStoryIdFromSummaries, parseYamlSequence } from "./explorerModel";
 import { appendSpecForgeLog } from "./outputChannel";
+import { readRuntimeVersionAsync } from "./runtimeVersion";
 import { getOrCreateBackendClient } from "./specsExplorer";
 import { buildSidebarHtml } from "./sidebarViewContent";
 import { getCurrentActor } from "./userActor";
@@ -352,6 +353,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     const workspaceRoot = getWorkspaceRoot();
     if (!workspaceRoot) {
       const settingsStatus = getSpecForgeSettingsStatus(getSpecForgeSettings());
+      const runtimeVersion = await readRuntimeVersionAsync();
       this.webviewView.webview.html = buildSidebarHtml({
         hasWorkspace: false,
         showCreateForm: false,
@@ -360,6 +362,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         settingsConfigured: settingsStatus.executionConfigured,
         settingsMessage: settingsStatus.message,
         starredUserStoryId: null,
+        runtimeVersion,
         viewMode: this.viewMode,
         createFileMode: this.createFileMode,
         createFiles: this.createFiles,
@@ -378,6 +381,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     const promptsInitialized = await hasInitializedRepoPromptsAsync(workspaceRoot);
     const settingsStatus = getSpecForgeSettingsStatus(getSpecForgeSettings());
     const preferences = await readUserWorkspacePreferences(workspaceRoot);
+    const runtimeVersion = await readRuntimeVersionAsync();
     this.webviewView.webview.html = buildSidebarHtml({
       hasWorkspace: true,
       showCreateForm: this.showCreateForm,
@@ -386,6 +390,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       settingsConfigured: settingsStatus.executionConfigured,
       settingsMessage: settingsStatus.message,
       starredUserStoryId: preferences.starredUserStoryId,
+      runtimeVersion,
       viewMode: this.viewMode,
       createFileMode: this.createFileMode,
       createFiles: this.createFiles,
@@ -410,6 +415,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         settingsConfigured: false,
         settingsMessage: "SpecForge.AI settings could not be evaluated.",
         starredUserStoryId: null,
+        runtimeVersion: await readRuntimeVersionAsync(),
         viewMode: this.viewMode,
         createFileMode: this.createFileMode,
         createFiles: this.createFiles,

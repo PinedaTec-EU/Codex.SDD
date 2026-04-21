@@ -40,6 +40,7 @@ const vscode = __importStar(require("vscode"));
 const extensionSettings_1 = require("./extensionSettings");
 const explorerModel_1 = require("./explorerModel");
 const outputChannel_1 = require("./outputChannel");
+const runtimeVersion_1 = require("./runtimeVersion");
 const specsExplorer_1 = require("./specsExplorer");
 const sidebarViewContent_1 = require("./sidebarViewContent");
 const userActor_1 = require("./userActor");
@@ -303,6 +304,7 @@ class SidebarViewProvider {
         const workspaceRoot = getWorkspaceRoot();
         if (!workspaceRoot) {
             const settingsStatus = (0, extensionSettings_1.getSpecForgeSettingsStatus)((0, extensionSettings_1.getSpecForgeSettings)());
+            const runtimeVersion = await (0, runtimeVersion_1.readRuntimeVersionAsync)();
             this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
                 hasWorkspace: false,
                 showCreateForm: false,
@@ -311,6 +313,7 @@ class SidebarViewProvider {
                 settingsConfigured: settingsStatus.executionConfigured,
                 settingsMessage: settingsStatus.message,
                 starredUserStoryId: null,
+                runtimeVersion,
                 viewMode: this.viewMode,
                 createFileMode: this.createFileMode,
                 createFiles: this.createFiles,
@@ -328,6 +331,7 @@ class SidebarViewProvider {
         const promptsInitialized = await hasInitializedRepoPromptsAsync(workspaceRoot);
         const settingsStatus = (0, extensionSettings_1.getSpecForgeSettingsStatus)((0, extensionSettings_1.getSpecForgeSettings)());
         const preferences = await (0, userWorkspacePreferences_1.readUserWorkspacePreferences)(workspaceRoot);
+        const runtimeVersion = await (0, runtimeVersion_1.readRuntimeVersionAsync)();
         this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
             hasWorkspace: true,
             showCreateForm: this.showCreateForm,
@@ -336,6 +340,7 @@ class SidebarViewProvider {
             settingsConfigured: settingsStatus.executionConfigured,
             settingsMessage: settingsStatus.message,
             starredUserStoryId: preferences.starredUserStoryId,
+            runtimeVersion,
             viewMode: this.viewMode,
             createFileMode: this.createFileMode,
             createFiles: this.createFiles,
@@ -359,6 +364,7 @@ class SidebarViewProvider {
                 settingsConfigured: false,
                 settingsMessage: "SpecForge.AI settings could not be evaluated.",
                 starredUserStoryId: null,
+                runtimeVersion: await (0, runtimeVersion_1.readRuntimeVersionAsync)(),
                 viewMode: this.viewMode,
                 createFileMode: this.createFileMode,
                 createFiles: this.createFiles,
