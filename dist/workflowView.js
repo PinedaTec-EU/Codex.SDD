@@ -219,8 +219,11 @@ function heroTokenTone(value) {
     switch (value) {
         case "waiting-user":
         case "needs-user-input":
+        case "needs_clarification":
         case "runner:paused":
             return "attention";
+        case "ready_for_refinement":
+            return "success";
         case "runner:stopping":
             return "paused";
         case "blocked":
@@ -319,7 +322,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           <h2>SpecForge.AI settings are incomplete</h2>
           <p class="panel-copy warning-copy">${escapeHtml(state.settingsMessage)}</p>
         </div>
-        <button data-command="openSettings">Configure Settings</button>
+        <button class="workflow-action-button" data-command="openSettings">Configure Settings</button>
       </section>
     `
         : "";
@@ -379,11 +382,12 @@ function buildWorkflowHtml(workflow, state, playbackState) {
             ? `
         <div class="detail-actions detail-actions--artifact">
           <div class="artifact-view-label">
-            <span class="badge">Raw Artifact</span>
+            <span class="badge badge--attention">Raw Artifact</span>
           </div>
           <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.artifactPath)}">Open Artifact</button>
         </div>
-        <p class="muted">Clarification questions are shown in the structured form below to avoid duplicating the raw artifact preview.</p>
+        ${artifactPreviewHtml ? `<div class="markdown-preview markdown-preview--raw-artifact">${artifactPreviewHtml}</div>` : `<pre class="artifact-preview artifact-preview--raw-artifact">${escapeHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")}</pre>`}
+        <p class="muted">The raw artifact stays visible here to preserve model context beyond the structured clarification questions below.</p>
       `
             : `
         <div class="detail-actions detail-actions--artifact">
@@ -451,7 +455,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         <button class="file-kind-toggle__option file-kind-toggle__option--active" type="button" data-file-kind-option="context">Context</button>
         <button class="file-kind-toggle__option" type="button" data-file-kind-option="attachment">US Info</button>
       </div>
-      <button data-command="attachFiles" data-kind="context" data-attach-files-button>Add Files</button>
+      <button class="workflow-action-button" data-command="attachFiles" data-kind="context" data-attach-files-button>Add Files</button>
     </div>
     <div class="file-groups">
       <section class="file-group" data-file-drop-zone data-drop-kind="context">
@@ -529,7 +533,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         ? `
       <div class="clarification-shell">
         <div class="clarification-meta">
-          <span class="badge">${escapeHtml(workflow.clarification.status)}</span>
+          <span class="badge${heroTokenClass(workflow.clarification.status)}">${escapeHtml(workflow.clarification.status)}</span>
           <span class="badge">${escapeHtml(workflow.clarification.tolerance)}</span>
         </div>
         ${workflow.clarification.reason ? `<p class="clarification-reason">${escapeHtml(workflow.clarification.reason)}</p>` : ""}
@@ -549,7 +553,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
               `).join("")}
             </div>
             <div class="detail-actions">
-              <button id="submit-clarification-answers" ${selectedPhase.isCurrent ? "" : "disabled"}>
+              <button id="submit-clarification-answers" class="workflow-action-button" ${selectedPhase.isCurrent ? "" : "disabled"}>
                 Submit Answers
               </button>
             </div>
@@ -604,6 +608,14 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       --phase-pending: rgba(255, 255, 255, 0.04);
       --danger: #ff8b8b;
       --shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+      --attention-egg: #ffd75a;
+      --attention-egg-soft: rgba(255, 213, 90, 0.16);
+      --attention-egg-border: rgba(255, 213, 90, 0.34);
+      --attention-egg-shadow: rgba(255, 213, 90, 0.26);
+      --action-primary-bg: linear-gradient(180deg, rgba(114, 241, 184, 0.16), rgba(18, 33, 28, 0.92));
+      --action-primary-bg-hover: linear-gradient(180deg, rgba(114, 241, 184, 0.24), rgba(18, 33, 28, 0.94));
+      --action-primary-border: rgba(114, 241, 184, 0.18);
+      --action-primary-border-hover: rgba(114, 241, 184, 0.38);
     }
     * {
       box-sizing: border-box;
@@ -760,6 +772,12 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       border: 1px solid rgba(255, 255, 255, 0.06);
       backdrop-filter: blur(8px);
     }
+    .badge.token--attention, .badge.badge--attention {
+      background: var(--attention-egg-soft);
+      color: #ffe17b;
+      border-color: var(--attention-egg-border);
+      box-shadow: 0 0 0 1px rgba(255, 213, 90, 0.08);
+    }
     .success {
       background: rgba(46, 160, 67, 0.16);
       color: #7ff0a5;
@@ -800,9 +818,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       border-color: rgba(114, 241, 184, 0.24);
     }
     .token.token--attention {
-      background: rgba(255, 213, 90, 0.16);
+      background: var(--attention-egg-soft);
       color: #ffe17b;
-      border-color: rgba(255, 213, 90, 0.34);
+      border-color: var(--attention-egg-border);
       box-shadow: 0 0 0 1px rgba(255, 213, 90, 0.06);
     }
     .token.token--active {
@@ -898,10 +916,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       margin-left: 2px;
     }
     .control-strip button, .attachment-item, .settings-warning button, .workflow-files-dialog__close {
-      border: 1px solid rgba(114, 241, 184, 0.18);
+      border: 1px solid var(--action-primary-border);
       border-radius: 14px;
       padding: 10px 14px;
-      background: linear-gradient(180deg, rgba(114, 241, 184, 0.16), rgba(18, 33, 28, 0.92));
+      background: var(--action-primary-bg);
       color: #f2fff9;
       cursor: pointer;
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
@@ -909,8 +927,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .control-strip button:hover, .attachment-item:hover, .settings-warning button:hover, .workflow-files-dialog__close:hover {
       transform: translateY(-1px);
-      border-color: rgba(114, 241, 184, 0.38);
-      background: linear-gradient(180deg, rgba(114, 241, 184, 0.24), rgba(18, 33, 28, 0.94));
+      border-color: var(--action-primary-border-hover);
+      background: var(--action-primary-bg-hover);
     }
     .control-strip button:disabled, .workflow-files-dialog__close:disabled {
       opacity: 0.46;
@@ -1126,6 +1144,22 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       outline: 2px solid rgba(114, 241, 184, 0.52);
       outline-offset: 2px;
     }
+    .phase-node.phase-node--current {
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.05),
+        0 0 0 4px rgba(255, 213, 90, 0.12),
+        0 22px 38px rgba(0, 0, 0, 0.28),
+        0 0 0 10px rgba(255, 213, 90, 0.06);
+    }
+    .phase-node.phase-node--current::after {
+      content: "";
+      position: absolute;
+      inset: -10px;
+      border-radius: 34px;
+      border: 1px solid rgba(255, 213, 90, 0.2);
+      box-shadow: 0 0 32px rgba(255, 213, 90, 0.16);
+      pointer-events: none;
+    }
     .phase-node.phase-tone-pending.selected {
       outline: 2px solid rgba(255, 255, 255, 0.24);
       outline-offset: 2px;
@@ -1139,7 +1173,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       outline-offset: 2px;
     }
     .phase-node.phase-tone-waiting-user.selected {
-      outline: 2px solid rgba(255, 213, 90, 0.54);
+      outline: 2px solid rgba(255, 213, 90, 0.72);
       outline-offset: 2px;
     }
     .phase-node.phase-tone-paused.selected {
@@ -1162,8 +1196,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .phase-node.phase-tone-waiting-user {
       background: linear-gradient(180deg, rgba(74, 56, 12, 0.96), rgba(24, 18, 7, 0.98));
-      border-color: rgba(255, 213, 90, 0.34);
-      box-shadow: 0 20px 34px rgba(154, 118, 24, 0.16);
+      border-color: rgba(255, 213, 90, 0.5);
+      box-shadow: 0 20px 34px rgba(154, 118, 24, 0.24);
     }
     .phase-node.phase-tone-paused {
       background: linear-gradient(180deg, rgba(34, 39, 46, 0.94), rgba(16, 20, 27, 0.98));
@@ -1226,8 +1260,35 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       box-shadow: 0 0 0 8px rgba(89, 187, 255, 0.12);
     }
     .phase-node.phase-tone-waiting-user .phase-status-dot {
-      background: #ffd75a;
-      box-shadow: 0 0 0 8px rgba(255, 213, 90, 0.1);
+      background: var(--attention-egg);
+      box-shadow: 0 0 0 8px rgba(255, 213, 90, 0.14);
+    }
+    .phase-current-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 6px 10px;
+      width: fit-content;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 213, 90, 0.28);
+      background: linear-gradient(180deg, rgba(255, 213, 90, 0.18), rgba(68, 51, 13, 0.88));
+      color: #fff1b8;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      position: relative;
+      z-index: 1;
+    }
+    .phase-current-indicator::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--attention-egg);
+      box-shadow: 0 0 0 6px rgba(255, 213, 90, 0.12);
+      animation: currentAttentionPulse 1.8s ease-in-out infinite;
     }
     .phase-node.phase-tone-paused .phase-status-dot {
       background: #b3bbc6;
@@ -1278,8 +1339,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       color: #90d2ff;
     }
     .phase-tag.phase-tag--waiting-user {
-      background: rgba(255, 213, 90, 0.16);
+      background: var(--attention-egg-soft);
       color: #ffe17b;
+      border: 1px solid rgba(255, 213, 90, 0.22);
     }
     .phase-tag.phase-tag--paused {
       background: rgba(179, 187, 198, 0.14);
@@ -1522,10 +1584,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       justify-content: flex-start;
     }
     .workflow-action-button {
-      border: 1px solid rgba(114, 241, 184, 0.18);
+      border: 1px solid var(--action-primary-border);
       border-radius: 14px;
       padding: 10px 14px;
-      background: linear-gradient(180deg, rgba(114, 241, 184, 0.16), rgba(18, 33, 28, 0.92));
+      background: var(--action-primary-bg);
       color: #f2fff9;
       cursor: pointer;
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
@@ -1534,8 +1596,14 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .workflow-action-button:hover {
       transform: translateY(-1px);
-      border-color: rgba(114, 241, 184, 0.38);
-      background: linear-gradient(180deg, rgba(114, 241, 184, 0.24), rgba(18, 33, 28, 0.94));
+      border-color: var(--action-primary-border-hover);
+      background: var(--action-primary-bg-hover);
+    }
+    .workflow-action-button:disabled {
+      opacity: 0.46;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
     }
     .workflow-action-button.workflow-action-button--approve {
       border-color: rgba(114, 241, 184, 0.28);
@@ -1571,6 +1639,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       border-color: rgba(255, 170, 84, 0.28);
       background: linear-gradient(180deg, rgba(255, 170, 84, 0.18), rgba(46, 31, 14, 0.94));
       color: #ffe3b8;
+    }
+    .artifact-preview--raw-artifact, .markdown-preview--raw-artifact {
+      border-color: rgba(255, 213, 90, 0.18);
+      box-shadow: inset 0 0 0 1px rgba(255, 213, 90, 0.04);
     }
     .workflow-action-button--compact {
       align-self: center;
@@ -1782,6 +1854,16 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       }
       50% {
         box-shadow: 0 24px 42px rgba(48, 120, 255, 0.22), 0 0 0 12px rgba(92, 181, 255, 0.04);
+      }
+    }
+    @keyframes currentAttentionPulse {
+      0%, 100% {
+        box-shadow: 0 0 0 6px rgba(255, 213, 90, 0.12);
+        opacity: 1;
+      }
+      50% {
+        box-shadow: 0 0 0 12px rgba(255, 213, 90, 0.04);
+        opacity: 0.92;
       }
     }
     @keyframes nodeRise {
@@ -2322,7 +2404,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         const displayState = phaseToneLabel(visualTone, phase.state);
         return `
     <button
-      class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phase.phaseId === selectedPhaseId ? " selected" : ""}"
+      class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phase.phaseId === selectedPhaseId ? " selected" : ""}${phase.isCurrent ? " phase-node--current" : ""}"
       data-command="selectPhase"
       data-phase-id="${escapeHtmlAttribute(phase.phaseId)}">
       <div class="phase-node-header">
@@ -2331,6 +2413,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
       </div>
       <h3>${escapeHtml(phase.title)}</h3>
       <div class="phase-slug">${escapeHtml(phaseSecondaryLabel(phase))}</div>
+      ${phase.isCurrent ? `<div class="phase-current-indicator">Current Phase</div>` : ""}
       <div class="phase-tags">
         <span class="phase-tag phase-tag--${escapeHtmlAttribute(visualTone)}">${escapeHtml(displayState)}</span>
         ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}

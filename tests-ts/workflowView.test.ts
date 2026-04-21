@@ -92,7 +92,8 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /US-0001 · Workflow view/);
   assert.match(html, /Workflow Constellation/);
   assert.match(html, /phase-graph/);
-  assert.match(html, /phase-node refinement phase-tone-waiting-user selected/);
+  assert.match(html, /phase-node refinement phase-tone-waiting-user selected phase-node--current/);
+  assert.match(html, /Current Phase/);
   assert.match(html, /phase-tag phase-tag--waiting-user">waiting-user</);
   assert.match(html, /<div class="phase-slug">US<\/div>/);
   assert.match(html, /<span class="token">spec<\/span>/);
@@ -118,6 +119,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /<h4>User Story<\/h4>/);
   assert.match(html, /us\.md/);
   assert.match(html, /Add Files/);
+  assert.match(html, /class="workflow-action-button" data-command="attachFiles" data-kind="context" data-attach-files-button>Add Files</);
   assert.match(html, /Context Files/);
   assert.match(html, /User Story Info/);
   assert.match(html, /data-file-drop-zone/);
@@ -1085,13 +1087,16 @@ test("buildWorkflowHtml renders clarification questions and embedded answer inpu
 
   assert.match(html, /<h3>Clarification<\/h3>/);
   assert.match(html, /needs_clarification/);
+  assert.match(html, /badge token--attention/);
   assert.match(html, /The capture is still too vague/);
   assert.match(html, /data-clarification-answer/);
   assert.match(html, /A backoffice operator\./);
   assert.match(html, /Submit Answers/);
   assert.match(html, /submitClarificationAnswers/);
-  assert.match(html, /Clarification questions are shown in the structured form below to avoid duplicating the raw artifact preview\./);
-  assert.doesNotMatch(html, /<div class="markdown-preview">[\s\S]*Who triggers the workflow\?/);
+  assert.match(html, /Raw Artifact/);
+  assert.match(html, /markdown-preview--raw-artifact/);
+  assert.match(html, /The raw artifact stays visible here to preserve model context beyond the structured clarification questions below\./);
+  assert.match(html, /needs_clarification/);
 });
 
 test("buildWorkflowHtml proposes manual and suggested context files during clarification", () => {
