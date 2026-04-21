@@ -1339,18 +1339,19 @@ export function buildWorkflowHtml(
       align-items: center;
       justify-content: center;
       border-radius: 18px 0 0 18px;
-      border-right: 1px solid rgba(92, 181, 255, 0.28);
-      background: linear-gradient(180deg, rgba(92, 181, 255, 0.32), rgba(15, 34, 56, 0.96));
+      border-right: 1px solid rgba(92, 181, 255, 0.36);
+      background: linear-gradient(180deg, rgba(74, 156, 229, 0.94), rgba(14, 42, 76, 0.98));
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.08),
-        0 12px 22px rgba(22, 52, 92, 0.18);
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        0 12px 22px rgba(22, 52, 92, 0.22);
       z-index: 0;
       pointer-events: none;
     }
     .phase-current-rail__label {
       display: inline-block;
       transform: rotate(-90deg);
-      color: rgba(7, 17, 28, 0.92);
+      color: rgba(245, 250, 255, 0.98);
+      text-shadow: 0 1px 2px rgba(7, 17, 28, 0.34);
       font-size: 0.72rem;
       font-weight: 800;
       letter-spacing: 0.18em;
