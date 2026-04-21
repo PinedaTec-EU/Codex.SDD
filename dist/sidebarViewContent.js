@@ -940,7 +940,7 @@ function wrapHtml(content, busy) {
       left: -8px;
       right: -10px;
       top: 50%;
-      height: 26px;
+      height: 52px;
       transform: translateY(-50%);
       border-radius: 14px;
       background: linear-gradient(180deg, rgba(86, 171, 255, 0.94), rgba(23, 82, 152, 0.92));
