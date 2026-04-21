@@ -1516,33 +1516,33 @@ export function buildWorkflowHtml(
       outline-offset: 2px;
     }
     .phase-node.phase-tone-active {
-      background: linear-gradient(180deg, rgba(24, 49, 82, 0.96), rgba(10, 20, 32, 0.98));
+      background: linear-gradient(180deg, rgb(24, 49, 82), rgb(10, 20, 32));
       border-color: rgba(92, 181, 255, 0.45);
       box-shadow: 0 20px 34px rgba(48, 120, 255, 0.16);
       animation: nodeRise 420ms ease both, currentPulse 2.8s ease-in-out infinite;
     }
     .phase-node.phase-tone-waiting-user {
-      background: linear-gradient(180deg, rgba(74, 56, 12, 0.96), rgba(24, 18, 7, 0.98));
+      background: linear-gradient(180deg, rgb(74, 56, 12), rgb(24, 18, 7));
       border-color: rgba(255, 213, 90, 0.5);
       box-shadow: 0 20px 34px rgba(154, 118, 24, 0.24);
     }
     .phase-node.phase-tone-paused {
-      background: linear-gradient(180deg, rgba(34, 39, 46, 0.94), rgba(16, 20, 27, 0.98));
+      background: linear-gradient(180deg, rgb(34, 39, 46), rgb(16, 20, 27));
       border-color: rgba(179, 187, 198, 0.22);
       box-shadow: 0 18px 30px rgba(84, 92, 104, 0.14);
     }
     .phase-node.phase-tone-blocked {
-      background: linear-gradient(180deg, rgba(54, 23, 23, 0.94), rgba(20, 10, 10, 0.98));
+      background: linear-gradient(180deg, rgb(54, 23, 23), rgb(20, 10, 10));
       border-color: rgba(255, 120, 120, 0.28);
       box-shadow: 0 18px 30px rgba(140, 38, 38, 0.16);
     }
     .phase-node.phase-tone-completed {
-      background: linear-gradient(180deg, rgba(18, 44, 34, 0.96), rgba(10, 20, 17, 0.98));
+      background: linear-gradient(180deg, rgb(18, 44, 34), rgb(10, 20, 17));
       border-color: rgba(114, 241, 184, 0.24);
     }
     .phase-node.phase-tone-pending {
       background:
-        linear-gradient(180deg, rgba(72, 77, 87, 0.32), rgba(21, 26, 34, 0.98)),
+        linear-gradient(180deg, rgb(72, 77, 87), rgb(21, 26, 34)),
         linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
       border-color: rgba(196, 203, 214, 0.14);
       box-shadow: 0 16px 28px rgba(7, 10, 16, 0.22);
@@ -1550,7 +1550,7 @@ export function buildWorkflowHtml(
     }
     .phase-node.phase-tone-disabled {
       background:
-        linear-gradient(180deg, rgba(64, 68, 76, 0.22), rgba(15, 18, 24, 0.92)),
+        linear-gradient(180deg, rgb(64, 68, 76), rgb(15, 18, 24)),
         linear-gradient(135deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
       border-color: rgba(255, 255, 255, 0.08);
       opacity: 0.72;
