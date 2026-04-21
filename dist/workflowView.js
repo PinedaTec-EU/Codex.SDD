@@ -1476,7 +1476,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       display: flex;
       align-items: center;
       justify-content: flex-start;
-      padding-left: 2px;
+      padding-left: 0;
       border-radius: 18px;
       border-right: 1px solid rgba(92, 181, 255, 0.12);
       background: linear-gradient(180deg, rgba(74, 156, 229, 0.94), rgba(14, 42, 76, 0.98));
@@ -1489,6 +1489,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .phase-current-rail__label {
       display: inline-block;
       transform: rotate(-90deg);
+      transform-origin: center;
+      margin-left: -12px;
       color: rgba(245, 250, 255, 0.98);
       text-shadow: 0 1px 2px rgba(7, 17, 28, 0.34);
       font-size: 0.72rem;
