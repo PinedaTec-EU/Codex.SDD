@@ -23,7 +23,7 @@
             }
         },
         {
-            "label": "build",
+            "label": "build .net",
             "command": "dotnet",
             "type": "process",
             "args": [
@@ -41,7 +41,7 @@
         },
         {
             "type": "shell",
-            "label": "build inc version",
+            "label": "build .net & inc version",
             "command": "dotnet build ${workspaceFolder}/SpecForge.AI.slnx",
             "problemMatcher": [
                 "$msCompile"
@@ -71,12 +71,11 @@
         },
         {
             "label": "build bundle",
-            "type": "shell",
-            "command": "bash",
-            "args": [
-                "-c",
-                "cd '${workspaceFolder}' && npm run compile && cd '../ai-skills-shared' && dotnet build ai-skills-shared.slnx"
+            "dependsOn": [
+                "Compile VS Code Extension",
+                "build .net & inc version"
             ],
+            "dependsOrder": "sequence",
             "problemMatcher": [
                 "$tsc",
                 "$msCompile"
