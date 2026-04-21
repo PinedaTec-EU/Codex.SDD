@@ -14,6 +14,7 @@ export interface SidebarViewModel {
   readonly settingsConfigured: boolean;
   readonly settingsMessage: string | null;
   readonly starredUserStoryId: string | null;
+  readonly viewMode: "category" | "phase";
   readonly createFileMode?: "context" | "attachment";
   readonly createFiles?: readonly DraftCreateFile[];
   readonly categories: readonly string[];
@@ -66,46 +67,13 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
     `, isBusy);
   }
 
-  const storyGroups = groupStories(model.userStories);
-  const storiesMarkup = storyGroups.map((group) => `
-    <section class="story-group">
-      <div class="group-header">${escapeHtml(group.category)}</div>
-      ${group.items.map((summary) => `
-        <div class="story-row story-row--shell">
-          <button class="story-card${shouldRenderPhaseRail(summary.status) ? ` story-card--active story-card--phase-${escapeHtmlAttr(summary.currentPhase)} story-card--status-${escapeHtmlAttr(phaseRailStatus(summary.status))}` : ""}" data-command="openWorkflow" data-us-id="${escapeHtmlAttr(summary.usId)}">
-            ${shouldRenderPhaseRail(summary.status)
-              ? `
-                <span class="story-card__phase-rail" aria-hidden="true">
-                  <span class="story-card__phase-label">${phaseLabelFor(summary.currentPhase)}</span>
-                </span>
-              `
-              : ""}
-            <span class="story-card__content">
-              <span class="story-card__id">${escapeHtml(summary.usId)}</span>
-              <strong>${escapeHtml(summary.title)}</strong>
-              <span class="story-card__meta">${escapeHtml(summary.currentPhase)} · ${escapeHtml(summary.status)}</span>
-            </span>
-          </button>
-          <div class="story-actions">
-            <button
-              class="icon-action story-star${model.starredUserStoryId === summary.usId ? " story-star--active" : ""}"
-              data-command="toggleStarredUserStory"
-              data-us-id="${escapeHtmlAttr(summary.usId)}"
-              title="${escapeHtmlAttr(model.starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}"
-              aria-label="${escapeHtmlAttr(model.starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}">
-              <span aria-hidden="true">${model.starredUserStoryId === summary.usId ? "★" : "☆"}</span>
-            </button>
-            <button
-              class="icon-action icon-action--danger story-delete"
-              data-command="deleteUserStory"
-              data-us-id="${escapeHtmlAttr(summary.usId)}"
-              title="Delete ${escapeHtmlAttr(summary.usId)}"
-              aria-label="Delete ${escapeHtmlAttr(summary.usId)}">
-              <span aria-hidden="true">🗑</span>
-            </button>
-          </div>
-        </div>
-      `).join("")}
+  const storySections = model.viewMode === "phase"
+    ? [{ heading: null, items: sortStoriesByPhase(model.userStories) }]
+    : groupStories(model.userStories).map((group) => ({ heading: group.category, items: group.items }));
+  const storiesMarkup = storySections.map((section) => `
+    <section class="story-group${section.heading ? "" : " story-group--flat"}">
+      ${section.heading ? `<div class="group-header">${escapeHtml(section.heading)}</div>` : ""}
+      ${section.items.map((summary) => buildStoryRowMarkup(summary, model.starredUserStoryId)).join("")}
     </section>
   `).join("");
 
@@ -298,7 +266,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
       <div class="section-header">
         <div>
           <p class="eyebrow">User Stories</p>
-          <h2>Workflow backlog</h2>
+          <h2>${model.viewMode === "phase" ? "Workflow backlog by phase" : "Workflow backlog"}</h2>
         </div>
         ${buildCompactActions(model)}
       </div>
@@ -341,22 +309,6 @@ function buildBusyIndicatorMarkup(model: SidebarViewModel): string {
   `;
 }
 
-function buildPromptActionButton(promptsInitialized: boolean): string {
-  const title = promptsInitialized
-    ? "Reinitialize repo prompts"
-    : "Initialize repo prompts";
-
-  return `
-    <button
-      class="icon-action"
-      data-command="initializeRepoPrompts"
-      title="${escapeHtmlAttr(title)}"
-      aria-label="${escapeHtmlAttr(title)}">
-      <span aria-hidden="true">↻</span>
-    </button>
-  `;
-}
-
 function buildCreateActionButton(enabled: boolean): string {
   const title = enabled
     ? "Create new user story"
@@ -374,11 +326,52 @@ function buildCreateActionButton(enabled: boolean): string {
   `;
 }
 
+function buildViewModeActionButton(viewMode: SidebarViewModel["viewMode"]): string {
+  const isCategory = viewMode === "category";
+  const title = isCategory
+    ? "Switch to phase-ordered view"
+    : "Switch to category view";
+
+  return `
+    <button
+      class="icon-action"
+      data-command="toggleViewMode"
+      title="${escapeHtmlAttr(title)}"
+      aria-label="${escapeHtmlAttr(title)}">
+      <span aria-hidden="true">${isCategory ? "◫" : "≣"}</span>
+    </button>
+  `;
+}
+
+function buildPromptMenu(promptsInitialized: boolean): string {
+  const bootstrapLabel = promptsInitialized ? "Refresh Prompts" : "Bootstrap Prompts";
+
+  return `
+    <div class="action-menu" data-action-menu>
+      <button
+        class="icon-action"
+        type="button"
+        data-action-menu-toggle
+        title="Prompt actions"
+        aria-label="Prompt actions"
+        aria-haspopup="menu"
+        aria-expanded="false">
+        <span aria-hidden="true">☰</span>
+      </button>
+      <div class="action-menu__panel" data-action-menu-panel role="menu" hidden>
+        <button class="action-menu__item" type="button" data-command="initializeRepoPrompts" role="menuitem">${escapeHtml(bootstrapLabel)}</button>
+        <button class="action-menu__item" type="button" data-command="openPromptTemplates" role="menuitem"${promptsInitialized ? "" : " disabled"}>Open Prompt Templates</button>
+      </div>
+    </div>
+  `;
+}
+
 function buildCompactActions(model: SidebarViewModel): string {
   return `
     <div class="compact-actions">
-      ${buildPromptActionButton(model.promptsInitialized)}
       ${buildCreateActionButton(model.promptsInitialized)}
+      ${buildViewModeActionButton(model.viewMode)}
+      ${buildPromptMenu(model.promptsInitialized)}
     </div>
   `;
 }
@@ -592,6 +585,37 @@ function wrapHtml(content: string, busy: boolean): string {
       gap: 8px;
       align-items: center;
       flex-shrink: 0;
+    }
+    .action-menu {
+      position: relative;
+    }
+    .action-menu__panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      min-width: 190px;
+      padding: 8px;
+      border-radius: 16px;
+      border: 1px solid rgba(114, 241, 184, 0.16);
+      background: rgba(14, 20, 26, 0.98);
+      box-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
+      display: grid;
+      gap: 6px;
+      z-index: 20;
+    }
+    .action-menu__item {
+      width: 100%;
+      text-align: left;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.03);
+      color: inherit;
+      cursor: pointer;
+    }
+    .action-menu__item:hover {
+      background: rgba(114, 241, 184, 0.12);
+      border-color: rgba(114, 241, 184, 0.24);
     }
     .form-card, .action-card {
       padding: 16px;
@@ -898,6 +922,9 @@ function wrapHtml(content: string, busy: boolean): string {
     }
     .story-group + .story-group {
       margin-top: 14px;
+    }
+    .story-group--flat + .story-group--flat {
+      margin-top: 8px;
     }
     .story-row {
       display: grid;
@@ -1234,6 +1261,51 @@ function wrapHtml(content: string, busy: boolean): string {
         });
       });
     }
+    const actionMenu = document.querySelector("[data-action-menu]");
+    const actionMenuToggle = document.querySelector("[data-action-menu-toggle]");
+    const actionMenuPanel = document.querySelector("[data-action-menu-panel]");
+    const closeActionMenu = () => {
+      if (!(actionMenuToggle instanceof HTMLButtonElement) || !(actionMenuPanel instanceof HTMLElement)) {
+        return;
+      }
+      actionMenuPanel.hidden = true;
+      actionMenuToggle.setAttribute("aria-expanded", "false");
+    };
+    const openActionMenu = () => {
+      if (!(actionMenuToggle instanceof HTMLButtonElement) || !(actionMenuPanel instanceof HTMLElement) || busy) {
+        return;
+      }
+      actionMenuPanel.hidden = false;
+      actionMenuToggle.setAttribute("aria-expanded", "true");
+    };
+    if (actionMenuToggle instanceof HTMLButtonElement && actionMenuPanel instanceof HTMLElement) {
+      if (busy) {
+        actionMenuToggle.disabled = true;
+      }
+      actionMenuToggle.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (actionMenuPanel.hidden) {
+          openActionMenu();
+        } else {
+          closeActionMenu();
+        }
+      });
+      actionMenuPanel.addEventListener("click", () => {
+        closeActionMenu();
+      });
+      document.addEventListener("click", (event) => {
+        if (!(actionMenu instanceof HTMLElement) || actionMenu.contains(event.target)) {
+          return;
+        }
+        closeActionMenu();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeActionMenu();
+        }
+      });
+    }
     const form = document.getElementById("create-user-story-form");
     if (form) {
       const kindField = form.querySelector('[data-create-field="kind"]');
@@ -1384,6 +1456,56 @@ function groupStories(items: readonly UserStorySummary[]) {
     }));
 }
 
+function sortStoriesByPhase(items: readonly UserStorySummary[]): UserStorySummary[] {
+  return [...items].sort((left, right) => {
+    const phaseDelta = phaseSortOrder(left.currentPhase) - phaseSortOrder(right.currentPhase);
+    if (phaseDelta !== 0) {
+      return phaseDelta;
+    }
+
+    return left.usId.localeCompare(right.usId);
+  });
+}
+
+function buildStoryRowMarkup(summary: UserStorySummary, starredUserStoryId: string | null): string {
+  return `
+    <div class="story-row story-row--shell">
+      <button class="story-card${shouldRenderPhaseRail(summary.status) ? ` story-card--active story-card--phase-${escapeHtmlAttr(summary.currentPhase)} story-card--status-${escapeHtmlAttr(phaseRailStatus(summary.status))}` : ""}" data-command="openWorkflow" data-us-id="${escapeHtmlAttr(summary.usId)}">
+        ${shouldRenderPhaseRail(summary.status)
+          ? `
+            <span class="story-card__phase-rail" aria-hidden="true">
+              <span class="story-card__phase-label">${phaseLabelFor(summary.currentPhase)}</span>
+            </span>
+          `
+          : ""}
+        <span class="story-card__content">
+          <span class="story-card__id">${escapeHtml(summary.usId)}</span>
+          <strong>${escapeHtml(summary.title)}</strong>
+          <span class="story-card__meta">${escapeHtml(summary.currentPhase)} · ${escapeHtml(summary.status)}</span>
+        </span>
+      </button>
+      <div class="story-actions">
+        <button
+          class="icon-action story-star${starredUserStoryId === summary.usId ? " story-star--active" : ""}"
+          data-command="toggleStarredUserStory"
+          data-us-id="${escapeHtmlAttr(summary.usId)}"
+          title="${escapeHtmlAttr(starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}"
+          aria-label="${escapeHtmlAttr(starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}">
+          <span aria-hidden="true">${starredUserStoryId === summary.usId ? "★" : "☆"}</span>
+        </button>
+        <button
+          class="icon-action icon-action--danger story-delete"
+          data-command="deleteUserStory"
+          data-us-id="${escapeHtmlAttr(summary.usId)}"
+          title="Delete ${escapeHtmlAttr(summary.usId)}"
+          aria-label="Delete ${escapeHtmlAttr(summary.usId)}">
+          <span aria-hidden="true">🗑</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -1436,4 +1558,19 @@ function phaseRailStatus(status: string): string {
     default:
       return "active";
   }
+}
+
+function phaseSortOrder(phaseId: string): number {
+  const order: Record<string, number> = {
+    "capture": 0,
+    "clarification": 1,
+    "refinement": 2,
+    "technical-design": 3,
+    "implementation": 4,
+    "review": 5,
+    "release-approval": 6,
+    "pr-preparation": 7
+  };
+
+  return order[phaseId] ?? Number.MAX_SAFE_INTEGER;
 }

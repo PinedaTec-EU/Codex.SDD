@@ -19,6 +19,7 @@ import { readUserWorkspacePreferences, setStarredUserStory } from "./userWorkspa
 type SidebarMessage =
   | { readonly command: "showCreateForm" }
   | { readonly command: "hideCreateForm" }
+  | { readonly command: "toggleViewMode" }
   | { readonly command: "initializeRepoPrompts" }
   | { readonly command: "openSettings" }
   | { readonly command: "openPromptTemplates" }
@@ -50,6 +51,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   private webviewView: vscode.WebviewView | undefined;
   private showCreateForm = false;
   private busyMessage: string | null = null;
+  private viewMode: "category" | "phase" = "category";
   private createFileMode: "context" | "attachment" = "context";
   private createFiles: DraftCreateFile[] = [];
 
@@ -89,6 +91,10 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         return;
       case "hideCreateForm":
         this.showCreateForm = false;
+        await this.safeRenderAsync();
+        return;
+      case "toggleViewMode":
+        this.viewMode = this.viewMode === "category" ? "phase" : "category";
         await this.safeRenderAsync();
         return;
       case "setCreateFileMode":
@@ -354,6 +360,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         settingsConfigured: settingsStatus.executionConfigured,
         settingsMessage: settingsStatus.message,
         starredUserStoryId: null,
+        viewMode: this.viewMode,
         createFileMode: this.createFileMode,
         createFiles: this.createFiles,
         categories: [],
@@ -379,6 +386,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       settingsConfigured: settingsStatus.executionConfigured,
       settingsMessage: settingsStatus.message,
       starredUserStoryId: preferences.starredUserStoryId,
+      viewMode: this.viewMode,
       createFileMode: this.createFileMode,
       createFiles: this.createFiles,
       categories,
@@ -402,6 +410,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         settingsConfigured: false,
         settingsMessage: "SpecForge.AI settings could not be evaluated.",
         starredUserStoryId: null,
+        viewMode: this.viewMode,
         createFileMode: this.createFileMode,
         createFiles: this.createFiles,
         categories: [],

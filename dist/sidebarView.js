@@ -51,6 +51,7 @@ class SidebarViewProvider {
     webviewView;
     showCreateForm = false;
     busyMessage = null;
+    viewMode = "category";
     createFileMode = "context";
     createFiles = [];
     constructor(extensionUri, onDidCreateUserStory) {
@@ -83,6 +84,10 @@ class SidebarViewProvider {
                 return;
             case "hideCreateForm":
                 this.showCreateForm = false;
+                await this.safeRenderAsync();
+                return;
+            case "toggleViewMode":
+                this.viewMode = this.viewMode === "category" ? "phase" : "category";
                 await this.safeRenderAsync();
                 return;
             case "setCreateFileMode":
@@ -306,6 +311,7 @@ class SidebarViewProvider {
                 settingsConfigured: settingsStatus.executionConfigured,
                 settingsMessage: settingsStatus.message,
                 starredUserStoryId: null,
+                viewMode: this.viewMode,
                 createFileMode: this.createFileMode,
                 createFiles: this.createFiles,
                 categories: [],
@@ -330,6 +336,7 @@ class SidebarViewProvider {
             settingsConfigured: settingsStatus.executionConfigured,
             settingsMessage: settingsStatus.message,
             starredUserStoryId: preferences.starredUserStoryId,
+            viewMode: this.viewMode,
             createFileMode: this.createFileMode,
             createFiles: this.createFiles,
             categories,
@@ -352,6 +359,7 @@ class SidebarViewProvider {
                 settingsConfigured: false,
                 settingsMessage: "SpecForge.AI settings could not be evaluated.",
                 starredUserStoryId: null,
+                viewMode: this.viewMode,
                 createFileMode: this.createFileMode,
                 createFiles: this.createFiles,
                 categories: [],
