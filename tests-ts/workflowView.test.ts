@@ -93,7 +93,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /Workflow Constellation/);
   assert.match(html, /phase-graph/);
   assert.match(html, /phase-node refinement phase-tone-waiting-user selected phase-node--current/);
-  assert.match(html, /Current Phase/);
+  assert.match(html, /phase-current-indicator">Current</);
   assert.match(html, /phase-tag phase-tag--waiting-user">waiting-user</);
   assert.match(html, /<div class="phase-slug">US<\/div>/);
   assert.match(html, /<span class="token">spec<\/span>/);

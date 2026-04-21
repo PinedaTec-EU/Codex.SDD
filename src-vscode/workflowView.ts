@@ -1246,20 +1246,8 @@ export function buildWorkflowHtml(
       outline-offset: 2px;
     }
     .phase-node.phase-node--current {
-      box-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.05),
-        0 0 0 4px rgba(255, 213, 90, 0.12),
-        0 22px 38px rgba(0, 0, 0, 0.28),
-        0 0 0 10px rgba(255, 213, 90, 0.06);
-    }
-    .phase-node.phase-node--current::after {
-      content: "";
-      position: absolute;
-      inset: -10px;
-      border-radius: 34px;
-      border: 1px solid rgba(255, 213, 90, 0.2);
-      box-shadow: 0 0 32px rgba(255, 213, 90, 0.16);
-      pointer-events: none;
+      border-color: rgba(92, 181, 255, 0.42);
+      box-shadow: 0 20px 34px rgba(26, 72, 124, 0.18);
     }
     .phase-node.phase-tone-pending.selected {
       outline: 2px solid rgba(255, 255, 255, 0.24);
@@ -1367,29 +1355,21 @@ export function buildWorkflowHtml(
     .phase-current-indicator {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      margin-top: 12px;
-      padding: 6px 10px;
-      width: fit-content;
+      justify-content: center;
+      padding: 7px 12px 6px;
       border-radius: 999px;
-      border: 1px solid rgba(255, 213, 90, 0.28);
-      background: linear-gradient(180deg, rgba(255, 213, 90, 0.18), rgba(68, 51, 13, 0.88));
-      color: #fff1b8;
+      border: 1px solid rgba(92, 181, 255, 0.38);
+      background: linear-gradient(180deg, rgba(92, 181, 255, 0.9), rgba(62, 153, 237, 0.88));
+      color: rgba(7, 17, 28, 0.92);
       font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
+      font-weight: 800;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
       position: relative;
       z-index: 1;
-    }
-    .phase-current-indicator::before {
-      content: "";
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: var(--attention-egg);
-      box-shadow: 0 0 0 6px rgba(255, 213, 90, 0.12);
-      animation: currentAttentionPulse 1.8s ease-in-out infinite;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 8px 20px rgba(22, 52, 92, 0.18);
     }
     .phase-node.phase-tone-paused .phase-status-dot {
       background: #b3bbc6;
@@ -2528,11 +2508,10 @@ function buildPhaseGraph(
       data-phase-id="${escapeHtmlAttribute(phase.phaseId)}">
       <div class="phase-node-header">
         <span class="phase-index">${index + 1}</span>
-        <span class="phase-status-dot"></span>
+        ${phase.isCurrent ? `<span class="phase-current-indicator">Current</span>` : `<span class="phase-status-dot"></span>`}
       </div>
       <h3>${escapeHtml(phase.title)}</h3>
       <div class="phase-slug">${escapeHtml(phaseSecondaryLabel(phase))}</div>
-      ${phase.isCurrent ? `<div class="phase-current-indicator">Current Phase</div>` : ""}
       <div class="phase-tags">
         <span class="phase-tag phase-tag--${escapeHtmlAttribute(visualTone)}">${escapeHtml(displayState)}</span>
         ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
