@@ -1009,13 +1009,22 @@ function wrapHtml(content: string, busy: boolean): string {
     .story-card {
       text-align: left;
       padding: 0;
-      background: transparent;
+      background:
+        linear-gradient(180deg, rgba(22, 29, 37, 0.985), rgba(13, 18, 24, 0.99)),
+        rgba(14, 20, 26, 0.99);
       color: inherit;
       display: grid;
       grid-template-columns: 1fr;
       overflow: hidden;
       min-height: 100%;
       border-radius: 18px 0 0 18px;
+    }
+    .story-actions {
+      background:
+        linear-gradient(180deg, rgba(18, 24, 31, 0.985), rgba(12, 17, 23, 0.99)),
+        rgba(14, 20, 26, 0.99);
+      border-radius: 0 18px 18px 0;
+      overflow: hidden;
     }
     .story-card__content {
       display: grid;
