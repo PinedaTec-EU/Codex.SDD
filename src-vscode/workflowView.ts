@@ -31,7 +31,7 @@ type PhaseGraphLayout = {
   readonly width: number;
   readonly height: number;
 };
-type GraphAnchor = "entry-upper" | "entry-lower" | "exit-upper" | "exit-lower";
+type GraphAnchor = "entry-top" | "entry-left" | "exit-right" | "exit-bottom-left" | "exit-bottom-mid";
 type PhaseLayoutConfig = {
   readonly columns: Record<PhaseColumn, number>;
   readonly topOffset: number;
@@ -42,7 +42,7 @@ type PhaseLayoutConfig = {
 };
 
 const phaseNodeWidth = 220;
-const phaseNodeHeight = 116;
+const phaseNodeHeight = 152;
 const mobilePhaseNodeWidth = 188;
 const phaseSequence = [
   "capture",
@@ -67,7 +67,7 @@ const phaseColumns: Record<string, PhaseColumn> = {
 const desktopLayoutConfig: PhaseLayoutConfig = {
   columns: { left: 20, right: 400 },
   topOffset: 40,
-  sameColumnGap: 48,
+  sameColumnGap: 32,
   overlapRatio: 0.30,
   rightPadding: 88,
   bottomPadding: 96
@@ -75,7 +75,7 @@ const desktopLayoutConfig: PhaseLayoutConfig = {
 const mobileLayoutConfig: PhaseLayoutConfig = {
   columns: { left: 0, right: 176 },
   topOffset: 16,
-  sameColumnGap: 34,
+  sameColumnGap: 26,
   overlapRatio: 0.30,
   rightPadding: 88,
   bottomPadding: 96
@@ -1284,12 +1284,16 @@ export function buildWorkflowHtml(
       transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
       overflow: visible;
       animation: nodeRise 420ms ease both;
+      z-index: 1;
     }
     .phase-node::before {
       content: "";
       position: absolute;
       inset: 0;
-      background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 46%);
+      border-radius: inherit;
+      background:
+        radial-gradient(circle at 14% 12%, rgba(114, 241, 184, 0.08), transparent 28%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.012), transparent 34%);
       pointer-events: none;
     }
     .phase-node:hover {
@@ -1299,10 +1303,12 @@ export function buildWorkflowHtml(
     .phase-node.selected {
       outline: 2px solid rgba(114, 241, 184, 0.52);
       outline-offset: 2px;
+      z-index: 3;
     }
     .phase-node.phase-node--current {
       border-color: rgba(92, 181, 255, 0.42);
       box-shadow: 0 20px 34px rgba(26, 72, 124, 0.18);
+      z-index: 4;
     }
     .phase-node-content {
       position: relative;
@@ -1397,7 +1403,7 @@ export function buildWorkflowHtml(
       background: linear-gradient(180deg, rgba(74, 156, 229, 0.94), rgba(14, 42, 76, 0.98));
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.14),
-        0 12px 22px rgba(22, 52, 92, 0.22);
+        0 8px 18px rgba(22, 52, 92, 0.16);
       z-index: 0;
       pointer-events: none;
     }
@@ -2707,46 +2713,57 @@ function graphPath(
   const { fromAnchor, toAnchor } = resolveAnchors(fromPosition, toPosition);
   const from = getAnchorPoint(fromPosition, fromAnchor, nodeWidth);
   const to = getAnchorPoint(toPosition, toAnchor, nodeWidth);
+  const fromColumn = phaseColumns[fromPhaseId] ?? "left";
+  const sameColumn = fromPosition.left === toPosition.left;
 
-  if (fromAnchor === "exit-lower" && toAnchor === "entry-upper") {
-    const column = phaseColumns[fromPhaseId] ?? "left";
-    const bendDirection = column === "left" ? 1 : -1;
-    const lateralOffset = Math.max(34, nodeWidth * 0.16) * bendDirection;
-    const verticalSpread = Math.max(32, Math.abs(to.y - from.y) * 0.22);
+  if (sameColumn) {
+    const bendDirection = fromColumn === "left" ? -1 : 1;
+    const lateralOffset = Math.max(26, nodeWidth * 0.14) * bendDirection;
+    const verticalSpread = Math.max(28, Math.abs(to.y - from.y) * 0.26);
     return `M ${from.x} ${from.y} C ${from.x + lateralOffset} ${from.y + verticalSpread}, ${to.x + lateralOffset} ${to.y - verticalSpread}, ${to.x} ${to.y}`;
   }
 
-  const horizontalDirection = to.x >= from.x ? 1 : -1;
-  const verticalDirection = to.y >= from.y ? 1 : -1;
-  const horizontalOffset = Math.max(44, Math.abs(to.x - from.x) * 0.28);
-  const verticalOffset = Math.max(18, Math.abs(to.y - from.y) * 0.2);
+  if (to.x > from.x) {
+    const horizontalOffset = Math.max(54, Math.abs(to.x - from.x) * 0.34);
+    const verticalOffset = Math.max(20, Math.abs(to.y - from.y) * 0.14);
+    return `M ${from.x} ${from.y} C ${from.x + horizontalOffset} ${from.y}, ${to.x - horizontalOffset} ${to.y - verticalOffset}, ${to.x} ${to.y}`;
+  }
 
-  return `M ${from.x} ${from.y} C ${from.x + horizontalOffset * horizontalDirection} ${from.y + verticalOffset * verticalDirection}, ${to.x - horizontalOffset * horizontalDirection} ${to.y - verticalOffset * verticalDirection}, ${to.x} ${to.y}`;
+  const lateralOffset = Math.max(30, nodeWidth * 0.12);
+  const verticalSpread = Math.max(30, Math.abs(to.y - from.y) * 0.24);
+  return `M ${from.x} ${from.y} C ${from.x - lateralOffset} ${from.y + verticalSpread}, ${to.x - lateralOffset} ${to.y - verticalSpread}, ${to.x} ${to.y}`;
 }
 
 function resolveAnchors(from: PhasePosition, to: PhasePosition): { fromAnchor: GraphAnchor; toAnchor: GraphAnchor } {
   const deltaX = to.left - from.left;
+  const fromColumn = deltaX === 0 ? (from.left <= 100 ? "left" : "right") : deltaX > 0 ? "left" : "right";
+
   if (deltaX === 0) {
-    return { fromAnchor: "exit-lower", toAnchor: "entry-upper" };
+    return {
+      fromAnchor: fromColumn === "left" ? "exit-bottom-left" : "exit-bottom-mid",
+      toAnchor: "entry-top"
+    };
   }
 
   if (deltaX > 0) {
-    return { fromAnchor: "exit-upper", toAnchor: "entry-lower" };
+    return { fromAnchor: "exit-right", toAnchor: "entry-left" };
   }
 
-  return { fromAnchor: "exit-lower", toAnchor: "entry-upper" };
+  return { fromAnchor: "exit-bottom-left", toAnchor: "entry-top" };
 }
 
 function getAnchorPoint(position: PhasePosition, anchor: GraphAnchor, nodeWidth: number): { x: number; y: number } {
   switch (anchor) {
-    case "entry-upper":
+    case "entry-top":
       return { x: position.left + nodeWidth * 0.18, y: position.top };
-    case "entry-lower":
+    case "entry-left":
       return { x: position.left, y: position.top + phaseNodeHeight * 0.28 };
-    case "exit-upper":
-      return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.52 };
-    case "exit-lower":
-      return { x: position.left + nodeWidth * 0.74, y: position.top + phaseNodeHeight };
+    case "exit-right":
+      return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.68 };
+    case "exit-bottom-left":
+      return { x: position.left + nodeWidth * 0.08, y: position.top + phaseNodeHeight };
+    case "exit-bottom-mid":
+      return { x: position.left + nodeWidth * 0.72, y: position.top + phaseNodeHeight };
   }
 }
 
