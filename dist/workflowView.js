@@ -6,25 +6,15 @@ const phaseNodeWidth = 220;
 const phaseNodeHeight = 152;
 const mobilePhaseNodeWidth = 188;
 const phaseSequence = [
-    "capture",
-    "clarification",
-    "refinement",
-    "technical-design",
-    "implementation",
-    "review",
-    "release-approval",
-    "pr-preparation"
+    { phaseId: "capture", requiresApproval: false },
+    { phaseId: "clarification", requiresApproval: false },
+    { phaseId: "refinement", requiresApproval: true },
+    { phaseId: "technical-design", requiresApproval: true },
+    { phaseId: "implementation", requiresApproval: false },
+    { phaseId: "review", requiresApproval: false },
+    { phaseId: "release-approval", requiresApproval: true },
+    { phaseId: "pr-preparation", requiresApproval: false }
 ];
-const phaseColumns = {
-    "capture": "left",
-    "clarification": "right",
-    "refinement": "right",
-    "technical-design": "right",
-    "implementation": "left",
-    "review": "left",
-    "release-approval": "right",
-    "pr-preparation": "left"
-};
 const desktopLayoutConfig = {
     columns: { left: 20, right: 400 },
     topOffset: 40,
@@ -55,24 +45,27 @@ function computeGraphWidth(positions, nodeWidth, rightPadding) {
     const maxLeft = Math.max(...Object.values(positions).map((position) => position.left));
     return maxLeft + nodeWidth + rightPadding;
 }
-function buildPhaseLayout(phaseIds, config, nodeWidth) {
+function resolvePhaseColumn(requiresApproval) {
+    return requiresApproval ? "right" : "left";
+}
+function buildPhaseLayout(phases, config, nodeWidth) {
     const positions = {};
-    let previousPhaseId = null;
-    for (const phaseId of phaseIds) {
-        const column = phaseColumns[phaseId] ?? "left";
+    let previousPhase = null;
+    for (const phase of phases) {
+        const column = resolvePhaseColumn(phase.requiresApproval);
         const left = config.columns[column];
         let top = config.topOffset;
-        if (previousPhaseId) {
-            const previousPosition = positions[previousPhaseId];
-            const previousColumn = phaseColumns[previousPhaseId] ?? "left";
+        if (previousPhase) {
+            const previousPosition = positions[previousPhase.phaseId];
+            const previousColumn = resolvePhaseColumn(previousPhase.requiresApproval);
             const sameColumn = previousColumn === column;
             const verticalStep = sameColumn
                 ? phaseNodeHeight + config.sameColumnGap
                 : phaseNodeHeight * (1 - config.overlapRatio);
             top = previousPosition.top + Math.round(verticalStep);
         }
-        positions[phaseId] = { left, top };
-        previousPhaseId = phaseId;
+        positions[phase.phaseId] = { left, top };
+        previousPhase = phase;
     }
     return {
         positions,
@@ -1270,14 +1263,20 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       border-color: rgba(114, 241, 184, 0.24);
     }
     .phase-node.phase-tone-pending {
-      background: linear-gradient(180deg, rgba(22, 28, 38, 0.88), rgba(10, 14, 20, 0.96));
-      opacity: 0.9;
+      background:
+        linear-gradient(180deg, rgba(72, 77, 87, 0.32), rgba(21, 26, 34, 0.98)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
+      border-color: rgba(196, 203, 214, 0.14);
+      box-shadow: 0 16px 28px rgba(7, 10, 16, 0.22);
+      opacity: 0.96;
     }
     .phase-node.phase-tone-disabled {
-      background: linear-gradient(180deg, rgba(18, 22, 29, 0.68), rgba(10, 14, 20, 0.88));
-      border-color: rgba(255, 255, 255, 0.05);
-      opacity: 0.58;
-      box-shadow: none;
+      background:
+        linear-gradient(180deg, rgba(64, 68, 76, 0.22), rgba(15, 18, 24, 0.92)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+      border-color: rgba(255, 255, 255, 0.08);
+      opacity: 0.72;
+      box-shadow: 0 10px 18px rgba(6, 8, 12, 0.14);
     }
     .phase-node.phase-tone-disabled .phase-status-dot {
       background: rgba(255, 255, 255, 0.14);
@@ -2458,9 +2457,12 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
     const completedPhaseIds = new Set(state.completedPhaseIds ?? []);
     const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);
     const visiblePhases = workflow.phases.filter((phase) => shouldShowPhase(phase.phaseId, clarificationVisible, currentPhase.phaseId, executionPhaseId));
-    const phaseIds = visiblePhases.map((phase) => phase.phaseId);
-    const desktopLayout = buildPhaseLayout(phaseIds, desktopLayoutConfig, phaseNodeWidth);
-    const mobileLayout = buildPhaseLayout(phaseIds, mobileLayoutConfig, mobilePhaseNodeWidth);
+    const layoutPhases = visiblePhases.map((phase) => ({
+        phaseId: phase.phaseId,
+        requiresApproval: phase.requiresApproval
+    }));
+    const desktopLayout = buildPhaseLayout(layoutPhases, desktopLayoutConfig, phaseNodeWidth);
+    const mobileLayout = buildPhaseLayout(layoutPhases, mobileLayoutConfig, mobilePhaseNodeWidth);
     const links = buildGraphLinks(visiblePhases, executionPhaseId, completedPhaseIds, desktopLayout.positions, phaseNodeWidth);
     const mobileLinks = buildGraphLinks(visiblePhases, executionPhaseId, completedPhaseIds, mobileLayout.positions, mobilePhaseNodeWidth);
     const nodes = visiblePhases.map((phase, index) => {
@@ -2558,7 +2560,13 @@ function graphPath(fromPhaseId, toPhaseId, positions, nodeWidth) {
     const { fromAnchor, toAnchor } = resolveAnchors(fromPosition, toPosition);
     const from = getAnchorPoint(fromPosition, fromAnchor, nodeWidth);
     const to = getAnchorPoint(toPosition, toAnchor, nodeWidth);
-    const fromColumn = phaseColumns[fromPhaseId] ?? "left";
+    const fromColumn = fromPosition.left < toPosition.left
+        ? "left"
+        : fromPosition.left > toPosition.left
+            ? "right"
+            : fromPosition.left <= desktopLayoutConfig.columns.left + 40
+                ? "left"
+                : "right";
     const sameColumn = fromPosition.left === toPosition.left;
     if (sameColumn) {
         const bendDirection = fromColumn === "left" ? -1 : 1;
@@ -2587,7 +2595,7 @@ function resolveAnchors(from, to) {
     if (deltaX > 0) {
         return { fromAnchor: "exit-right", toAnchor: "entry-left" };
     }
-    return { fromAnchor: "exit-bottom-left", toAnchor: "entry-top" };
+    return { fromAnchor: "exit-left", toAnchor: "entry-top" };
 }
 function getAnchorPoint(position, anchor, nodeWidth) {
     switch (anchor) {
@@ -2597,6 +2605,8 @@ function getAnchorPoint(position, anchor, nodeWidth) {
             return { x: position.left, y: position.top + phaseNodeHeight * 0.28 };
         case "exit-right":
             return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.68 };
+        case "exit-left":
+            return { x: position.left, y: position.top + phaseNodeHeight * 0.56 };
         case "exit-bottom-left":
             return { x: position.left + nodeWidth * 0.08, y: position.top + phaseNodeHeight };
         case "exit-bottom-mid":

@@ -26,12 +26,16 @@ type PhaseVisualTone = "active" | "waiting-user" | "paused" | "blocked" | "compl
 
 type PhasePosition = { left: number; top: number };
 type PhaseColumn = "left" | "right";
+type LayoutPhaseDescriptor = {
+  readonly phaseId: string;
+  readonly requiresApproval: boolean;
+};
 type PhaseGraphLayout = {
   readonly positions: Record<string, PhasePosition>;
   readonly width: number;
   readonly height: number;
 };
-type GraphAnchor = "entry-top" | "entry-left" | "exit-right" | "exit-bottom-left" | "exit-bottom-mid";
+type GraphAnchor = "entry-top" | "entry-left" | "exit-right" | "exit-left" | "exit-bottom-left" | "exit-bottom-mid";
 type PhaseLayoutConfig = {
   readonly columns: Record<PhaseColumn, number>;
   readonly topOffset: number;
@@ -44,26 +48,16 @@ type PhaseLayoutConfig = {
 const phaseNodeWidth = 220;
 const phaseNodeHeight = 152;
 const mobilePhaseNodeWidth = 188;
-const phaseSequence = [
-  "capture",
-  "clarification",
-  "refinement",
-  "technical-design",
-  "implementation",
-  "review",
-  "release-approval",
-  "pr-preparation"
+const phaseSequence: readonly LayoutPhaseDescriptor[] = [
+  { phaseId: "capture", requiresApproval: false },
+  { phaseId: "clarification", requiresApproval: false },
+  { phaseId: "refinement", requiresApproval: true },
+  { phaseId: "technical-design", requiresApproval: true },
+  { phaseId: "implementation", requiresApproval: false },
+  { phaseId: "review", requiresApproval: false },
+  { phaseId: "release-approval", requiresApproval: true },
+  { phaseId: "pr-preparation", requiresApproval: false }
 ] as const;
-const phaseColumns: Record<string, PhaseColumn> = {
-  "capture": "left",
-  "clarification": "right",
-  "refinement": "right",
-  "technical-design": "right",
-  "implementation": "left",
-  "review": "left",
-  "release-approval": "right",
-  "pr-preparation": "left"
-};
 const desktopLayoutConfig: PhaseLayoutConfig = {
   columns: { left: 20, right: 400 },
   topOffset: 40,
@@ -97,22 +91,26 @@ function computeGraphWidth(positions: Record<string, PhasePosition>, nodeWidth: 
   return maxLeft + nodeWidth + rightPadding;
 }
 
+function resolvePhaseColumn(requiresApproval: boolean): PhaseColumn {
+  return requiresApproval ? "right" : "left";
+}
+
 function buildPhaseLayout(
-  phaseIds: readonly string[],
+  phases: readonly LayoutPhaseDescriptor[],
   config: PhaseLayoutConfig,
   nodeWidth: number
 ): PhaseGraphLayout {
   const positions: Record<string, PhasePosition> = {};
-  let previousPhaseId: string | null = null;
+  let previousPhase: LayoutPhaseDescriptor | null = null;
 
-  for (const phaseId of phaseIds) {
-    const column = phaseColumns[phaseId] ?? "left";
+  for (const phase of phases) {
+    const column = resolvePhaseColumn(phase.requiresApproval);
     const left = config.columns[column];
     let top = config.topOffset;
 
-    if (previousPhaseId) {
-      const previousPosition = positions[previousPhaseId];
-      const previousColumn = phaseColumns[previousPhaseId] ?? "left";
+    if (previousPhase) {
+      const previousPosition = positions[previousPhase.phaseId];
+      const previousColumn = resolvePhaseColumn(previousPhase.requiresApproval);
       const sameColumn = previousColumn === column;
       const verticalStep = sameColumn
         ? phaseNodeHeight + config.sameColumnGap
@@ -120,8 +118,8 @@ function buildPhaseLayout(
       top = previousPosition.top + Math.round(verticalStep);
     }
 
-    positions[phaseId] = { left, top };
-    previousPhaseId = phaseId;
+    positions[phase.phaseId] = { left, top };
+    previousPhase = phase;
   }
 
   return {
@@ -1368,14 +1366,20 @@ export function buildWorkflowHtml(
       border-color: rgba(114, 241, 184, 0.24);
     }
     .phase-node.phase-tone-pending {
-      background: linear-gradient(180deg, rgba(22, 28, 38, 0.88), rgba(10, 14, 20, 0.96));
-      opacity: 0.9;
+      background:
+        linear-gradient(180deg, rgba(72, 77, 87, 0.32), rgba(21, 26, 34, 0.98)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
+      border-color: rgba(196, 203, 214, 0.14);
+      box-shadow: 0 16px 28px rgba(7, 10, 16, 0.22);
+      opacity: 0.96;
     }
     .phase-node.phase-tone-disabled {
-      background: linear-gradient(180deg, rgba(18, 22, 29, 0.68), rgba(10, 14, 20, 0.88));
-      border-color: rgba(255, 255, 255, 0.05);
-      opacity: 0.58;
-      box-shadow: none;
+      background:
+        linear-gradient(180deg, rgba(64, 68, 76, 0.22), rgba(15, 18, 24, 0.92)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+      border-color: rgba(255, 255, 255, 0.08);
+      opacity: 0.72;
+      box-shadow: 0 10px 18px rgba(6, 8, 12, 0.14);
     }
     .phase-node.phase-tone-disabled .phase-status-dot {
       background: rgba(255, 255, 255, 0.14);
@@ -2564,9 +2568,12 @@ function buildPhaseGraph(
   const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);
   const visiblePhases = workflow.phases.filter((phase) =>
     shouldShowPhase(phase.phaseId, clarificationVisible, currentPhase.phaseId, executionPhaseId));
-  const phaseIds = visiblePhases.map((phase) => phase.phaseId);
-  const desktopLayout = buildPhaseLayout(phaseIds, desktopLayoutConfig, phaseNodeWidth);
-  const mobileLayout = buildPhaseLayout(phaseIds, mobileLayoutConfig, mobilePhaseNodeWidth);
+  const layoutPhases = visiblePhases.map((phase) => ({
+    phaseId: phase.phaseId,
+    requiresApproval: phase.requiresApproval
+  }));
+  const desktopLayout = buildPhaseLayout(layoutPhases, desktopLayoutConfig, phaseNodeWidth);
+  const mobileLayout = buildPhaseLayout(layoutPhases, mobileLayoutConfig, mobilePhaseNodeWidth);
   const links = buildGraphLinks(visiblePhases, executionPhaseId, completedPhaseIds, desktopLayout.positions, phaseNodeWidth);
   const mobileLinks = buildGraphLinks(visiblePhases, executionPhaseId, completedPhaseIds, mobileLayout.positions, mobilePhaseNodeWidth);
 
@@ -2713,7 +2720,13 @@ function graphPath(
   const { fromAnchor, toAnchor } = resolveAnchors(fromPosition, toPosition);
   const from = getAnchorPoint(fromPosition, fromAnchor, nodeWidth);
   const to = getAnchorPoint(toPosition, toAnchor, nodeWidth);
-  const fromColumn = phaseColumns[fromPhaseId] ?? "left";
+  const fromColumn: PhaseColumn = fromPosition.left < toPosition.left
+    ? "left"
+    : fromPosition.left > toPosition.left
+      ? "right"
+      : fromPosition.left <= desktopLayoutConfig.columns.left + 40
+        ? "left"
+        : "right";
   const sameColumn = fromPosition.left === toPosition.left;
 
   if (sameColumn) {
@@ -2749,7 +2762,7 @@ function resolveAnchors(from: PhasePosition, to: PhasePosition): { fromAnchor: G
     return { fromAnchor: "exit-right", toAnchor: "entry-left" };
   }
 
-  return { fromAnchor: "exit-bottom-left", toAnchor: "entry-top" };
+  return { fromAnchor: "exit-left", toAnchor: "entry-top" };
 }
 
 function getAnchorPoint(position: PhasePosition, anchor: GraphAnchor, nodeWidth: number): { x: number; y: number } {
@@ -2760,6 +2773,8 @@ function getAnchorPoint(position: PhasePosition, anchor: GraphAnchor, nodeWidth:
       return { x: position.left, y: position.top + phaseNodeHeight * 0.28 };
     case "exit-right":
       return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.68 };
+    case "exit-left":
+      return { x: position.left, y: position.top + phaseNodeHeight * 0.56 };
     case "exit-bottom-left":
       return { x: position.left + nodeWidth * 0.08, y: position.top + phaseNodeHeight };
     case "exit-bottom-mid":
