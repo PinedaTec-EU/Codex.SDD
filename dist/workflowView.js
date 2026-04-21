@@ -1348,6 +1348,15 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       animation: nodeRise 420ms ease both;
       z-index: 1;
     }
+    .phase-node::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: inherit;
+      z-index: 0;
+      pointer-events: none;
+    }
     .phase-node::before {
       content: "";
       position: absolute;
@@ -1356,6 +1365,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       background:
         radial-gradient(circle at 14% 12%, rgba(114, 241, 184, 0.08), transparent 28%),
         linear-gradient(135deg, rgba(255, 255, 255, 0.012), transparent 34%);
+      z-index: 1;
       pointer-events: none;
     }
     .phase-node:hover {
@@ -1374,7 +1384,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .phase-node-content {
       position: relative;
-      z-index: 1;
+      z-index: 2;
     }
     .phase-node.phase-tone-pending.selected {
       outline: 2px solid rgba(255, 255, 255, 0.24);
@@ -1461,12 +1471,12 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       position: absolute;
       top: 22px;
       bottom: 22px;
-      left: -56px;
-      right: -10px;
+      left: -42px;
+      right: -16px;
       display: flex;
       align-items: center;
       justify-content: flex-start;
-      padding-left: 10px;
+      padding-left: 2px;
       border-radius: 18px;
       border-right: 1px solid rgba(92, 181, 255, 0.12);
       background: linear-gradient(180deg, rgba(74, 156, 229, 0.94), rgba(14, 42, 76, 0.98));
