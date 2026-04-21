@@ -16,7 +16,7 @@ const phaseSequence = [
     { phaseId: "pr-preparation", expectsHumanIntervention: false }
 ];
 const desktopLayoutConfig = {
-    columns: { left: 20, right: 400 },
+    columns: { left: 38, right: 400 },
     topOffset: 40,
     sameColumnGap: 32,
     overlapRatio: 0.30,
@@ -24,7 +24,7 @@ const desktopLayoutConfig = {
     bottomPadding: 96
 };
 const mobileLayoutConfig = {
-    columns: { left: 0, right: 176 },
+    columns: { left: 16, right: 192 },
     topOffset: 16,
     sameColumnGap: 26,
     overlapRatio: 0.30,
@@ -427,8 +427,18 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     const durationMetric = selectedPhaseEvent?.durationMs !== null && selectedPhaseEvent
         ? `
       <div class="phase-duration-pill" role="status" aria-label="Phase duration">
-        <span class="phase-duration-pill__label">Duration</span>
-        <span class="phase-duration-pill__value">${escapeHtml(formatDuration(selectedPhaseEvent.durationMs))}</span>
+        <div class="phase-duration-pill__clock" aria-hidden="true">
+          <span class="phase-duration-pill__tick phase-duration-pill__tick--a"></span>
+          <span class="phase-duration-pill__tick phase-duration-pill__tick--b"></span>
+          <span class="phase-duration-pill__tick phase-duration-pill__tick--c"></span>
+          <span class="phase-duration-pill__tick phase-duration-pill__tick--d"></span>
+          <span class="phase-duration-pill__hand phase-duration-pill__hand--minute"></span>
+          <span class="phase-duration-pill__hand phase-duration-pill__hand--second"></span>
+        </div>
+        <div class="phase-duration-pill__body">
+          <span class="phase-duration-pill__label">Duration</span>
+          <span class="phase-duration-pill__value">${escapeHtml(formatDuration(selectedPhaseEvent.durationMs))}</span>
+        </div>
       </div>
     `
         : "";
@@ -790,27 +800,123 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       align-items: stretch;
     }
     .phase-duration-pill {
+      position: relative;
       display: grid;
-      align-content: center;
-      gap: 6px;
+      grid-template-columns: 78px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
       min-height: 92px;
-      padding: 12px 16px;
-      border-radius: 16px;
-      border: 1px solid rgba(92, 181, 255, 0.28);
-      background: linear-gradient(180deg, rgba(92, 181, 255, 0.18), rgba(15, 32, 55, 0.96));
-      box-shadow: 0 10px 24px rgba(18, 44, 74, 0.2);
+      padding: 14px 16px 14px 14px;
+      border-radius: 22px;
+      border: 1px solid rgba(171, 223, 255, 0.24);
+      background:
+        radial-gradient(circle at 20% 18%, rgba(214, 239, 255, 0.12), transparent 34%),
+        linear-gradient(180deg, rgba(204, 233, 255, 0.09), rgba(28, 44, 62, 0.3));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 10px 24px rgba(18, 44, 74, 0.14);
+      overflow: hidden;
+    }
+    .phase-duration-pill::after {
+      content: "";
+      position: absolute;
+      inset: auto -12px -24px auto;
+      width: 118px;
+      height: 118px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(194, 232, 255, 0.12), transparent 68%);
+      pointer-events: none;
+    }
+    .phase-duration-pill__clock {
+      position: relative;
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      border: 1px solid rgba(221, 242, 255, 0.38);
+      background:
+        radial-gradient(circle at 30% 28%, rgba(245, 251, 255, 0.24), rgba(194, 229, 255, 0.08) 38%, rgba(154, 203, 241, 0.04) 58%, rgba(154, 203, 241, 0.02) 100%);
+      box-shadow:
+        inset 0 0 0 8px rgba(216, 238, 255, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 8px 18px rgba(112, 164, 208, 0.08);
+      color: rgba(240, 249, 255, 0.88);
+    }
+    .phase-duration-pill__clock::before {
+      content: "";
+      position: absolute;
+      top: -9px;
+      left: 50%;
+      width: 18px;
+      height: 10px;
+      border-radius: 999px 999px 5px 5px;
+      transform: translateX(-50%);
+      border: 1px solid rgba(221, 242, 255, 0.28);
+      background: linear-gradient(180deg, rgba(243, 251, 255, 0.16), rgba(177, 214, 242, 0.06));
+    }
+    .phase-duration-pill__clock::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(247, 252, 255, 0.92);
+      box-shadow: 0 0 0 4px rgba(215, 238, 255, 0.08);
+    }
+    .phase-duration-pill__tick {
+      position: absolute;
+      left: 50%;
+      top: 6px;
+      width: 1px;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(240, 249, 255, 0.54);
+      transform-origin: 50% 28px;
+    }
+    .phase-duration-pill__tick--a { transform: translateX(-50%) rotate(0deg); }
+    .phase-duration-pill__tick--b { transform: translateX(-50%) rotate(90deg); }
+    .phase-duration-pill__tick--c { transform: translateX(-50%) rotate(180deg); }
+    .phase-duration-pill__tick--d { transform: translateX(-50%) rotate(270deg); }
+    .phase-duration-pill__hand {
+      position: absolute;
+      left: 50%;
+      bottom: 50%;
+      width: 2px;
+      border-radius: 999px;
+      transform-origin: 50% 100%;
+      background: linear-gradient(180deg, rgba(248, 252, 255, 0.94), rgba(195, 226, 250, 0.64));
+      box-shadow: 0 0 10px rgba(232, 246, 255, 0.14);
+    }
+    .phase-duration-pill__hand--minute {
+      height: 17px;
+      transform: translateX(-50%) rotate(22deg);
+    }
+    .phase-duration-pill__hand--second {
+      height: 23px;
+      width: 1px;
+      opacity: 0.88;
+      transform: translateX(-50%) rotate(132deg);
+    }
+    .phase-duration-pill__body {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 4px;
     }
     .phase-duration-pill__label {
       font-size: 0.64rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: rgba(181, 219, 255, 0.84);
+      color: rgba(214, 236, 252, 0.78);
     }
     .phase-duration-pill__value {
-      font-size: 1.25rem;
-      font-weight: 700;
+      font-size: 1.38rem;
+      font-weight: 800;
       line-height: 1.05;
-      color: #f1f8ff;
+      color: #f7fbff;
+      text-shadow: 0 1px 2px rgba(8, 15, 22, 0.32);
     }
     .token-summary {
       min-width: 0;
@@ -1354,13 +1460,13 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       position: absolute;
       top: 22px;
       bottom: 22px;
-      left: -48px;
-      width: 42px;
+      left: -54px;
+      width: 64px;
       display: flex;
       align-items: center;
       justify-content: center;
       border-radius: 18px 0 0 18px;
-      border-right: 1px solid rgba(92, 181, 255, 0.36);
+      border-right: 1px solid rgba(92, 181, 255, 0.18);
       background: linear-gradient(180deg, rgba(74, 156, 229, 0.94), rgba(14, 42, 76, 0.98));
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.14),
