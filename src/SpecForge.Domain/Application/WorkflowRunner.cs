@@ -143,16 +143,21 @@ public sealed class WorkflowRunner
 
         var currentArtifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Refinement)
             ?? throw new WorkflowDomainException("The refinement artifact does not exist yet.");
-        var currentArtifact = await File.ReadAllTextAsync(currentArtifactPath, cancellationToken);
         var answeredAtUtc = DateTimeOffset.UtcNow;
         var normalizedActor = NormalizeActor(actor);
-        var updatedArtifact = ApprovalQuestionMarkdown.ApplyAnswer(currentArtifact, question.Trim(), answer.Trim(), normalizedActor, answeredAtUtc);
-        updatedArtifact = PrependHistoryEntry(
-            updatedArtifact,
-            $"- `{answeredAtUtc:O}` · {normalizedActor} recorded human approval answer for: {SummarizeQuestion(question)}");
+        var currentDocument = await LoadCurrentRefinementDocumentAsync(paths, cancellationToken);
+        var updatedDocument = RefinementSpecJson.ApplyApprovalAnswer(
+            currentDocument,
+            question.Trim(),
+            answer.Trim(),
+            normalizedActor,
+            answeredAtUtc);
 
         var generatedArtifactPath = NextAvailableArtifactPath(paths, PhaseId.Refinement);
-        await File.WriteAllTextAsync(generatedArtifactPath, updatedArtifact, cancellationToken);
+        var generatedVersion = ExtractArtifactVersion(generatedArtifactPath);
+        var generatedArtifactJsonPath = paths.GetPhaseArtifactJsonPath(PhaseId.Refinement, generatedVersion);
+        await File.WriteAllTextAsync(generatedArtifactJsonPath, RefinementSpecJson.Serialize(updatedDocument), cancellationToken);
+        await File.WriteAllTextAsync(generatedArtifactPath, RefinementSpecJson.RenderMarkdown(updatedDocument, workflowRun.UsId, generatedVersion), cancellationToken);
 
         if (workflowRun.IsPhaseApproved(PhaseId.Refinement))
         {
@@ -534,7 +539,18 @@ public sealed class WorkflowRunner
         var result = await phaseExecutionProvider.ExecuteAsync(executionContext, cancellationToken);
         stopwatch.Stop();
 
-        await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
+        if (workflowRun.CurrentPhase == PhaseId.Refinement)
+        {
+            var version = ExtractArtifactVersion(artifactPath);
+            var document = RefinementSpecJson.Parse(result.Content);
+            await File.WriteAllTextAsync(paths.GetPhaseArtifactJsonPath(PhaseId.Refinement, version), RefinementSpecJson.Serialize(document), cancellationToken);
+            await File.WriteAllTextAsync(artifactPath, RefinementSpecJson.RenderMarkdown(document, workflowRun.UsId, version), cancellationToken);
+        }
+        else
+        {
+            await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
+        }
+
         return new ArtifactGenerationResult(artifactPath, result.Usage, stopwatch.ElapsedMilliseconds);
     }
 
@@ -793,9 +809,8 @@ public sealed class WorkflowRunner
             validationPrompt,
             cancellationToken);
 
-        var generatedMarkdown = await File.ReadAllTextAsync(generation.ArtifactPath, cancellationToken);
-        var unresolvedQuestions = ApprovalQuestionMarkdown.GetUnresolvedQuestions(
-            MarkdownHelper.TryReadSection(generatedMarkdown, "## Human Approval Questions") ?? string.Empty);
+        var generatedDocument = await LoadRefinementDocumentForArtifactAsync(paths, generation.ArtifactPath, cancellationToken);
+        var unresolvedQuestions = RefinementSpecJson.GetUnresolvedQuestions(generatedDocument);
 
         if (unresolvedQuestions.Count == 0)
         {
@@ -866,19 +881,6 @@ public sealed class WorkflowRunner
     private static string NormalizeActor(string? actor) =>
         string.IsNullOrWhiteSpace(actor) ? "user" : actor.Trim();
 
-    private static string PrependHistoryEntry(string markdown, string entry)
-    {
-        var marker = "## History Log";
-        var markerIndex = markdown.IndexOf(marker, StringComparison.Ordinal);
-        if (markerIndex < 0)
-        {
-            return markdown;
-        }
-
-        var insertIndex = markerIndex + marker.Length;
-        return markdown.Insert(insertIndex, $"{Environment.NewLine}{entry}");
-    }
-
     private static string BuildRefinementApprovalValidationPrompt() =>
         """
         Validate the approved refinement artifact against the recorded human approval answers.
@@ -900,6 +902,48 @@ public sealed class WorkflowRunner
     {
         var trimmed = question.Trim();
         return trimmed.Length <= 120 ? trimmed : $"{trimmed[..117]}...";
+    }
+
+    private static int ExtractArtifactVersion(string artifactPath)
+    {
+        var fileName = Path.GetFileNameWithoutExtension(artifactPath);
+        var markerIndex = fileName.LastIndexOf(".v", StringComparison.OrdinalIgnoreCase);
+        if (markerIndex < 0)
+        {
+            return 1;
+        }
+
+        return int.TryParse(fileName[(markerIndex + 2)..], out var version) ? version : 1;
+    }
+
+    private static async Task<RefinementSpecDocument> LoadCurrentRefinementDocumentAsync(
+        UserStoryFilePaths paths,
+        CancellationToken cancellationToken)
+    {
+        var jsonPath = paths.GetLatestExistingPhaseArtifactJsonPath(PhaseId.Refinement);
+        if (!string.IsNullOrWhiteSpace(jsonPath) && File.Exists(jsonPath))
+        {
+            return RefinementSpecJson.Parse(await File.ReadAllTextAsync(jsonPath, cancellationToken));
+        }
+
+        var markdownPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Refinement)
+            ?? throw new WorkflowDomainException("The refinement artifact does not exist yet.");
+        return RefinementSpecMarkdownImporter.Import(await File.ReadAllTextAsync(markdownPath, cancellationToken));
+    }
+
+    private static async Task<RefinementSpecDocument> LoadRefinementDocumentForArtifactAsync(
+        UserStoryFilePaths paths,
+        string markdownPath,
+        CancellationToken cancellationToken)
+    {
+        var version = ExtractArtifactVersion(markdownPath);
+        var jsonPath = paths.GetPhaseArtifactJsonPath(PhaseId.Refinement, version);
+        if (File.Exists(jsonPath))
+        {
+            return RefinementSpecJson.Parse(await File.ReadAllTextAsync(jsonPath, cancellationToken));
+        }
+
+        return RefinementSpecMarkdownImporter.Import(await File.ReadAllTextAsync(markdownPath, cancellationToken));
     }
 
     private static string BuildUserStoryMarkdown(string usId, string title, string kind, string category, string sourceText)

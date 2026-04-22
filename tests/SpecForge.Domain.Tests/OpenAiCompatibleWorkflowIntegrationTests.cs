@@ -41,15 +41,53 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             """,
             "ok",
             """
-            # Refinement · US-0001 · v01
-
-            ## Goal
-            Persist LinkedIn article content in `articles.json` and render both Spanish and English variants.
-
-            ## Acceptance Criteria
-            - Articles can be loaded from `articles.json`.
-            - The page renders Spanish and English versions of the article content.
-            - The article can be selected by slug and locale.
+            {
+              "title": "Persist LinkedIn bilingual article rendering",
+              "historyLog": [
+                "`2026-04-22T12:09:02Z` · Initial refinement baseline generated."
+              ],
+              "state": "pending_approval",
+              "basedOn": "clarification.md",
+              "specSummary": "Persist LinkedIn article content in `articles.json` and render both Spanish and English variants.",
+              "inputs": [
+                "Marketing editors publish bilingual article content."
+              ],
+              "outputs": [
+                "Landing page renders the article in the requested locale."
+              ],
+              "businessRules": [
+                "Locale selects the Spanish or English article variant."
+              ],
+              "edgeCases": [
+                "Missing locale falls back to the default supported language."
+              ],
+              "errorsAndFailureModes": [
+                "Unknown article slug returns a not-found response."
+              ],
+              "constraints": [
+                "Keep the first pass bounded to the current repository."
+              ],
+              "detectedAmbiguities": [
+                "Analytics tracking remains out of scope unless explicitly approved."
+              ],
+              "redTeam": [
+                "The request could overreach into content authoring workflows."
+              ],
+              "blueTeam": [
+                "Keep scope bounded to persisted article rendering."
+              ],
+              "acceptanceCriteria": [
+                "Articles can be loaded from `articles.json`.",
+                "The page renders Spanish and English versions of the article content.",
+                "The article can be selected by slug and locale."
+              ],
+              "humanApprovalQuestions": [
+                {
+                  "question": "Is the bilingual scope bounded enough for technical design?",
+                  "status": "pending"
+                }
+              ]
+            }
             """
         ]);
 

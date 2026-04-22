@@ -14,7 +14,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     private readonly string workspaceRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
 
     [Fact]
-    public async Task ExecuteAsync_SendsOpenAiCompatibleRequestAndParsesMarkdown()
+    public async Task ExecuteAsync_SendsOpenAiCompatibleRequestAndParsesRefinementJson()
     {
         await PrepareInitializedWorkspaceAsync();
         var handler = new CapturingFakeHttpMessageHandler();
@@ -36,7 +36,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var result = await provider.ExecuteAsync(context);
 
         Assert.Equal("openai-compatible", result.ExecutionKind);
-        Assert.Equal("# generated markdown", result.Content);
+        Assert.Contains("\"title\": \"generated markdown\"", result.Content);
         Assert.NotNull(result.Usage);
         Assert.Equal(120, result.Usage!.InputTokens);
         Assert.Equal(48, result.Usage.OutputTokens);

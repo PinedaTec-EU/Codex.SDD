@@ -131,7 +131,7 @@ public sealed class SpecForgeApplicationService
             BuildPhaseDetails(workflowRun, paths),
             new CurrentPhaseControls(
                 currentPhase.CanAdvance,
-                currentPhase.RequiresApproval && !currentPhase.CanAdvance,
+                currentPhase.CanApprove,
                 currentPhase.RequiresApproval,
                 currentPhase.BlockingReason,
                 workflowRun.CurrentPhase != Workflow.PhaseId.Capture,
@@ -187,11 +187,27 @@ public sealed class SpecForgeApplicationService
                 WorkflowPresentation.ToStatusSlug(workflowRun.Status),
                 canAdvanceClarification,
                 false,
+                false,
                 canAdvanceClarification ? null : "clarification_pending_answers");
         }
 
         var requiresApproval = workflowRun.Definition.RequiresApproval(workflowRun.CurrentPhase);
         var canAdvance = !requiresApproval || workflowRun.IsPhaseApproved(workflowRun.CurrentPhase);
+        var canApprove = requiresApproval && !canAdvance;
+        if (canApprove && workflowRun.CurrentPhase == Workflow.PhaseId.Refinement)
+        {
+            var refinementPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Refinement);
+            if (string.IsNullOrWhiteSpace(refinementPath) || !File.Exists(refinementPath))
+            {
+                canApprove = false;
+            }
+            else
+            {
+                var refinementMarkdown = await File.ReadAllTextAsync(refinementPath, cancellationToken);
+                canApprove = SpecBaselineSchemaValidator.Validate(refinementMarkdown).IsValid;
+            }
+        }
+
         var blockingReason = canAdvance
             ? null
             : $"{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}_pending_user_approval";
@@ -201,6 +217,7 @@ public sealed class SpecForgeApplicationService
             WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
             WorkflowPresentation.ToStatusSlug(workflowRun.Status),
             canAdvance,
+            canApprove,
             requiresApproval,
             blockingReason);
     }

@@ -261,7 +261,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine()
             .AppendLine("- Use the repository artifacts as the source of truth.")
             .AppendLine("- Stay strictly inside the requested phase contract.")
-            .AppendLine("- Return only the markdown artifact for the current phase.");
+            .AppendLine(context.PhaseId == PhaseId.Refinement
+                ? "- Return only the canonical JSON artifact for the current phase."
+                : "- Return only the markdown artifact for the current phase.");
 
         if (!string.IsNullOrWhiteSpace(context.OperationPrompt))
         {
@@ -290,6 +292,40 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine("If the story is ready for refinement, return exactly `ok` and nothing else.")
                 .AppendLine("If the story still needs clarification, the first line must be `needs_clarification`, followed by a blank line and then the complete markdown artifact.")
                 .AppendLine("Do not replace these tokens with synonyms, labels, prose, or code fences.");
+        }
+
+        if (context.PhaseId == PhaseId.Refinement)
+        {
+            builder
+                .AppendLine()
+                .AppendLine("## Refinement JSON Contract")
+                .AppendLine()
+                .AppendLine("Return a single JSON object with exactly these top-level fields:")
+                .AppendLine("- `title`")
+                .AppendLine("- `historyLog`")
+                .AppendLine("- `state`")
+                .AppendLine("- `basedOn`")
+                .AppendLine("- `specSummary`")
+                .AppendLine("- `inputs`")
+                .AppendLine("- `outputs`")
+                .AppendLine("- `businessRules`")
+                .AppendLine("- `edgeCases`")
+                .AppendLine("- `errorsAndFailureModes`")
+                .AppendLine("- `constraints`")
+                .AppendLine("- `detectedAmbiguities`")
+                .AppendLine("- `redTeam`")
+                .AppendLine("- `blueTeam`")
+                .AppendLine("- `acceptanceCriteria`")
+                .AppendLine("- `humanApprovalQuestions`")
+                .AppendLine()
+                .AppendLine("`humanApprovalQuestions` must be an array of objects with:")
+                .AppendLine("- `question`")
+                .AppendLine("- `status` (`pending` or `resolved`)")
+                .AppendLine("- `answer`")
+                .AppendLine("- `answeredBy`")
+                .AppendLine("- `answeredAtUtc`")
+                .AppendLine()
+                .AppendLine("Do not wrap the JSON in markdown fences. Do not return prose outside the JSON object.");
         }
 
         if (context.PhaseId == PhaseId.Review)
@@ -354,6 +390,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private static string NormalizePhaseContent(PhaseExecutionContext context, string content)
     {
+        if (context.PhaseId == PhaseId.Refinement)
+        {
+            return RefinementSpecJson.Serialize(RefinementSpecJson.Parse(content));
+        }
+
         if (context.PhaseId != PhaseId.Clarification)
         {
             return content;

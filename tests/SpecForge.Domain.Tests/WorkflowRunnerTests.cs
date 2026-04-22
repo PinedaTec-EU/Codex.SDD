@@ -33,6 +33,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal(UserStoryStatus.WaitingUser, result.Status);
         Assert.NotNull(result.GeneratedArtifactPath);
         Assert.True(File.Exists(result.GeneratedArtifactPath!));
+        Assert.True(File.Exists(Path.ChangeExtension(result.GeneratedArtifactPath!, ".json")));
         var refinementContent = await File.ReadAllTextAsync(result.GeneratedArtifactPath!);
         Assert.Contains("# Spec · US-0001 · v01", refinementContent);
         Assert.Contains("Initial source text", refinementContent);
@@ -193,7 +194,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         var parseMethod = typeof(WorkflowRunner).GetMethod("ParseClarificationArtifact", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
         var updateMethod = typeof(WorkflowRunner).GetMethod("UpdateClarificationLogAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
         var assessment = parseMethod.Invoke(null, [await File.ReadAllTextAsync(generatedClarificationPath)])!;
-        await (Task)updateMethod.Invoke(null, [paths, assessment, CancellationToken.None])!;
+        await (Task)updateMethod.Invoke(null, [paths, assessment, "balanced", CancellationToken.None])!;
 
         var updatedClarification = await File.ReadAllTextAsync(paths.ClarificationFilePath);
         Assert.DoesNotContain("Question A", updatedClarification);
@@ -258,6 +259,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         var runner = new WorkflowRunner();
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
 
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
         var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
@@ -266,7 +268,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal(UserStoryStatus.Active, result.Status);
         var technicalDesignContent = await File.ReadAllTextAsync(result.GeneratedArtifactPath!);
         Assert.Contains("## Affected Components", technicalDesignContent);
-        Assert.Contains("SpecForge.Runner.Cli", technicalDesignContent);
+        Assert.Contains("Cross-cutting concerns", technicalDesignContent);
         Assert.Contains("## Validation Strategy", technicalDesignContent);
 
         var loadedRun = await new UserStoryFileStore().LoadAsync(
@@ -290,6 +292,7 @@ public sealed class WorkflowRunnerTests : IDisposable
             "workflow",
             "Initial source text");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
 
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
 
@@ -336,6 +339,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         var runner = new WorkflowRunner();
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
@@ -363,6 +367,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         var runner = new WorkflowRunner();
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
@@ -410,6 +415,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         var runner = new WorkflowRunner();
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
@@ -542,6 +548,28 @@ public sealed class WorkflowRunnerTests : IDisposable
         if (Directory.Exists(workspaceRoot))
         {
             Directory.Delete(workspaceRoot, recursive: true);
+        }
+    }
+
+    private async Task ResolvePendingApprovalQuestionsAsync(WorkflowRunner runner, string usId)
+    {
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
+        var artifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Refinement)
+            ?? throw new InvalidOperationException("Expected a refinement artifact before resolving approval questions.");
+        var markdown = await File.ReadAllTextAsync(artifactPath);
+        var pendingQuestions = ApprovalQuestionMarkdown.ParseFromMarkdown(markdown)
+            .Where(static item => !item.Resolved)
+            .Select(static item => item.Question)
+            .ToArray();
+
+        foreach (var question in pendingQuestions)
+        {
+            await runner.SubmitApprovalAnswerAsync(
+                workspaceRoot,
+                usId,
+                question,
+                $"Resolved in test setup for: {question}",
+                "test-user");
         }
     }
 

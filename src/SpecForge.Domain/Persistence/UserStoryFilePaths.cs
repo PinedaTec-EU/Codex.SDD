@@ -115,6 +115,13 @@ public sealed class UserStoryFilePaths
         return Path.Combine(PhasesDirectoryPath, $"{fileName}{versionSuffix}.md");
     }
 
+    public string GetPhaseArtifactJsonPath(PhaseId phaseId, int version = 1)
+    {
+        var fileName = GetPhaseArtifactFileStem(phaseId);
+        var versionSuffix = version <= 1 ? string.Empty : $".v{version:00}";
+        return Path.Combine(PhasesDirectoryPath, $"{fileName}{versionSuffix}.json");
+    }
+
     public string? GetLatestExistingPhaseArtifactPath(PhaseId phaseId)
     {
         foreach (var fileStem in GetPhaseArtifactFileStems(phaseId))
@@ -124,6 +131,32 @@ public sealed class UserStoryFilePaths
             {
                 var versionSuffix = version <= 1 ? string.Empty : $".v{version:00}";
                 var candidate = Path.Combine(PhasesDirectoryPath, $"{fileStem}{versionSuffix}.md");
+                if (!File.Exists(candidate))
+                {
+                    break;
+                }
+
+                latestPath = candidate;
+            }
+
+            if (latestPath is not null)
+            {
+                return latestPath;
+            }
+        }
+
+        return null;
+    }
+
+    public string? GetLatestExistingPhaseArtifactJsonPath(PhaseId phaseId)
+    {
+        foreach (var fileStem in GetPhaseArtifactFileStems(phaseId))
+        {
+            string? latestPath = null;
+            for (var version = 1; version < 100; version++)
+            {
+                var versionSuffix = version <= 1 ? string.Empty : $".v{version:00}";
+                var candidate = Path.Combine(PhasesDirectoryPath, $"{fileStem}{versionSuffix}.json");
                 if (!File.Exists(candidate))
                 {
                     break;

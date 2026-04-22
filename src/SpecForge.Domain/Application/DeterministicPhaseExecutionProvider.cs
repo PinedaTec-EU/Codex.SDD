@@ -76,7 +76,9 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
             File.Exists(context.CurrentArtifactPath))
         {
             var currentArtifact = await File.ReadAllTextAsync(context.CurrentArtifactPath, cancellationToken);
-            return ApplyDeterministicArtifactOperation(currentArtifact, context.OperationPrompt);
+            return ApplyDeterministicArtifactOperation(
+                RefinementSpecMarkdownImporter.Import(currentArtifact),
+                context.OperationPrompt);
         }
 
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
@@ -88,71 +90,72 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
             ? "The source does not yet distinguish clearly between in-scope behavior and deliberate exclusions."
             : "The source identifies baseline scope, but edge cases and non-functional expectations still need explicit validation.";
 
-        return string.Join(
-                   Environment.NewLine,
-                   new[]
-                   {
-                       $"# Spec · {context.UsId} · v01",
-                       string.Empty,
-                       "## History Log",
-                       $"- `{DateTimeOffset.UtcNow:O}` · Initial spec generated from `us.md`.",
-                       string.Empty,
-                       "## State",
-                       "- State: `pending_approval`",
-                       "- Based on: `us.md`",
-                       string.Empty,
-                       "## Spec Summary",
-                       $"User story `{title}` has been normalized into an executable baseline spec.",
-                       string.Empty,
-                       "## Inputs",
-                       "- Source intent from `us.md`.",
-                       "- Clarification answers when available.",
-                       string.Empty,
-                       "## Outputs",
-                       "- A bounded implementation target for technical design.",
-                       "- Explicit acceptance criteria that can be validated later in review and tests.",
-                       string.Empty,
-                       "## Business Rules",
-                       $"- The system must satisfy this objective: {objective}",
-                       "- The delivered behavior must stay within the approved scope and avoid silently expanding into roadmap work.",
-                       "- Repository changes must remain traceable to this spec and its downstream design.",
-                       string.Empty,
-                       "## Edge Cases",
-                       "- Missing repository context must be surfaced instead of guessed as settled fact.",
-                       "- Scope items that imply architectural expansion must be escalated before implementation.",
-                       string.Empty,
-                       "## Errors and Failure Modes",
-                       "- If the spec leaves business-critical ambiguity unresolved, technical design must stop and request clarification or regression.",
-                       "- If implementation cannot be validated against these criteria, review must fail and point to the correction phase.",
-                       string.Empty,
-                       "## Constraints",
-                       "- Keep the first implementation pass bounded to the current repository and workflow phase.",
-                       "- Treat external integrations, security policy changes, and cross-cutting architecture shifts as explicit decisions, not defaults.",
-                       string.Empty,
-                       "## Detected Ambiguities",
-                       $"- {ambiguity}",
-                       "- Non-functional thresholds are not explicit unless the user story or clarification already makes them explicit.",
-                       string.Empty,
-                       "## Red Team",
-                       "- The current request may still hide implicit assumptions around actor responsibilities or approval boundaries.",
-                       "- Missing explicit exclusions could expand the implementation scope beyond the approved phase.",
-                       "- Some acceptance expectations may still read as intent rather than as verifiable checks.",
-                       string.Empty,
-                       "## Blue Team",
-                       "- Keep the approved scope constrained to the current workflow and visible persisted artifacts.",
-                       "- Translate assumptions into explicit criteria before implementation continues.",
-                       "- Use this spec as the operational baseline instead of returning to the raw user story.",
-                       string.Empty,
-                       "## Acceptance Criteria",
-                       "- The implementation maps to the approved objective without inventing new business behavior.",
-                       "- Technical design can derive concrete component impact, contracts, and validation from this spec.",
-                       "- Review can verify whether the delivered change matches the approved scope and error handling expectations.",
-                       string.Empty,
-                       "## Human Approval Questions",
-                       "- Is the scope precise enough to avoid a second interpretation pass during technical design?",
-                       "- Are any hidden business rules, exclusions, or edge cases still missing from the baseline?"
-                   }) +
-               Environment.NewLine;
+        return RefinementSpecJson.Serialize(
+            new RefinementSpecDocument(
+                Title: title,
+                HistoryLog: [$"`{DateTimeOffset.UtcNow:O}` · Initial spec generated from `us.md`."],
+                State: "pending_approval",
+                BasedOn: "us.md",
+                SpecSummary: $"User story `{title}` has been normalized into an executable baseline spec.",
+                Inputs:
+                [
+                    "Source intent from `us.md`.",
+                    "Clarification answers when available."
+                ],
+                Outputs:
+                [
+                    "A bounded implementation target for technical design.",
+                    "Explicit acceptance criteria that can be validated later in review and tests."
+                ],
+                BusinessRules:
+                [
+                    $"The system must satisfy this objective: {objective}",
+                    "The delivered behavior must stay within the approved scope and avoid silently expanding into roadmap work.",
+                    "Repository changes must remain traceable to this spec and its downstream design."
+                ],
+                EdgeCases:
+                [
+                    "Missing repository context must be surfaced instead of guessed as settled fact.",
+                    "Scope items that imply architectural expansion must be escalated before implementation."
+                ],
+                ErrorsAndFailureModes:
+                [
+                    "If the spec leaves business-critical ambiguity unresolved, technical design must stop and request clarification or regression.",
+                    "If implementation cannot be validated against these criteria, review must fail and point to the correction phase."
+                ],
+                Constraints:
+                [
+                    "Keep the first implementation pass bounded to the current repository and workflow phase.",
+                    "Treat external integrations, security policy changes, and cross-cutting architecture shifts as explicit decisions, not defaults."
+                ],
+                DetectedAmbiguities:
+                [
+                    ambiguity,
+                    "Non-functional thresholds are not explicit unless the user story or clarification already makes them explicit."
+                ],
+                RedTeam:
+                [
+                    "The current request may still hide implicit assumptions around actor responsibilities or approval boundaries.",
+                    "Missing explicit exclusions could expand the implementation scope beyond the approved phase.",
+                    "Some acceptance expectations may still read as intent rather than as verifiable checks."
+                ],
+                BlueTeam:
+                [
+                    "Keep the approved scope constrained to the current workflow and visible persisted artifacts.",
+                    "Translate assumptions into explicit criteria before implementation continues.",
+                    "Use this spec as the operational baseline instead of returning to the raw user story."
+                ],
+                AcceptanceCriteria:
+                [
+                    "The implementation maps to the approved objective without inventing new business behavior.",
+                    "Technical design can derive concrete component impact, contracts, and validation from this spec.",
+                    "Review can verify whether the delivered change matches the approved scope and error handling expectations."
+                ],
+                HumanApprovalQuestions:
+                [
+                    new("Is the scope precise enough to avoid a second interpretation pass during technical design?", "pending", null, null, null),
+                    new("Are any hidden business rules, exclusions, or edge cases still missing from the baseline?", "pending", null, null, null)
+                ]));
     }
 
     private static async Task<string> ComposeTechnicalDesignAsync(
@@ -311,42 +314,12 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         return UserStoryClarificationMarkdown.Parse(userStoryMarkdown);
     }
 
-    private static string ApplyDeterministicArtifactOperation(string currentArtifact, string operationPrompt)
+    private static string ApplyDeterministicArtifactOperation(RefinementSpecDocument currentArtifact, string operationPrompt)
     {
-        var normalizedArtifact = currentArtifact.Replace("\r\n", "\n", StringComparison.Ordinal);
         var summary = NormalizeOperationSummary(operationPrompt);
-        var entry = $"- `{DateTimeOffset.UtcNow:O}` · Applied artifact operation: {summary}";
-
-        if (normalizedArtifact.Contains("## History Log", StringComparison.Ordinal))
-        {
-            return InsertHistoryEntry(normalizedArtifact, entry);
-        }
-
-        return string.Join(
-                   Environment.NewLine,
-                   new[]
-                   {
-                       $"# Spec · Generated operation",
-                       string.Empty,
-                       "## History Log",
-                       entry,
-                       string.Empty,
-                       normalizedArtifact.Trim()
-                   }) +
-               Environment.NewLine;
-    }
-
-    private static string InsertHistoryEntry(string markdown, string entry)
-    {
-        var marker = "## History Log";
-        var markerIndex = markdown.IndexOf(marker, StringComparison.Ordinal);
-        if (markerIndex < 0)
-        {
-            return markdown;
-        }
-
-        var insertIndex = markerIndex + marker.Length;
-        return markdown.Insert(insertIndex, $"{Environment.NewLine}{entry}");
+        var history = currentArtifact.HistoryLog.ToList();
+        history.Insert(0, $"`{DateTimeOffset.UtcNow:O}` · Applied artifact operation: {summary}");
+        return RefinementSpecJson.Serialize(currentArtifact with { HistoryLog = history });
     }
 
     private static string NormalizeOperationSummary(string operationPrompt)

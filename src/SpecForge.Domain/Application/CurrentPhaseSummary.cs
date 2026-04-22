@@ -5,5 +5,6 @@ public sealed record CurrentPhaseSummary(
     string CurrentPhase,
     string Status,
     bool CanAdvance,
+    bool CanApprove,
     bool RequiresApproval,
     string? BlockingReason);

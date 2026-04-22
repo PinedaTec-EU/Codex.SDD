@@ -113,6 +113,9 @@ Baseline for bilingual article publishing.
 - [ ] Articles can be selected by slug and locale.
 
 ## Human Approval Questions
-- Is the bilingual scope bounded enough for technical design?
+- [x] Is the bilingual scope bounded enough for technical design?
+  - Answer: Yes, keep it limited to persisted article rendering and locale selection.
+  - Answered By: analyst
+  - Answered At: 2026-04-20T10:20:00Z
 """;
 }

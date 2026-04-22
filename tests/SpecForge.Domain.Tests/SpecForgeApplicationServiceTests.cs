@@ -1,5 +1,6 @@
 using SpecForge.Domain.Application;
 using SpecForge.Domain.Persistence;
+using SpecForge.Domain.Workflow;
 
 namespace SpecForge.Domain.Tests;
 
@@ -30,6 +31,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         var applicationService = new SpecForgeApplicationService();
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
 
         var summary = await applicationService.GetUserStorySummaryAsync(workspaceRoot, "US-0001");
@@ -46,6 +48,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         var applicationService = new SpecForgeApplicationService();
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
@@ -112,7 +115,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         Assert.Contains(workflow.Phases, phase => phase.PhaseId == "clarification" && phase.Title == "Refinement" && phase.ExecutePromptPath is not null);
         Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.IsCurrent && phase.Title == "Spec" && phase.ArtifactPath is not null && phase.OperationLogPath is not null);
         Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.ExecutePromptPath is not null && phase.ApprovePromptPath is not null);
-        Assert.True(workflow.Controls.CanApprove);
+        Assert.False(workflow.Controls.CanApprove);
         Assert.False(workflow.Controls.CanContinue);
         Assert.Single(workflow.ContextFiles);
         Assert.Equal(paths.ContextDirectoryPath, workflow.ContextFilesDirectoryPath);
@@ -218,6 +221,28 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         if (Directory.Exists(workspaceRoot))
         {
             Directory.Delete(workspaceRoot, recursive: true);
+        }
+    }
+
+    private async Task ResolvePendingApprovalQuestionsAsync(WorkflowRunner runner, string usId)
+    {
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
+        var artifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Refinement)
+            ?? throw new InvalidOperationException("Expected a refinement artifact before resolving approval questions.");
+        var markdown = await File.ReadAllTextAsync(artifactPath);
+        var pendingQuestions = ApprovalQuestionMarkdown.ParseFromMarkdown(markdown)
+            .Where(static item => !item.Resolved)
+            .Select(static item => item.Question)
+            .ToArray();
+
+        foreach (var question in pendingQuestions)
+        {
+            await runner.SubmitApprovalAnswerAsync(
+                workspaceRoot,
+                usId,
+                question,
+                $"Resolved in test setup for: {question}",
+                "test-user");
         }
     }
 

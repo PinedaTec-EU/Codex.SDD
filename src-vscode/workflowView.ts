@@ -408,8 +408,10 @@ function buildExecutionOverlay(
       data-us-id="${escapeHtmlAttribute(overlay.usId)}"
       data-phase-id="${escapeHtmlAttribute(overlay.phaseId)}"
       data-tone="${escapeHtmlAttribute(overlay.tone)}"
+      data-dismissible="${overlay.tone === "playing" ? "false" : "true"}"
       data-show-elapsed="${overlay.showElapsed ? "true" : "false"}"
       data-messages='${escapeHtmlAttribute(JSON.stringify(overlay.messages))}'>
+      ${overlay.tone === "playing" ? "" : `<button type="button" class="execution-overlay__dismiss" data-execution-overlay-dismiss>Dismiss</button>`}
       <div class="execution-overlay__pulse" aria-hidden="true"></div>
       <div class="execution-overlay__body">
         <span class="execution-overlay__eyebrow">SpecForge.AI Runner</span>
@@ -1494,6 +1496,20 @@ export function buildWorkflowHtml(
       font-size: 0.8rem;
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
       flex: 0 0 auto;
+    }
+    .execution-overlay__dismiss {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(233, 240, 250, 0.8);
+      padding: 5px 10px;
+      font: inherit;
+      font-size: 0.72rem;
+      line-height: 1;
+      cursor: pointer;
     }
     .graph-links {
       position: absolute;
@@ -3315,6 +3331,7 @@ export function buildWorkflowHtml(
     if (executionOverlay) {
       const messageElement = executionOverlay.querySelector("[data-execution-message]");
       const elapsedElement = executionOverlay.querySelector("[data-execution-elapsed]");
+      const dismissButton = executionOverlay.querySelector("[data-execution-overlay-dismiss]");
       const graphStage = document.querySelector(".graph-stage");
       const messageCatalog = JSON.parse(executionOverlay.dataset.messages ?? "[]");
       const overlayKey = buildExecutionOverlayStateKey(
@@ -3322,8 +3339,18 @@ export function buildWorkflowHtml(
         executionOverlay.dataset.phaseId ?? "",
         executionOverlay.dataset.tone ?? ""
       );
+      const dismissKey = overlayKey + ":dismissed";
       const overlayTone = executionOverlay.dataset.tone ?? "";
       const showElapsed = executionOverlay.dataset.showElapsed === "true";
+      const dismissible = executionOverlay.dataset.dismissible === "true";
+      if (overlayTone === "playing") {
+        clearExecutionOverlayDismissed(dismissKey);
+      } else if (dismissible && isExecutionOverlayDismissed(dismissKey)) {
+        executionOverlay.remove();
+        if (graphStage) {
+          graphStage.classList.remove("graph-stage--overlay-active");
+        }
+      } else {
       const restoredState = restoreExecutionOverlayState(overlayKey, messageCatalog);
       const shuffledMessages = restoredState.messages;
       let messageIndex = restoredState.messageIndex;
@@ -3365,6 +3392,24 @@ export function buildWorkflowHtml(
         messages: shuffledMessages
       });
 
+      const dismissOverlay = () => {
+        if (dismissible) {
+          persistExecutionOverlayDismissed(dismissKey);
+        }
+        executionOverlay.remove();
+        if (graphStage) {
+          graphStage.classList.remove("graph-stage--overlay-active");
+        }
+      };
+
+      if (dismissButton instanceof HTMLButtonElement) {
+        dismissButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          dismissOverlay();
+        });
+      }
+
       if (overlayTone !== "playing" && graphStage) {
         document.addEventListener("pointerdown", (event) => {
           const target = event.target;
@@ -3376,9 +3421,9 @@ export function buildWorkflowHtml(
             return;
           }
 
-          executionOverlay.remove();
-          graphStage.classList.remove("graph-stage--overlay-active");
+          dismissOverlay();
         }, { once: true });
+      }
       }
     }
 
@@ -3440,6 +3485,30 @@ export function buildWorkflowHtml(
         window.sessionStorage.setItem(key, JSON.stringify(state));
       } catch {
         // Best effort only. The overlay still works without persistence.
+      }
+    }
+
+    function isExecutionOverlayDismissed(key) {
+      try {
+        return window.sessionStorage.getItem(key) === "true";
+      } catch {
+        return false;
+      }
+    }
+
+    function persistExecutionOverlayDismissed(key) {
+      try {
+        window.sessionStorage.setItem(key, "true");
+      } catch {
+        // Best effort only.
+      }
+    }
+
+    function clearExecutionOverlayDismissed(key) {
+      try {
+        window.sessionStorage.removeItem(key);
+      } catch {
+        // Best effort only.
       }
     }
   </script>
@@ -3910,7 +3979,6 @@ function extractMarkdownApprovalItems(markdown: string | null | undefined): Appr
     /^##\s+Questions for Human Approval\s*$/i,
     /^##\s+Preguntas para aprobaci[oó]n humana\s*$/i
   ];
-  const itemPattern = /^(?:[-*]\s+|\d+\.\s+)(?:\[(?<check>[ xX])\]\s*)?(?<question>.+?)\s*$/;
   const answerPattern = /^(?:[-*]\s+)?Answer:\s*(.+?)\s*$/i;
   const answeredByPattern = /^(?:[-*]\s+)?Answered By:\s*(.+?)\s*$/i;
   const answeredAtPattern = /^(?:[-*]\s+)?Answered At:\s*(.+?)\s*$/i;
@@ -3975,18 +4043,18 @@ function extractMarkdownApprovalItems(markdown: string | null | undefined): Appr
       continue;
     }
 
-    const match = trimmed.match(itemPattern);
-    if (!match) {
+    const parsedQuestion = parseApprovalQuestionLine(trimmed);
+    if (!parsedQuestion) {
       continue;
     }
 
-    const question = match.groups?.question?.trim() ?? "";
+    const question = parsedQuestion.question;
     if (question) {
       pendingQuestion = {
         index: items.length + 1,
         question,
         answer: null,
-        resolved: false,
+        resolved: parsedQuestion.resolved,
         answeredBy: null,
         answeredAtUtc: null
       };
@@ -3995,6 +4063,34 @@ function extractMarkdownApprovalItems(markdown: string | null | undefined): Appr
   }
 
   return items;
+}
+
+function parseApprovalQuestionLine(line: string): { question: string; resolved: boolean } | null {
+  let normalized = line.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  normalized = normalized.replace(/^(?:[-*]\s+|\d+\.\s+)/, "");
+  let resolved = false;
+  if (/^\[[xX]\]\s*/.test(normalized)) {
+    resolved = true;
+    normalized = normalized.replace(/^\[[xX]\]\s*/, "");
+  } else if (/^\[\s\]\s*/.test(normalized)) {
+    normalized = normalized.replace(/^\[\s\]\s*/, "");
+  }
+
+  if (!normalized
+    || /^answer:\s*/i.test(normalized)
+    || /^answered by:\s*/i.test(normalized)
+    || /^answered at:\s*/i.test(normalized)) {
+    return null;
+  }
+
+  return {
+    question: normalized.trim(),
+    resolved
+  };
 }
 
 function extractArtifactQuestionBlock(markdown: string | null | undefined): ArtifactQuestionBlock | null {
