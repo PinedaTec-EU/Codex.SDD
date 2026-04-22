@@ -450,6 +450,10 @@ function shouldRenderApprovalBranchEditor(workflow, selectedPhase) {
 function buildArtifactPreviewSection(artifactPath, artifactPreviewHtml, artifactContent, options) {
     const rawArtifact = options?.rawArtifact ?? false;
     const footerNote = options?.footerNote?.trim() ?? "";
+    const isMarkdownArtifact = artifactPath.trim().toLowerCase().endsWith(".md");
+    const effectiveArtifactPreviewHtml = isMarkdownArtifact
+        ? (artifactPreviewHtml ?? renderMarkdownToHtml(artifactContent))
+        : null;
     return `
     <div class="detail-actions detail-actions--artifact">
       <div class="artifact-view-label">
@@ -457,8 +461,8 @@ function buildArtifactPreviewSection(artifactPath, artifactPreviewHtml, artifact
       </div>
       <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(artifactPath)}">Open Artifact</button>
     </div>
-    ${artifactPreviewHtml
-        ? `<div class="markdown-preview${rawArtifact ? " markdown-preview--raw-artifact" : ""}">${artifactPreviewHtml}</div>`
+    ${effectiveArtifactPreviewHtml
+        ? `<div class="markdown-preview${rawArtifact ? " markdown-preview--raw-artifact" : ""}">${effectiveArtifactPreviewHtml}</div>`
         : `<pre class="artifact-preview${rawArtifact ? " artifact-preview--raw-artifact" : ""}">${escapeHtml(artifactContent)}</pre>`}
     ${footerNote ? `<p class="muted">${escapeHtml(footerNote)}</p>` : ""}
   `;
@@ -1706,6 +1710,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       border-radius: 20px;
       padding: 18px;
       background: rgba(255, 255, 255, 0.025);
+      min-width: 0;
+      overflow: hidden;
     }
     .detail-card--phase-overview {
       position: relative;
@@ -2032,6 +2038,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       justify-content: flex-end;
     }
     .detail-actions--artifact {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       justify-content: space-between;
     }
     .detail-actions--files {
@@ -2061,6 +2069,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .artifact-view-label {
       display: inline-flex;
       align-items: center;
+      min-width: 0;
     }
     .file-groups {
       display: grid;
@@ -2230,6 +2239,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
       transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
       white-space: nowrap;
+      max-width: 100%;
     }
     .workflow-action-button:hover {
       transform: translateY(-1px);
@@ -2402,6 +2412,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       white-space: pre-wrap;
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
       max-height: 320px;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .markdown-preview {
       padding: 18px;
@@ -2411,6 +2424,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       overflow: auto;
       max-height: 520px;
       line-height: 1.6;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .markdown-preview > :first-child {
       margin-top: 0;
@@ -2456,6 +2472,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       border-radius: 14px;
       padding: 14px;
       overflow: auto;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .markdown-preview pre code {
       background: transparent;
@@ -2618,6 +2637,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         position: static;
         margin: 12px 0 0;
         justify-content: flex-start;
+      }
+      .detail-actions--artifact {
+        grid-template-columns: 1fr;
       }
       .phase-node {
         left: var(--phase-left-mobile);
