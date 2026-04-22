@@ -576,11 +576,14 @@ function buildArtifactPreviewSection(
   const effectiveArtifactPreviewHtml = isMarkdownArtifact
     ? (artifactPreviewHtml ?? renderMarkdownToHtml(artifactContent))
     : null;
+  const isPreview = effectiveArtifactPreviewHtml !== null;
+  const badgeLabel = isPreview ? "Preview" : rawArtifact ? "Raw Artifact" : "Preview";
+  const badgeClass = rawArtifact ? " badge--muted" : "";
 
   return `
     <div class="detail-actions detail-actions--artifact">
       <div class="artifact-view-label">
-        <span class="badge${rawArtifact ? " badge--attention" : ""}">${rawArtifact ? "Raw Artifact" : "Preview"}</span>
+        <span class="badge${badgeClass}">${badgeLabel}</span>
       </div>
       <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(artifactPath)}">Open Artifact</button>
     </div>
@@ -661,11 +664,19 @@ export function buildWorkflowHtml(
     ? { command: "regress", phaseId: workflow.controls.regressionTargets[0] }
     : null;
   const selectedPhaseStateClass = heroTokenClass(selectedPhase.state);
-  const detailActions = (selectedPhase.isCurrent && (workflow.controls.canApprove || detailRejectCommand)) || canRewindSelectedPhase
+  const continueActionLabel = selectedPhase.isCurrent ? "Continue" : "Continue Current Phase";
+  const approveActionLabel = selectedPhase.isCurrent ? "Approve" : "Approve Current Phase";
+  const detailActions = (selectedPhase.isCurrent && (workflow.controls.canApprove || detailRejectCommand))
+    || canRewindSelectedPhase
+    || workflow.controls.canContinue
+    || workflow.controls.canApprove
     ? `
       <div class="detail-actions detail-actions--phase-header">
+        ${workflow.controls.canContinue
+          ? `<button class="workflow-action-button workflow-action-button--progress" data-command="continue"${playDisabled ? " disabled" : ""}>${continueActionLabel}</button>`
+          : ""}
         ${workflow.controls.canApprove
-          ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${shouldRenderApprovalBranchEditor(workflow, selectedPhase) && Boolean(state.requireExplicitApprovalBranchAcceptance) || unresolvedApprovalQuestionCount > 0 ? " disabled" : ""}>Approve</button>`
+          ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${shouldRenderApprovalBranchEditor(workflow, selectedPhase) && Boolean(state.requireExplicitApprovalBranchAcceptance) || unresolvedApprovalQuestionCount > 0 ? " disabled" : ""}>${approveActionLabel}</button>`
           : ""}
         ${detailRejectCommand ? `<button class="workflow-action-button workflow-action-button--danger" data-command="${detailRejectCommand.command}"${detailRejectCommand.phaseId ? ` data-phase-id="${escapeHtmlAttribute(detailRejectCommand.phaseId)}"` : ""}>Reject</button>` : ""}
         ${canRewindSelectedPhase ? `<button class="workflow-action-button workflow-action-button--document" data-command="rewind" data-phase-id="${escapeHtmlAttribute(selectedPhase.phaseId)}">Rewind Here</button>` : ""}
@@ -1204,6 +1215,12 @@ export function buildWorkflowHtml(
       color: #ffe17b;
       border-color: var(--attention-egg-border);
       box-shadow: 0 0 0 1px rgba(255, 213, 90, 0.08);
+    }
+    .badge.badge--muted {
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(241, 246, 255, 0.78);
+      border-color: rgba(255, 255, 255, 0.10);
+      box-shadow: none;
     }
     .success,
     .token.token--success,
