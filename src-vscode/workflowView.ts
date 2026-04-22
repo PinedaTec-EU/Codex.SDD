@@ -510,6 +510,7 @@ export function buildWorkflowHtml(
   const displayedPhaseId = playbackState === "playing" && effectiveExecutionPhaseId
     ? effectiveExecutionPhaseId
     : workflow.currentPhase;
+  const shouldPulsePlay = playbackState === "idle" && workflow.controls.canContinue;
   const playDisabled = playbackState === "playing"
     || !state.settingsConfigured
     || (playbackState === "idle" && !workflow.controls.canContinue);
@@ -867,7 +868,7 @@ export function buildWorkflowHtml(
     : "";
 
   const playbackButtons = `
-    <button class="icon-button icon-button--primary" data-command="play" aria-label="Play workflow"${playDisabled ? " disabled" : ""}>
+    <button class="icon-button icon-button--primary${shouldPulsePlay ? " icon-button--pulse" : ""}" data-command="play" aria-label="Play workflow"${playDisabled ? " disabled" : ""}>
       ${playIcon()}
     </button>
     <button class="icon-button" data-command="pause" aria-label="Pause workflow"${playbackState !== "playing" ? " disabled" : ""}>
@@ -1338,6 +1339,10 @@ export function buildWorkflowHtml(
     .icon-button--primary:hover {
       border-color: var(--action-progress-border-hover);
       background: var(--action-progress-bg-hover);
+    }
+    .icon-button--pulse {
+      animation: playPulse 1.35s ease-in-out infinite;
+      box-shadow: 0 10px 28px var(--action-progress-shadow);
     }
     .icon-button--danger {
       background: linear-gradient(180deg, rgba(255, 139, 139, 0.2), rgba(40, 18, 18, 0.92));
@@ -2472,6 +2477,20 @@ export function buildWorkflowHtml(
       60% {
         transform: scale(1.08);
         box-shadow: 0 0 0 12px rgba(92, 181, 255, 0.02);
+      }
+    }
+    @keyframes playPulse {
+      0%, 100% {
+        transform: translateY(0) scale(1);
+        box-shadow:
+          0 10px 28px var(--action-progress-shadow),
+          0 0 0 0 rgba(114, 241, 184, 0.24);
+      }
+      55% {
+        transform: translateY(-1px) scale(1.03);
+        box-shadow:
+          0 12px 30px var(--action-progress-shadow),
+          0 0 0 14px rgba(114, 241, 184, 0);
       }
     }
     @media (max-width: 1160px) {

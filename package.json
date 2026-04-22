@@ -172,6 +172,11 @@
           "type": "boolean",
           "default": false,
           "description": "Require explicit acceptance of the proposed base branch in the workflow detail before approving refinement."
+        },
+        "specForge.features.autoPlayEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically resume workflow playback after manual actions such as approving refinement when the next phase can continue."
         }
       }
     },

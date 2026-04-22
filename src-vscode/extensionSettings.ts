@@ -11,6 +11,7 @@ export interface SpecForgeSettings {
   readonly attentionNotificationsEnabled: boolean;
   readonly contextSuggestionsEnabled: boolean;
   readonly requireExplicitApprovalBranchAcceptance: boolean;
+  readonly autoPlayEnabled: boolean;
 }
 
 export interface SpecForgeSettingsStatus {
@@ -33,7 +34,8 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
     watcherEnabled: configuration.get<boolean>("ui.enableWatcher", true),
     attentionNotificationsEnabled: configuration.get<boolean>("ui.notifyOnAttention", true),
     contextSuggestionsEnabled: configuration.get<boolean>("features.enableContextSuggestions", true),
-    requireExplicitApprovalBranchAcceptance: configuration.get<boolean>("features.requireApprovalBranchAcceptance", false)
+    requireExplicitApprovalBranchAcceptance: configuration.get<boolean>("features.requireApprovalBranchAcceptance", false),
+    autoPlayEnabled: configuration.get<boolean>("features.autoPlayEnabled", false)
   };
 }
 

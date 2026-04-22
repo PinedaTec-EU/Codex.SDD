@@ -119,7 +119,10 @@ class WorkflowPanelController {
                 await this.handleMessageAsync(message);
             }
             catch (error) {
-                this.playbackState = "paused";
+                this.playbackState = this.playbackState === "playing" || this.playbackState === "stopping"
+                    ? "paused"
+                    : "idle";
+                (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' command '${message.command}' failed. playback reset to '${this.playbackState}'.`);
                 await this.refreshAsync();
                 (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' command '${message.command}' failed: ${(0, utils_1.asErrorMessage)(error)}`);
                 (0, outputChannel_1.showSpecForgeOutput)(false);
@@ -242,16 +245,7 @@ class WorkflowPanelController {
                     await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
                     return;
                 }
-                (0, outputChannel_1.appendSpecForgeLog)(`Autoplay requested for '${this.summary.usId}'.`);
-                (0, outputChannel_1.showSpecForgeOutput)(true);
-                this.playbackState = "playing";
-                this.setTransientExecutionPhase(this.deriveInitialExecutionPhaseId());
-                if (!this.autoplayPromise) {
-                    this.autoplayPromise = this.runAutoplayAsync().finally(() => {
-                        this.autoplayPromise = null;
-                    });
-                }
-                await this.refreshAsync("command:play");
+                await this.startAutoplayAsync("command:play");
                 return;
             case "pause":
                 (0, outputChannel_1.appendSpecForgeLog)(`Autoplay paused for '${this.summary.usId}'.`);
@@ -297,6 +291,7 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' submitClarificationAnswersAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("submitClarificationAnswersAsync");
+        await this.maybeAutoPlayAfterManualContinuationAsync("clarification answers");
     }
     async submitPhaseInputAsync(prompt) {
         const normalizedPrompt = prompt.trim();
@@ -382,12 +377,13 @@ class WorkflowPanelController {
             ? (workBranch?.trim() || this.buildRefinementApprovalWorkBranchProposal(this.lastWorkflow))
             : undefined;
         this.summary = await this.getBackendClient().approveCurrentPhase(this.summary.usId, normalizedBaseBranch, normalizedWorkBranch, (0, userActor_1.getCurrentActor)());
-        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' approved phase '${this.summary.currentPhase}'.`);
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' approved phase '${this.summary.currentPhase}' with base='${normalizedBaseBranch ?? "(none)"}' and work='${normalizedWorkBranch ?? "(none)"}'.`);
         this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
         this.clearTransientExecutionPhase();
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' approveCurrentPhaseAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("approveCurrentPhaseAsync");
+        await this.maybeAutoPlayAfterManualContinuationAsync("approval");
     }
     async requestRegressionAsync(targetPhase) {
         const reason = await vscode.window.showInputBox({
@@ -488,6 +484,33 @@ class WorkflowPanelController {
             (0, outputChannel_1.showSpecForgeOutput)(false);
             void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));
         }
+    }
+    async startAutoplayAsync(reason) {
+        (0, outputChannel_1.appendSpecForgeLog)(`Autoplay requested for '${this.summary.usId}'. reason='${reason}'.`);
+        (0, outputChannel_1.showSpecForgeOutput)(true);
+        this.playbackState = "playing";
+        this.setTransientExecutionPhase(this.deriveInitialExecutionPhaseId());
+        if (!this.autoplayPromise) {
+            this.autoplayPromise = this.runAutoplayAsync().finally(() => {
+                this.autoplayPromise = null;
+            });
+        }
+        await this.refreshAsync(reason);
+    }
+    async maybeAutoPlayAfterManualContinuationAsync(trigger) {
+        const settings = (0, extensionSettings_1.getSpecForgeSettings)();
+        if (!settings.autoPlayEnabled) {
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' did not auto-play after ${trigger} because 'specForge.features.autoPlayEnabled' is false.`);
+            return;
+        }
+        const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+        this.lastWorkflow = workflow;
+        if (!workflow.controls.canContinue) {
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' did not auto-play after ${trigger} because canContinue=false, requiresApproval=${workflow.controls.requiresApproval}, blockingReason='${workflow.controls.blockingReason ?? "none"}'.`);
+            return;
+        }
+        (0, outputChannel_1.appendSpecForgeLog)(`Auto-play enabled. Resuming workflow '${this.summary.usId}' automatically after ${trigger}.`);
+        await this.startAutoplayAsync(`autoPlay:${trigger}`);
     }
     async renderWorkflowAsync(workflow) {
         const selectedPhase = workflow.phases.find((phase) => phase.phaseId === this.selectedPhaseId)
