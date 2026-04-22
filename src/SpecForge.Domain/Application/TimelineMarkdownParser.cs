@@ -74,6 +74,7 @@ public static partial class TimelineMarkdownParser
                 continue;
             }
 
+            // "- Artefactos:" kept for backward compatibility with timelines written before the English-only format was adopted.
             if (trimmed.StartsWith("- Artifacts:", StringComparison.Ordinal) || trimmed.StartsWith("- Artefactos:", StringComparison.Ordinal))
             {
                 readingArtifacts = true;
@@ -130,6 +131,7 @@ public static partial class TimelineMarkdownParser
                 continue;
             }
 
+            // "- Fase:" / "- Resumen:" / "- Duración:" kept for backward compatibility with old Spanish-label timelines.
             if (trimmed.StartsWith("- Phase:", StringComparison.Ordinal) || trimmed.StartsWith("- Fase:", StringComparison.Ordinal))
             {
                 phase = ExtractInlineCode(trimmed);

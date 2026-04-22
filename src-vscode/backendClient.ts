@@ -506,13 +506,13 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
       }
 
       const body = buffer.subarray(bodyStart, bodyStart + contentLength).toString("utf8");
-      const message = JSON.parse(body) as MpcResponse;
+      const message = JSON.parse(body) as McpResponse;
       this.handleMessage(message);
       buffer = buffer.subarray(bodyStart + contentLength);
     }
   }
 
-  private handleMessage(message: MpcResponse): void {
+  private handleMessage(message: McpResponse): void {
     appendSpecForgeDebugLog(
       `MCP message received. id=${typeof message.id === "number" ? message.id : "n/a"}, hasResult=${message.result !== undefined}, hasError=${message.error !== undefined}.`
     );
@@ -559,7 +559,7 @@ interface PendingRequest {
   readonly reject: (reason?: unknown) => void;
 }
 
-interface MpcResponse {
+interface McpResponse {
   readonly id?: number;
   readonly result?: any;
   readonly error?: {

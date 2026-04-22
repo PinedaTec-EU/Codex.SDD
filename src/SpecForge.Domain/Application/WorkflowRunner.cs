@@ -12,7 +12,7 @@ public sealed class WorkflowRunner
     private static readonly HashSet<string> ClarificationQuestionStopWords =
     [
         "the", "and", "for", "with", "that", "this", "from", "into", "when", "where", "what", "which", "should", "does",
-        "must", "have", "there", "will", "then", "than", "user", "users", "field", "should", "exactly", "only",
+        "must", "have", "there", "will", "then", "than", "user", "users", "field", "exactly", "only",
         "use", "used", "using", "see", "show", "shown", "visible", "label", "allow", "allowed", "require", "required",
         "que", "del", "las", "los", "para", "por", "con", "una", "uno", "unos", "unas", "como", "debe", "deben",
         "deberia", "tambien", "sobre", "desde", "esta", "este", "estos", "estas", "hay", "cual", "cuales", "campo",
