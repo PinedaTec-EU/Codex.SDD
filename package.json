@@ -177,6 +177,11 @@
           "type": "boolean",
           "default": false,
           "description": "Automatically resume workflow playback after manual actions such as approving refinement when the next phase can continue."
+        },
+        "specForge.features.destructiveRewindEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "When enabled, rewind deletes later derived artifacts and branch metadata. When disabled, rewind only moves the workflow state back like regress."
         }
       }
     },

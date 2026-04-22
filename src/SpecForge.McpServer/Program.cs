@@ -152,6 +152,7 @@ static async Task<JsonNode> HandleToolCallAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
             targetPhase: GetRequired(arguments, "targetPhase"),
+            destructive: GetOptionalBoolean(arguments, "destructive"),
             actor: GetOptional(arguments, "actor") ?? "user"),
         "reset_user_story_to_capture" => await applicationService.ResetUserStoryToCaptureAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
@@ -311,13 +312,14 @@ static JsonObject BuildToolsList()
                         ("reason",        Prop("string", "Optional reason for the restart.")),
                         ("actor",         Prop("string", "Actor requesting the restart. Defaults to 'user'."))))),
 
-            Tool("rewind_workflow", "Rewind a workflow to an earlier executed phase and delete all later derived artifacts.",
+            Tool("rewind_workflow", "Rewind a workflow to an earlier executed phase. Destructive cleanup is optional and disabled by default.",
                 Schema(
                     required: ["workspaceRoot", "usId", "targetPhase"],
                     Props(
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
                         ("usId",          Prop("string", "User story identifier.")),
                         ("targetPhase",   Prop("string", "Phase slug to rewind to, e.g. clarification, refinement, technical-design.")),
+                        ("destructive",   Prop("boolean", "Whether to delete later derived artifacts while rewinding. Defaults to false.")),
                         ("actor",         Prop("string", "Actor requesting the rewind. Defaults to 'user'."))))),
 
             Tool("reset_user_story_to_capture", "Reset a user story to the capture phase and delete all generated derived artifacts.",

@@ -548,8 +548,12 @@ class WorkflowPanelController {
   }
 
   private async rewindWorkflowAsync(targetPhase: string): Promise<void> {
+    const settings = getSpecForgeSettings();
+    const destructiveRewindEnabled = settings.destructiveRewindEnabled;
     const confirmation = await vscode.window.showWarningMessage(
-      `Rewind ${this.summary.usId} to ${targetPhase} and delete all later derived artifacts?`,
+      destructiveRewindEnabled
+        ? `Rewind ${this.summary.usId} to ${targetPhase} and delete all later derived artifacts?`
+        : `Rewind ${this.summary.usId} to ${targetPhase} without deleting later artifacts?`,
       { modal: true },
       "Rewind Workflow"
     );
@@ -558,9 +562,9 @@ class WorkflowPanelController {
       return;
     }
 
-    const result = await this.getBackendClient().rewindWorkflow(this.summary.usId, targetPhase, getCurrentActor());
+    const result = await this.getBackendClient().rewindWorkflow(this.summary.usId, targetPhase, getCurrentActor(), destructiveRewindEnabled);
     appendSpecForgeLog(
-      `Workflow '${this.summary.usId}' was rewound to '${result.currentPhase}' with status '${result.status}'.`
+      `Workflow '${this.summary.usId}' was rewound to '${result.currentPhase}' with status '${result.status}'${destructiveRewindEnabled ? " using destructive cleanup" : " without deleting later artifacts"}.`
     );
     appendSpecForgeDebugLog(
       `Workflow '${this.summary.usId}' rewind deleted paths: ${result.deletedPaths.length > 0 ? result.deletedPaths.join(", ") : "(none)"}.`
@@ -572,7 +576,7 @@ class WorkflowPanelController {
       ...this.summary,
       currentPhase: result.currentPhase,
       status: result.status,
-      workBranch: result.currentPhase === "clarification" || result.currentPhase === "refinement"
+      workBranch: destructiveRewindEnabled && (result.currentPhase === "clarification" || result.currentPhase === "refinement")
         ? null
         : this.summary.workBranch
     };

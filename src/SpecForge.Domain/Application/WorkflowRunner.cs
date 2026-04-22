@@ -327,6 +327,7 @@ public sealed class WorkflowRunner
         string workspaceRoot,
         string usId,
         PhaseId targetPhase,
+        bool destructive = false,
         string actor = "user",
         CancellationToken cancellationToken = default)
     {
@@ -334,10 +335,15 @@ public sealed class WorkflowRunner
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         ValidateRewindTarget(workflowRun, targetPhase);
 
-        var deletedPaths = await RewindDerivedArtifactsAsync(paths, workflowRun.CurrentPhase, targetPhase, workflowRun.Branch is not null, cancellationToken);
+        IReadOnlyCollection<string> deletedPaths = [];
+        if (destructive)
+        {
+            deletedPaths = await RewindDerivedArtifactsAsync(paths, workflowRun.CurrentPhase, targetPhase, workflowRun.Branch is not null, cancellationToken);
+        }
+
         workflowRun.RewindToPhase(targetPhase);
 
-        if (targetPhase <= PhaseId.Refinement && workflowRun.Branch is not null)
+        if (destructive && targetPhase <= PhaseId.Refinement && workflowRun.Branch is not null)
         {
             workflowRun.RemoveBranch();
         }
@@ -349,9 +355,11 @@ public sealed class WorkflowRunner
             "workflow_rewound",
             NormalizeActor(actor),
             workflowRun.CurrentPhase,
-            BuildFileDeletionSummary(
-                $"Rewound the workflow to phase `{WorkflowPresentation.ToPhaseSlug(targetPhase)}`.",
-                deletedPaths),
+            destructive
+                ? BuildFileDeletionSummary(
+                    $"Rewound the workflow to phase `{WorkflowPresentation.ToPhaseSlug(targetPhase)}`.",
+                    deletedPaths)
+                : $"Rewound the workflow to phase `{WorkflowPresentation.ToPhaseSlug(targetPhase)}` without deleting later artifacts.",
             cancellationToken);
 
         return new RewindWorkflowResult(
@@ -359,7 +367,7 @@ public sealed class WorkflowRunner
             WorkflowPresentation.ToStatusSlug(workflowRun.Status),
             WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
             deletedPaths,
-            BuildRewindPreservedPaths(paths, targetPhase));
+            destructive ? BuildRewindPreservedPaths(paths, targetPhase) : BuildNonDestructiveRewindPreservedPaths(paths));
     }
 
     public async Task<ContinuePhaseResult> ContinuePhaseAsync(
@@ -859,6 +867,22 @@ public sealed class WorkflowRunner
         }
 
         return preservedPaths;
+    }
+
+    private static IReadOnlyCollection<string> BuildNonDestructiveRewindPreservedPaths(UserStoryFilePaths paths)
+    {
+        return
+        [
+            paths.MainArtifactPath,
+            paths.ClarificationFilePath,
+            paths.ContextDirectoryPath,
+            paths.AttachmentsDirectoryPath,
+            paths.StateFilePath,
+            paths.TimelineFilePath,
+            paths.PhasesDirectoryPath,
+            paths.BranchFilePath,
+            paths.RuntimeFilePath
+        ];
     }
 
     private static string BuildFileDeletionSummary(string prefix, IReadOnlyCollection<string> deletedPaths)

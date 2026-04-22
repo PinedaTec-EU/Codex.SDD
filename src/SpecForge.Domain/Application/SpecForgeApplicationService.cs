@@ -315,11 +315,12 @@ public sealed class SpecForgeApplicationService
         string workspaceRoot,
         string usId,
         string targetPhase,
+        bool destructive = false,
         string actor = "user",
         CancellationToken cancellationToken = default)
     {
         var phaseId = WorkflowPresentation.ParsePhaseSlug(targetPhase);
-        return workflowRunner.RewindWorkflowAsync(workspaceRoot, usId, phaseId, actor, cancellationToken);
+        return workflowRunner.RewindWorkflowAsync(workspaceRoot, usId, phaseId, destructive, actor, cancellationToken);
     }
 
     public Task<ResetUserStoryResult> ResetUserStoryToCaptureAsync(

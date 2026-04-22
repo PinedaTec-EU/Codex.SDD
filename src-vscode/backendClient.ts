@@ -198,7 +198,7 @@ export interface SpecForgeBackendClient {
   approveCurrentPhase(usId: string, baseBranch?: string, workBranch?: string, actor?: string): Promise<UserStorySummary>;
   requestRegression(usId: string, targetPhase: string, reason?: string, actor?: string): Promise<RequestRegressionResult>;
   restartUserStoryFromSource(usId: string, reason?: string, actor?: string): Promise<RestartUserStoryResult>;
-  rewindWorkflow(usId: string, targetPhase: string, actor?: string): Promise<RewindWorkflowResult>;
+  rewindWorkflow(usId: string, targetPhase: string, actor?: string, destructive?: boolean): Promise<RewindWorkflowResult>;
   resetUserStoryToCapture(usId: string): Promise<ResetUserStoryResult>;
   submitClarificationAnswers(usId: string, answers: readonly string[], actor?: string): Promise<void>;
   submitApprovalAnswer(usId: string, question: string, answer: string, actor?: string): Promise<SubmitApprovalAnswerResult>;
@@ -359,10 +359,10 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     );
   }
 
-  public async rewindWorkflow(usId: string, targetPhase: string, actor?: string): Promise<RewindWorkflowResult> {
+  public async rewindWorkflow(usId: string, targetPhase: string, actor?: string, destructive?: boolean): Promise<RewindWorkflowResult> {
     return this.callTool<RewindWorkflowResult>(
       "rewind_workflow",
-      buildRewindWorkflowArguments(this.workspaceRoot, usId, targetPhase, actor)
+      buildRewindWorkflowArguments(this.workspaceRoot, usId, targetPhase, actor, destructive)
     );
   }
 
