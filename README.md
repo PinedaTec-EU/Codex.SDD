@@ -41,8 +41,8 @@ Not implemented yet:
   - `release_approval`
   - `pr_preparation`
 - Phase execution semantics are explicit:
-  - automatic/system-driven phases: `capture`, `clarification`, `technical_design`, `implementation`, `review`, `pr_preparation`
-  - human checkpoint phases: `refinement` and `release_approval`
+  - automatic/system-driven phases: `capture`, `technical_design`, `implementation`, `review`, `pr_preparation`
+  - human checkpoint phases: `clarification`, `refinement`, and `release_approval`
 - Explicit approval gates and regression rules
 - Local workspace persistence under `.specs/us/us.<us-id>/`
 - Human-readable artifacts in Markdown

@@ -9,5 +9,8 @@ public sealed record PhaseExecutionContext(
     string UserStoryPath,
     IReadOnlyDictionary<PhaseId, string> PreviousArtifactPaths,
     IReadOnlyCollection<string> ContextFilePaths,
+    // When both CurrentArtifactPath and OperationPrompt are non-null, the provider must apply
+    // the operation on top of the existing artifact instead of generating a new one from scratch.
+    // Only supported for Refinement today; other phases ignore both fields.
     string? CurrentArtifactPath = null,
     string? OperationPrompt = null);

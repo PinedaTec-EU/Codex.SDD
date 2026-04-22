@@ -82,7 +82,8 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
         var title = MarkdownHelper.ReadHeading(userStory, fallback: context.UsId);
         var objective = MarkdownHelper.ReadSection(userStory, "## Objective", "## Objetivo");
-        var initialScope = MarkdownHelper.ReadSection(userStory, "## Initial Scope", "## Alcance inicial");
+        var initialScope = MarkdownHelper.TryReadSection(userStory, "## Initial Scope")
+            ?? MarkdownHelper.TryReadSection(userStory, "## Alcance inicial");
         var ambiguity = string.IsNullOrWhiteSpace(initialScope)
             ? "The source does not yet distinguish clearly between in-scope behavior and deliberate exclusions."
             : "The source identifies baseline scope, but edge cases and non-functional expectations still need explicit validation.";

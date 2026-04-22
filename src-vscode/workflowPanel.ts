@@ -641,10 +641,13 @@ class WorkflowPanelController {
 
   private deriveExecutionPhaseFromWatchedPath(filePath: string): string | null {
     const normalizedPath = filePath.replace(/\\/g, "/");
+    // clarification.md is the input to refinement: when it changes (human answered questions),
+    // drive the UI progress indicator to "refinement" rather than "clarification".
     if (normalizedPath.endsWith("/clarification.md") || normalizedPath.endsWith("/phases/00-clarification.md")) {
       return "refinement";
     }
 
+    // 01-spec.md / 01-refinement.md are the refinement artifact; show refinement as the active phase.
     if (normalizedPath.endsWith("/phases/01-spec.md") || normalizedPath.endsWith("/phases/01-refinement.md")) {
       return "refinement";
     }
