@@ -47,7 +47,8 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
       requiresApproval: true,
       blockingReason: "refinement_pending_user_approval",
       canRestartFromSource: true,
-      regressionTargets: []
+      regressionTargets: [],
+      rewindTargets: []
     },
     clarification: null,
     events: [
@@ -110,7 +111,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /<h3>Approval Branch<\/h3>/);
   assert.match(html, /data-approval-base-branch-input/);
   assert.match(html, /value="main"/);
-  assert.match(html, /detail-card-shell[^]*detail-actions--phase-header[^]*workflow-action-button--danger[^]*data-command="restart">Reject</);
+  assert.doesNotMatch(html, /data-command="restart">Reject</);
   assert.match(html, /workflow-action-button--document[^]*Open Artifact/);
   assert.match(html, /workflow-action-button--document[^]*Open Execute Prompt/);
   assert.match(html, /workflow-action-button--document[^]*Open Approve Prompt/);
@@ -206,7 +207,8 @@ test("buildWorkflowHtml requires explicit base-branch acceptance before approve 
       requiresApproval: true,
       blockingReason: "refinement_pending_user_approval",
       canRestartFromSource: true,
-      regressionTargets: []
+      regressionTargets: [],
+      rewindTargets: []
     },
     clarification: null,
     events: [],
@@ -233,6 +235,85 @@ test("buildWorkflowHtml requires explicit base-branch acceptance before approve 
   assert.match(html, /for="approval-work-branch">Work Branch</);
   assert.match(html, /data-approval-work-branch-input/);
   assert.match(html, /Approve stays disabled until you accept this branch value explicitly\./);
+});
+
+test("buildWorkflowHtml hides reject when current phase has no regression targets and enables continue after approved non-destructive rewind", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0099",
+    title: "Rewind state",
+    category: "workflow",
+    status: "active",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0099",
+    workBranch: "feature/us-0099-rewind-state",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: true,
+        isApproved: true,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/01-spec.md",
+        executePromptPath: "/tmp/refinement.execute.md",
+        approvePromptPath: "/tmp/refinement.approve.md"
+      },
+      {
+        phaseId: "technical-design",
+        title: "Technical Design",
+        order: 2,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: "/tmp/02-technical-design.md",
+        executePromptPath: "/tmp/technical-design.execute.md",
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: true,
+      blockingReason: null,
+      canRestartFromSource: true,
+      regressionTargets: [],
+      rewindTargets: ["clarification"]
+    },
+    clarification: null,
+    events: [],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "refinement",
+    selectedArtifactContent: "## Refinement\nBody",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.doesNotMatch(html, /data-command="restart">Reject</);
+  assert.doesNotMatch(html, /data-command="regress"[^>]*>Reject</);
+  assert.match(html, /data-command="play" aria-label="Play workflow"/);
+  assert.doesNotMatch(html, /data-command="play" aria-label="Play workflow"[^>]*disabled/);
 });
 
 test("buildWorkflowHtml shows phase actions in the selected detail only for the current phase", () => {

@@ -192,6 +192,7 @@ public sealed class WorkflowRunner
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        var targetPhaseWasApproved = workflowRun.IsPhaseApproved(targetPhase);
         if (destructive)
         {
             await RewindDerivedArtifactsAsync(paths, workflowRun.CurrentPhase, targetPhase, workflowRun.Branch is not null, cancellationToken);
@@ -202,6 +203,7 @@ public sealed class WorkflowRunner
         }
 
         workflowRun.RequestRegression(targetPhase);
+        RestoreTargetApprovalIfApplicable(workflowRun, targetPhase, destructive, targetPhaseWasApproved);
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
 
         var summary = destructive
@@ -346,6 +348,7 @@ public sealed class WorkflowRunner
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         ValidateRewindTarget(workflowRun, targetPhase);
+        var targetPhaseWasApproved = workflowRun.IsPhaseApproved(targetPhase);
 
         IReadOnlyCollection<string> deletedPaths = [];
         if (destructive)
@@ -354,6 +357,7 @@ public sealed class WorkflowRunner
         }
 
         workflowRun.RewindToPhase(targetPhase);
+        RestoreTargetApprovalIfApplicable(workflowRun, targetPhase, destructive, targetPhaseWasApproved);
 
         if (destructive && targetPhase <= PhaseId.Refinement && workflowRun.Branch is not null)
         {
@@ -962,6 +966,24 @@ public sealed class WorkflowRunner
         PhaseId.Review => ["04-review"],
         _ => []
     };
+
+    private static void RestoreTargetApprovalIfApplicable(
+        WorkflowRun workflowRun,
+        PhaseId targetPhase,
+        bool destructive,
+        bool targetPhaseWasApproved)
+    {
+        if (destructive || !targetPhaseWasApproved)
+        {
+            return;
+        }
+
+        workflowRun.RestoreApproval(targetPhase);
+        if (workflowRun.Definition.RequiresApproval(targetPhase))
+        {
+            workflowRun.RestoreState(targetPhase, UserStoryStatus.Active);
+        }
+    }
 
     private static async Task AppendArtifactOperationEntryAsync(
         string operationLogPath,

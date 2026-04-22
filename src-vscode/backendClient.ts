@@ -145,7 +145,7 @@ export interface CurrentPhaseControls {
   readonly blockingReason: string | null;
   readonly canRestartFromSource: boolean;
   readonly regressionTargets: readonly string[];
-  readonly rewindTargets: readonly string[];
+  readonly rewindTargets?: readonly string[];
 }
 
 export interface TimelineEventDetails {

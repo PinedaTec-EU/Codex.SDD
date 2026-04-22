@@ -655,9 +655,7 @@ export function buildWorkflowHtml(
   );
   const detailRejectCommand = selectedPhase.isCurrent && workflow.controls.regressionTargets.length > 0
     ? { command: "regress", phaseId: workflow.controls.regressionTargets[0] }
-    : selectedPhase.isCurrent && workflow.controls.canRestartFromSource
-      ? { command: "restart", phaseId: undefined }
-      : null;
+    : null;
   const selectedPhaseStateClass = heroTokenClass(selectedPhase.state);
   const detailActions = (selectedPhase.isCurrent && (workflow.controls.canApprove || detailRejectCommand)) || canRewindSelectedPhase
     ? `

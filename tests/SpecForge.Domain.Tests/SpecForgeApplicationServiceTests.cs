@@ -66,6 +66,61 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RequestRegressionAsync_ToApprovedRefinement_NonDestructivePreservesContinuationControls()
+    {
+        var runner = new WorkflowRunner();
+        var applicationService = new SpecForgeApplicationService();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var result = await applicationService.RequestRegressionAsync(
+            workspaceRoot,
+            "US-0001",
+            "refinement",
+            "Return to approved spec");
+
+        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("active", result.Status);
+
+        var currentPhase = await applicationService.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
+        Assert.True(currentPhase.CanAdvance);
+        Assert.False(currentPhase.CanApprove);
+        Assert.True(currentPhase.RequiresApproval);
+        Assert.Null(currentPhase.BlockingReason);
+    }
+
+    [Fact]
+    public async Task RewindWorkflowAsync_ToApprovedRefinement_NonDestructivePreservesContinuationControls()
+    {
+        var runner = new WorkflowRunner();
+        var applicationService = new SpecForgeApplicationService();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var result = await applicationService.RewindWorkflowAsync(
+            workspaceRoot,
+            "US-0001",
+            "refinement");
+
+        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("active", result.Status);
+
+        var currentPhase = await applicationService.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
+        Assert.True(currentPhase.CanAdvance);
+        Assert.False(currentPhase.CanApprove);
+        Assert.True(currentPhase.RequiresApproval);
+        Assert.Null(currentPhase.BlockingReason);
+    }
+
+    [Fact]
     public async Task RestartUserStoryFromSourceAsync_ReturnsRegeneratedRefinementState()
     {
         var runner = new WorkflowRunner();
@@ -117,6 +172,8 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.ExecutePromptPath is not null && phase.ApprovePromptPath is not null);
         Assert.False(workflow.Controls.CanApprove);
         Assert.False(workflow.Controls.CanContinue);
+        Assert.Empty(workflow.Controls.RegressionTargets);
+        Assert.Contains("clarification", workflow.Controls.RewindTargets);
         Assert.Single(workflow.ContextFiles);
         Assert.Equal(paths.ContextDirectoryPath, workflow.ContextFilesDirectoryPath);
         Assert.Single(workflow.Attachments);
