@@ -126,6 +126,30 @@ function renderTokenSummaryRow(label, value) {
     </div>
   `;
 }
+function buildPhaseIterations(workflow, phaseId) {
+    const seen = new Set();
+    const iterations = [];
+    for (const event of [...workflow.events].reverse()) {
+        if (event.phase !== phaseId) {
+            continue;
+        }
+        const artifactPath = [...event.artifacts].reverse().find((candidate) => candidate.toLowerCase().endsWith(".md"));
+        if (!artifactPath || seen.has(artifactPath)) {
+            continue;
+        }
+        seen.add(artifactPath);
+        iterations.push({
+            timestampUtc: event.timestampUtc,
+            code: event.code,
+            actor: event.actor,
+            summary: event.summary,
+            artifactPath,
+            usage: event.usage,
+            durationMs: event.durationMs
+        });
+    }
+    return iterations;
+}
 const genericExecutionMessages = [
     "Untangling edge cases before they untangle the plan.",
     "Cross-checking prior artifacts for contradictions.",
@@ -414,6 +438,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         ? extractMarkdownApprovalItems(state.selectedArtifactContent)
         : [];
     const unresolvedApprovalQuestionCount = refinementApprovalQuestions.filter((item) => !item.resolved).length;
+    const phaseIterations = buildPhaseIterations(workflow, selectedPhase.phaseId);
+    const selectedIteration = phaseIterations.find((iteration) => iteration.artifactPath === state.selectedIterationArtifactPath)
+        ?? phaseIterations[0]
+        ?? null;
     const selectedPhaseEvents = workflow.events.filter((event) => event.phase === selectedPhase.phaseId);
     const selectedPhaseMetricEvents = selectedPhaseEvents.filter((event) => event.usage || event.durationMs !== null);
     const selectedPhaseUsageAggregate = sumTokenUsage(selectedPhaseMetricEvents
@@ -519,13 +547,62 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhaseMetrics = durationMetric || tokenSummary
         ? `${durationMetric}${tokenSummary}`
         : "";
+    const iterationRail = phaseIterations.length > 1
+        ? `
+      <section class="detail-card detail-card--phase-iterations">
+        <h3>Phase Iterations</h3>
+        <p class="panel-copy">Newest first. Select any prior iteration to inspect its readonly artifact, metrics, and recorded question and answer state.</p>
+        <div class="iteration-rail">
+          ${phaseIterations.map((iteration, index) => `
+            <button
+              type="button"
+              class="iteration-rail__item${selectedIteration?.artifactPath === iteration.artifactPath ? " iteration-rail__item--selected" : ""}"
+              data-command="selectIteration"
+              data-path="${escapeHtmlAttribute(iteration.artifactPath)}">
+              <span class="iteration-rail__stem" aria-hidden="true"></span>
+              <span class="iteration-rail__body">
+                <span class="iteration-rail__title">#${index + 1} · ${escapeHtml(formatUtcTimestamp(iteration.timestampUtc))}</span>
+                <span class="iteration-rail__meta">
+                  ${escapeHtml(iteration.code)}
+                  ${iteration.actor ? ` · ${escapeHtml(iteration.actor)}` : ""}
+                  ${iteration.usage ? ` · ${escapeHtml(`${formatMetricNumber(iteration.usage.inputTokens)}/${formatMetricNumber(iteration.usage.outputTokens)} tok`)}` : ""}
+                  ${iteration.durationMs !== null ? ` · ${escapeHtml(formatDuration(iteration.durationMs))}` : ""}
+                </span>
+                ${iteration.summary ? `<span class="iteration-rail__summary">${escapeHtml(iteration.summary)}</span>` : ""}
+              </span>
+            </button>
+          `).join("")}
+        </div>
+      </section>
+    `
+        : "";
+    const iterationDetailSection = selectedIteration
+        ? `
+      <section class="detail-card detail-card--iteration-detail">
+        <h3>Selected Iteration</h3>
+        <div class="iteration-detail__meta">
+          <span class="badge">${escapeHtml(selectedIteration.code)}</span>
+          <span class="badge">${escapeHtml(formatUtcTimestamp(selectedIteration.timestampUtc))}</span>
+          ${selectedIteration.actor ? `<span class="badge">${escapeHtml(selectedIteration.actor)}</span>` : ""}
+          ${selectedIteration.usage ? `<span class="badge">in/out ${escapeHtml(`${formatMetricNumber(selectedIteration.usage.inputTokens)}/${formatMetricNumber(selectedIteration.usage.outputTokens)}`)}</span>` : ""}
+          ${selectedIteration.usage ? `<span class="badge">total ${escapeHtml(formatMetricNumber(selectedIteration.usage.totalTokens))}</span>` : ""}
+          ${selectedIteration.durationMs !== null ? `<span class="badge">${escapeHtml(formatDuration(selectedIteration.durationMs))}</span>` : ""}
+          ${selectedIteration.usage && selectedIteration.durationMs !== null ? `<span class="badge">${escapeHtml(formatTokensPerSecond(selectedIteration.usage.outputTokens, selectedIteration.durationMs))}</span>` : ""}
+        </div>
+        ${selectedIteration.summary ? `<p class="panel-copy">${escapeHtml(selectedIteration.summary)}</p>` : ""}
+        <div class="detail-actions">
+          <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedIteration.artifactPath)}">Open This Iteration</button>
+        </div>
+      </section>
+    `
+        : "";
     const artifactSection = selectedPhase.artifactPath
         ? isClarificationDetail
-            ? buildArtifactPreviewSection(selectedPhase.artifactPath, artifactPreviewHtml, state.selectedArtifactContent ?? "Artifact content unavailable.", {
+            ? buildArtifactPreviewSection(selectedIteration?.artifactPath ?? selectedPhase.artifactPath, artifactPreviewHtml, state.selectedArtifactContent ?? "Artifact content unavailable.", {
                 rawArtifact: true,
                 footerNote: "The raw artifact stays visible here to preserve model context beyond the structured clarification questions below."
             })
-            : buildArtifactPreviewSection(selectedPhase.artifactPath, artifactPreviewHtml, state.selectedArtifactContent ?? "Artifact content unavailable.")
+            : buildArtifactPreviewSection(selectedIteration?.artifactPath ?? selectedPhase.artifactPath, artifactPreviewHtml, state.selectedArtifactContent ?? "Artifact content unavailable.")
         : "<p class=\"muted\">No artifact is persisted for this phase.</p>";
     const captureSourceSection = selectedPhase.phaseId === "capture" && selectedPhase.artifactPath
         ? `
@@ -1807,6 +1884,15 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         radial-gradient(circle at 12% 12%, rgba(255, 213, 90, 0.08), transparent 22%),
         linear-gradient(180deg, rgba(18, 18, 12, 0.94), rgba(10, 12, 8, 0.98));
     }
+    .detail-card--phase-iterations,
+    .detail-card--iteration-detail {
+      display: grid;
+      gap: 14px;
+      border-color: rgba(92, 181, 255, 0.16);
+      background:
+        radial-gradient(circle at top left, rgba(92, 181, 255, 0.08), transparent 26%),
+        linear-gradient(180deg, rgba(14, 19, 27, 0.94), rgba(10, 14, 20, 0.98));
+    }
     .approval-branch__copy h3 {
       margin: 0 0 8px;
     }
@@ -1870,6 +1956,96 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .approval-question-list {
       display: grid;
       gap: 10px;
+    }
+    .iteration-rail {
+      display: grid;
+      gap: 10px;
+    }
+    .iteration-rail__item {
+      display: grid;
+      grid-template-columns: 20px minmax(0, 1fr);
+      gap: 12px;
+      align-items: stretch;
+      width: 100%;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .iteration-rail__stem {
+      position: relative;
+      width: 20px;
+    }
+    .iteration-rail__stem::before {
+      content: "";
+      position: absolute;
+      left: 8px;
+      top: 0;
+      bottom: -10px;
+      width: 2px;
+      background: linear-gradient(180deg, rgba(92, 181, 255, 0.5), rgba(92, 181, 255, 0.12));
+    }
+    .iteration-rail__stem::after {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: 14px;
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(92, 181, 255, 0.18);
+      border: 1px solid rgba(92, 181, 255, 0.38);
+      box-shadow: 0 0 0 6px rgba(92, 181, 255, 0.05);
+    }
+    .iteration-rail__item:last-child .iteration-rail__stem::before {
+      bottom: 14px;
+    }
+    .iteration-rail__body {
+      display: grid;
+      gap: 5px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(92, 181, 255, 0.14);
+      background: rgba(255, 255, 255, 0.03);
+      transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+    }
+    .iteration-rail__item:hover .iteration-rail__body {
+      border-color: rgba(92, 181, 255, 0.26);
+      background: rgba(92, 181, 255, 0.08);
+      transform: translateY(-1px);
+    }
+    .iteration-rail__item--selected .iteration-rail__body {
+      border-color: rgba(92, 181, 255, 0.4);
+      background:
+        linear-gradient(180deg, rgba(92, 181, 255, 0.12), rgba(18, 31, 46, 0.7));
+      box-shadow: 0 14px 26px rgba(14, 35, 62, 0.24);
+    }
+    .iteration-rail__item--selected .iteration-rail__stem::after {
+      background: rgba(114, 241, 184, 0.18);
+      border-color: rgba(114, 241, 184, 0.44);
+      box-shadow: 0 0 0 8px rgba(114, 241, 184, 0.07);
+    }
+    .iteration-rail__title {
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: rgba(240, 248, 255, 0.94);
+    }
+    .iteration-rail__meta {
+      font-size: 0.76rem;
+      color: rgba(189, 219, 246, 0.76);
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    }
+    .iteration-rail__summary {
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: rgba(226, 232, 242, 0.84);
+    }
+    .iteration-detail__meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
     }
     .approval-question-item {
       display: grid;
@@ -2652,6 +2828,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         </div>
         ${approvalBranchSection}
         ${captureSourceSection}
+        ${iterationRail}
+        ${iterationDetailSection}
         ${refinementClarificationSection}
         ${refinementApprovalQuestionsSection}
         <section class="detail-card">

@@ -88,6 +88,7 @@ class WorkflowPanelController {
     callbacks;
     panel;
     selectedPhaseId;
+    selectedIterationArtifactPath = null;
     playbackState = "idle";
     autoplayPromise = null;
     lastWorkflow = null;
@@ -179,8 +180,13 @@ class WorkflowPanelController {
             case "selectPhase":
                 if (message.phaseId) {
                     this.selectedPhaseId = message.phaseId;
+                    this.selectedIterationArtifactPath = null;
                     await this.refreshAsync("command:selectPhase");
                 }
+                return;
+            case "selectIteration":
+                this.selectedIterationArtifactPath = message.path?.trim() || null;
+                await this.renderCachedWorkflowAsync("command:selectIteration");
                 return;
             case "openArtifact":
             case "openPrompt":
@@ -537,7 +543,17 @@ class WorkflowPanelController {
             ?? workflow.phases.find((phase) => phase.isCurrent)
             ?? workflow.phases[0];
         this.selectedPhaseId = selectedPhase.phaseId;
-        const selectedArtifactContent = await readArtifactContentAsync(selectedPhase.artifactPath);
+        const iterationArtifactPaths = workflow.events
+            .filter((event) => event.phase === selectedPhase.phaseId)
+            .flatMap((event) => event.artifacts)
+            .filter((artifactPath) => artifactPath.toLowerCase().endsWith(".md"));
+        const selectedArtifactPath = this.selectedIterationArtifactPath && iterationArtifactPaths.includes(this.selectedIterationArtifactPath)
+            ? this.selectedIterationArtifactPath
+            : selectedPhase.artifactPath;
+        if (selectedArtifactPath !== this.selectedIterationArtifactPath) {
+            this.selectedIterationArtifactPath = selectedArtifactPath ?? null;
+        }
+        const selectedArtifactContent = await readArtifactContentAsync(selectedArtifactPath);
         const selectedOperationContent = await readArtifactContentAsync(selectedPhase.operationLogPath);
         const sourceText = await readArtifactContentAsync(workflow.mainArtifactPath) ?? "";
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
@@ -549,6 +565,7 @@ class WorkflowPanelController {
         this.panel.title = `${workflow.usId} workflow`;
         this.panel.webview.html = (0, workflowView_1.buildWorkflowHtml)(workflow, {
             selectedPhaseId: this.selectedPhaseId,
+            selectedIterationArtifactPath: this.selectedIterationArtifactPath,
             selectedArtifactContent,
             selectedOperationContent,
             contextSuggestions,

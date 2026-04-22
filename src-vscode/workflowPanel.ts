@@ -14,6 +14,7 @@ import { asErrorMessage, getNextAttachmentPathAsync } from "./utils";
 
 type WorkflowPanelCommand =
   | { readonly command: "selectPhase"; readonly phaseId?: string }
+  | { readonly command: "selectIteration"; readonly path?: string }
   | { readonly command: "openArtifact"; readonly path?: string }
   | { readonly command: "openPrompt"; readonly path?: string }
   | { readonly command: "openAttachment"; readonly path?: string }
@@ -88,6 +89,7 @@ export function closeWorkflowView(workspaceRoot: string, usId: string): void {
 class WorkflowPanelController {
   private readonly panel: vscode.WebviewPanel;
   private selectedPhaseId: string;
+  private selectedIterationArtifactPath: string | null = null;
   private playbackState: "idle" | "playing" | "paused" | "stopping" = "idle";
   private autoplayPromise: Promise<void> | null = null;
   private lastWorkflow: UserStoryWorkflowDetails | null = null;
@@ -206,8 +208,13 @@ class WorkflowPanelController {
       case "selectPhase":
         if (message.phaseId) {
           this.selectedPhaseId = message.phaseId;
+          this.selectedIterationArtifactPath = null;
           await this.refreshAsync("command:selectPhase");
         }
+        return;
+      case "selectIteration":
+        this.selectedIterationArtifactPath = message.path?.trim() || null;
+        await this.renderCachedWorkflowAsync("command:selectIteration");
         return;
       case "openArtifact":
       case "openPrompt":
@@ -646,7 +653,17 @@ class WorkflowPanelController {
       ?? workflow.phases.find((phase) => phase.isCurrent)
       ?? workflow.phases[0];
     this.selectedPhaseId = selectedPhase.phaseId;
-    const selectedArtifactContent = await readArtifactContentAsync(selectedPhase.artifactPath);
+    const iterationArtifactPaths = workflow.events
+      .filter((event) => event.phase === selectedPhase.phaseId)
+      .flatMap((event) => event.artifacts)
+      .filter((artifactPath) => artifactPath.toLowerCase().endsWith(".md"));
+    const selectedArtifactPath = this.selectedIterationArtifactPath && iterationArtifactPaths.includes(this.selectedIterationArtifactPath)
+      ? this.selectedIterationArtifactPath
+      : selectedPhase.artifactPath;
+    if (selectedArtifactPath !== this.selectedIterationArtifactPath) {
+      this.selectedIterationArtifactPath = selectedArtifactPath ?? null;
+    }
+    const selectedArtifactContent = await readArtifactContentAsync(selectedArtifactPath);
     const selectedOperationContent = await readArtifactContentAsync(selectedPhase.operationLogPath);
     const sourceText = await readArtifactContentAsync(workflow.mainArtifactPath) ?? "";
     const settings = getSpecForgeSettings();
@@ -658,6 +675,7 @@ class WorkflowPanelController {
     this.panel.title = `${workflow.usId} workflow`;
     this.panel.webview.html = buildWorkflowHtml(workflow, {
       selectedPhaseId: this.selectedPhaseId,
+      selectedIterationArtifactPath: this.selectedIterationArtifactPath,
       selectedArtifactContent,
       selectedOperationContent,
       contextSuggestions,
