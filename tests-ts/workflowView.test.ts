@@ -1431,6 +1431,66 @@ test("buildWorkflowHtml keeps clarification visible after the model skips additi
   assert.match(html, /<h3>Clarification<\/h3>/);
 });
 
+test("buildWorkflowHtml renders refinement approval questions from the spec artifact", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0014",
+    title: "Refinement approval questions",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0014",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 2,
+        requiresApproval: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/01-refinement.md",
+        executePromptPath: "/tmp/refinement.execute.md",
+        approvePromptPath: "/tmp/refinement.approve.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "refinement_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "refinement",
+    selectedArtifactContent: `# Spec · US-0014 · v01
+
+## Preguntas para aprobación humana
+1. Which id pattern should be used for articles.json?
+2. Can the en-US translation be generated automatically?
+
+## Acceptance Criteria
+- [ ] Review the outcome`,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /<h3>Human Approval Questions<\/h3>/);
+  assert.match(html, /Which id pattern should be used for articles\.json\?/);
+  assert.match(html, /Can the en-US translation be generated automatically\?/);
+  assert.match(html, /approval-question-item__index">1</);
+  assert.match(html, /These are the open decisions the approver still needs to resolve before freezing the spec baseline\./);
+});
+
 test("buildWorkflowHtml spaces same-column phases far enough apart to avoid overlap", () => {
   const html = buildWorkflowHtml({
     usId: "US-0002",

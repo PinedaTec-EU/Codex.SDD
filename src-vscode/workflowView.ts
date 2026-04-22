@@ -481,6 +481,9 @@ export function buildWorkflowHtml(
   const artifactPreviewHtml = isMarkdownArtifact
     ? renderMarkdownToHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")
     : null;
+  const refinementApprovalQuestions = selectedPhase.phaseId === "refinement"
+    ? extractMarkdownApprovalQuestions(state.selectedArtifactContent)
+    : [];
   const selectedPhaseEvent = workflow.events
     .filter((event) => event.phase === selectedPhase.phaseId)
     .at(-1) ?? null;
@@ -635,6 +638,22 @@ export function buildWorkflowHtml(
           ? `<div class="phase-input-log"><div class="phase-input-log__header">Current operation log</div><pre class="artifact-preview">${escapeHtml(state.selectedOperationContent)}</pre></div>`
           : "<p class=\"muted\">No model-assisted operations have been recorded for this spec yet.</p>"}
       </div>
+    `
+    : "";
+  const refinementApprovalQuestionsSection = refinementApprovalQuestions.length > 0
+    ? `
+      <section class="detail-card detail-card--approval-questions">
+        <h3>Human Approval Questions</h3>
+        <p class="panel-copy">These are the open decisions the approver still needs to resolve before freezing the spec baseline.</p>
+        <div class="approval-question-list">
+          ${refinementApprovalQuestions.map((question, index) => `
+            <article class="approval-question-item">
+              <span class="approval-question-item__index">${index + 1}</span>
+              <p class="approval-question-item__body">${escapeHtml(question)}</p>
+            </article>
+          `).join("")}
+        </div>
+      </section>
     `
     : "";
   const contextFiles = workflow.contextFiles ?? [];
@@ -1749,6 +1768,14 @@ export function buildWorkflowHtml(
       border-color: rgba(92, 181, 255, 0.18);
       background: linear-gradient(180deg, rgba(14, 22, 31, 0.92), rgba(10, 16, 22, 0.98));
     }
+    .detail-card--approval-questions {
+      display: grid;
+      gap: 14px;
+      border-color: rgba(255, 213, 90, 0.2);
+      background:
+        radial-gradient(circle at top right, rgba(255, 213, 90, 0.1), transparent 34%),
+        linear-gradient(180deg, rgba(28, 23, 10, 0.94), rgba(16, 13, 8, 0.98));
+    }
     .approval-branch__copy h3 {
       margin: 0 0 8px;
     }
@@ -1808,6 +1835,39 @@ export function buildWorkflowHtml(
       margin: 0;
       font-size: 0.82rem;
       color: rgba(214, 223, 236, 0.72);
+    }
+    .approval-question-list {
+      display: grid;
+      gap: 10px;
+    }
+    .approval-question-item {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 213, 90, 0.16);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .approval-question-item__index {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: var(--attention-egg-soft);
+      border: 1px solid var(--attention-egg-border);
+      color: #ffe17b;
+      font-size: 0.84rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .approval-question-item__body {
+      margin: 0;
+      line-height: 1.5;
+      color: rgba(248, 244, 226, 0.92);
     }
     .detail-card h2, .detail-card h3 {
       margin-top: 0;
@@ -2462,6 +2522,7 @@ export function buildWorkflowHtml(
           </section>
         </div>
         ${approvalBranchSection}
+        ${refinementApprovalQuestionsSection}
         <section class="detail-card">
           <h3>Artifact</h3>
           ${artifactSection}
@@ -3403,4 +3464,46 @@ export function escapeHtml(value: string): string {
 
 function escapeHtmlAttribute(value: string): string {
   return escapeHtml(value);
+}
+
+function extractMarkdownApprovalQuestions(markdown: string | null | undefined): string[] {
+  if (!markdown) {
+    return [];
+  }
+
+  const headingPatterns = [
+    /^##\s+Human Approval Questions\s*$/i,
+    /^##\s+Questions for Human Approval\s*$/i,
+    /^##\s+Preguntas para aprobaci[oó]n humana\s*$/i
+  ];
+  const itemPattern = /^(?:[-*]\s+|\d+\.\s+)(.+?)\s*$/;
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const startIndex = lines.findIndex((line) => headingPatterns.some((pattern) => pattern.test(line.trim())));
+  if (startIndex < 0) {
+    return [];
+  }
+
+  const items: string[] = [];
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const trimmed = lines[index].trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    if (/^##\s+/.test(trimmed)) {
+      break;
+    }
+
+    const match = trimmed.match(itemPattern);
+    if (!match) {
+      continue;
+    }
+
+    const question = match[1].trim();
+    if (question) {
+      items.push(question);
+    }
+  }
+
+  return items;
 }
