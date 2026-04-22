@@ -209,28 +209,35 @@ function scoreCandidate(candidate, tokens) {
     let score = 0;
     const tokenSet = new Set(tokens);
     for (const token of tokens) {
+        // Filename match is the strongest signal — token appears in the file's own name.
         if (candidate.lowercaseName.includes(token)) {
             score += 16;
             continue;
         }
+        // Path-segment match (token is a directory component) is weaker than name but stronger than substring.
         if (candidate.lowercasePath.includes(`/${token}`) || candidate.lowercasePath.includes(`${token}/`)) {
             score += 11;
             continue;
         }
+        // Arbitrary substring match anywhere in the path — lowest per-token weight.
         if (candidate.lowercasePath.includes(token)) {
             score += 6;
         }
     }
+    // Domain boosts: when the user explicitly references a subsystem, strongly prefer files in that subsystem.
+    // 18 — highest domain boost, used for unambiguous subsystem indicators (test, vscode, mcp).
     if (tokenSet.has("test") || tokenSet.has("tests") || tokenSet.has("coverage")) {
         if (candidate.lowercasePath.includes("test")) {
             score += 18;
         }
     }
+    // 16 — slightly lower than test/vscode/mcp because "prompt" files span multiple subsystems.
     if (tokenSet.has("prompt") || tokenSet.has("prompts")) {
         if (candidate.lowercasePath.includes("prompt")) {
             score += 16;
         }
     }
+    // 14 — workflow/phase tokens are common across the codebase, so the boost is intentionally modest.
     if (tokenSet.has("workflow") || tokenSet.has("phase")) {
         if (candidate.lowercasePath.includes("workflow") || candidate.lowercasePath.includes("phase")) {
             score += 14;
@@ -246,6 +253,7 @@ function scoreCandidate(candidate, tokens) {
             score += 18;
         }
     }
+    // Small tiebreaker: config/doc files are rarely the primary target but useful as supporting context.
     if (candidate.extension === ".md" || candidate.extension === ".json" || candidate.extension === ".yaml" || candidate.extension === ".yml") {
         score += 2;
     }
