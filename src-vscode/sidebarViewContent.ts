@@ -19,6 +19,7 @@ export interface SidebarViewModel {
   readonly viewMode: "category" | "phase";
   readonly createFileMode?: "context" | "attachment";
   readonly createFiles?: readonly DraftCreateFile[];
+  readonly createFormResetToken?: number;
   readonly categories: readonly string[];
   readonly userStories: readonly UserStorySummary[];
 }
@@ -40,7 +41,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
         <h1>Open a workspace to start.</h1>
         <p class="copy">The sidebar needs a workspace folder to persist user stories under <code>.specs/</code>.</p>
       </section>
-    `, isBusy);
+    `, isBusy, model.createFormResetToken ?? 0);
   }
 
   const promptsBootstrapMarkup = !model.promptsInitialized
@@ -52,7 +53,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
       ${busyIndicatorMarkup}
       ${buildSettingsWarningMarkup(model)}
       ${promptsBootstrapMarkup}
-    `, isBusy);
+    `, isBusy, model.createFormResetToken ?? 0);
   }
 
   if (model.userStories.length === 0 && !model.showCreateForm && model.promptsInitialized) {
@@ -72,7 +73,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
         <p class="copy">No faded text-buttons, no scattered prompts. Start here and the sidebar opens the full intake form in place.</p>
         <button class="primary-action" data-command="showCreateForm">Create User Story</button>
       </section>
-    `, isBusy);
+    `, isBusy, model.createFormResetToken ?? 0);
   }
 
   const storySections = model.viewMode === "phase"
@@ -301,7 +302,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
       </div>
       ${storiesMarkup || "<p class=\"copy story-list__empty\">Bootstrap the repo prompts to start creating user stories from the sidebar.</p>"}
     </section>
-  `, isBusy);
+  `, isBusy, model.createFormResetToken ?? 0);
 }
 
 function buildSettingsWarningMarkup(model: SidebarViewModel): string {
@@ -426,7 +427,7 @@ function buildPromptsBootstrapMarkup(isFirstRun: boolean): string {
   `;
 }
 
-function wrapHtml(content: string, busy: boolean): string {
+function wrapHtml(content: string, busy: boolean, createFormResetToken: number): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1241,7 +1242,9 @@ function wrapHtml(content: string, busy: boolean): string {
   <script>
     const vscode = acquireVsCodeApi();
     const busy = ${busy ? "true" : "false"};
+    const createFormResetToken = ${JSON.stringify(createFormResetToken)};
     const initialCreateState = {
+      resetToken: createFormResetToken,
       intakeMode: "freeform",
       wizardStep: 0,
       title: "",
@@ -1314,8 +1317,12 @@ function wrapHtml(content: string, busy: boolean): string {
         .map(([, label]) => label);
     }
 
-    let createState = Object.assign({}, initialCreateState, vscode.getState() ?? {});
+    const persistedCreateState = vscode.getState() ?? {};
+    let createState = persistedCreateState.resetToken === createFormResetToken
+      ? Object.assign({}, initialCreateState, persistedCreateState)
+      : Object.assign({}, initialCreateState);
     createState.wizard = Object.assign({}, initialCreateState.wizard, createState.wizard ?? {});
+    createState.resetToken = createFormResetToken;
 
     function persistCreateState() {
       vscode.setState(createState);

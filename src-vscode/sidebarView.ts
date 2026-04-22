@@ -61,6 +61,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   private createFileMode: "context" | "attachment" = "context";
   private createFiles: DraftCreateFile[] = [];
   private createReferenceScanVersion = 0;
+  private createFormResetToken = 0;
 
   public constructor(
     private readonly extensionUri: vscode.Uri,
@@ -103,10 +104,13 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       case "showCreateForm":
         this.showCreateForm = true;
         this.createFileMode = "context";
+        this.createFiles = [];
+        this.createFormResetToken += 1;
         await this.safeRenderAsync();
         return;
       case "hideCreateForm":
         this.showCreateForm = false;
+        this.createFiles = [];
         await this.safeRenderAsync();
         return;
       case "toggleViewMode":
@@ -443,6 +447,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         viewMode: this.viewMode,
         createFileMode: this.createFileMode,
         createFiles: this.createFiles,
+        createFormResetToken: this.createFormResetToken,
         categories: [],
         userStories: []
       });
@@ -472,6 +477,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       viewMode: this.viewMode,
       createFileMode: this.createFileMode,
       createFiles: this.createFiles,
+      createFormResetToken: this.createFormResetToken,
       categories,
       userStories
     });
@@ -498,6 +504,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         viewMode: this.viewMode,
         createFileMode: this.createFileMode,
         createFiles: this.createFiles,
+        createFormResetToken: this.createFormResetToken,
         categories: [],
         userStories: []
       });

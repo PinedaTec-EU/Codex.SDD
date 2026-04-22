@@ -59,6 +59,7 @@ class SidebarViewProvider {
     createFileMode = "context";
     createFiles = [];
     createReferenceScanVersion = 0;
+    createFormResetToken = 0;
     constructor(extensionUri, onDidCreateUserStory) {
         this.extensionUri = extensionUri;
         this.onDidCreateUserStory = onDidCreateUserStory;
@@ -92,10 +93,13 @@ class SidebarViewProvider {
             case "showCreateForm":
                 this.showCreateForm = true;
                 this.createFileMode = "context";
+                this.createFiles = [];
+                this.createFormResetToken += 1;
                 await this.safeRenderAsync();
                 return;
             case "hideCreateForm":
                 this.showCreateForm = false;
+                this.createFiles = [];
                 await this.safeRenderAsync();
                 return;
             case "toggleViewMode":
@@ -378,6 +382,7 @@ class SidebarViewProvider {
                 viewMode: this.viewMode,
                 createFileMode: this.createFileMode,
                 createFiles: this.createFiles,
+                createFormResetToken: this.createFormResetToken,
                 categories: [],
                 userStories: []
             });
@@ -406,6 +411,7 @@ class SidebarViewProvider {
             viewMode: this.viewMode,
             createFileMode: this.createFileMode,
             createFiles: this.createFiles,
+            createFormResetToken: this.createFormResetToken,
             categories,
             userStories
         });
@@ -431,6 +437,7 @@ class SidebarViewProvider {
                 viewMode: this.viewMode,
                 createFileMode: this.createFileMode,
                 createFiles: this.createFiles,
+                createFormResetToken: this.createFormResetToken,
                 categories: [],
                 userStories: []
             });
