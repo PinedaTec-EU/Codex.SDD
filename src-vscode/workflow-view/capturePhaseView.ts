@@ -1,7 +1,8 @@
-import type { WorkflowPhaseDetails } from "../backendClient";
+import type { UserStoryWorkflowDetails, WorkflowPhaseDetails } from "../backendClient";
 import type { PhaseSectionFragments } from "./models";
 
 interface CapturePhaseViewArgs {
+  readonly workflow: UserStoryWorkflowDetails;
   readonly selectedPhase: WorkflowPhaseDetails;
   readonly selectedArtifactContent: string | null;
   readonly artifactPreviewHtml: string | null;
@@ -17,13 +18,16 @@ interface CapturePhaseViewArgs {
 }
 
 export function buildCapturePhaseSections(args: CapturePhaseViewArgs): PhaseSectionFragments {
-  const { selectedPhase, selectedArtifactContent, artifactPreviewHtml, buildArtifactPreviewSection } = args;
-  const captureSourceSection = selectedPhase.phaseId === "capture" && selectedPhase.artifactPath
+  const { workflow, selectedPhase, selectedArtifactContent, artifactPreviewHtml, buildArtifactPreviewSection } = args;
+  const captureSourcePath = selectedPhase.phaseId === "capture"
+    ? workflow.mainArtifactPath
+    : null;
+  const captureSourceSection = captureSourcePath
     ? `
       <section class="detail-card">
         <h3>User Story Source</h3>
         ${buildArtifactPreviewSection(
-          selectedPhase.artifactPath,
+          captureSourcePath,
           artifactPreviewHtml,
           selectedArtifactContent ?? "Artifact content unavailable."
         )}

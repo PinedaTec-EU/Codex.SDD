@@ -162,6 +162,7 @@ function buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPrev
     switch (selectedPhase.phaseId) {
         case "capture":
             return (0, capturePhaseView_1.buildCapturePhaseSections)({
+                workflow,
                 selectedPhase,
                 selectedArtifactContent: state.selectedArtifactContent,
                 artifactPreviewHtml,
@@ -954,26 +955,25 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       transform: translateX(-50%) rotate(132deg);
     }
     .phase-duration-pill__body {
-      position: relative;
+      position: absolute;
       z-index: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      width: 100%;
-      min-height: 84px;
-      padding: 2px 10px 0 0;
+      inset: 14px 14px 14px 14px;
+      display: block;
       text-align: right;
     }
     .phase-duration-pill__label {
+      display: block;
       font-size: 0.64rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: rgba(214, 236, 252, 0.78);
+      padding-right: 2px;
     }
     .phase-duration-pill__value {
-      width: 100%;
-      margin-top: auto;
-      align-self: stretch;
+      position: absolute;
+      right: 8px;
+      bottom: 2px;
+      left: 94px;
       font-size: clamp(1.38rem, 2.9vw, 2.3rem);
       font-weight: 800;
       line-height: 1.05;
@@ -981,7 +981,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       text-shadow: 0 1px 2px rgba(8, 15, 22, 0.32);
       letter-spacing: -0.03em;
       text-align: right;
-      align-content: end;
     }
     .token-summary {
       min-width: 0;

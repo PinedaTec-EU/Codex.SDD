@@ -2,12 +2,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildCapturePhaseSections = buildCapturePhaseSections;
 function buildCapturePhaseSections(args) {
-    const { selectedPhase, selectedArtifactContent, artifactPreviewHtml, buildArtifactPreviewSection } = args;
-    const captureSourceSection = selectedPhase.phaseId === "capture" && selectedPhase.artifactPath
+    const { workflow, selectedPhase, selectedArtifactContent, artifactPreviewHtml, buildArtifactPreviewSection } = args;
+    const captureSourcePath = selectedPhase.phaseId === "capture"
+        ? workflow.mainArtifactPath
+        : null;
+    const captureSourceSection = captureSourcePath
         ? `
       <section class="detail-card">
         <h3>User Story Source</h3>
-        ${buildArtifactPreviewSection(selectedPhase.artifactPath, artifactPreviewHtml, selectedArtifactContent ?? "Artifact content unavailable.")}
+        ${buildArtifactPreviewSection(captureSourcePath, artifactPreviewHtml, selectedArtifactContent ?? "Artifact content unavailable.")}
       </section>
     `
         : "";
