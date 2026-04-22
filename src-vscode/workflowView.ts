@@ -1114,9 +1114,7 @@ export function buildWorkflowHtml(
       position: absolute;
       z-index: 1;
       inset: 14px 14px 14px 14px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
+      display: block;
       text-align: right;
     }
     .phase-duration-pill__label {
@@ -1128,11 +1126,10 @@ export function buildWorkflowHtml(
       padding-right: 2px;
     }
     .phase-duration-pill__value {
-      display: block;
-      margin-top: auto;
-      min-height: 3.2rem;
-      padding-bottom: 6px;
-      width: 100%;
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      left: 0;
       padding-left: 0;
       font-size: clamp(1.38rem, 2.9vw, 2.3rem);
       font-weight: 800;
