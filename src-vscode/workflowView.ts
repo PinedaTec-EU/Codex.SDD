@@ -26,6 +26,13 @@ interface ExecutionOverlayModel {
   readonly messages: readonly string[];
 }
 
+interface ArtifactQuestionBlock {
+  readonly state: string | null;
+  readonly decision: string | null;
+  readonly reason: string | null;
+  readonly questions: readonly string[];
+}
+
 type PhaseVisualTone = "active" | "waiting-user" | "paused" | "blocked" | "completed" | "pending" | "disabled";
 
 type PhasePosition = { left: number; top: number };
@@ -481,6 +488,7 @@ export function buildWorkflowHtml(
   const artifactPreviewHtml = isMarkdownArtifact
     ? renderMarkdownToHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")
     : null;
+  const artifactQuestionBlock = extractArtifactQuestionBlock(state.selectedArtifactContent);
   const refinementApprovalQuestions = selectedPhase.phaseId === "refinement"
     ? extractMarkdownApprovalQuestions(state.selectedArtifactContent)
     : [];
@@ -653,6 +661,41 @@ export function buildWorkflowHtml(
             </article>
           `).join("")}
         </div>
+      </section>
+    `
+    : "";
+  const refinementClarificationSection = selectedPhase.phaseId === "refinement"
+    && artifactQuestionBlock?.decision?.toLowerCase() === "needs_clarification"
+    ? `
+      <section class="detail-card detail-card--artifact-questions">
+        <h3>Refinement Questions</h3>
+        <div class="clarification-meta">
+          ${artifactQuestionBlock.state ? `<span class="badge">${escapeHtml(artifactQuestionBlock.state)}</span>` : ""}
+          <span class="badge${heroTokenClass(artifactQuestionBlock.decision)}">${escapeHtml(artifactQuestionBlock.decision)}</span>
+        </div>
+        ${artifactQuestionBlock.reason ? `<p class="clarification-reason">${escapeHtml(artifactQuestionBlock.reason)}</p>` : ""}
+        ${artifactQuestionBlock.questions.length > 0
+          ? `
+            <div class="clarification-list">
+              ${artifactQuestionBlock.questions.map((question, index) => `
+                <label class="clarification-item">
+                  <span class="clarification-question">${index + 1}. ${escapeHtml(question)}</span>
+                  <textarea
+                    class="clarification-answer"
+                    data-refinement-question-answer
+                    data-index="${index + 1}"
+                    rows="3"
+                    placeholder="Write the answer and apply it back into the current spec via model."></textarea>
+                </label>
+              `).join("")}
+            </div>
+            <div class="detail-actions">
+              <button id="submit-refinement-questions" class="workflow-action-button workflow-action-button--progress" ${selectedPhase.isCurrent ? "" : "disabled"}>
+                Apply Answers via Model
+              </button>
+            </div>
+          `
+          : "<p class=\"muted\">The artifact requests clarification, but no structured questions were detected.</p>"}
       </section>
     `
     : "";
@@ -1776,6 +1819,14 @@ export function buildWorkflowHtml(
         radial-gradient(circle at top right, rgba(255, 213, 90, 0.1), transparent 34%),
         linear-gradient(180deg, rgba(28, 23, 10, 0.94), rgba(16, 13, 8, 0.98));
     }
+    .detail-card--artifact-questions {
+      display: grid;
+      gap: 14px;
+      border-color: rgba(255, 213, 90, 0.22);
+      background:
+        radial-gradient(circle at 12% 12%, rgba(255, 213, 90, 0.08), transparent 22%),
+        linear-gradient(180deg, rgba(18, 18, 12, 0.94), rgba(10, 12, 8, 0.98));
+    }
     .approval-branch__copy h3 {
       margin: 0 0 8px;
     }
@@ -2522,6 +2573,7 @@ export function buildWorkflowHtml(
           </section>
         </div>
         ${approvalBranchSection}
+        ${refinementClarificationSection}
         ${refinementApprovalQuestionsSection}
         <section class="detail-card">
           <h3>Artifact</h3>
@@ -2826,6 +2878,39 @@ export function buildWorkflowHtml(
         vscode.postMessage({
           command: "submitClarificationAnswers",
           answers
+        });
+      });
+    }
+
+    const refinementQuestionSubmit = document.getElementById("submit-refinement-questions");
+    if (refinementQuestionSubmit) {
+      refinementQuestionSubmit.addEventListener("click", () => {
+        const pairs = Array.from(document.querySelectorAll("[data-refinement-question-answer]"))
+          .sort((left, right) => Number(left.dataset.index) - Number(right.dataset.index))
+          .map((element) => {
+            const answer = (element.value ?? "").trim();
+            const questionElement = element.parentElement?.querySelector(".clarification-question");
+            const question = (questionElement?.textContent ?? "").replace(/^\\d+\\.\\s*/, "").trim();
+            return question && answer ? { question, answer } : null;
+          })
+          .filter((value) => value !== null);
+
+        if (pairs.length === 0) {
+          return;
+        }
+
+        const prompt = [
+          "Update the current refinement artifact using these human answers.",
+          "Preserve the existing section structure unless the artifact itself needs a structural correction.",
+          "Resolve the blocking clarification points concretely inside the spec and remove or rewrite the blocking questions if they are no longer needed.",
+          "",
+          "Human answers:",
+          ...pairs.map((pair, index) => (index + 1) + ". Q: " + pair.question + "\\n   A: " + pair.answer)
+        ].join("\\n");
+
+        vscode.postMessage({
+          command: "submitPhaseInput",
+          prompt
         });
       });
     }
@@ -3506,4 +3591,83 @@ function extractMarkdownApprovalQuestions(markdown: string | null | undefined): 
   }
 
   return items;
+}
+
+function extractArtifactQuestionBlock(markdown: string | null | undefined): ArtifactQuestionBlock | null {
+  if (!markdown) {
+    return null;
+  }
+
+  const normalized = markdown.replace(/\r\n/g, "\n");
+  const state = readLooseMarkdownSection(normalized, ["State"]);
+  const decision = readLooseMarkdownSection(normalized, ["Decision"]);
+  const reason = readLooseMarkdownSection(normalized, ["Reason"]);
+  const questionsSection = readLooseMarkdownSection(normalized, ["Questions"]);
+  const questions = extractLooseQuestionLines(questionsSection);
+
+  if (!state && !decision && !reason && questions.length === 0) {
+    return null;
+  }
+
+  return {
+    state,
+    decision,
+    reason,
+    questions
+  };
+}
+
+function readLooseMarkdownSection(markdown: string, sectionNames: readonly string[]): string | null {
+  const lines = markdown.split("\n");
+  const normalizedNames = sectionNames.map((name) => name.trim().toLowerCase());
+  const startIndex = lines.findIndex((line) => {
+    const trimmed = normalizeLooseSectionHeading(line);
+    return trimmed !== null && normalizedNames.includes(trimmed);
+  });
+  if (startIndex < 0) {
+    return null;
+  }
+
+  const content: string[] = [];
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    const trimmed = line.trim();
+    if (normalizeLooseSectionHeading(line) !== null) {
+      break;
+    }
+
+    if (trimmed.length === 0) {
+      if (content.length > 0) {
+        content.push("");
+      }
+      continue;
+    }
+
+    content.push(trimmed);
+  }
+
+  return content.join("\n").trim() || null;
+}
+
+function normalizeLooseSectionHeading(line: string): string | null {
+  const trimmed = line.trim();
+  const match = trimmed.match(/^(?:##+\s*)?([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s-]+):?$/);
+  if (!match) {
+    return null;
+  }
+
+  return match[1].trim().toLowerCase();
+}
+
+function extractLooseQuestionLines(section: string | null): string[] {
+  if (!section) {
+    return [];
+  }
+
+  return section
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => line.replace(/^(?:[-*]\s+|\d+\.\s+)/, "").trim())
+    .filter((line) => line.length > 0);
 }

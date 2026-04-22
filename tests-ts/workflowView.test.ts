@@ -1491,6 +1491,74 @@ test("buildWorkflowHtml renders refinement approval questions from the spec arti
   assert.match(html, /These are the open decisions the approver still needs to resolve before freezing the spec baseline\./);
 });
 
+test("buildWorkflowHtml renders refinement clarification questions from a blocking artifact", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0015",
+    title: "Refinement clarification fallback",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0015",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 2,
+        requiresApproval: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/01-refinement.md",
+        executePromptPath: "/tmp/refinement.execute.md",
+        approvePromptPath: "/tmp/refinement.approve.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "refinement_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "refinement",
+    selectedArtifactContent: `State
+draft
+
+Decision
+needs_clarification
+
+Reason
+The story is clear, but some data contract details remain unresolved.
+
+Questions
+What value should image receive when it is unavailable?
+What format should publisheddate use?
+Should texts contain only title and excerpt?`,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /<h3>Refinement Questions<\/h3>/);
+  assert.match(html, /needs_clarification/);
+  assert.match(html, /The story is clear, but some data contract details remain unresolved\./);
+  assert.match(html, /What value should image receive when it is unavailable\?/);
+  assert.match(html, /What format should publisheddate use\?/);
+  assert.match(html, /Should texts contain only title and excerpt\?/);
+  assert.match(html, /id="submit-refinement-questions"/);
+  assert.match(html, /Apply Answers via Model/);
+});
+
 test("buildWorkflowHtml spaces same-column phases far enough apart to avoid overlap", () => {
   const html = buildWorkflowHtml({
     usId: "US-0002",
