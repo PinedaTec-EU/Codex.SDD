@@ -44,14 +44,20 @@ public static class RefinementSpecJson
         ArgumentException.ThrowIfNullOrWhiteSpace(json);
         try
         {
-            var document = JsonSerializer.Deserialize<RefinementSpecDocument>(json, JsonOptions)
-                ?? throw new WorkflowDomainException("The refinement JSON artifact could not be deserialized.");
-            return Normalize(document);
+            return ParseCanonicalJson(json);
         }
         catch (JsonException)
         {
             return RefinementSpecMarkdownImporter.Import(json);
         }
+    }
+
+    public static RefinementSpecDocument ParseCanonicalJson(string json)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(json);
+        var document = JsonSerializer.Deserialize<RefinementSpecDocument>(json, JsonOptions)
+            ?? throw new WorkflowDomainException("The refinement JSON artifact could not be deserialized.");
+        return Normalize(document);
     }
 
     public static string Serialize(RefinementSpecDocument document) =>

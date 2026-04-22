@@ -32,7 +32,8 @@ test("readSpecForgeSettings normalizes optional strings and preserves toggles", 
     watcherEnabled: false,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
-    requireExplicitApprovalBranchAcceptance: true
+    requireExplicitApprovalBranchAcceptance: true,
+    autoPlayEnabled: false
   });
 });
 
@@ -47,7 +48,8 @@ test("buildBackendEnvironment maps extension settings to provider environment va
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
-    requireExplicitApprovalBranchAcceptance: false
+    requireExplicitApprovalBranchAcceptance: false,
+    autoPlayEnabled: false
   }), {
     SPECFORGE_PHASE_PROVIDER: "openai-compatible",
     SPECFORGE_OPENAI_BASE_URL: "https://api.example.test/v1",
@@ -69,7 +71,8 @@ test("getSpecForgeSettingsStatus requires connection fields for openai-compatibl
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
-    requireExplicitApprovalBranchAcceptance: false
+    requireExplicitApprovalBranchAcceptance: false,
+    autoPlayEnabled: false
   }), {
     executionConfigured: false,
     message: "SpecForge.AI is not configured for the current provider. Missing base URL, model."
@@ -87,7 +90,8 @@ test("getSpecForgeSettingsStatus allows local openai-compatible endpoints withou
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
-    requireExplicitApprovalBranchAcceptance: false
+    requireExplicitApprovalBranchAcceptance: false,
+    autoPlayEnabled: false
   }), {
     executionConfigured: true,
     message: null
@@ -105,7 +109,8 @@ test("getSpecForgeSettingsStatus still requires an api key for remote openai-com
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
-    requireExplicitApprovalBranchAcceptance: false
+    requireExplicitApprovalBranchAcceptance: false,
+    autoPlayEnabled: false
   }), {
     executionConfigured: false,
     message: "SpecForge.AI is not configured for the current provider. Missing API key."
@@ -123,7 +128,8 @@ test("getSpecForgeSettingsStatus requires a real model-backed provider instead o
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
-    requireExplicitApprovalBranchAcceptance: false
+    requireExplicitApprovalBranchAcceptance: false,
+    autoPlayEnabled: false
   }), {
     executionConfigured: false,
     message: "SpecForge.AI needs an SLM/LLM execution provider before workflow stages can run. Select an OpenAI-compatible provider and configure base URL, API key, and model."

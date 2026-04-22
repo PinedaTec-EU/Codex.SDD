@@ -392,7 +392,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     {
         if (context.PhaseId == PhaseId.Refinement)
         {
-            return RefinementSpecJson.Serialize(RefinementSpecJson.Parse(content));
+            return RefinementSpecJson.Serialize(RefinementSpecJson.ParseCanonicalJson(content));
         }
 
         if (context.PhaseId != PhaseId.Clarification)

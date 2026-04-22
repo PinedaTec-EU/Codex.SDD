@@ -1,19 +1,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildSidebarHtml } from "../src-vscode/sidebarViewContent";
+import type { SidebarViewModel } from "../src-vscode/sidebarViewContent";
 
-test("buildSidebarHtml shows the bootstrap block when prompts are missing before the first user story", () => {
-  const html = buildSidebarHtml({
+function model(overrides: Partial<SidebarViewModel>): SidebarViewModel {
+  return {
     hasWorkspace: true,
     showCreateForm: false,
     busyMessage: null,
-    promptsInitialized: false,
+    promptsInitialized: true,
     settingsConfigured: true,
     settingsMessage: null,
     starredUserStoryId: null,
+    activeWorkflowUsId: null,
+    runtimeVersion: null,
+    viewMode: "category",
+    categories: ["workflow"],
+    userStories: [],
+    ...overrides
+  };
+}
+
+test("buildSidebarHtml shows the bootstrap block when prompts are missing before the first user story", () => {
+  const html = buildSidebarHtml(model({
+    promptsInitialized: false,
     categories: ["workflow", "ux"],
     userStories: []
-  });
+  }));
 
   assert.match(html, /Initialize prompts before the first user story/);
   assert.match(html, /Bootstrap Prompts/);
@@ -23,17 +36,11 @@ test("buildSidebarHtml shows the bootstrap block when prompts are missing before
 });
 
 test("buildSidebarHtml shows a single prominent create action when prompts are initialized and there are no user stories", () => {
-  const html = buildSidebarHtml({
-    hasWorkspace: true,
-    showCreateForm: false,
-    busyMessage: null,
+  const html = buildSidebarHtml(model({
     promptsInitialized: true,
-    settingsConfigured: true,
-    settingsMessage: null,
-    starredUserStoryId: null,
     categories: ["workflow", "ux"],
     userStories: []
-  });
+  }));
 
   assert.match(html, /Create your first user story/);
   assert.match(html, /Create User Story/);
@@ -43,14 +50,8 @@ test("buildSidebarHtml shows a single prominent create action when prompts are i
 });
 
 test("buildSidebarHtml renders the embedded creation form inside the sidebar", () => {
-  const html = buildSidebarHtml({
-    hasWorkspace: true,
+  const html = buildSidebarHtml(model({
     showCreateForm: true,
-    busyMessage: null,
-    promptsInitialized: true,
-    settingsConfigured: true,
-    settingsMessage: null,
-    starredUserStoryId: null,
     createFileMode: "context",
     createFiles: [
       {
@@ -61,7 +62,7 @@ test("buildSidebarHtml renders the embedded creation form inside the sidebar", (
     ],
     categories: ["workflow", "ux"],
     userStories: []
-  });
+  }));
 
   assert.match(html, /Create from the sidebar/);
   assert.match(html, /create-user-story-form/);
@@ -82,14 +83,7 @@ test("buildSidebarHtml renders the embedded creation form inside the sidebar", (
 });
 
 test("buildSidebarHtml exposes a compact prompt reset action when repo prompts are initialized", () => {
-  const html = buildSidebarHtml({
-    hasWorkspace: true,
-    showCreateForm: false,
-    busyMessage: null,
-    promptsInitialized: true,
-    settingsConfigured: true,
-    settingsMessage: null,
-    starredUserStoryId: null,
+  const html = buildSidebarHtml(model({
     categories: ["workflow"],
     userStories: [{
       usId: "US-0001",
@@ -101,7 +95,7 @@ test("buildSidebarHtml exposes a compact prompt reset action when repo prompts a
       directoryPath: "/tmp/us.US-0001",
       workBranch: null
     }],
-  });
+  }));
 
   assert.match(html, /aria-label="Reinitialize repo prompts"/);
   assert.match(html, /aria-label="Create new user story"/);
@@ -110,14 +104,7 @@ test("buildSidebarHtml exposes a compact prompt reset action when repo prompts a
 });
 
 test("buildSidebarHtml uses compact actions instead of a separate create card when stories already exist", () => {
-  const html = buildSidebarHtml({
-    hasWorkspace: true,
-    showCreateForm: false,
-    busyMessage: null,
-    promptsInitialized: true,
-    settingsConfigured: true,
-    settingsMessage: null,
-    starredUserStoryId: null,
+  const html = buildSidebarHtml(model({
     categories: ["workflow"],
     userStories: [{
       usId: "US-0001",
@@ -129,7 +116,7 @@ test("buildSidebarHtml uses compact actions instead of a separate create card wh
       directoryPath: "/tmp/us.US-0001",
       workBranch: null
     }],
-  });
+  }));
 
   assert.match(html, /compact-actions/);
   assert.match(html, /aria-label="Create new user story"/);
@@ -142,14 +129,7 @@ test("buildSidebarHtml uses compact actions instead of a separate create card wh
 });
 
 test("buildSidebarHtml keeps the phase rail for user stories that are still in progress", () => {
-  const html = buildSidebarHtml({
-    hasWorkspace: true,
-    showCreateForm: false,
-    busyMessage: null,
-    promptsInitialized: true,
-    settingsConfigured: true,
-    settingsMessage: null,
-    starredUserStoryId: null,
+  const html = buildSidebarHtml(model({
     categories: ["workflow"],
     userStories: [{
       usId: "US-0002",
@@ -161,7 +141,7 @@ test("buildSidebarHtml keeps the phase rail for user stories that are still in p
       directoryPath: "/tmp/us.US-0002",
       workBranch: null
     }],
-  });
+  }));
 
   assert.match(html, /story-card--active story-card--phase-technical-design/);
   assert.match(html, /story-card--status-waiting-user/);
@@ -169,14 +149,7 @@ test("buildSidebarHtml keeps the phase rail for user stories that are still in p
 });
 
 test("buildSidebarHtml uses the paused phase rail tone when a story is paused by the user", () => {
-  const html = buildSidebarHtml({
-    hasWorkspace: true,
-    showCreateForm: false,
-    busyMessage: null,
-    promptsInitialized: true,
-    settingsConfigured: true,
-    settingsMessage: null,
-    starredUserStoryId: null,
+  const html = buildSidebarHtml(model({
     categories: ["workflow"],
     userStories: [{
       usId: "US-0004",
@@ -188,20 +161,13 @@ test("buildSidebarHtml uses the paused phase rail tone when a story is paused by
       directoryPath: "/tmp/us.US-0004",
       workBranch: null
     }],
-  });
+  }));
 
   assert.match(html, /story-card--status-paused/);
 });
 
 test("buildSidebarHtml hides the phase rail for completed user stories", () => {
-  const html = buildSidebarHtml({
-    hasWorkspace: true,
-    showCreateForm: false,
-    busyMessage: null,
-    promptsInitialized: true,
-    settingsConfigured: true,
-    settingsMessage: null,
-    starredUserStoryId: null,
+  const html = buildSidebarHtml(model({
     categories: ["workflow"],
     userStories: [{
       usId: "US-0003",
@@ -213,21 +179,15 @@ test("buildSidebarHtml hides the phase rail for completed user stories", () => {
       directoryPath: "/tmp/us.US-0003",
       workBranch: null
     }],
-  });
+  }));
 
   assert.doesNotMatch(html, /<button class="story-card story-card--active/);
   assert.doesNotMatch(html, /<span class="story-card__phase-label">/);
 });
 
 test("buildSidebarHtml shows a bootstrap block above the backlog when prompts are missing", () => {
-  const html = buildSidebarHtml({
-    hasWorkspace: true,
-    showCreateForm: false,
-    busyMessage: null,
+  const html = buildSidebarHtml(model({
     promptsInitialized: false,
-    settingsConfigured: true,
-    settingsMessage: null,
-    starredUserStoryId: null,
     categories: ["workflow"],
     userStories: [{
       usId: "US-0001",
@@ -239,7 +199,7 @@ test("buildSidebarHtml shows a bootstrap block above the backlog when prompts ar
       directoryPath: "/tmp/us.US-0001",
       workBranch: null
     }],
-  });
+  }));
 
   assert.match(html, /Initialize missing repo prompts/);
   assert.match(html, /Bootstrap Prompts/);
@@ -247,17 +207,13 @@ test("buildSidebarHtml shows a bootstrap block above the backlog when prompts ar
 });
 
 test("buildSidebarHtml exposes a visible settings warning when execution is not configured", () => {
-  const html = buildSidebarHtml({
-    hasWorkspace: true,
-    showCreateForm: false,
-    busyMessage: null,
+  const html = buildSidebarHtml(model({
     promptsInitialized: false,
     settingsConfigured: false,
     settingsMessage: "SpecForge.AI is not configured for the current provider. Missing base URL, API key, model.",
-    starredUserStoryId: null,
     categories: [],
     userStories: []
-  });
+  }));
 
   assert.match(html, /Configuration Required/);
   assert.match(html, /SpecForge\.AI settings are incomplete/);
@@ -266,14 +222,10 @@ test("buildSidebarHtml exposes a visible settings warning when execution is not 
 });
 
 test("buildSidebarHtml surfaces the model warning when the deterministic fallback is active", () => {
-  const html = buildSidebarHtml({
-    hasWorkspace: true,
-    showCreateForm: false,
-    busyMessage: null,
+  const html = buildSidebarHtml(model({
     promptsInitialized: false,
     settingsConfigured: false,
     settingsMessage: "SpecForge.AI needs an SLM/LLM execution provider before workflow stages can run. Select an OpenAI-compatible provider and configure base URL, API key, and model.",
-    starredUserStoryId: null,
     categories: [],
     userStories: [{
       usId: "US-0001",
@@ -285,24 +237,19 @@ test("buildSidebarHtml surfaces the model warning when the deterministic fallbac
       directoryPath: "/tmp/us.US-0001",
       workBranch: null
     }]
-  });
+  }));
 
   assert.match(html, /SLM\/LLM execution provider/);
   assert.match(html, /Configure Settings/);
 });
 
 test("buildSidebarHtml shows a busy indicator and disables actions while a sidebar operation is running", () => {
-  const html = buildSidebarHtml({
-    hasWorkspace: true,
-    showCreateForm: false,
+  const html = buildSidebarHtml(model({
     busyMessage: "Bootstrapping repo prompts...",
     promptsInitialized: false,
-    settingsConfigured: true,
-    settingsMessage: null,
-    starredUserStoryId: null,
     categories: ["workflow"],
     userStories: []
-  });
+  }));
 
   assert.match(html, /Working/);
   assert.match(html, /Bootstrapping repo prompts\.\.\./);
@@ -310,13 +257,7 @@ test("buildSidebarHtml shows a busy indicator and disables actions while a sideb
 });
 
 test("buildSidebarHtml marks the starred user story with a highlighted star action", () => {
-  const html = buildSidebarHtml({
-    hasWorkspace: true,
-    showCreateForm: false,
-    busyMessage: null,
-    promptsInitialized: true,
-    settingsConfigured: true,
-    settingsMessage: null,
+  const html = buildSidebarHtml(model({
     starredUserStoryId: "US-0009",
     categories: ["workflow"],
     userStories: [{
@@ -329,7 +270,7 @@ test("buildSidebarHtml marks the starred user story with a highlighted star acti
       directoryPath: "/tmp/us.US-0009",
       workBranch: null
     }]
-  });
+  }));
 
   assert.match(html, /story-star--active/);
   assert.match(html, /aria-label="Unstar US-0009"/);

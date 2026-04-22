@@ -17,7 +17,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_SendsOpenAiCompatibleRequestAndParsesRefinementJson()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler();
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
         var httpClient = new HttpClient(handler);
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             httpClient,
@@ -36,7 +36,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var result = await provider.ExecuteAsync(context);
 
         Assert.Equal("openai-compatible", result.ExecutionKind);
-        Assert.Contains("\"title\": \"generated markdown\"", result.Content);
+        Assert.Contains("\"title\": \"Generated refinement\"", result.Content);
         Assert.NotNull(result.Usage);
         Assert.Equal(120, result.Usage!.InputTokens);
         Assert.Equal(48, result.Usage.OutputTokens);
@@ -128,7 +128,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Directory.CreateDirectory(attachmentDirectory);
         var attachmentPath = Path.Combine(attachmentDirectory, "notes.md");
         await File.WriteAllTextAsync(attachmentPath, "# Notes\nUseful attachment");
-        var handler = new CapturingFakeHttpMessageHandler();
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             new OpenAiCompatibleProviderOptions(
@@ -154,7 +154,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_LocalEndpointWithoutApiKey_OmitsAuthorizationHeader()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler();
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             new OpenAiCompatibleProviderOptions(
@@ -246,6 +246,28 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_RefinementMarkdownPayload_ThrowsInsteadOfBackfillingPlaceholderSpec()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var handler = new CapturingFakeHttpMessageHandler("# generated markdown");
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            new OpenAiCompatibleProviderOptions(
+                BaseUrl: "http://localhost:11434/v1",
+                ApiKey: string.Empty,
+                Model: "llama3.1"));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Refinement,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        await Assert.ThrowsAsync<JsonException>(() => provider.ExecuteAsync(context));
+    }
+
+    [Fact]
     public void Constructor_RemoteEndpointWithoutApiKey_Throws()
     {
         var httpClient = new HttpClient(new CapturingFakeHttpMessageHandler());
@@ -325,9 +347,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     {
         private readonly string responseContent;
 
-        public CapturingFakeHttpMessageHandler(string responseContent = "# generated markdown")
+        public CapturingFakeHttpMessageHandler(string responseContent = "")
         {
-            this.responseContent = responseContent;
+            this.responseContent = string.IsNullOrWhiteSpace(responseContent) ? BuildMinimalRefinementJson() : responseContent;
         }
 
         public HttpRequestMessage? LastRequest { get; private set; }
@@ -365,4 +387,28 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             };
         }
     }
+
+    private static string BuildMinimalRefinementJson() =>
+        """
+        {
+          "title": "Generated refinement",
+          "historyLog": ["`2026-04-22T13:25:00Z` · Initial refinement baseline generated."],
+          "state": "pending_approval",
+          "basedOn": "us.md",
+          "specSummary": "A valid refinement baseline.",
+          "inputs": ["A concrete source objective."],
+          "outputs": ["A concrete refinement artifact."],
+          "businessRules": ["The workflow must preserve the approved scope."],
+          "edgeCases": ["Missing context should be surfaced explicitly."],
+          "errorsAndFailureModes": ["Invalid repository state should stop refinement."],
+          "constraints": ["Stay within the current repository."],
+          "detectedAmbiguities": ["Non-functional targets remain explicit only when provided."],
+          "redTeam": ["Implicit assumptions may still exist if the source is weak."],
+          "blueTeam": ["Keep the refinement executable and bounded."],
+          "acceptanceCriteria": ["The spec is concrete enough for technical design."],
+          "humanApprovalQuestions": [
+            { "question": "Is the scope bounded enough for design?", "status": "pending" }
+          ]
+        }
+        """;
 }

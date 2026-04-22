@@ -542,9 +542,11 @@ public sealed class WorkflowRunner
         if (workflowRun.CurrentPhase == PhaseId.Refinement)
         {
             var version = ExtractArtifactVersion(artifactPath);
-            var document = RefinementSpecJson.Parse(result.Content);
+            var document = RefinementSpecJson.ParseCanonicalJson(result.Content);
+            var renderedMarkdown = RefinementSpecJson.RenderMarkdown(document, workflowRun.UsId, version);
+            EnsureMaterializedRefinementIsUsable(renderedMarkdown);
             await File.WriteAllTextAsync(paths.GetPhaseArtifactJsonPath(PhaseId.Refinement, version), RefinementSpecJson.Serialize(document), cancellationToken);
-            await File.WriteAllTextAsync(artifactPath, RefinementSpecJson.RenderMarkdown(document, workflowRun.UsId, version), cancellationToken);
+            await File.WriteAllTextAsync(artifactPath, renderedMarkdown, cancellationToken);
         }
         else
         {
@@ -944,6 +946,32 @@ public sealed class WorkflowRunner
         }
 
         return RefinementSpecMarkdownImporter.Import(await File.ReadAllTextAsync(markdownPath, cancellationToken));
+    }
+
+    private static void EnsureMaterializedRefinementIsUsable(string markdown)
+    {
+        var validation = SpecBaselineSchemaValidator.Validate(markdown);
+        if (validation.MissingSections.Count == 0 && validation.PlaceholderSections.Count == 0)
+        {
+            return;
+        }
+
+        var builder = new StringBuilder("The generated refinement artifact is unusable.");
+        if (validation.MissingSections.Count > 0)
+        {
+            builder.Append(" Missing sections: ")
+                .Append(string.Join(", ", validation.MissingSections))
+                .Append('.');
+        }
+
+        if (validation.PlaceholderSections.Count > 0)
+        {
+            builder.Append(" Placeholder-only sections: ")
+                .Append(string.Join(", ", validation.PlaceholderSections))
+                .Append('.');
+        }
+
+        throw new WorkflowDomainException(builder.ToString());
     }
 
     private static string BuildUserStoryMarkdown(string usId, string title, string kind, string category, string sourceText)

@@ -300,6 +300,81 @@ test("buildWorkflowHtml shows phase actions in the selected detail only for the 
   assert.doesNotMatch(html, /phase-node-actions/);
 });
 
+test("buildWorkflowHtml ignores placeholder approval questions and renders copy icons", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0099",
+    title: "Approval parsing",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0099",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/01-spec.md",
+        operationLogPath: null,
+        executePromptPath: "/tmp/refinement.execute.md",
+        approvePromptPath: "/tmp/refinement.approve.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: true,
+      blockingReason: "refinement_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "refinement",
+    selectedArtifactContent: `# Spec · US-0099 · v01
+
+## Human Approval Questions
+- [ ] ...
+- [ ] Confirm outbound contract for omitted fields?
+  - Answer: Omit them from the payload.
+  - Answered By: tester
+  - Answered At: 2026-04-22T13:20:00Z
+`,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.doesNotMatch(html, /approval-question-item__body">\.\.\.</);
+  assert.match(html, /approval-question-item__body">Confirm outbound contract for omitted fields\?/);
+  assert.match(html, /copy-question-button__icon--copy/);
+  assert.match(html, /copy-question-button__icon--done/);
+});
+
 test("buildWorkflowHtml uses US as the secondary label for capture and clarification", () => {
   const html = buildWorkflowHtml({
     usId: "US-0001",
