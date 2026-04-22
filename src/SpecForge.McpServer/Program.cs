@@ -142,6 +142,7 @@ static async Task<JsonNode> HandleToolCallAsync(
             usId: GetRequired(arguments, "usId"),
             targetPhase: GetRequired(arguments, "targetPhase"),
             reason: GetOptional(arguments, "reason"),
+            destructive: GetOptionalBoolean(arguments, "destructive"),
             actor: GetOptional(arguments, "actor") ?? "user"),
         "restart_user_story_from_source" => await applicationService.RestartUserStoryFromSourceAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
@@ -301,6 +302,7 @@ static JsonObject BuildToolsList()
                         ("usId",          Prop("string", "User story identifier.")),
                         ("targetPhase",   Prop("string", "Phase slug to regress to, e.g. clarification, refinement, technical-design.")),
                         ("reason",        Prop("string", "Optional reason for the regression.")),
+                        ("destructive",   Prop("boolean", "Whether to delete later derived artifacts while regressing. Defaults to false.")),
                         ("actor",         Prop("string", "Actor requesting the regression. Defaults to 'user'."))))),
 
             Tool("restart_user_story_from_source", "Restart the workflow after the source user story file has been modified.",

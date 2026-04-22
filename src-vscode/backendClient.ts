@@ -196,7 +196,7 @@ export interface SpecForgeBackendClient {
   initializeRepoPrompts(overwrite?: boolean): Promise<InitializeRepoPromptsResult>;
   continuePhase(usId: string): Promise<ContinuePhaseResult>;
   approveCurrentPhase(usId: string, baseBranch?: string, workBranch?: string, actor?: string): Promise<UserStorySummary>;
-  requestRegression(usId: string, targetPhase: string, reason?: string, actor?: string): Promise<RequestRegressionResult>;
+  requestRegression(usId: string, targetPhase: string, reason?: string, actor?: string, destructive?: boolean): Promise<RequestRegressionResult>;
   restartUserStoryFromSource(usId: string, reason?: string, actor?: string): Promise<RestartUserStoryResult>;
   rewindWorkflow(usId: string, targetPhase: string, actor?: string, destructive?: boolean): Promise<RewindWorkflowResult>;
   resetUserStoryToCapture(usId: string): Promise<ResetUserStoryResult>;
@@ -345,10 +345,10 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     );
   }
 
-  public async requestRegression(usId: string, targetPhase: string, reason?: string, actor?: string): Promise<RequestRegressionResult> {
+  public async requestRegression(usId: string, targetPhase: string, reason?: string, actor?: string, destructive?: boolean): Promise<RequestRegressionResult> {
     return this.callTool<RequestRegressionResult>(
       "request_regression",
-      buildRequestRegressionArguments(this.workspaceRoot, usId, targetPhase, reason, actor)
+      buildRequestRegressionArguments(this.workspaceRoot, usId, targetPhase, reason, actor, destructive)
     );
   }
 

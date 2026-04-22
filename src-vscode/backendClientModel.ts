@@ -30,7 +30,8 @@ export function buildRequestRegressionArguments(
   usId: string,
   targetPhase: string,
   reason?: string,
-  actor?: string
+  actor?: string,
+  destructive?: boolean
 ): Record<string, string> {
   const argumentsPayload: Record<string, string> = {
     workspaceRoot,
@@ -44,6 +45,10 @@ export function buildRequestRegressionArguments(
 
   if (actor && actor.trim().length > 0) {
     argumentsPayload.actor = actor;
+  }
+
+  if (destructive) {
+    argumentsPayload.destructive = "true";
   }
 
   return argumentsPayload;

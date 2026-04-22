@@ -181,7 +181,7 @@
         "specForge.features.destructiveRewindEnabled": {
           "type": "boolean",
           "default": false,
-          "description": "When enabled, rewind deletes later derived artifacts and branch metadata. When disabled, rewind only moves the workflow state back like regress."
+          "description": "When enabled, rewind and regress delete later derived artifacts and branch metadata. When disabled, both only move the workflow state back."
         }
       }
     },

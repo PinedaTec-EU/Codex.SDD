@@ -492,6 +492,8 @@ class WorkflowPanelController {
   }
 
   private async requestRegressionAsync(targetPhase: string): Promise<void> {
+    const settings = getSpecForgeSettings();
+    const destructiveRewindEnabled = settings.destructiveRewindEnabled;
     const reason = await vscode.window.showInputBox({
       prompt: `Reason for regression to ${targetPhase}`,
       ignoreFocusOut: true,
@@ -502,9 +504,15 @@ class WorkflowPanelController {
       return;
     }
 
-    const result = await this.getBackendClient().requestRegression(this.summary.usId, targetPhase, reason, getCurrentActor());
+    const result = await this.getBackendClient().requestRegression(
+      this.summary.usId,
+      targetPhase,
+      reason,
+      getCurrentActor(),
+      destructiveRewindEnabled
+    );
     appendSpecForgeLog(
-      `Workflow '${this.summary.usId}' regressed to '${result.currentPhase}' with status '${result.status}'.`
+      `Workflow '${this.summary.usId}' regressed to '${result.currentPhase}' with status '${result.status}'${destructiveRewindEnabled ? " using destructive cleanup" : " without deleting later artifacts"}.`
     );
     this.summary = {
       ...this.summary,

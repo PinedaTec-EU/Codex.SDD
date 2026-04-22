@@ -186,15 +186,27 @@ public sealed class WorkflowRunner
         string usId,
         PhaseId targetPhase,
         string? reason = null,
+        bool destructive = false,
         string actor = "user",
         CancellationToken cancellationToken = default)
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        if (destructive)
+        {
+            await RewindDerivedArtifactsAsync(paths, workflowRun.CurrentPhase, targetPhase, workflowRun.Branch is not null, cancellationToken);
+            if (targetPhase <= PhaseId.Refinement && workflowRun.Branch is not null)
+            {
+                workflowRun.RemoveBranch();
+            }
+        }
+
         workflowRun.RequestRegression(targetPhase);
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
 
-        var summary = $"Workflow regressed to phase `{WorkflowPresentation.ToPhaseSlug(targetPhase)}`.";
+        var summary = destructive
+            ? $"Workflow regressed to phase `{WorkflowPresentation.ToPhaseSlug(targetPhase)}` and deleted later derived artifacts."
+            : $"Workflow regressed to phase `{WorkflowPresentation.ToPhaseSlug(targetPhase)}`.";
         if (!string.IsNullOrWhiteSpace(reason))
         {
             summary = $"{summary} Reason: {reason.Trim()}.";

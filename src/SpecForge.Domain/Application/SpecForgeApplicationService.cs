@@ -296,11 +296,12 @@ public sealed class SpecForgeApplicationService
         string usId,
         string targetPhase,
         string? reason = null,
+        bool destructive = false,
         string actor = "user",
         CancellationToken cancellationToken = default)
     {
         var phaseId = WorkflowPresentation.ParsePhaseSlug(targetPhase);
-        return workflowRunner.RequestRegressionAsync(workspaceRoot, usId, phaseId, reason, actor, cancellationToken);
+        return workflowRunner.RequestRegressionAsync(workspaceRoot, usId, phaseId, reason, destructive, actor, cancellationToken);
     }
 
     public Task<RestartUserStoryResult> RestartUserStoryFromSourceAsync(
