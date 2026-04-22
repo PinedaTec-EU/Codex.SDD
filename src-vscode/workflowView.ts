@@ -38,6 +38,8 @@ interface ApprovalQuestionItem {
   readonly question: string;
   readonly answer: string | null;
   readonly resolved: boolean;
+  readonly answeredBy: string | null;
+  readonly answeredAtUtc: string | null;
 }
 
 type PhaseVisualTone = "active" | "waiting-user" | "paused" | "blocked" | "completed" | "pending" | "disabled";
@@ -175,6 +177,27 @@ function formatTokensPerSecond(outputTokens: number, durationMs: number): string
   }
 
   return `${(outputTokens / (durationMs / 1_000)).toFixed(1)} tok/s`;
+}
+
+function formatUtcTimestamp(value: string | null | undefined): string {
+  if (!value) {
+    return "n/a";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toISOString().replace(".000Z", "Z");
+}
+
+function sumTokenUsage(usages: readonly { inputTokens: number; outputTokens: number; totalTokens: number }[]): { inputTokens: number; outputTokens: number; totalTokens: number } {
+  return usages.reduce((aggregate, usage) => ({
+    inputTokens: aggregate.inputTokens + usage.inputTokens,
+    outputTokens: aggregate.outputTokens + usage.outputTokens,
+    totalTokens: aggregate.totalTokens + usage.totalTokens
+  }), { inputTokens: 0, outputTokens: 0, totalTokens: 0 });
 }
 
 function fileNameFromPath(filePath: string): string {
@@ -530,9 +553,18 @@ export function buildWorkflowHtml(
     ? extractMarkdownApprovalItems(state.selectedArtifactContent)
     : [];
   const unresolvedApprovalQuestionCount = refinementApprovalQuestions.filter((item) => !item.resolved).length;
-  const selectedPhaseEvent = workflow.events
-    .filter((event) => event.phase === selectedPhase.phaseId)
-    .at(-1) ?? null;
+  const selectedPhaseEvents = workflow.events.filter((event) => event.phase === selectedPhase.phaseId);
+  const selectedPhaseMetricEvents = selectedPhaseEvents.filter((event) => event.usage || event.durationMs !== null);
+  const selectedPhaseUsageAggregate = sumTokenUsage(
+    selectedPhaseMetricEvents
+      .map((event) => event.usage)
+      .filter((usage): usage is NonNullable<typeof usage> => Boolean(usage))
+  );
+  const selectedPhaseDurationAggregate = selectedPhaseMetricEvents.reduce(
+    (aggregate, event) => aggregate + (event.durationMs ?? 0),
+    0
+  );
+  const selectedPhaseIterationCount = selectedPhaseMetricEvents.length;
   const detailRejectCommand = selectedPhase.isCurrent && workflow.controls.regressionTargets.length > 0
     ? { command: "regress", phaseId: workflow.controls.regressionTargets[0] }
     : selectedPhase.isCurrent && workflow.controls.canRestartFromSource
@@ -595,7 +627,7 @@ export function buildWorkflowHtml(
       </section>
     `
     : "";
-  const durationMetric = selectedPhaseEvent?.durationMs !== null && selectedPhaseEvent
+  const durationMetric = selectedPhaseDurationAggregate > 0
     ? `
       <div class="phase-duration-pill" role="status" aria-label="Phase duration">
         <div class="phase-duration-pill__clock" aria-hidden="true">
@@ -607,22 +639,23 @@ export function buildWorkflowHtml(
           <span class="phase-duration-pill__hand phase-duration-pill__hand--second"></span>
         </div>
         <div class="phase-duration-pill__body">
-          <span class="phase-duration-pill__label">Duration</span>
-          <span class="phase-duration-pill__value">${escapeHtml(formatDuration(selectedPhaseEvent.durationMs))}</span>
+          <span class="phase-duration-pill__label">Duration${selectedPhaseIterationCount > 1 ? ` · ${selectedPhaseIterationCount} runs` : ""}</span>
+          <span class="phase-duration-pill__value">${escapeHtml(formatDuration(selectedPhaseDurationAggregate))}</span>
         </div>
       </div>
     `
     : "";
-  const tokenSummary = selectedPhaseEvent?.usage
+  const tokenSummary = selectedPhaseMetricEvents.some((event) => event.usage)
     ? `
       <div class="token-summary">
         <div class="token-summary__header">Tokens</div>
         <div class="token-summary__rows">
-          ${renderTokenSummaryRow("Input / Output", `${formatMetricNumber(selectedPhaseEvent.usage.inputTokens)} / ${formatMetricNumber(selectedPhaseEvent.usage.outputTokens)}`)}
-          ${renderTokenSummaryRow("Total", formatMetricNumber(selectedPhaseEvent.usage.totalTokens))}
-          ${selectedPhaseEvent.durationMs !== null
-            ? renderTokenSummaryRow("Response Speed", formatTokensPerSecond(selectedPhaseEvent.usage.outputTokens, selectedPhaseEvent.durationMs))
+          ${renderTokenSummaryRow("Input / Output", `${formatMetricNumber(selectedPhaseUsageAggregate.inputTokens)} / ${formatMetricNumber(selectedPhaseUsageAggregate.outputTokens)}`)}
+          ${renderTokenSummaryRow("Total", formatMetricNumber(selectedPhaseUsageAggregate.totalTokens))}
+          ${selectedPhaseDurationAggregate > 0
+            ? renderTokenSummaryRow("Response Speed", formatTokensPerSecond(selectedPhaseUsageAggregate.outputTokens, selectedPhaseDurationAggregate))
             : ""}
+          ${selectedPhaseIterationCount > 0 ? renderTokenSummaryRow("Iterations", String(selectedPhaseIterationCount)) : ""}
         </div>
       </div>
     `
@@ -718,6 +751,12 @@ export function buildWorkflowHtml(
                 <label class="approval-question-item__label" for="approval-answer-${item.index}">
                   ${item.resolved ? "Update answer" : "Provide answer"}
                 </label>
+                ${item.resolved && (item.answeredBy || item.answeredAtUtc)
+                  ? `<div class="approval-question-item__meta">${[
+                    item.answeredBy ? `Answered by ${escapeHtml(item.answeredBy)}` : "",
+                    item.answeredAtUtc ? escapeHtml(formatUtcTimestamp(item.answeredAtUtc)) : ""
+                  ].filter(Boolean).join(" · ")}</div>`
+                  : ""}
                 <textarea
                   id="approval-answer-${item.index}"
                   class="approval-question-item__textarea"
@@ -733,7 +772,7 @@ export function buildWorkflowHtml(
                     data-approval-answer-apply
                     data-index="${item.index}"
                     ${selectedPhase.isCurrent ? "" : "disabled"}>
-                    ${item.resolved ? "Update Answer via Model" : "Apply Answer via Model"}
+                    ${item.resolved ? "Update Answer" : "Apply Answer"}
                   </button>
                 </div>
               </div>
@@ -934,6 +973,14 @@ export function buildWorkflowHtml(
           </div>
         </div>
         <div class="audit-body">${escapeHtml(event.summary ?? "")}</div>
+        ${event.usage || event.durationMs !== null
+          ? `<div class="audit-metrics">
+              ${event.usage ? `<span class="badge">in/out ${escapeHtml(`${formatMetricNumber(event.usage.inputTokens)}/${formatMetricNumber(event.usage.outputTokens)}`)}</span>` : ""}
+              ${event.usage ? `<span class="badge">total ${escapeHtml(formatMetricNumber(event.usage.totalTokens))}</span>` : ""}
+              ${event.durationMs !== null ? `<span class="badge">${escapeHtml(formatDuration(event.durationMs))}</span>` : ""}
+              ${event.usage && event.durationMs !== null ? `<span class="badge">${escapeHtml(formatTokensPerSecond(event.usage.outputTokens, event.durationMs))}</span>` : ""}
+            </div>`
+          : ""}
       </div>
     `).join("")
     : `<pre class="audit-log">${escapeHtml(workflow.rawTimeline)}</pre>`;
@@ -2072,6 +2119,10 @@ export function buildWorkflowHtml(
       text-transform: uppercase;
       color: rgba(214, 223, 236, 0.72);
     }
+    .approval-question-item__meta {
+      font-size: 0.8rem;
+      color: rgba(214, 223, 236, 0.72);
+    }
     .approval-question-item__textarea {
       width: 100%;
       min-height: 110px;
@@ -2548,6 +2599,12 @@ export function buildWorkflowHtml(
     .audit-body {
       margin-top: 4px;
       line-height: 1.45;
+    }
+    .audit-metrics {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
     }
     .muted {
       opacity: 0.7;
@@ -3808,6 +3865,8 @@ function extractMarkdownApprovalItems(markdown: string | null | undefined): Appr
   ];
   const itemPattern = /^(?:[-*]\s+|\d+\.\s+)(?:\[(?<check>[ xX])\]\s*)?(?<question>.+?)\s*$/;
   const answerPattern = /^(?:[-*]\s+)?Answer:\s*(.+?)\s*$/i;
+  const answeredByPattern = /^(?:[-*]\s+)?Answered By:\s*(.+?)\s*$/i;
+  const answeredAtPattern = /^(?:[-*]\s+)?Answered At:\s*(.+?)\s*$/i;
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const startIndex = lines.findIndex((line) => headingPatterns.some((pattern) => pattern.test(line.trim())));
   if (startIndex < 0) {
@@ -3833,7 +3892,37 @@ function extractMarkdownApprovalItems(markdown: string | null | undefined): Appr
         index: pendingQuestion.index,
         question: pendingQuestion.question,
         answer,
-        resolved: answer.length > 0
+        resolved: answer.length > 0,
+        answeredBy: pendingQuestion.answeredBy,
+        answeredAtUtc: pendingQuestion.answeredAtUtc
+      };
+      items[items.length - 1] = pendingQuestion;
+      continue;
+    }
+
+    const answeredByMatch = trimmed.match(answeredByPattern);
+    if (answeredByMatch && pendingQuestion) {
+      pendingQuestion = {
+        index: pendingQuestion.index,
+        question: pendingQuestion.question,
+        answer: pendingQuestion.answer,
+        resolved: pendingQuestion.resolved,
+        answeredBy: answeredByMatch[1].trim(),
+        answeredAtUtc: pendingQuestion.answeredAtUtc
+      };
+      items[items.length - 1] = pendingQuestion;
+      continue;
+    }
+
+    const answeredAtMatch = trimmed.match(answeredAtPattern);
+    if (answeredAtMatch && pendingQuestion) {
+      pendingQuestion = {
+        index: pendingQuestion.index,
+        question: pendingQuestion.question,
+        answer: pendingQuestion.answer,
+        resolved: pendingQuestion.resolved,
+        answeredBy: pendingQuestion.answeredBy,
+        answeredAtUtc: answeredAtMatch[1].trim()
       };
       items[items.length - 1] = pendingQuestion;
       continue;
@@ -3850,7 +3939,9 @@ function extractMarkdownApprovalItems(markdown: string | null | undefined): Appr
         index: items.length + 1,
         question,
         answer: null,
-        resolved: false
+        resolved: false,
+        answeredBy: null,
+        answeredAtUtc: null
       };
       items.push(pendingQuestion);
     }

@@ -28,19 +28,33 @@ internal static class ApprovalQuestionMarkdown
                 continue;
             }
 
+            if (TryParseAnsweredBy(line, out var answeredBy) && pending is not null)
+            {
+                pending = pending with { AnsweredBy = answeredBy };
+                items[^1] = pending;
+                continue;
+            }
+
+            if (TryParseAnsweredAt(line, out var answeredAtUtc) && pending is not null)
+            {
+                pending = pending with { AnsweredAtUtc = answeredAtUtc };
+                items[^1] = pending;
+                continue;
+            }
+
             if (!TryParseQuestion(line, out var question))
             {
                 continue;
             }
 
-            pending = new ApprovalQuestionItem(items.Count + 1, question, null, false);
+            pending = new ApprovalQuestionItem(items.Count + 1, question, null, false, null, null);
             items.Add(pending);
         }
 
         return items;
     }
 
-    public static string ApplyAnswer(string markdown, string question, string answer)
+    public static string ApplyAnswer(string markdown, string question, string answer, string actor, DateTimeOffset answeredAtUtc)
     {
         var items = ParseFromMarkdown(markdown).ToList();
         var matchIndex = items.FindIndex(item => string.Equals(item.Question, question, StringComparison.Ordinal));
@@ -52,7 +66,9 @@ internal static class ApprovalQuestionMarkdown
         items[matchIndex] = items[matchIndex] with
         {
             Answer = answer.Trim(),
-            Resolved = !string.IsNullOrWhiteSpace(answer)
+            Resolved = !string.IsNullOrWhiteSpace(answer),
+            AnsweredBy = actor.Trim(),
+            AnsweredAtUtc = answeredAtUtc.ToString("O")
         };
 
         return MarkdownHelper.ReplaceSection(markdown, "## Human Approval Questions", Render(items));
@@ -78,6 +94,15 @@ internal static class ApprovalQuestionMarkdown
             if (!string.IsNullOrWhiteSpace(item.Answer))
             {
                 builder.AppendLine($"  - Answer: {item.Answer.Trim()}");
+                if (!string.IsNullOrWhiteSpace(item.AnsweredBy))
+                {
+                    builder.AppendLine($"  - Answered By: {item.AnsweredBy.Trim()}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(item.AnsweredAtUtc))
+                {
+                    builder.AppendLine($"  - Answered At: {item.AnsweredAtUtc.Trim()}");
+                }
             }
         }
 
@@ -101,7 +126,10 @@ internal static class ApprovalQuestionMarkdown
             }
         }
 
-        if (string.IsNullOrWhiteSpace(normalized) || normalized.StartsWith("Answer:", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(normalized)
+            || normalized.StartsWith("Answer:", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("Answered By:", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("Answered At:", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -122,10 +150,38 @@ internal static class ApprovalQuestionMarkdown
         answer = normalized["Answer:".Length..].Trim();
         return true;
     }
+
+    private static bool TryParseAnsweredBy(string line, out string answeredBy)
+    {
+        answeredBy = string.Empty;
+        var normalized = line.TrimStart('-', '*').Trim();
+        if (!normalized.StartsWith("Answered By:", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        answeredBy = normalized["Answered By:".Length..].Trim();
+        return true;
+    }
+
+    private static bool TryParseAnsweredAt(string line, out string answeredAtUtc)
+    {
+        answeredAtUtc = string.Empty;
+        var normalized = line.TrimStart('-', '*').Trim();
+        if (!normalized.StartsWith("Answered At:", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        answeredAtUtc = normalized["Answered At:".Length..].Trim();
+        return true;
+    }
 }
 
 internal sealed record ApprovalQuestionItem(
     int Index,
     string Question,
     string? Answer,
-    bool Resolved);
+    bool Resolved,
+    string? AnsweredBy,
+    string? AnsweredAtUtc);

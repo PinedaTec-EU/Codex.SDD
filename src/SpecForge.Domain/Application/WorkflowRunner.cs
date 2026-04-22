@@ -144,10 +144,12 @@ public sealed class WorkflowRunner
         var currentArtifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Refinement)
             ?? throw new WorkflowDomainException("The refinement artifact does not exist yet.");
         var currentArtifact = await File.ReadAllTextAsync(currentArtifactPath, cancellationToken);
-        var updatedArtifact = ApprovalQuestionMarkdown.ApplyAnswer(currentArtifact, question.Trim(), answer.Trim());
+        var answeredAtUtc = DateTimeOffset.UtcNow;
+        var normalizedActor = NormalizeActor(actor);
+        var updatedArtifact = ApprovalQuestionMarkdown.ApplyAnswer(currentArtifact, question.Trim(), answer.Trim(), normalizedActor, answeredAtUtc);
         updatedArtifact = PrependHistoryEntry(
             updatedArtifact,
-            $"- `{DateTimeOffset.UtcNow:O}` · Recorded human approval answer for: {SummarizeQuestion(question)}");
+            $"- `{answeredAtUtc:O}` · {normalizedActor} recorded human approval answer for: {SummarizeQuestion(question)}");
 
         var generatedArtifactPath = NextAvailableArtifactPath(paths, PhaseId.Refinement);
         await File.WriteAllTextAsync(generatedArtifactPath, updatedArtifact, cancellationToken);
@@ -161,7 +163,7 @@ public sealed class WorkflowRunner
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             "approval_answer_recorded",
-            NormalizeActor(actor),
+            normalizedActor,
             workflowRun.CurrentPhase,
             $"Recorded human approval answer for refinement question `{SummarizeQuestion(question)}`.",
             cancellationToken,
