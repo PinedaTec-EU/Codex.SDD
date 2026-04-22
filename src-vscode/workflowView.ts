@@ -1008,7 +1008,7 @@ export function buildWorkflowHtml(
     .phase-duration-pill {
       position: relative;
       display: block;
-      min-height: 92px;
+      min-height: 112px;
       padding: 14px 16px 14px 14px;
       border-radius: 22px;
       border: 1px solid rgba(171, 223, 255, 0.24);
@@ -1108,13 +1108,12 @@ export function buildWorkflowHtml(
     .phase-duration-pill__body {
       position: relative;
       z-index: 1;
-      display: grid;
-      min-height: 64px;
-      gap: 4px;
-      align-content: center;
-      justify-items: end;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
       width: 100%;
-      padding-inline: 16px 10px;
+      min-height: 84px;
+      padding: 2px 10px 0 0;
       text-align: right;
     }
     .phase-duration-pill__label {
@@ -1125,12 +1124,16 @@ export function buildWorkflowHtml(
     }
     .phase-duration-pill__value {
       width: 100%;
+      margin-top: auto;
+      align-self: stretch;
       font-size: clamp(1.38rem, 2.9vw, 2.3rem);
       font-weight: 800;
       line-height: 1.05;
       color: #f7fbff;
       text-shadow: 0 1px 2px rgba(8, 15, 22, 0.32);
       letter-spacing: -0.03em;
+      text-align: right;
+      align-content: end;
     }
     .token-summary {
       min-width: 0;
