@@ -346,6 +346,7 @@ function heroTokenTone(value: string): "attention" | "paused" | "blocked" | "suc
       return "blocked";
     case "completed":
       return "success";
+    case "current":
     case "active":
     case "running":
     case "executing":
@@ -530,6 +531,7 @@ export function buildWorkflowHtml(
   const approvalBaseBranchProposal = state.approvalBaseBranchProposal?.trim() || "main";
   const approvalWorkBranchProposal = state.approvalWorkBranchProposal?.trim() || workflow.workBranch?.trim() || "";
   const requiresExplicitApprovalBranchAcceptance = Boolean(state.requireExplicitApprovalBranchAcceptance);
+  const selectedPhaseStateClass = heroTokenClass(selectedPhase.state);
   const detailActions = selectedPhase.isCurrent && (workflow.controls.canApprove || detailRejectCommand)
     ? `
       <div class="detail-actions detail-actions--phase-header">
@@ -1020,10 +1022,7 @@ export function buildWorkflowHtml(
     }
     .phase-duration-pill {
       position: relative;
-      display: grid;
-      grid-template-columns: 78px minmax(0, 1fr);
-      gap: 14px;
-      align-items: center;
+      display: block;
       min-height: 92px;
       padding: 14px 16px 14px 14px;
       border-radius: 22px;
@@ -1047,9 +1046,12 @@ export function buildWorkflowHtml(
       pointer-events: none;
     }
     .phase-duration-pill__clock {
-      position: relative;
+      position: absolute;
+      left: 14px;
+      top: 50%;
       width: 68px;
       height: 68px;
+      transform: translateY(-50%);
       border-radius: 50%;
       border: 1px solid rgba(221, 242, 255, 0.38);
       background:
@@ -1122,7 +1124,13 @@ export function buildWorkflowHtml(
       position: relative;
       z-index: 1;
       display: grid;
+      min-height: 64px;
       gap: 4px;
+      align-content: center;
+      justify-items: end;
+      width: 100%;
+      padding-inline: 16px 10px;
+      text-align: right;
     }
     .phase-duration-pill__label {
       font-size: 0.64rem;
@@ -1131,11 +1139,13 @@ export function buildWorkflowHtml(
       color: rgba(214, 236, 252, 0.78);
     }
     .phase-duration-pill__value {
-      font-size: 1.38rem;
+      width: 100%;
+      font-size: clamp(1.38rem, 2.9vw, 2.3rem);
       font-weight: 800;
       line-height: 1.05;
       color: #f7fbff;
       text-shadow: 0 1px 2px rgba(8, 15, 22, 0.32);
+      letter-spacing: -0.03em;
     }
     .token-summary {
       min-width: 0;
@@ -1196,7 +1206,9 @@ export function buildWorkflowHtml(
       border-color: var(--attention-egg-border);
       box-shadow: 0 0 0 1px rgba(255, 213, 90, 0.08);
     }
-    .success {
+    .success,
+    .token.token--success,
+    .badge.token--success {
       background: rgba(46, 160, 67, 0.16);
       color: #7ff0a5;
       border-color: rgba(127, 240, 165, 0.24);
@@ -2598,9 +2610,9 @@ export function buildWorkflowHtml(
           <h2>${escapeHtml(selectedPhase.title)}</h2>
           <div class="detail-meta">
             <span class="token">${escapeHtml(phaseSecondaryLabel(selectedPhase))}</span>
-            <span class="token">${escapeHtml(selectedPhase.state)}</span>
-            ${selectedPhase.requiresApproval ? `<span class="token">approval required</span>` : ""}
-            ${selectedPhase.isApproved ? `<span class="token success">approved</span>` : ""}
+            <span class="token${selectedPhaseStateClass}">${escapeHtml(selectedPhase.state)}</span>
+            ${selectedPhase.requiresApproval ? `<span class="token token--attention">approval required</span>` : ""}
+            ${selectedPhase.isApproved ? `<span class="token token--success">approved</span>` : ""}
           </div>
           ${selectedPhaseMetrics ? `<div class="detail-metrics">${selectedPhaseMetrics}</div>` : ""}
           </section>
