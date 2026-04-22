@@ -665,6 +665,8 @@ class WorkflowPanelController {
       .filter((artifactPath) => artifactPath.toLowerCase().endsWith(".md"));
     const selectedArtifactPath = this.selectedIterationArtifactPath && iterationArtifactPaths.includes(this.selectedIterationArtifactPath)
       ? this.selectedIterationArtifactPath
+      : selectedPhase.phaseId === "capture"
+        ? workflow.mainArtifactPath
       : selectedPhase.artifactPath;
     if (selectedArtifactPath !== this.selectedIterationArtifactPath) {
       this.selectedIterationArtifactPath = selectedArtifactPath ?? null;
