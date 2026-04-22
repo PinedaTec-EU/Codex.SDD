@@ -359,8 +359,9 @@ async function requestRegression(summary) {
         return;
     }
     try {
-        const result = await getBackendClient(workspaceRoot).requestRegression(summary.usId, targetPhase.label, reason, (0, userActor_1.getCurrentActor)());
-        void vscode.window.showInformationMessage(`${summary.usId} regressed to ${result.currentPhase} with status ${result.status}.`);
+        const destructiveRewindEnabled = (0, extensionSettings_1.getSpecForgeSettings)().destructiveRewindEnabled;
+        const result = await getBackendClient(workspaceRoot).requestRegression(summary.usId, targetPhase.label, reason, (0, userActor_1.getCurrentActor)(), destructiveRewindEnabled);
+        void vscode.window.showInformationMessage(`${summary.usId} regressed to ${result.currentPhase} with status ${result.status}${destructiveRewindEnabled ? " using destructive cleanup" : ""}.`);
     }
     catch (error) {
         void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));

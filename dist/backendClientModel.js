@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildApprovePhaseArguments = buildApprovePhaseArguments;
 exports.buildRequestRegressionArguments = buildRequestRegressionArguments;
 exports.buildRestartUserStoryArguments = buildRestartUserStoryArguments;
+exports.buildRewindWorkflowArguments = buildRewindWorkflowArguments;
 exports.parseToolContent = parseToolContent;
 exports.buildServerProjectPath = buildServerProjectPath;
 function buildApprovePhaseArguments(workspaceRoot, usId, baseBranch, workBranch, actor) {
@@ -21,7 +22,7 @@ function buildApprovePhaseArguments(workspaceRoot, usId, baseBranch, workBranch,
     }
     return argumentsPayload;
 }
-function buildRequestRegressionArguments(workspaceRoot, usId, targetPhase, reason, actor) {
+function buildRequestRegressionArguments(workspaceRoot, usId, targetPhase, reason, actor, destructive) {
     const argumentsPayload = {
         workspaceRoot,
         usId,
@@ -32,6 +33,9 @@ function buildRequestRegressionArguments(workspaceRoot, usId, targetPhase, reaso
     }
     if (actor && actor.trim().length > 0) {
         argumentsPayload.actor = actor;
+    }
+    if (destructive) {
+        argumentsPayload.destructive = "true";
     }
     return argumentsPayload;
 }
@@ -45,6 +49,20 @@ function buildRestartUserStoryArguments(workspaceRoot, usId, reason, actor) {
     }
     if (actor && actor.trim().length > 0) {
         argumentsPayload.actor = actor;
+    }
+    return argumentsPayload;
+}
+function buildRewindWorkflowArguments(workspaceRoot, usId, targetPhase, actor, destructive) {
+    const argumentsPayload = {
+        workspaceRoot,
+        usId,
+        targetPhase
+    };
+    if (actor && actor.trim().length > 0) {
+        argumentsPayload.actor = actor;
+    }
+    if (destructive) {
+        argumentsPayload.destructive = "true";
     }
     return argumentsPayload;
 }

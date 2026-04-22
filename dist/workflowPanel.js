@@ -240,6 +240,11 @@ class WorkflowPanelController {
                     await this.requestRegressionAsync(message.phaseId);
                 }
                 return;
+            case "rewind":
+                if (message.phaseId) {
+                    await this.rewindWorkflowAsync(message.phaseId);
+                }
+                return;
             case "submitClarificationAnswers":
                 await this.submitClarificationAnswersAsync(message.answers ?? []);
                 return;
@@ -414,6 +419,8 @@ class WorkflowPanelController {
         await this.maybeAutoPlayAfterManualContinuationAsync("approval");
     }
     async requestRegressionAsync(targetPhase) {
+        const settings = (0, extensionSettings_1.getSpecForgeSettings)();
+        const destructiveRewindEnabled = settings.destructiveRewindEnabled;
         const reason = await vscode.window.showInputBox({
             prompt: `Reason for regression to ${targetPhase}`,
             ignoreFocusOut: true,
@@ -422,8 +429,8 @@ class WorkflowPanelController {
         if (!reason) {
             return;
         }
-        const result = await this.getBackendClient().requestRegression(this.summary.usId, targetPhase, reason, (0, userActor_1.getCurrentActor)());
-        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regressed to '${result.currentPhase}' with status '${result.status}'.`);
+        const result = await this.getBackendClient().requestRegression(this.summary.usId, targetPhase, reason, (0, userActor_1.getCurrentActor)(), destructiveRewindEnabled);
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regressed to '${result.currentPhase}' with status '${result.status}'${destructiveRewindEnabled ? " using destructive cleanup" : " without deleting later artifacts"}.`);
         this.summary = {
             ...this.summary,
             currentPhase: result.currentPhase,
@@ -458,6 +465,35 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' restartCurrentWorkflowAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("restartCurrentWorkflowAsync");
+    }
+    async rewindWorkflowAsync(targetPhase) {
+        const settings = (0, extensionSettings_1.getSpecForgeSettings)();
+        const destructiveRewindEnabled = settings.destructiveRewindEnabled;
+        const confirmation = await vscode.window.showWarningMessage(destructiveRewindEnabled
+            ? `Rewind ${this.summary.usId} to ${targetPhase} and delete all later derived artifacts?`
+            : `Rewind ${this.summary.usId} to ${targetPhase} without deleting later artifacts?`, { modal: true }, "Rewind Workflow");
+        if (confirmation !== "Rewind Workflow") {
+            return;
+        }
+        const result = await this.getBackendClient().rewindWorkflow(this.summary.usId, targetPhase, (0, userActor_1.getCurrentActor)(), destructiveRewindEnabled);
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' was rewound to '${result.currentPhase}' with status '${result.status}'${destructiveRewindEnabled ? " using destructive cleanup" : " without deleting later artifacts"}.`);
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' rewind deleted paths: ${result.deletedPaths.length > 0 ? result.deletedPaths.join(", ") : "(none)"}.`);
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' rewind preserved paths: ${result.preservedPaths.length > 0 ? result.preservedPaths.join(", ") : "(none)"}.`);
+        this.summary = {
+            ...this.summary,
+            currentPhase: result.currentPhase,
+            status: result.status,
+            workBranch: destructiveRewindEnabled && (result.currentPhase === "clarification" || result.currentPhase === "refinement")
+                ? null
+                : this.summary.workBranch
+        };
+        this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
+        this.clearTransientExecutionPhase();
+        this.selectedPhaseId = result.currentPhase;
+        this.selectedIterationArtifactPath = null;
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' rewindWorkflowAsync requested explorer refresh.`);
+        await this.callbacks.refreshExplorer();
+        await this.refreshAsync("rewindWorkflowAsync");
     }
     async debugResetToCaptureAsync() {
         const confirmation = await vscode.window.showWarningMessage(`Reset ${this.summary.usId} to capture and delete all generated artifacts after the source?`, { modal: true }, "Reset to Capture");
@@ -555,7 +591,9 @@ class WorkflowPanelController {
             .filter((artifactPath) => artifactPath.toLowerCase().endsWith(".md"));
         const selectedArtifactPath = this.selectedIterationArtifactPath && iterationArtifactPaths.includes(this.selectedIterationArtifactPath)
             ? this.selectedIterationArtifactPath
-            : selectedPhase.artifactPath;
+            : selectedPhase.phaseId === "capture"
+                ? workflow.mainArtifactPath
+                : selectedPhase.artifactPath;
         if (selectedArtifactPath !== this.selectedIterationArtifactPath) {
             this.selectedIterationArtifactPath = selectedArtifactPath ?? null;
         }

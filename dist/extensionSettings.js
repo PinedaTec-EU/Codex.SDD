@@ -53,7 +53,8 @@ function readSpecForgeSettings(configuration) {
         attentionNotificationsEnabled: configuration.get("ui.notifyOnAttention", true),
         contextSuggestionsEnabled: configuration.get("features.enableContextSuggestions", true),
         requireExplicitApprovalBranchAcceptance: configuration.get("features.requireApprovalBranchAcceptance", false),
-        autoPlayEnabled: configuration.get("features.autoPlayEnabled", false)
+        autoPlayEnabled: configuration.get("features.autoPlayEnabled", false),
+        destructiveRewindEnabled: configuration.get("features.destructiveRewindEnabled", false)
     };
 }
 function buildBackendEnvironment(settings) {

@@ -149,11 +149,14 @@ class StdioMcpBackendClient {
     async approveCurrentPhase(usId, baseBranch, workBranch, actor) {
         return this.callTool("approve_phase", (0, backendClientModel_1.buildApprovePhaseArguments)(this.workspaceRoot, usId, baseBranch, workBranch, actor));
     }
-    async requestRegression(usId, targetPhase, reason, actor) {
-        return this.callTool("request_regression", (0, backendClientModel_1.buildRequestRegressionArguments)(this.workspaceRoot, usId, targetPhase, reason, actor));
+    async requestRegression(usId, targetPhase, reason, actor, destructive) {
+        return this.callTool("request_regression", (0, backendClientModel_1.buildRequestRegressionArguments)(this.workspaceRoot, usId, targetPhase, reason, actor, destructive));
     }
     async restartUserStoryFromSource(usId, reason, actor) {
         return this.callTool("restart_user_story_from_source", (0, backendClientModel_1.buildRestartUserStoryArguments)(this.workspaceRoot, usId, reason, actor));
+    }
+    async rewindWorkflow(usId, targetPhase, actor, destructive) {
+        return this.callTool("rewind_workflow", (0, backendClientModel_1.buildRewindWorkflowArguments)(this.workspaceRoot, usId, targetPhase, actor, destructive));
     }
     async resetUserStoryToCapture(usId) {
         return this.callTool("reset_user_story_to_capture", {
