@@ -33,6 +33,13 @@ interface ArtifactQuestionBlock {
   readonly questions: readonly string[];
 }
 
+interface ApprovalQuestionItem {
+  readonly index: number;
+  readonly question: string;
+  readonly answer: string | null;
+  readonly resolved: boolean;
+}
+
 type PhaseVisualTone = "active" | "waiting-user" | "paused" | "blocked" | "completed" | "pending" | "disabled";
 
 type PhasePosition = { left: number; top: number };
@@ -520,8 +527,9 @@ export function buildWorkflowHtml(
     : null;
   const artifactQuestionBlock = extractArtifactQuestionBlock(state.selectedArtifactContent);
   const refinementApprovalQuestions = selectedPhase.phaseId === "refinement"
-    ? extractMarkdownApprovalQuestions(state.selectedArtifactContent)
+    ? extractMarkdownApprovalItems(state.selectedArtifactContent)
     : [];
+  const unresolvedApprovalQuestionCount = refinementApprovalQuestions.filter((item) => !item.resolved).length;
   const selectedPhaseEvent = workflow.events
     .filter((event) => event.phase === selectedPhase.phaseId)
     .at(-1) ?? null;
@@ -539,7 +547,7 @@ export function buildWorkflowHtml(
     ? `
       <div class="detail-actions detail-actions--phase-header">
         ${workflow.controls.canApprove
-          ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button${approvalBranchEditorVisible && requiresExplicitApprovalBranchAcceptance ? " disabled" : ""}>Approve</button>`
+          ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${approvalBranchEditorVisible && requiresExplicitApprovalBranchAcceptance || unresolvedApprovalQuestionCount > 0 ? " disabled" : ""}>Approve</button>`
           : ""}
         ${detailRejectCommand ? `<button class="workflow-action-button workflow-action-button--danger" data-command="${detailRejectCommand.command}"${detailRejectCommand.phaseId ? ` data-phase-id="${escapeHtmlAttribute(detailRejectCommand.phaseId)}"` : ""}>Reject</button>` : ""}
       </div>
@@ -690,12 +698,45 @@ export function buildWorkflowHtml(
     ? `
       <section class="detail-card detail-card--approval-questions">
         <h3>Human Approval Questions</h3>
-        <p class="panel-copy">These are the open decisions the approver still needs to resolve before freezing the spec baseline.</p>
+        <p class="panel-copy">These are the open decisions the approver still needs to resolve before freezing the spec baseline. Pending questions stay amber. Answered questions turn green. Approval stays disabled until all are resolved.</p>
         <div class="approval-question-list">
-          ${refinementApprovalQuestions.map((question, index) => `
-            <article class="approval-question-item">
-              <span class="approval-question-item__index">${index + 1}</span>
-              <p class="approval-question-item__body">${escapeHtml(question)}</p>
+          ${refinementApprovalQuestions.map((item) => `
+            <article
+              class="approval-question-item${item.resolved ? " approval-question-item--resolved" : " approval-question-item--pending"}"
+              data-approval-question-item
+              data-approval-question-index="${item.index}">
+              <button
+                class="approval-question-item__toggle"
+                type="button"
+                data-approval-question-toggle
+                data-approval-question-index="${item.index}">
+                <span class="approval-question-item__index">${item.index}</span>
+                <span class="approval-question-item__body">${escapeHtml(item.question)}</span>
+                <span class="approval-question-item__status">${item.resolved ? "Resolved" : "Pending"}</span>
+              </button>
+              <div class="approval-question-item__editor" data-approval-question-editor hidden>
+                <label class="approval-question-item__label" for="approval-answer-${item.index}">
+                  ${item.resolved ? "Update answer" : "Provide answer"}
+                </label>
+                <textarea
+                  id="approval-answer-${item.index}"
+                  class="approval-question-item__textarea"
+                  data-approval-answer-input
+                  data-index="${item.index}"
+                  data-question="${escapeHtmlAttribute(item.question)}"
+                  rows="4"
+                  placeholder="Write the human answer that should be reflected in the spec and persisted in the approval questions section.">${escapeHtml(item.answer ?? "")}</textarea>
+                <div class="detail-actions">
+                  <button
+                    class="workflow-action-button workflow-action-button--progress"
+                    type="button"
+                    data-approval-answer-apply
+                    data-index="${item.index}"
+                    ${selectedPhase.isCurrent ? "" : "disabled"}>
+                    ${item.resolved ? "Update Answer via Model" : "Apply Answer via Model"}
+                  </button>
+                </div>
+              </div>
             </article>
           `).join("")}
         </div>
@@ -1945,13 +1986,31 @@ export function buildWorkflowHtml(
     }
     .approval-question-item {
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      gap: 12px;
-      align-items: start;
+      gap: 10px;
       padding: 12px 14px;
       border-radius: 16px;
       border: 1px solid rgba(255, 213, 90, 0.16);
       background: rgba(255, 255, 255, 0.03);
+    }
+    .approval-question-item--pending {
+      background: rgba(255, 213, 90, 0.06);
+    }
+    .approval-question-item--resolved {
+      border-color: rgba(127, 240, 165, 0.24);
+      background: rgba(46, 160, 67, 0.08);
+    }
+    .approval-question-item__toggle {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+      width: 100%;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
     }
     .approval-question-item__index {
       display: inline-flex;
@@ -1967,10 +2026,63 @@ export function buildWorkflowHtml(
       font-weight: 700;
       line-height: 1;
     }
+    .approval-question-item--resolved .approval-question-item__index {
+      background: rgba(46, 160, 67, 0.16);
+      border-color: rgba(127, 240, 165, 0.24);
+      color: #7ff0a5;
+    }
     .approval-question-item__body {
       margin: 0;
       line-height: 1.5;
       color: rgba(248, 244, 226, 0.92);
+    }
+    .approval-question-item--resolved .approval-question-item__body {
+      color: rgba(225, 255, 236, 0.94);
+    }
+    .approval-question-item__status {
+      align-self: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      border: 1px solid var(--attention-egg-border);
+      background: var(--attention-egg-soft);
+      color: #ffe17b;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .approval-question-item--resolved .approval-question-item__status {
+      border-color: rgba(127, 240, 165, 0.24);
+      background: rgba(46, 160, 67, 0.16);
+      color: #7ff0a5;
+    }
+    .approval-question-item__editor {
+      display: grid;
+      gap: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .approval-question-item__label {
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(214, 223, 236, 0.72);
+    }
+    .approval-question-item__textarea {
+      width: 100%;
+      min-height: 110px;
+      resize: vertical;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 213, 90, 0.18);
+      background: rgba(8, 14, 22, 0.88);
+      color: rgba(246, 250, 255, 0.96);
+      padding: 12px 14px;
+      font: inherit;
+      line-height: 1.45;
+    }
+    .approval-question-item--resolved .approval-question-item__textarea {
+      border-color: rgba(127, 240, 165, 0.22);
     }
     .detail-card h2, .detail-card h3 {
       margin-top: 0;
@@ -2697,6 +2809,7 @@ export function buildWorkflowHtml(
     const approvalBranchAccepted = document.querySelector("[data-approval-branch-accepted]");
     const approvalBranchShell = document.querySelector("[data-approval-branch-shell]");
     const approveButton = document.querySelector("[data-approve-button]");
+    const pendingApprovalAnswers = Number(approveButton?.dataset.pendingApprovalCount ?? "0");
     const requiresExplicitApprovalBranchAcceptance = approvalBranchShell?.dataset.requireExplicitApprovalBranchAcceptance === "true";
     const normalizeBranchValue = (value) => (value ?? "").trim();
     const setApprovalBranchState = (nextState) => {
@@ -2722,7 +2835,10 @@ export function buildWorkflowHtml(
       const acceptedValue = normalizeBranchValue(viewState.approvalBaseBranchAcceptedValue);
       const accepted = Boolean(viewState.approvalBaseBranchAccepted) && draft.length > 0 && draft === acceptedValue;
       if (approveButton instanceof HTMLButtonElement) {
-        approveButton.disabled = draft.length === 0 || workBranchDraft.length === 0 || (requiresExplicitApprovalBranchAcceptance && !accepted);
+        approveButton.disabled = draft.length === 0
+          || workBranchDraft.length === 0
+          || pendingApprovalAnswers > 0
+          || (requiresExplicitApprovalBranchAcceptance && !accepted);
       }
       if (approvalBranchAccept instanceof HTMLElement) {
         approvalBranchAccept.hidden = !requiresExplicitApprovalBranchAcceptance || accepted;
@@ -2809,6 +2925,80 @@ export function buildWorkflowHtml(
           command: "approve",
           baseBranch,
           workBranch
+        });
+      });
+    }
+
+    const approvalAnswerDrafts = typeof viewState.approvalAnswerDrafts === "object" && viewState.approvalAnswerDrafts
+      ? viewState.approvalAnswerDrafts
+      : {};
+    const setApprovalAnswerDraft = (index, value) => {
+      approvalAnswerDrafts[String(index)] = value;
+      vscode.setState({
+        ...viewState,
+        workflowFilesOpen: Boolean(viewState.workflowFilesOpen),
+        phaseInputDraft: typeof viewState.phaseInputDraft === "string" ? viewState.phaseInputDraft : "",
+        approvalAnswerDrafts
+      });
+    };
+    for (const item of document.querySelectorAll("[data-approval-question-item]")) {
+      const toggle = item.querySelector("[data-approval-question-toggle]");
+      const editor = item.querySelector("[data-approval-question-editor]");
+      if (toggle instanceof HTMLButtonElement && editor instanceof HTMLElement) {
+        toggle.addEventListener("click", () => {
+          editor.hidden = !editor.hidden;
+        });
+      }
+    }
+    for (const input of document.querySelectorAll("[data-approval-answer-input]")) {
+      if (!(input instanceof HTMLTextAreaElement)) {
+        continue;
+      }
+      const index = input.dataset.index ?? "";
+      const draft = approvalAnswerDrafts[index];
+      if (typeof draft === "string") {
+        input.value = draft;
+      }
+      input.addEventListener("input", () => {
+        setApprovalAnswerDraft(index, input.value);
+      });
+    }
+    for (const button of document.querySelectorAll("[data-approval-answer-apply]")) {
+      if (!(button instanceof HTMLButtonElement)) {
+        continue;
+      }
+      button.addEventListener("click", () => {
+        const index = button.dataset.index ?? "";
+        const input = document.querySelector('[data-approval-answer-input][data-index="' + index + '"]');
+        if (!(input instanceof HTMLTextAreaElement)) {
+          return;
+        }
+        const answer = input.value.trim();
+        const question = input.dataset.question ?? "";
+        if (!question || !answer) {
+          return;
+        }
+
+        const prompt = [
+          "Update the current refinement artifact using this human approval answer.",
+          "Preserve the existing section structure unless the spec itself needs a structural correction.",
+          "Update the relevant sections of the spec to reflect the approved decision.",
+          "Rewrite the Human Approval Questions section as an explicit checklist.",
+          "For answered items use this exact pattern:",
+          "- [x] <question>",
+          "  - Answer: <resolved answer>",
+          "For still-pending items use this exact pattern:",
+          "- [ ] <question>",
+          "Preserve any already resolved approval questions and their answers.",
+          "",
+          "Approval answer to apply:",
+          "Q: " + question,
+          "A: " + answer
+        ].join("\\n");
+
+        vscode.postMessage({
+          command: "submitPhaseInput",
+          prompt
         });
       });
     }
@@ -3618,7 +3808,7 @@ function escapeHtmlAttribute(value: string): string {
   return escapeHtml(value);
 }
 
-function extractMarkdownApprovalQuestions(markdown: string | null | undefined): string[] {
+function extractMarkdownApprovalItems(markdown: string | null | undefined): ApprovalQuestionItem[] {
   if (!markdown) {
     return [];
   }
@@ -3628,14 +3818,16 @@ function extractMarkdownApprovalQuestions(markdown: string | null | undefined): 
     /^##\s+Questions for Human Approval\s*$/i,
     /^##\s+Preguntas para aprobaci[oó]n humana\s*$/i
   ];
-  const itemPattern = /^(?:[-*]\s+|\d+\.\s+)(.+?)\s*$/;
+  const itemPattern = /^(?:[-*]\s+|\d+\.\s+)(?:\[(?<check>[ xX])\]\s*)?(?<question>.+?)\s*$/;
+  const answerPattern = /^(?:[-*]\s+)?Answer:\s*(.+?)\s*$/i;
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const startIndex = lines.findIndex((line) => headingPatterns.some((pattern) => pattern.test(line.trim())));
   if (startIndex < 0) {
     return [];
   }
 
-  const items: string[] = [];
+  const items: ApprovalQuestionItem[] = [];
+  let pendingQuestion: ApprovalQuestionItem | null = null;
   for (let index = startIndex + 1; index < lines.length; index += 1) {
     const trimmed = lines[index].trim();
     if (!trimmed) {
@@ -3646,14 +3838,33 @@ function extractMarkdownApprovalQuestions(markdown: string | null | undefined): 
       break;
     }
 
+    const answerMatch = trimmed.match(answerPattern);
+    if (answerMatch && pendingQuestion) {
+      const answer = answerMatch[1].trim();
+      pendingQuestion = {
+        index: pendingQuestion.index,
+        question: pendingQuestion.question,
+        answer,
+        resolved: answer.length > 0
+      };
+      items[items.length - 1] = pendingQuestion;
+      continue;
+    }
+
     const match = trimmed.match(itemPattern);
     if (!match) {
       continue;
     }
 
-    const question = match[1].trim();
+    const question = match.groups?.question?.trim() ?? "";
     if (question) {
-      items.push(question);
+      pendingQuestion = {
+        index: items.length + 1,
+        question,
+        answer: null,
+        resolved: false
+      };
+      items.push(pendingQuestion);
     }
   }
 
