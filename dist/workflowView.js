@@ -559,12 +559,16 @@ function buildWorkflowHtml(workflow, state, playbackState) {
               class="approval-question-item${item.resolved ? " approval-question-item--resolved" : " approval-question-item--pending"}"
               data-approval-question-item
               data-approval-question-index="${item.index}">
-              <div class="approval-question-item__toggle">
+              <button
+                class="approval-question-item__toggle"
+                type="button"
+                data-approval-question-toggle
+                data-approval-question-index="${item.index}">
                 <span class="approval-question-item__index">${item.index}</span>
                 <span class="approval-question-item__body">${escapeHtml(item.question)}</span>
                 <span class="approval-question-item__status">${item.resolved ? "Resolved" : "Pending"}</span>
-              </div>
-              <div class="approval-question-item__editor">
+              </button>
+              <div class="approval-question-item__editor" data-approval-question-editor${item.resolved ? " hidden" : ""}>
                 <label class="approval-question-item__label" for="approval-answer-${item.index}">
                   ${item.resolved ? "Update answer" : "Provide answer"}
                 </label>
@@ -1853,6 +1857,11 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       align-items: start;
       width: 100%;
       padding: 0;
+      border: none;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
     }
     .approval-question-item__index {
       display: inline-flex;
@@ -1903,6 +1912,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       gap: 10px;
       padding-top: 10px;
       border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .approval-question-item__editor[hidden] {
+      display: none;
     }
     .approval-question-item__label {
       font-size: 0.76rem;
@@ -2783,6 +2795,16 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         approvalAnswerDrafts
       });
     };
+    for (const item of document.querySelectorAll("[data-approval-question-item]")) {
+      const toggle = item.querySelector("[data-approval-question-toggle]");
+      const editor = item.querySelector("[data-approval-question-editor]");
+      if (!(toggle instanceof HTMLButtonElement) || !(editor instanceof HTMLElement)) {
+        continue;
+      }
+      toggle.addEventListener("click", () => {
+        editor.hidden = !editor.hidden;
+      });
+    }
     for (const input of document.querySelectorAll("[data-approval-answer-input]")) {
       if (!(input instanceof HTMLTextAreaElement)) {
         continue;
