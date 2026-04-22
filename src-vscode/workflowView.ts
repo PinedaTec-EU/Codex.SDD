@@ -1131,7 +1131,8 @@ export function buildWorkflowHtml(
       display: block;
       margin-top: auto;
       min-height: 3.2rem;
-      padding-left: 94px;
+      width: 100%;
+      padding-left: 0;
       font-size: clamp(1.38rem, 2.9vw, 2.3rem);
       font-weight: 800;
       line-height: 1.05;
@@ -1139,6 +1140,9 @@ export function buildWorkflowHtml(
       text-shadow: 0 1px 2px rgba(8, 15, 22, 0.32);
       letter-spacing: -0.03em;
       text-align: right;
+      white-space: nowrap;
+      word-break: keep-all;
+      overflow-wrap: normal;
     }
     .token-summary {
       min-width: 0;
