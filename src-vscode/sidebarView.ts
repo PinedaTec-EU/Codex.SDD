@@ -8,6 +8,7 @@ import { appendSpecForgeLog } from "./outputChannel";
 import { readRuntimeVersionAsync } from "./runtimeVersion";
 import { getOrCreateBackendClient } from "./specsExplorer";
 import { buildSidebarHtml } from "./sidebarViewContent";
+import { findReferencedWorkspaceFilesAsync, type ReferencedWorkspaceFile } from "./sourceFileReferences";
 import { getCurrentActor } from "./userActor";
 import {
   buildWizardSourceText,
@@ -31,6 +32,8 @@ type SidebarMessage =
   | { readonly command: "setCreateFileMode"; readonly kind?: string }
   | { readonly command: "addCreateFiles"; readonly kind?: string }
   | { readonly command: "addCreateFilePaths"; readonly kind?: string; readonly paths?: readonly string[] }
+  | { readonly command: "loadCreateSourceFromFile" }
+  | { readonly command: "scanCreateSourceReferences"; readonly sourceText?: string }
   | { readonly command: "setCreateFileKind"; readonly sourcePath?: string; readonly kind?: string }
   | { readonly command: "removeCreateFile"; readonly sourcePath?: string }
   | {
@@ -57,6 +60,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   private activeWorkflowUsId: string | null = null;
   private createFileMode: "context" | "attachment" = "context";
   private createFiles: DraftCreateFile[] = [];
+  private createReferenceScanVersion = 0;
 
   public constructor(
     private readonly extensionUri: vscode.Uri,
@@ -120,6 +124,12 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         await this.addCreateFilePathsAsync(
           message.kind === "attachment" ? "attachment" : "context",
           message.paths ?? []);
+        return;
+      case "loadCreateSourceFromFile":
+        await this.loadCreateSourceFromFileAsync();
+        return;
+      case "scanCreateSourceReferences":
+        await this.scanCreateSourceReferencesAsync(message.sourceText ?? "");
         return;
       case "setCreateFileKind":
         if (!message.sourcePath) {
@@ -321,6 +331,61 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     await this.safeRenderAsync();
   }
 
+  private async loadCreateSourceFromFileAsync(): Promise<void> {
+    const selection = await vscode.window.showOpenDialog({
+      canSelectFiles: true,
+      canSelectFolders: false,
+      canSelectMany: false,
+      openLabel: "Load user story source"
+    });
+
+    const sourceUri = selection?.[0];
+    if (!sourceUri || !this.webviewView) {
+      return;
+    }
+
+    const sourceText = await fs.promises.readFile(sourceUri.fsPath, "utf8");
+    const firstHeading = sourceText.split(/\r?\n/).find((line) => /^#\s+/.test(line)) ?? "";
+    const suggestedTitle = firstHeading.replace(/^#\s+/, "").trim();
+    await this.webviewView.webview.postMessage({
+      command: "loadedCreateSourceFile",
+      sourceText,
+      suggestedTitle,
+      sourcePath: sourceUri.fsPath
+    });
+  }
+
+  private async scanCreateSourceReferencesAsync(sourceText: string): Promise<void> {
+    if (!this.webviewView) {
+      return;
+    }
+
+    const workspaceRoot = getWorkspaceRoot();
+    const scanVersion = ++this.createReferenceScanVersion;
+    if (!workspaceRoot || sourceText.trim().length === 0) {
+      await this.webviewView.webview.postMessage({
+        command: "updateCreateSourceReferences",
+        files: []
+      });
+      return;
+    }
+
+    const files = await findReferencedWorkspaceFilesAsync(
+      workspaceRoot,
+      sourceText,
+      this.createFiles.map((file) => file.sourcePath)
+    );
+
+    if (scanVersion !== this.createReferenceScanVersion) {
+      return;
+    }
+
+    await this.webviewView.webview.postMessage({
+      command: "updateCreateSourceReferences",
+      files: files.map((file) => serializeReferencedFile(file))
+    });
+  }
+
   private async materializeCreateFilesAsync(userStoryDirectoryPath: string): Promise<void> {
     for (const file of this.createFiles) {
       const targetDirectoryPath = path.join(userStoryDirectoryPath, file.kind === "context" ? "context" : "attachments");
@@ -439,6 +504,14 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       void vscode.window.showErrorMessage(`SpecForge sidebar failed to load: ${asErrorMessage(error)}`);
     }
   }
+}
+
+function serializeReferencedFile(file: ReferencedWorkspaceFile): ReferencedWorkspaceFile {
+  return {
+    sourcePath: file.sourcePath,
+    workspaceRelativePath: file.workspaceRelativePath,
+    name: file.name
+  };
 }
 
 async function getUserStoryCategoriesAsync(workspaceRoot: string): Promise<readonly string[]> {

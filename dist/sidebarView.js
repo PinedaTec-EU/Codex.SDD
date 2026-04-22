@@ -43,6 +43,7 @@ const outputChannel_1 = require("./outputChannel");
 const runtimeVersion_1 = require("./runtimeVersion");
 const specsExplorer_1 = require("./specsExplorer");
 const sidebarViewContent_1 = require("./sidebarViewContent");
+const sourceFileReferences_1 = require("./sourceFileReferences");
 const userActor_1 = require("./userActor");
 const userStoryIntake_1 = require("./userStoryIntake");
 const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
@@ -57,6 +58,7 @@ class SidebarViewProvider {
     activeWorkflowUsId = null;
     createFileMode = "context";
     createFiles = [];
+    createReferenceScanVersion = 0;
     constructor(extensionUri, onDidCreateUserStory) {
         this.extensionUri = extensionUri;
         this.onDidCreateUserStory = onDidCreateUserStory;
@@ -109,6 +111,12 @@ class SidebarViewProvider {
                 return;
             case "addCreateFilePaths":
                 await this.addCreateFilePathsAsync(message.kind === "attachment" ? "attachment" : "context", message.paths ?? []);
+                return;
+            case "loadCreateSourceFromFile":
+                await this.loadCreateSourceFromFileAsync();
+                return;
+            case "scanCreateSourceReferences":
+                await this.scanCreateSourceReferencesAsync(message.sourceText ?? "");
                 return;
             case "setCreateFileKind":
                 if (!message.sourcePath) {
@@ -281,6 +289,49 @@ class SidebarViewProvider {
         this.createFiles = [...nextFiles.values()].sort((left, right) => left.name.localeCompare(right.name));
         await this.safeRenderAsync();
     }
+    async loadCreateSourceFromFileAsync() {
+        const selection = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: false,
+            openLabel: "Load user story source"
+        });
+        const sourceUri = selection?.[0];
+        if (!sourceUri || !this.webviewView) {
+            return;
+        }
+        const sourceText = await fs.promises.readFile(sourceUri.fsPath, "utf8");
+        const firstHeading = sourceText.split(/\r?\n/).find((line) => /^#\s+/.test(line)) ?? "";
+        const suggestedTitle = firstHeading.replace(/^#\s+/, "").trim();
+        await this.webviewView.webview.postMessage({
+            command: "loadedCreateSourceFile",
+            sourceText,
+            suggestedTitle,
+            sourcePath: sourceUri.fsPath
+        });
+    }
+    async scanCreateSourceReferencesAsync(sourceText) {
+        if (!this.webviewView) {
+            return;
+        }
+        const workspaceRoot = getWorkspaceRoot();
+        const scanVersion = ++this.createReferenceScanVersion;
+        if (!workspaceRoot || sourceText.trim().length === 0) {
+            await this.webviewView.webview.postMessage({
+                command: "updateCreateSourceReferences",
+                files: []
+            });
+            return;
+        }
+        const files = await (0, sourceFileReferences_1.findReferencedWorkspaceFilesAsync)(workspaceRoot, sourceText, this.createFiles.map((file) => file.sourcePath));
+        if (scanVersion !== this.createReferenceScanVersion) {
+            return;
+        }
+        await this.webviewView.webview.postMessage({
+            command: "updateCreateSourceReferences",
+            files: files.map((file) => serializeReferencedFile(file))
+        });
+    }
     async materializeCreateFilesAsync(userStoryDirectoryPath) {
         for (const file of this.createFiles) {
             const targetDirectoryPath = path.join(userStoryDirectoryPath, file.kind === "context" ? "context" : "attachments");
@@ -388,6 +439,13 @@ class SidebarViewProvider {
     }
 }
 exports.SidebarViewProvider = SidebarViewProvider;
+function serializeReferencedFile(file) {
+    return {
+        sourcePath: file.sourcePath,
+        workspaceRelativePath: file.workspaceRelativePath,
+        name: file.name
+    };
+}
 async function getUserStoryCategoriesAsync(workspaceRoot) {
     const configPath = path.join(workspaceRoot, ".specs", "config.yaml");
     if (!await pathExistsAsync(configPath)) {

@@ -92,6 +92,13 @@ function buildSidebarHtml(model) {
               </div>
             </div>
           </div>
+          <div class="source-toolbar">
+            <div>
+              <span class="intake-guidance__title">Source Intake</span>
+              <p class="copy">Write the US here or load an existing file. Loading from file switches the form to Freeform.</p>
+            </div>
+            <button class="ghost-action" type="button" data-command="loadCreateSourceFromFile">Load Source File</button>
+          </div>
           <label>
             <span>Title</span>
             <input name="title" type="text" placeholder="Workflow graph with audit stream" required data-create-field="title" />
@@ -196,6 +203,16 @@ function buildSidebarHtml(model) {
               </section>
             </div>
           </section>
+          <section class="source-file-suggestions" data-source-file-suggestions hidden>
+            <div class="source-file-suggestions__header">
+              <div>
+                <span class="intake-guidance__title">Referenced Files</span>
+                <p class="copy">SpecForge found workspace files mentioned in the US text. Add them as context to avoid losing that repo signal.</p>
+              </div>
+              <button class="ghost-action" type="button" data-add-all-source-references hidden>Add All as Context</button>
+            </div>
+            <div class="source-file-suggestions__list" data-source-file-suggestions-list></div>
+          </section>
           <div class="form-files">
             <div class="form-files__header">
               <div>
@@ -208,6 +225,7 @@ function buildSidebarHtml(model) {
                 <button class="file-kind-toggle__option${createFileMode === "context" ? " file-kind-toggle__option--active" : ""}" type="button" data-command="setCreateFileMode" data-kind="context">Context</button>
                 <button class="file-kind-toggle__option${createFileMode === "attachment" ? " file-kind-toggle__option--active" : ""}" type="button" data-command="setCreateFileMode" data-kind="attachment">US Info</button>
               </div>
+              <button class="ghost-action" type="button" data-command="addCreateFiles" data-kind="${escapeHtmlAttr(createFileMode)}">Add Files</button>
             </div>
             <div class="file-dropzone" data-create-dropzone data-kind="${escapeHtmlAttr(createFileMode)}">
               <strong>Drag & Drop Files</strong>
@@ -793,6 +811,52 @@ function wrapHtml(content, busy) {
       word-break: break-word;
       font: 0.78rem/1.5 ui-monospace, "SF Mono", Menlo, monospace;
     }
+    .source-toolbar,
+    .source-file-suggestions {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .source-toolbar {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+    }
+    .source-file-suggestions__header {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: start;
+      flex-wrap: wrap;
+    }
+    .source-file-suggestions__list {
+      display: grid;
+      gap: 8px;
+    }
+    .source-file-suggestion {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .source-file-suggestion__content {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .source-file-suggestion__content span {
+      font-size: 0.76rem;
+      color: rgba(255, 255, 255, 0.56);
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      word-break: break-all;
+    }
     .form-files {
       display: grid;
       gap: 10px;
@@ -1116,6 +1180,9 @@ function wrapHtml(content, busy) {
       }
     }
     @media (max-width: 520px) {
+      .source-toolbar {
+        grid-template-columns: 1fr;
+      }
       .wizard-footer {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -1156,6 +1223,8 @@ function wrapHtml(content, busy) {
       objective: "objective or change",
       acceptanceCriteria: "acceptance criteria"
     };
+    let sourceReferenceSuggestions = [];
+    let referenceScanTimer = undefined;
 
     function buildGuidedSourceText(state) {
       const lines = [
@@ -1209,6 +1278,60 @@ function wrapHtml(content, busy) {
       vscode.setState(createState);
     }
 
+    function renderSourceReferenceSuggestions() {
+      const container = document.querySelector("[data-source-file-suggestions]");
+      const list = document.querySelector("[data-source-file-suggestions-list]");
+      const addAllButton = document.querySelector("[data-add-all-source-references]");
+      if (!(container instanceof HTMLElement) || !(list instanceof HTMLElement) || !(addAllButton instanceof HTMLButtonElement)) {
+        return;
+      }
+
+      container.hidden = sourceReferenceSuggestions.length === 0;
+      addAllButton.hidden = sourceReferenceSuggestions.length === 0;
+      addAllButton.disabled = busy || sourceReferenceSuggestions.length === 0;
+      list.innerHTML = sourceReferenceSuggestions.map((file) => {
+        return '<div class="source-file-suggestion">'
+          + '<div class="source-file-suggestion__content">'
+          + '<strong>' + escapeHtml(file.name) + '</strong>'
+          + '<span>' + escapeHtml(file.workspaceRelativePath) + '</span>'
+          + '</div>'
+          + '<button class="ghost-action" type="button" data-add-source-reference="' + escapeHtml(file.sourcePath) + '">Add as Context</button>'
+          + '</div>';
+      }).join("");
+
+      for (const button of list.querySelectorAll("[data-add-source-reference]")) {
+        if (button instanceof HTMLButtonElement) {
+          button.disabled = busy;
+          button.addEventListener("click", () => {
+            if (busy) {
+              return;
+            }
+            vscode.postMessage({
+              command: "addCreateFilePaths",
+              kind: "context",
+              paths: [button.dataset.addSourceReference]
+            });
+          });
+        }
+      }
+    }
+
+    function requestSourceReferenceScan() {
+      if (busy) {
+        return;
+      }
+      window.clearTimeout(referenceScanTimer);
+      referenceScanTimer = window.setTimeout(() => {
+        const sourceText = createState.intakeMode === "wizard"
+          ? buildGuidedSourceText(createState)
+          : String(createState.sourceText ?? "");
+        vscode.postMessage({
+          command: "scanCreateSourceReferences",
+          sourceText
+        });
+      }, 180);
+    }
+
     function setInputValue(field, value) {
       const element = document.querySelector('[data-create-field="' + field + '"]');
       if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
@@ -1243,6 +1366,17 @@ function wrapHtml(content, busy) {
       if (preview) {
         preview.textContent = buildGuidedSourceText(createState);
       }
+
+      renderSourceReferenceSuggestions();
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
     }
 
     for (const element of document.querySelectorAll("[data-command]")) {
@@ -1314,6 +1448,26 @@ function wrapHtml(content, busy) {
     }
     const form = document.getElementById("create-user-story-form");
     if (form) {
+      window.addEventListener("message", (event) => {
+        const message = event.data ?? {};
+        if (message.command === "loadedCreateSourceFile") {
+          createState.intakeMode = "freeform";
+          createState.sourceText = typeof message.sourceText === "string" ? message.sourceText : "";
+          if (!String(createState.title ?? "").trim() && typeof message.suggestedTitle === "string" && message.suggestedTitle.trim()) {
+            createState.title = message.suggestedTitle.trim();
+          }
+          persistCreateState();
+          applyCreateState();
+          requestSourceReferenceScan();
+          return;
+        }
+
+        if (message.command === "updateCreateSourceReferences") {
+          sourceReferenceSuggestions = Array.isArray(message.files) ? message.files : [];
+          renderSourceReferenceSuggestions();
+        }
+      });
+
       const kindField = form.querySelector('[data-create-field="kind"]');
       const categoryField = form.querySelector('[data-create-field="category"]');
       const sourceField = form.querySelector('[data-create-field="sourceText"]');
@@ -1380,6 +1534,7 @@ function wrapHtml(content, busy) {
           }
           persistCreateState();
           applyCreateState();
+          requestSourceReferenceScan();
         });
         element.addEventListener("change", () => {
           if (field.startsWith("wizard.")) {
@@ -1389,6 +1544,7 @@ function wrapHtml(content, busy) {
           }
           persistCreateState();
           applyCreateState();
+          requestSourceReferenceScan();
         });
       }
       for (const element of form.querySelectorAll("[data-intake-mode]")) {
@@ -1396,6 +1552,7 @@ function wrapHtml(content, busy) {
           createState.intakeMode = element.dataset.intakeMode === "wizard" ? "wizard" : "freeform";
           persistCreateState();
           applyCreateState();
+          requestSourceReferenceScan();
         });
       }
       for (const element of form.querySelectorAll("[data-wizard-nav]")) {
@@ -1411,6 +1568,19 @@ function wrapHtml(content, busy) {
           createState.wizardStep = Math.min(2, Math.max(0, Number(element.dataset.wizardStepTrigger ?? "0")));
           persistCreateState();
           applyCreateState();
+        });
+      }
+      const addAllReferencesButton = form.querySelector("[data-add-all-source-references]");
+      if (addAllReferencesButton instanceof HTMLButtonElement) {
+        addAllReferencesButton.addEventListener("click", () => {
+          if (busy || sourceReferenceSuggestions.length === 0) {
+            return;
+          }
+          vscode.postMessage({
+            command: "addCreateFilePaths",
+            kind: "context",
+            paths: sourceReferenceSuggestions.map((file) => file.sourcePath)
+          });
         });
       }
       form.addEventListener("submit", (event) => {
@@ -1440,6 +1610,7 @@ function wrapHtml(content, busy) {
         });
       });
       applyCreateState();
+      requestSourceReferenceScan();
     }
   </script>
 </body>
