@@ -2477,17 +2477,33 @@ export function buildWorkflowHtml(
     }
     .copy-question-button {
       flex: 0 0 auto;
-      min-width: 0;
-      padding: 4px 8px;
+      width: 34px;
+      height: 34px;
+      padding: 0;
       border-radius: 999px;
       border: 1px solid rgba(255, 255, 255, 0.14);
       background: rgba(255, 255, 255, 0.04);
       color: rgba(233, 240, 250, 0.76);
-      font: inherit;
-      font-size: 0.72rem;
-      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
       transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+    }
+    .copy-question-button__icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+    }
+    .copy-question-button__icon svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+    }
+    .copy-question-button__icon--done {
+      display: none;
     }
     .copy-question-button:hover {
       border-color: rgba(92, 181, 255, 0.3);
@@ -2498,6 +2514,12 @@ export function buildWorkflowHtml(
       border-color: rgba(114, 241, 184, 0.34);
       background: rgba(114, 241, 184, 0.14);
       color: rgba(190, 255, 221, 0.96);
+    }
+    .copy-question-button.is-copied .copy-question-button__icon--copy {
+      display: none;
+    }
+    .copy-question-button.is-copied .copy-question-button__icon--done {
+      display: inline-flex;
     }
     .clarification-answer {
       width: 100%;
@@ -2925,12 +2947,9 @@ export function buildWorkflowHtml(
         }
 
         element.classList.add("is-copied");
-        const originalText = element.textContent ?? "Copy";
-        element.textContent = "Copied";
         window.setTimeout(() => {
-          element.textContent = originalText;
           element.classList.remove("is-copied");
-        }, 1200);
+        }, 1000);
       });
     }
 
@@ -4092,6 +4111,8 @@ function parseApprovalQuestionLine(line: string): { question: string; resolved: 
   }
 
   if (!normalized
+    || normalized === "..."
+    || /^no human approval questions remain\.?$/i.test(normalized)
     || /^answer:\s*/i.test(normalized)
     || /^answered by:\s*/i.test(normalized)
     || /^answered at:\s*/i.test(normalized)) {
