@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -5,8 +6,15 @@ using SpecForge.Domain.Application;
 using SpecForge.Domain.Persistence;
 using SpecForge.McpServer;
 
+var serverVersion = typeof(Program).Assembly
+    .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+    ?.InformationalVersion ?? "0.0.1";
+
+var captureTolerance = Environment.GetEnvironmentVariable("SPECFORGE_CAPTURE_TOLERANCE")?.Trim().ToLowerInvariant();
+captureTolerance = captureTolerance is "strict" or "balanced" or "inferential" ? captureTolerance : "balanced";
+
 var phaseExecutionProvider = PhaseExecutionProviderFactory.Create();
-var workflowRunner = new WorkflowRunner(phaseExecutionProvider);
+var workflowRunner = new WorkflowRunner(phaseExecutionProvider, captureTolerance);
 var applicationService = new SpecForgeApplicationService(new UserStoryFileStore(), workflowRunner);
 var serializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 var stdin = Console.OpenStandardInput();
@@ -24,7 +32,7 @@ while (true)
 
     try
     {
-        response = await HandleAsync(payload, applicationService, serializerOptions);
+        response = await HandleAsync(payload, applicationService, serializerOptions, serverVersion);
     }
     catch (Exception exception)
     {
@@ -40,7 +48,8 @@ while (true)
 static async Task<JsonNode?> HandleAsync(
     JsonNode payload,
     SpecForgeApplicationService applicationService,
-    JsonSerializerOptions serializerOptions)
+    JsonSerializerOptions serializerOptions,
+    string serverVersion)
 {
     var method = payload["method"]?.GetValue<string>();
     if (string.IsNullOrWhiteSpace(method))
@@ -58,7 +67,7 @@ static async Task<JsonNode?> HandleAsync(
                 ["serverInfo"] = new JsonObject
                 {
                     ["name"] = "SpecForge MCP Server",
-                    ["version"] = "0.0.1"
+                    ["version"] = serverVersion
                 },
                 ["capabilities"] = new JsonObject
                 {

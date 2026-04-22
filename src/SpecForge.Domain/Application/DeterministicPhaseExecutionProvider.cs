@@ -245,7 +245,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                Environment.NewLine;
     }
 
-    private static async Task<string> ComposeReviewAsync(
+    private static Task<string> ComposeReviewAsync(
         PhaseExecutionContext context,
         CancellationToken cancellationToken)
     {
@@ -257,9 +257,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
             ? "Advance to `release_approval`."
             : "Regress to the missing or inconsistent phase before continuing.";
 
-        await Task.CompletedTask;
-
-        return string.Join(
+        return Task.FromResult(string.Join(
                    Environment.NewLine,
                    new[]
                    {
@@ -280,9 +278,8 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                        "## Recommendation",
                        $"- {recommendation}"
                    }) +
-               Environment.NewLine;
+               Environment.NewLine);
     }
-
 
     private static string GetRequiredPath(PhaseExecutionContext context, PhaseId phaseId)
     {

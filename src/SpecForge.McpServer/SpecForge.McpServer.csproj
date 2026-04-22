@@ -5,6 +5,11 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <_NfoVersion>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\version.nfo').Trim())</_NfoVersion>
+    <Version>$(_NfoVersion)</Version>
+    <AssemblyVersion>$(_NfoVersion)</AssemblyVersion>
+    <FileVersion>$(_NfoVersion)</FileVersion>
+    <InformationalVersion>$(_NfoVersion)</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

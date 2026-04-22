@@ -22,25 +22,28 @@ public sealed class WorkflowRunner
     private readonly UserStoryFileStore fileStore;
     private readonly IPhaseExecutionProvider phaseExecutionProvider;
     private readonly RepositoryCategoryCatalog repositoryCategoryCatalog;
+    private readonly string captureTolerance;
 
     public WorkflowRunner()
         : this(new UserStoryFileStore(), new DeterministicPhaseExecutionProvider(), new RepositoryCategoryCatalog())
     {
     }
 
-    public WorkflowRunner(IPhaseExecutionProvider phaseExecutionProvider)
-        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog())
+    public WorkflowRunner(IPhaseExecutionProvider phaseExecutionProvider, string captureTolerance = "balanced")
+        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), captureTolerance)
     {
     }
 
     internal WorkflowRunner(
         UserStoryFileStore fileStore,
         IPhaseExecutionProvider phaseExecutionProvider,
-        RepositoryCategoryCatalog? repositoryCategoryCatalog = null)
+        RepositoryCategoryCatalog? repositoryCategoryCatalog = null,
+        string captureTolerance = "balanced")
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
         this.phaseExecutionProvider = phaseExecutionProvider ?? throw new ArgumentNullException(nameof(phaseExecutionProvider));
         this.repositoryCategoryCatalog = repositoryCategoryCatalog ?? new RepositoryCategoryCatalog();
+        this.captureTolerance = captureTolerance is "strict" or "balanced" or "inferential" ? captureTolerance : "balanced";
     }
 
     public async Task<string> CreateUserStoryAsync(
@@ -410,7 +413,7 @@ public sealed class WorkflowRunner
 
         var clarificationGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
         var clarification = ParseClarificationArtifact(await File.ReadAllTextAsync(clarificationGeneration.ArtifactPath, cancellationToken));
-        await UpdateClarificationLogAsync(paths, clarification, cancellationToken);
+        await UpdateClarificationLogAsync(paths, clarification, this.captureTolerance, cancellationToken);
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             clarification.IsReady ? "clarification_passed" : "clarification_requested",
@@ -563,7 +566,7 @@ public sealed class WorkflowRunner
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
     }
 
-    private static async Task<IReadOnlyCollection<string>> ResetDerivedArtifactsAsync(
+    private static Task<IReadOnlyCollection<string>> ResetDerivedArtifactsAsync(
         UserStoryFilePaths paths,
         WorkflowRun workflowRun,
         CancellationToken cancellationToken)
@@ -594,9 +597,8 @@ public sealed class WorkflowRunner
             File.Delete(paths.BranchFilePath);
         }
 
-        await Task.CompletedTask;
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
-        return deletedPaths;
+        return Task.FromResult<IReadOnlyCollection<string>>(deletedPaths);
     }
 
     private static async Task AppendTimelineEventAsync(
@@ -949,6 +951,7 @@ public sealed class WorkflowRunner
     private static async Task UpdateClarificationLogAsync(
         UserStoryFilePaths paths,
         ClarificationAssessment clarification,
+        string captureTolerance,
         CancellationToken cancellationToken)
     {
         var existing = await ReadClarificationSessionAsync(paths, cancellationToken);
@@ -960,7 +963,7 @@ public sealed class WorkflowRunner
             .ToArray();
         var session = new ClarificationSession(
             clarification.IsReady ? "ready_for_refinement" : "needs_clarification",
-            ReadCaptureTolerance(),
+            captureTolerance,
             clarification.Reason,
             items);
         await PersistClarificationSessionAsync(paths, session, cancellationToken);
@@ -1003,12 +1006,6 @@ public sealed class WorkflowRunner
             var cleaned = UserStoryClarificationMarkdown.Remove(userStoryMarkdown);
             await File.WriteAllTextAsync(paths.MainArtifactPath, cleaned, cancellationToken);
         }
-    }
-
-    private static string ReadCaptureTolerance()
-    {
-        var configured = Environment.GetEnvironmentVariable("SPECFORGE_CAPTURE_TOLERANCE")?.Trim().ToLowerInvariant();
-        return configured is "strict" or "balanced" or "inferential" ? configured : "balanced";
     }
 
     private static void ValidateRequired(string value, string paramName)
