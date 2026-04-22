@@ -1,22 +1,13 @@
 import type { UserStoryWorkflowDetails, WorkflowPhaseDetails } from "./backendClient";
-import type { SuggestedContextFile } from "./contextSuggestions";
-
-export interface WorkflowViewState {
-  readonly selectedPhaseId: string;
-  readonly selectedIterationArtifactPath?: string | null;
-  readonly selectedArtifactContent: string | null;
-  readonly selectedOperationContent?: string | null;
-  readonly contextSuggestions: readonly SuggestedContextFile[];
-  readonly settingsConfigured: boolean;
-  readonly settingsMessage: string | null;
-  readonly runtimeVersion?: string | null;
-  readonly executionPhaseId?: string | null;
-  readonly completedPhaseIds?: readonly string[];
-  readonly debugMode?: boolean;
-  readonly approvalBaseBranchProposal?: string | null;
-  readonly approvalWorkBranchProposal?: string | null;
-  readonly requireExplicitApprovalBranchAcceptance?: boolean;
-}
+import { buildCapturePhaseSections } from "./workflow-view/capturePhaseView";
+import { buildClarificationPhaseSections } from "./workflow-view/clarificationPhaseView";
+import { buildImplementationPhaseSections } from "./workflow-view/implementationPhaseView";
+import type { ApprovalQuestionItem, PhaseIterationItem, PhaseSectionFragments, WorkflowViewState } from "./workflow-view/models";
+import { buildPrPreparationPhaseSections } from "./workflow-view/prPreparationPhaseView";
+import { buildRefinementPhaseSections } from "./workflow-view/refinementPhaseView";
+import { buildReleaseApprovalPhaseSections } from "./workflow-view/releaseApprovalPhaseView";
+import { buildReviewPhaseSections } from "./workflow-view/reviewPhaseView";
+import { buildTechnicalDesignPhaseSections } from "./workflow-view/technicalDesignPhaseView";
 
 interface ExecutionOverlayModel {
   readonly usId: string;
@@ -32,25 +23,6 @@ interface ArtifactQuestionBlock {
   readonly decision: string | null;
   readonly reason: string | null;
   readonly questions: readonly string[];
-}
-
-interface ApprovalQuestionItem {
-  readonly index: number;
-  readonly question: string;
-  readonly answer: string | null;
-  readonly resolved: boolean;
-  readonly answeredBy: string | null;
-  readonly answeredAtUtc: string | null;
-}
-
-interface PhaseIterationItem {
-  readonly timestampUtc: string;
-  readonly code: string;
-  readonly actor: string | null;
-  readonly summary: string | null;
-  readonly artifactPath: string;
-  readonly usage: { inputTokens: number; outputTokens: number; totalTokens: number } | null;
-  readonly durationMs: number | null;
 }
 
 type PhaseVisualTone = "active" | "waiting-user" | "paused" | "blocked" | "completed" | "pending" | "disabled";
@@ -252,6 +224,60 @@ function buildPhaseIterations(workflow: UserStoryWorkflowDetails, phaseId: strin
   }
 
   return iterations;
+}
+
+function buildPhaseSpecificSections(
+  workflow: UserStoryWorkflowDetails,
+  selectedPhase: WorkflowPhaseDetails,
+  state: WorkflowViewState,
+  artifactPreviewHtml: string | null,
+  artifactQuestionBlock: ArtifactQuestionBlock | null,
+  refinementApprovalQuestions: readonly ApprovalQuestionItem[],
+  unresolvedApprovalQuestionCount: number
+): PhaseSectionFragments {
+  switch (selectedPhase.phaseId) {
+    case "capture":
+      return buildCapturePhaseSections({
+        selectedPhase,
+        selectedArtifactContent: state.selectedArtifactContent,
+        artifactPreviewHtml,
+        buildArtifactPreviewSection
+      });
+    case "clarification":
+      return buildClarificationPhaseSections({
+        workflow,
+        selectedPhase,
+        state,
+        heroTokenClass,
+        escapeHtml,
+        escapeHtmlAttribute
+      });
+    case "refinement":
+      return buildRefinementPhaseSections({
+        workflow,
+        selectedPhase,
+        state,
+        artifactQuestionBlock,
+        refinementApprovalQuestions,
+        unresolvedApprovalQuestionCount,
+        escapeHtml,
+        escapeHtmlAttribute,
+        heroTokenClass,
+        formatUtcTimestamp
+      });
+    case "technical-design":
+      return buildTechnicalDesignPhaseSections();
+    case "implementation":
+      return buildImplementationPhaseSections();
+    case "review":
+      return buildReviewPhaseSections();
+    case "release-approval":
+      return buildReleaseApprovalPhaseSections();
+    case "pr-preparation":
+      return buildPrPreparationPhaseSections();
+    default:
+      return { beforeArtifact: [], afterArtifact: [] };
+  }
 }
 
 const genericExecutionMessages = [
@@ -608,66 +634,29 @@ export function buildWorkflowHtml(
     0
   );
   const selectedPhaseIterationCount = selectedPhaseMetricEvents.length;
+  const phaseSpecificSections = buildPhaseSpecificSections(
+    workflow,
+    selectedPhase,
+    state,
+    artifactPreviewHtml,
+    artifactQuestionBlock,
+    refinementApprovalQuestions,
+    unresolvedApprovalQuestionCount
+  );
   const detailRejectCommand = selectedPhase.isCurrent && workflow.controls.regressionTargets.length > 0
     ? { command: "regress", phaseId: workflow.controls.regressionTargets[0] }
     : selectedPhase.isCurrent && workflow.controls.canRestartFromSource
       ? { command: "restart", phaseId: undefined }
       : null;
-  const approvalBranchEditorVisible = shouldRenderApprovalBranchEditor(workflow, selectedPhase);
-  const approvalBaseBranchProposal = state.approvalBaseBranchProposal?.trim() || "main";
-  const approvalWorkBranchProposal = state.approvalWorkBranchProposal?.trim() || workflow.workBranch?.trim() || "";
-  const requiresExplicitApprovalBranchAcceptance = Boolean(state.requireExplicitApprovalBranchAcceptance);
   const selectedPhaseStateClass = heroTokenClass(selectedPhase.state);
   const detailActions = selectedPhase.isCurrent && (workflow.controls.canApprove || detailRejectCommand)
     ? `
       <div class="detail-actions detail-actions--phase-header">
         ${workflow.controls.canApprove
-          ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${approvalBranchEditorVisible && requiresExplicitApprovalBranchAcceptance || unresolvedApprovalQuestionCount > 0 ? " disabled" : ""}>Approve</button>`
+          ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${shouldRenderApprovalBranchEditor(workflow, selectedPhase) && Boolean(state.requireExplicitApprovalBranchAcceptance) || unresolvedApprovalQuestionCount > 0 ? " disabled" : ""}>Approve</button>`
           : ""}
         ${detailRejectCommand ? `<button class="workflow-action-button workflow-action-button--danger" data-command="${detailRejectCommand.command}"${detailRejectCommand.phaseId ? ` data-phase-id="${escapeHtmlAttribute(detailRejectCommand.phaseId)}"` : ""}>Reject</button>` : ""}
       </div>
-    `
-    : "";
-  const approvalBranchSection = approvalBranchEditorVisible
-    ? `
-      <section class="detail-card detail-card--approval-branch" data-approval-branch-shell data-require-explicit-approval-branch-acceptance="${requiresExplicitApprovalBranchAcceptance ? "true" : "false"}">
-        <div class="approval-branch__copy">
-          <h3>Approval Branch</h3>
-          <p>Confirm the base branch used to create the user story work branch before approving the refinement.</p>
-        </div>
-        <div class="approval-branch__controls">
-          <label class="approval-branch__field" for="approval-base-branch">Base Branch</label>
-          <div class="approval-branch__input-row">
-            <input
-              id="approval-base-branch"
-              class="approval-branch__input"
-              type="text"
-              value="${escapeHtmlAttribute(approvalBaseBranchProposal)}"
-              data-approval-base-branch-input
-              spellcheck="false"
-              autocomplete="off" />
-            ${requiresExplicitApprovalBranchAcceptance
-              ? `<button type="button" class="workflow-action-button workflow-action-button--progress approval-branch__accept" data-approval-branch-accept>Accept</button>`
-              : ""}
-            <span class="approval-branch__accepted" data-approval-branch-accepted hidden>Accepted ✓</span>
-          </div>
-          <p class="approval-branch__hint" data-approval-branch-hint>
-            ${requiresExplicitApprovalBranchAcceptance
-              ? "Approve stays disabled until you accept this branch value explicitly."
-              : "You can approve directly, and the current branch value will be sent with the action."}
-          </p>
-          <label class="approval-branch__field" for="approval-work-branch">Work Branch</label>
-          <input
-            id="approval-work-branch"
-            class="approval-branch__input"
-            type="text"
-            value="${escapeHtmlAttribute(approvalWorkBranchProposal)}"
-            data-approval-work-branch-input
-            spellcheck="false"
-            autocomplete="off" />
-          <p class="approval-branch__hint">This is the branch that will be created after approval. You can edit the proposed name before continuing.</p>
-        </div>
-      </section>
     `
     : "";
   const durationMetric = selectedPhaseDurationAggregate > 0
@@ -772,18 +761,6 @@ export function buildWorkflowHtml(
         state.selectedArtifactContent ?? "Artifact content unavailable."
       )
     : "<p class=\"muted\">No artifact is persisted for this phase.</p>";
-  const captureSourceSection = selectedPhase.phaseId === "capture" && selectedPhase.artifactPath
-    ? `
-      <section class="detail-card">
-        <h3>User Story Source</h3>
-        ${buildArtifactPreviewSection(
-          selectedPhase.artifactPath,
-          artifactPreviewHtml,
-          state.selectedArtifactContent ?? "Artifact content unavailable."
-        )}
-      </section>
-    `
-    : "";
   const promptButtons = [
     selectedPhase.executePromptPath
       ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${escapeHtmlAttribute(selectedPhase.executePromptPath)}">Open Execute Prompt</button>`
@@ -795,120 +772,6 @@ export function buildWorkflowHtml(
   const promptSection = promptButtons
     ? `<div class="detail-actions">${promptButtons}</div>`
     : "<p class=\"muted\">This phase does not expose prompt templates from the current repo bootstrap.</p>";
-  const phaseOperationSection = selectedPhase.phaseId === "refinement"
-    ? `
-      <div class="phase-input-shell">
-        <p class="phase-input-copy">
-          Operate over the current spec without leaving the workflow. The prompt is recorded as an auditable operation with
-          source artifact, actor, UTC timestamp, and resulting spec version.
-        </p>
-        <label class="phase-input-label" for="phase-input-textarea">Operate Current Spec</label>
-        <textarea
-          id="phase-input-textarea"
-          class="phase-input-textarea"
-          rows="8"
-          placeholder="Describe the correction or adjustment to apply over the current spec. Example: the background color is not green, it is blue."
-          ${selectedPhase.isCurrent ? "" : "disabled"}></textarea>
-        <div class="detail-actions detail-actions--phase-input">
-          <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.operationLogPath ?? "")}" ${selectedPhase.operationLogPath ? "" : "disabled"}>Open Operation Log</button>
-          <button id="submit-phase-input" class="workflow-action-button workflow-action-button--progress" ${selectedPhase.isCurrent ? "" : "disabled"}>Apply via Model</button>
-        </div>
-        ${state.selectedOperationContent
-          ? `<div class="phase-input-log"><div class="phase-input-log__header">Current operation log</div><pre class="artifact-preview">${escapeHtml(state.selectedOperationContent)}</pre></div>`
-          : "<p class=\"muted\">No model-assisted operations have been recorded for this spec yet.</p>"}
-      </div>
-    `
-    : "";
-  const refinementApprovalQuestionsSection = refinementApprovalQuestions.length > 0
-    ? `
-      <section class="detail-card detail-card--approval-questions">
-        <h3>Human Approval Questions</h3>
-        <p class="panel-copy">These are the open decisions the approver still needs to resolve before freezing the spec baseline. Pending questions stay amber. Answered questions turn green. Approval stays disabled until all are resolved.</p>
-        <div class="approval-question-list">
-          ${refinementApprovalQuestions.map((item) => `
-            <article
-              class="approval-question-item${item.resolved ? " approval-question-item--resolved" : " approval-question-item--pending"}"
-              data-approval-question-item
-              data-approval-question-index="${item.index}">
-              <button
-                class="approval-question-item__toggle"
-                type="button"
-                data-approval-question-toggle
-                data-approval-question-index="${item.index}">
-                <span class="approval-question-item__index">${item.index}</span>
-                <span class="approval-question-item__body">${escapeHtml(item.question)}</span>
-                <span class="approval-question-item__status">${item.resolved ? "Resolved" : "Pending"}</span>
-              </button>
-              <div class="approval-question-item__editor" data-approval-question-editor${item.resolved ? " hidden" : ""}>
-                <label class="approval-question-item__label" for="approval-answer-${item.index}">
-                  ${item.resolved ? "Update answer" : "Provide answer"}
-                </label>
-                ${item.resolved && (item.answeredBy || item.answeredAtUtc)
-                  ? `<div class="approval-question-item__meta">${[
-                    item.answeredBy ? `Answered by ${escapeHtml(item.answeredBy)}` : "",
-                    item.answeredAtUtc ? escapeHtml(formatUtcTimestamp(item.answeredAtUtc)) : ""
-                  ].filter(Boolean).join(" · ")}</div>`
-                  : ""}
-                <textarea
-                  id="approval-answer-${item.index}"
-                  class="approval-question-item__textarea"
-                  data-approval-answer-input
-                  data-index="${item.index}"
-                  data-question="${escapeHtmlAttribute(item.question)}"
-                  rows="4"
-                  placeholder="Write the human answer that should be reflected in the spec and persisted in the approval questions section.">${escapeHtml(item.answer ?? "")}</textarea>
-                <div class="detail-actions">
-                  <button
-                    class="workflow-action-button workflow-action-button--progress"
-                    type="button"
-                    data-approval-answer-apply
-                    data-index="${item.index}"
-                    ${selectedPhase.isCurrent ? "" : "disabled"}>
-                    ${item.resolved ? "Update Answer" : "Apply Answer"}
-                  </button>
-                </div>
-              </div>
-            </article>
-          `).join("")}
-        </div>
-      </section>
-    `
-    : "";
-  const refinementClarificationSection = selectedPhase.phaseId === "refinement"
-    && artifactQuestionBlock?.decision?.toLowerCase() === "needs_clarification"
-    ? `
-      <section class="detail-card detail-card--artifact-questions">
-        <h3>Refinement Questions</h3>
-        <div class="clarification-meta">
-          ${artifactQuestionBlock.state ? `<span class="badge">${escapeHtml(artifactQuestionBlock.state)}</span>` : ""}
-          <span class="badge${heroTokenClass(artifactQuestionBlock.decision)}">${escapeHtml(artifactQuestionBlock.decision)}</span>
-        </div>
-        ${artifactQuestionBlock.reason ? `<p class="clarification-reason">${escapeHtml(artifactQuestionBlock.reason)}</p>` : ""}
-        ${artifactQuestionBlock.questions.length > 0
-          ? `
-            <div class="clarification-list">
-              ${artifactQuestionBlock.questions.map((question, index) => `
-                <label class="clarification-item">
-                  <span class="clarification-question">${index + 1}. ${escapeHtml(question)}</span>
-                  <textarea
-                    class="clarification-answer"
-                    data-refinement-question-answer
-                    data-index="${index + 1}"
-                    rows="3"
-                    placeholder="Write the answer and apply it back into the current spec via model."></textarea>
-                </label>
-              `).join("")}
-            </div>
-            <div class="detail-actions">
-              <button id="submit-refinement-questions" class="workflow-action-button workflow-action-button--progress" ${selectedPhase.isCurrent ? "" : "disabled"}>
-                Apply Answers via Model
-              </button>
-            </div>
-          `
-          : "<p class=\"muted\">The artifact requests clarification, but no structured questions were detected.</p>"}
-      </section>
-    `
-    : "";
   const contextFiles = workflow.contextFiles ?? [];
   const workflowFilesSection = `
     <section class="file-group">
@@ -971,74 +834,6 @@ export function buildWorkflowHtml(
       </section>
     </div>
   `;
-  const clarificationSuggestionsSection = `
-    <div class="clarification-context">
-      <div class="clarification-context__copy">
-        <h4>Need more repo context?</h4>
-        <p>
-          If the model is blocked by missing repository knowledge, add code, tests, configs, or docs as
-          <strong> Context</strong>. Those files are injected into execution. <strong>US Info</strong> stays attached
-          to the story, but is not sent to the model by default.
-        </p>
-      </div>
-      <div class="detail-actions detail-actions--files detail-actions--clarification">
-        <button class="workflow-action-button workflow-action-button--document" data-command="attachFiles" data-kind="context">Add Context Files</button>
-        ${state.contextSuggestions.length > 1
-          ? `<button class="workflow-action-button workflow-action-button--document" data-add-suggested-context-files='${escapeHtmlAttribute(JSON.stringify(state.contextSuggestions.map((item) => item.path)))}'>Add All Suggested</button>`
-          : ""}
-      </div>
-      ${state.contextSuggestions.length > 0
-        ? `
-          <div class="clarification-suggestions">
-            ${state.contextSuggestions.map((suggestion) => `
-              <div class="clarification-suggestion">
-                <div class="clarification-suggestion__body">
-                  <strong>${escapeHtml(suggestion.relativePath)}</strong>
-                  <span>${escapeHtml(suggestion.reason)}</span>
-                </div>
-                <button class="workflow-action-button workflow-action-button--document workflow-action-button--compact" data-command="addSuggestedContextFile" data-path="${escapeHtmlAttribute(suggestion.path)}">Add to Context</button>
-              </div>
-            `).join("")}
-          </div>
-        `
-        : `<p class="muted">No local context suggestions matched this clarification yet. You can still add files manually.</p>`}
-    </div>
-  `;
-  const clarificationSection = selectedPhase.phaseId === "clarification" && workflow.clarification
-    ? `
-      <div class="clarification-shell">
-        <div class="clarification-meta">
-          <span class="badge${heroTokenClass(workflow.clarification.status)}">${escapeHtml(workflow.clarification.status)}</span>
-          <span class="badge">${escapeHtml(workflow.clarification.tolerance)}</span>
-        </div>
-        ${workflow.clarification.reason ? `<p class="clarification-reason">${escapeHtml(workflow.clarification.reason)}</p>` : ""}
-        ${workflow.clarification.items.length > 0
-      ? `
-            <div class="clarification-list">
-              ${workflow.clarification.items.map((item) => `
-                <label class="clarification-item">
-                  <span class="clarification-question">${item.index}. ${escapeHtml(item.question)}</span>
-                  <textarea
-                    class="clarification-answer"
-                    data-clarification-answer
-                    data-index="${item.index}"
-                    rows="3"
-                    placeholder="Write the answer that should remain persisted in us.md">${escapeHtml(item.answer ?? "")}</textarea>
-                </label>
-              `).join("")}
-            </div>
-            <div class="detail-actions">
-              <button id="submit-clarification-answers" class="workflow-action-button workflow-action-button--progress" ${selectedPhase.isCurrent ? "" : "disabled"}>
-                Submit Answers
-              </button>
-            </div>
-          `
-      : "<p class=\"muted\">No clarification questions are currently registered for this user story.</p>"}
-        ${clarificationSuggestionsSection}
-      </div>
-    `
-    : "";
-
   const playbackButtons = `
     <button class="icon-button icon-button--primary${shouldPulsePlay ? " icon-button--pulse" : ""}" data-command="play" aria-label="Play workflow"${playDisabled ? " disabled" : ""}>
       ${playIcon()}
@@ -3001,32 +2796,14 @@ export function buildWorkflowHtml(
           ${selectedPhaseMetrics ? `<div class="detail-metrics">${selectedPhaseMetrics}</div>` : ""}
           </section>
         </div>
-        ${approvalBranchSection}
-        ${captureSourceSection}
+        ${phaseSpecificSections.beforeArtifact.join("")}
         ${iterationRail}
         ${iterationDetailSection}
-        ${refinementClarificationSection}
-        ${refinementApprovalQuestionsSection}
         <section class="detail-card">
           <h3>Artifact</h3>
           ${artifactSection}
         </section>
-        ${phaseOperationSection
-      ? `
-            <section class="detail-card">
-              <h3>Operate Current Spec</h3>
-              ${phaseOperationSection}
-            </section>
-          `
-      : ""}
-        ${clarificationSection
-      ? `
-            <section class="detail-card">
-              <h3>Clarification</h3>
-              ${clarificationSection}
-            </section>
-          `
-      : ""}
+        ${phaseSpecificSections.afterArtifact.join("")}
         <section class="detail-card">
           <h3>Phase Prompts</h3>
           ${promptSection}
