@@ -77,9 +77,7 @@ function buildRefinementPhaseSections(args) {
                     type="button"
                     class="copy-question-button"
                     data-copy-text="${escapeHtmlAttribute(item.question)}"
-                    aria-label="Copy approval question ${item.index}">
-                    Copy
-                  </button>
+                    aria-label="Copy approval question ${item.index}">${renderCopyQuestionIcon()}</button>
                 </span>
               </div>
               <div class="approval-question-item__editor" data-approval-question-editor${item.resolved ? " hidden" : ""}>
@@ -138,9 +136,7 @@ function buildRefinementPhaseSections(args) {
                       type="button"
                       class="copy-question-button"
                       data-copy-text="${escapeHtmlAttribute(question)}"
-                      aria-label="Copy refinement question ${index + 1}">
-                      Copy
-                    </button>
+                      aria-label="Copy refinement question ${index + 1}">${renderCopyQuestionIcon()}</button>
                   </span>
                   <textarea
                     class="clarification-answer"
@@ -196,5 +192,19 @@ function buildRefinementPhaseSections(args) {
         ],
         afterArtifact: phaseOperationSection ? [phaseOperationSection] : []
     };
+}
+function renderCopyQuestionIcon() {
+    return `
+    <span class="copy-question-button__icon copy-question-button__icon--copy" aria-hidden="true">
+      <svg viewBox="0 0 24 24" focusable="false">
+        <path d="M9 9.75A2.75 2.75 0 0 1 11.75 7h6.5A2.75 2.75 0 0 1 21 9.75v8.5A2.75 2.75 0 0 1 18.25 21h-6.5A2.75 2.75 0 0 1 9 18.25v-8.5Zm2.75-1.25c-.69 0-1.25.56-1.25 1.25v8.5c0 .69.56 1.25 1.25 1.25h6.5c.69 0 1.25-.56 1.25-1.25v-8.5c0-.69-.56-1.25-1.25-1.25h-6.5ZM5.75 3h6.5A2.75 2.75 0 0 1 15 5.75V6.5h-1.5v-.75c0-.69-.56-1.25-1.25-1.25h-6.5c-.69 0-1.25.56-1.25 1.25v8.5c0 .69.56 1.25 1.25 1.25h.75V17h-.75A2.75 2.75 0 0 1 3 14.25v-8.5A2.75 2.75 0 0 1 5.75 3Z"></path>
+      </svg>
+    </span>
+    <span class="copy-question-button__icon copy-question-button__icon--done" aria-hidden="true">
+      <svg viewBox="0 0 24 24" focusable="false">
+        <path d="M9.55 16.6 5.7 12.75l1.06-1.06 2.8 2.8 7.68-7.68 1.06 1.06-8.74 8.73Z"></path>
+      </svg>
+    </span>
+  `;
 }
 //# sourceMappingURL=refinementPhaseView.js.map

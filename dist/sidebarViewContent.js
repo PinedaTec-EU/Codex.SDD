@@ -1648,6 +1648,7 @@ function sortStoriesByPhase(items) {
 function buildStoryRowMarkup(summary, starredUserStoryId, activeWorkflowUsId) {
     const isActiveWorkflow = activeWorkflowUsId === summary.usId;
     const statusTone = phaseRailStatus(summary.status);
+    const displayTitle = buildStoryDisplayTitle(summary);
     return `
     <div class="story-row story-row--shell story-row--status-${escapeHtmlAttr(statusTone)}${isActiveWorkflow ? " story-row--selected" : ""}">
       <button class="story-card${shouldRenderPhaseRail(summary.status) ? ` story-card--active story-card--phase-${escapeHtmlAttr(summary.currentPhase)} story-card--status-${escapeHtmlAttr(phaseRailStatus(summary.status))}` : ""}" data-command="openWorkflow" data-us-id="${escapeHtmlAttr(summary.usId)}">
@@ -1660,7 +1661,7 @@ function buildStoryRowMarkup(summary, starredUserStoryId, activeWorkflowUsId) {
         : ""}
         <span class="story-card__content">
           <span class="story-card__id">${escapeHtml(summary.usId)}</span>
-          <strong>${escapeHtml(summary.title)}</strong>
+          <strong>${escapeHtml(displayTitle)}</strong>
           <span class="story-card__meta">${escapeHtml(summary.currentPhase)} · ${escapeHtml(summary.status)}</span>
         </span>
       </button>
@@ -1684,6 +1685,16 @@ function buildStoryRowMarkup(summary, starredUserStoryId, activeWorkflowUsId) {
       </div>
     </div>
   `;
+}
+function buildStoryDisplayTitle(summary) {
+    const normalizedTitle = summary.title.trim();
+    if (!normalizedTitle) {
+        return summary.usId;
+    }
+    return normalizedTitle.startsWith(`${summary.usId} `) || normalizedTitle.startsWith(`${summary.usId}·`)
+        || normalizedTitle.startsWith(`${summary.usId}-`) || normalizedTitle.startsWith(`${summary.usId}:`)
+        ? normalizedTitle.slice(summary.usId.length).trimStart().replace(/^[·\-:]\s*/, "")
+        : normalizedTitle;
 }
 function escapeHtml(value) {
     return value
