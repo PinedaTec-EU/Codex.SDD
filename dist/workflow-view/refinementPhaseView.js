@@ -62,15 +62,26 @@ function buildRefinementPhaseSections(args) {
               class="approval-question-item${item.resolved ? " approval-question-item--resolved" : " approval-question-item--pending"}"
               data-approval-question-item
               data-approval-question-index="${item.index}">
-              <button
-                class="approval-question-item__toggle"
-                type="button"
-                data-approval-question-toggle
-                data-approval-question-index="${item.index}">
-                <span class="approval-question-item__index">${item.index}</span>
-                <span class="approval-question-item__body">${escapeHtml(item.question)}</span>
-                <span class="approval-question-item__status">${item.resolved ? "Resolved" : "Pending"}</span>
-              </button>
+              <div class="approval-question-item__head">
+                <button
+                  class="approval-question-item__toggle"
+                  type="button"
+                  data-approval-question-toggle
+                  data-approval-question-index="${item.index}">
+                  <span class="approval-question-item__index">${item.index}</span>
+                  <span class="approval-question-item__body">${escapeHtml(item.question)}</span>
+                  <span class="approval-question-item__status">${item.resolved ? "Resolved" : "Pending"}</span>
+                </button>
+                <span class="approval-question-item__actions">
+                  <button
+                    type="button"
+                    class="copy-question-button"
+                    data-copy-text="${escapeHtmlAttribute(item.question)}"
+                    aria-label="Copy approval question ${item.index}">
+                    Copy
+                  </button>
+                </span>
+              </div>
               <div class="approval-question-item__editor" data-approval-question-editor${item.resolved ? " hidden" : ""}>
                 <label class="approval-question-item__label" for="approval-answer-${item.index}">
                   ${item.resolved ? "Update answer" : "Provide answer"}
@@ -121,7 +132,16 @@ function buildRefinementPhaseSections(args) {
             <div class="clarification-list">
               ${artifactQuestionBlock.questions.map((question, index) => `
                 <label class="clarification-item">
-                  <span class="clarification-question">${index + 1}. ${escapeHtml(question)}</span>
+                  <span class="clarification-question-row">
+                    <span class="clarification-question">${index + 1}. ${escapeHtml(question)}</span>
+                    <button
+                      type="button"
+                      class="copy-question-button"
+                      data-copy-text="${escapeHtmlAttribute(question)}"
+                      aria-label="Copy refinement question ${index + 1}">
+                      Copy
+                    </button>
+                  </span>
                   <textarea
                     class="clarification-answer"
                     data-refinement-question-answer

@@ -49,7 +49,16 @@ function buildClarificationPhaseSections(args) {
             <div class="clarification-list">
               ${workflow.clarification.items.map((item) => `
                 <label class="clarification-item">
-                  <span class="clarification-question">${item.index}. ${escapeHtml(item.question)}</span>
+                  <span class="clarification-question-row">
+                    <span class="clarification-question">${item.index}. ${escapeHtml(item.question)}</span>
+                    <button
+                      type="button"
+                      class="copy-question-button"
+                      data-copy-text="${escapeHtmlAttribute(item.question)}"
+                      aria-label="Copy question ${item.index}">
+                      Copy
+                    </button>
+                  </span>
                   <textarea
                     class="clarification-answer"
                     data-clarification-answer

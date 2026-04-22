@@ -2032,6 +2032,12 @@ export function buildWorkflowHtml(
       border-color: rgba(127, 240, 165, 0.24);
       background: rgba(46, 160, 67, 0.08);
     }
+    .approval-question-item__head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: start;
+    }
     .approval-question-item__toggle {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr) auto;
@@ -2068,6 +2074,10 @@ export function buildWorkflowHtml(
       margin: 0;
       line-height: 1.5;
       color: rgba(248, 244, 226, 0.92);
+    }
+    .approval-question-item__actions {
+      display: inline-flex;
+      align-items: center;
     }
     .approval-question-item--resolved .approval-question-item__body {
       color: rgba(225, 255, 236, 0.94);
@@ -2430,10 +2440,40 @@ export function buildWorkflowHtml(
       display: grid;
       gap: 8px;
     }
+    .clarification-question-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
     .clarification-question {
       font-size: 0.92rem;
       font-weight: 600;
       line-height: 1.45;
+    }
+    .copy-question-button {
+      flex: 0 0 auto;
+      min-width: 0;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(233, 240, 250, 0.76);
+      font: inherit;
+      font-size: 0.72rem;
+      line-height: 1;
+      cursor: pointer;
+      transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+    }
+    .copy-question-button:hover {
+      border-color: rgba(92, 181, 255, 0.3);
+      background: rgba(92, 181, 255, 0.1);
+      color: rgba(232, 245, 255, 0.92);
+    }
+    .copy-question-button.is-copied {
+      border-color: rgba(114, 241, 184, 0.34);
+      background: rgba(114, 241, 184, 0.14);
+      color: rgba(190, 255, 221, 0.96);
     }
     .clarification-answer {
       width: 100%;
@@ -2818,6 +2858,21 @@ export function buildWorkflowHtml(
   <script>
     const vscode = acquireVsCodeApi();
     const viewState = vscode.getState() ?? {};
+    function copyPlainText(text) {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "true");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      textarea.style.pointerEvents = "none";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+      const copied = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return copied;
+    }
     for (const element of document.querySelectorAll("[data-command]")) {
       if (element instanceof HTMLElement && element.dataset.command === "approve") {
         continue;
@@ -2830,6 +2885,28 @@ export function buildWorkflowHtml(
           path: element.dataset.path,
           kind: element.dataset.kind
         });
+      });
+    }
+    for (const element of document.querySelectorAll("[data-copy-text]")) {
+      if (!(element instanceof HTMLButtonElement)) {
+        continue;
+      }
+
+      element.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const text = element.dataset.copyText ?? "";
+        if (!text || !copyPlainText(text)) {
+          return;
+        }
+
+        element.classList.add("is-copied");
+        const originalText = element.textContent ?? "Copy";
+        element.textContent = "Copied";
+        window.setTimeout(() => {
+          element.textContent = originalText;
+          element.classList.remove("is-copied");
+        }, 1200);
       });
     }
 
