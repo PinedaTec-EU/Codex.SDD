@@ -2834,26 +2834,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           return;
         }
 
-        const prompt = [
-          "Update the current refinement artifact using this human approval answer.",
-          "Preserve the existing section structure unless the spec itself needs a structural correction.",
-          "Update the relevant sections of the spec to reflect the approved decision.",
-          "Rewrite the Human Approval Questions section as an explicit checklist.",
-          "For answered items use this exact pattern:",
-          "- [x] <question>",
-          "  - Answer: <resolved answer>",
-          "For still-pending items use this exact pattern:",
-          "- [ ] <question>",
-          "Preserve any already resolved approval questions and their answers.",
-          "",
-          "Approval answer to apply:",
-          "Q: " + question,
-          "A: " + answer
-        ].join("\\n");
-
         vscode.postMessage({
-          command: "submitPhaseInput",
-          prompt
+          command: "submitApprovalAnswer",
+          question,
+          answer
         });
       });
     }

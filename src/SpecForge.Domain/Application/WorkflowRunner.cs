@@ -88,6 +88,7 @@ public sealed class WorkflowRunner
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        var branchWasMissing = workflowRun.Branch is null;
         await EnsureCurrentPhaseIsApprovableAsync(paths, workflowRun.CurrentPhase, cancellationToken);
         var metadata = await ReadUserStoryMetadataAsync(paths.MainArtifactPath, usId, cancellationToken);
         var workBranchName = string.IsNullOrWhiteSpace(workBranch)
@@ -110,7 +111,7 @@ public sealed class WorkflowRunner
             $"Phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}` approved.",
             cancellationToken);
 
-        if (workflowRun.Branch is not null && workflowRun.CurrentPhase == PhaseId.Refinement)
+        if (branchWasMissing && workflowRun.Branch is not null && workflowRun.CurrentPhase == PhaseId.Refinement)
         {
             await AppendTimelineEventAsync(
                 paths.TimelineFilePath,
@@ -120,6 +121,57 @@ public sealed class WorkflowRunner
                 $"Created branch `{workflowRun.Branch.WorkBranchName}` from `{workflowRun.Branch.BaseBranch}`.",
                 cancellationToken);
         }
+    }
+
+    public async Task<SubmitApprovalAnswerResult> SubmitApprovalAnswerAsync(
+        string workspaceRoot,
+        string usId,
+        string question,
+        string answer,
+        string actor = "user",
+        CancellationToken cancellationToken = default)
+    {
+        ValidateRequired(question, nameof(question));
+        ValidateRequired(answer, nameof(answer));
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
+        var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        if (workflowRun.CurrentPhase != PhaseId.Refinement)
+        {
+            throw new WorkflowDomainException("Approval answers can only be recorded while the workflow is in the refinement phase.");
+        }
+
+        var currentArtifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Refinement)
+            ?? throw new WorkflowDomainException("The refinement artifact does not exist yet.");
+        var currentArtifact = await File.ReadAllTextAsync(currentArtifactPath, cancellationToken);
+        var updatedArtifact = ApprovalQuestionMarkdown.ApplyAnswer(currentArtifact, question.Trim(), answer.Trim());
+        updatedArtifact = PrependHistoryEntry(
+            updatedArtifact,
+            $"- `{DateTimeOffset.UtcNow:O}` · Recorded human approval answer for: {SummarizeQuestion(question)}");
+
+        var generatedArtifactPath = NextAvailableArtifactPath(paths, PhaseId.Refinement);
+        await File.WriteAllTextAsync(generatedArtifactPath, updatedArtifact, cancellationToken);
+
+        if (workflowRun.IsPhaseApproved(PhaseId.Refinement))
+        {
+            workflowRun.ReopenCurrentPhaseApproval();
+            await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+        }
+
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "approval_answer_recorded",
+            NormalizeActor(actor),
+            workflowRun.CurrentPhase,
+            $"Recorded human approval answer for refinement question `{SummarizeQuestion(question)}`.",
+            cancellationToken,
+            generatedArtifactPath);
+
+        return new SubmitApprovalAnswerResult(
+            workflowRun.UsId,
+            WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
+            WorkflowPresentation.ToStatusSlug(workflowRun.Status),
+            generatedArtifactPath);
     }
 
     public async Task<RequestRegressionResult> RequestRegressionAsync(
@@ -267,6 +319,16 @@ public sealed class WorkflowRunner
             var clarificationResult = await ContinueFromCaptureOrClarificationAsync(workspaceRoot, paths, workflowRun, cancellationToken);
             await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
             return new ContinuePhaseResult(workflowRun.UsId, workflowRun.CurrentPhase, workflowRun.Status, clarificationResult.ArtifactPath, clarificationResult.Usage);
+        }
+
+        if (workflowRun.CurrentPhase == PhaseId.Refinement)
+        {
+            var validationResult = await ValidateApprovedRefinementAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+            if (validationResult is not null)
+            {
+                await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+                return validationResult;
+            }
         }
 
         workflowRun.GenerateNextPhase();
@@ -707,6 +769,67 @@ public sealed class WorkflowRunner
         SpecBaselineSchemaValidator.EnsureValid(markdown);
     }
 
+    private async Task<ContinuePhaseResult?> ValidateApprovedRefinementAsync(
+        string workspaceRoot,
+        UserStoryFilePaths paths,
+        WorkflowRun workflowRun,
+        CancellationToken cancellationToken)
+    {
+        if (!workflowRun.IsPhaseApproved(PhaseId.Refinement))
+        {
+            return null;
+        }
+
+        var sourceArtifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Refinement)
+            ?? throw new WorkflowDomainException("The approved refinement artifact does not exist.");
+        var validationPrompt = BuildRefinementApprovalValidationPrompt();
+        var generation = await MaterializePhaseArtifactAsync(
+            workspaceRoot,
+            paths,
+            workflowRun,
+            sourceArtifactPath,
+            validationPrompt,
+            cancellationToken);
+
+        var generatedMarkdown = await File.ReadAllTextAsync(generation.ArtifactPath, cancellationToken);
+        var unresolvedQuestions = ApprovalQuestionMarkdown.GetUnresolvedQuestions(
+            MarkdownHelper.TryReadSection(generatedMarkdown, "## Human Approval Questions") ?? string.Empty);
+
+        if (unresolvedQuestions.Count == 0)
+        {
+            await AppendTimelineEventAsync(
+                paths.TimelineFilePath,
+                "refinement_validated",
+                "system",
+                workflowRun.CurrentPhase,
+                "Validated the approved refinement baseline before advancing to technical design.",
+                cancellationToken,
+                generation.ArtifactPath,
+                generation.Usage,
+                generation.DurationMs);
+            return null;
+        }
+
+        workflowRun.ReopenCurrentPhaseApproval();
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "approval_questions_requested",
+            "system",
+            workflowRun.CurrentPhase,
+            $"Refinement validation requested additional human approval input. Remaining questions: {string.Join(" | ", unresolvedQuestions)}.",
+            cancellationToken,
+            generation.ArtifactPath,
+            generation.Usage,
+            generation.DurationMs);
+
+        return new ContinuePhaseResult(
+            workflowRun.UsId,
+            workflowRun.CurrentPhase,
+            workflowRun.Status,
+            generation.ArtifactPath,
+            generation.Usage);
+    }
+
     private sealed record ArtifactGenerationResult(string ArtifactPath, TokenUsage? Usage, long DurationMs);
     private sealed record ClarificationAssessment(bool IsReady, string Reason, IReadOnlyCollection<string> Questions, string Summary);
     private sealed record CaptureTransitionResult(string ArtifactPath, TokenUsage? Usage, long DurationMs);
@@ -740,6 +863,42 @@ public sealed class WorkflowRunner
 
     private static string NormalizeActor(string? actor) =>
         string.IsNullOrWhiteSpace(actor) ? "user" : actor.Trim();
+
+    private static string PrependHistoryEntry(string markdown, string entry)
+    {
+        var marker = "## History Log";
+        var markerIndex = markdown.IndexOf(marker, StringComparison.Ordinal);
+        if (markerIndex < 0)
+        {
+            return markdown;
+        }
+
+        var insertIndex = markerIndex + marker.Length;
+        return markdown.Insert(insertIndex, $"{Environment.NewLine}{entry}");
+    }
+
+    private static string BuildRefinementApprovalValidationPrompt() =>
+        """
+        Validate the approved refinement artifact against the recorded human approval answers.
+        Preserve the section structure unless the artifact itself requires a structural correction.
+        Review the answered decisions and determine whether the baseline is now strong enough to advance.
+
+        Rules for the `## Human Approval Questions` section:
+        - Keep only unresolved or newly discovered human approval questions.
+        - For unresolved items use:
+          - [ ] <question>
+        - For resolved items use:
+          - [x] <question>
+            - Answer: <resolved answer>
+        - If an answered question is sufficiently resolved, keep it marked as answered and do not ask it again.
+        - If the answers reveal new approval gaps, rewrite the section with the new pending questions.
+        """;
+
+    private static string SummarizeQuestion(string question)
+    {
+        var trimmed = question.Trim();
+        return trimmed.Length <= 120 ? trimmed : $"{trimmed[..117]}...";
+    }
 
     private static string BuildUserStoryMarkdown(string usId, string title, string kind, string category, string sourceText)
     {

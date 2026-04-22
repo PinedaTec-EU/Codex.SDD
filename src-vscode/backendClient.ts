@@ -66,6 +66,13 @@ export interface OperateCurrentPhaseArtifactResult {
   readonly usage: TokenUsage | null;
 }
 
+export interface SubmitApprovalAnswerResult {
+  readonly usId: string;
+  readonly currentPhase: string;
+  readonly status: string;
+  readonly generatedArtifactPath: string;
+}
+
 export interface InitializeRepoPromptsResult {
   readonly workspaceRoot: string;
   readonly configPath: string;
@@ -183,6 +190,7 @@ export interface SpecForgeBackendClient {
   restartUserStoryFromSource(usId: string, reason?: string, actor?: string): Promise<RestartUserStoryResult>;
   resetUserStoryToCapture(usId: string): Promise<ResetUserStoryResult>;
   submitClarificationAnswers(usId: string, answers: readonly string[], actor?: string): Promise<void>;
+  submitApprovalAnswer(usId: string, question: string, answer: string, actor?: string): Promise<SubmitApprovalAnswerResult>;
   operateCurrentPhaseArtifact(usId: string, prompt: string, actor?: string): Promise<OperateCurrentPhaseArtifactResult>;
   cancelActiveOperations(): void;
   dispose(): void;
@@ -352,6 +360,16 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
       workspaceRoot: this.workspaceRoot,
       usId,
       answers,
+      ...(actor && actor.trim().length > 0 ? { actor } : {})
+    });
+  }
+
+  public async submitApprovalAnswer(usId: string, question: string, answer: string, actor?: string): Promise<SubmitApprovalAnswerResult> {
+    return this.callTool<SubmitApprovalAnswerResult>("submit_approval_answer", {
+      workspaceRoot: this.workspaceRoot,
+      usId,
+      question,
+      answer,
       ...(actor && actor.trim().length > 0 ? { actor } : {})
     });
   }

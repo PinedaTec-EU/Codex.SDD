@@ -169,6 +169,15 @@ class StdioMcpBackendClient {
             ...(actor && actor.trim().length > 0 ? { actor } : {})
         });
     }
+    async submitApprovalAnswer(usId, question, answer, actor) {
+        return this.callTool("submit_approval_answer", {
+            workspaceRoot: this.workspaceRoot,
+            usId,
+            question,
+            answer,
+            ...(actor && actor.trim().length > 0 ? { actor } : {})
+        });
+    }
     async operateCurrentPhaseArtifact(usId, prompt, actor) {
         return this.callTool("operate_current_phase_artifact", {
             workspaceRoot: this.workspaceRoot,

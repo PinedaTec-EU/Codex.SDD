@@ -307,6 +307,15 @@ public sealed class SpecForgeApplicationService
         CancellationToken cancellationToken = default) =>
         workflowRunner.SubmitClarificationAnswersAsync(workspaceRoot, usId, answers, actor, cancellationToken);
 
+    public Task<SubmitApprovalAnswerResult> SubmitApprovalAnswerAsync(
+        string workspaceRoot,
+        string usId,
+        string question,
+        string answer,
+        string actor = "user",
+        CancellationToken cancellationToken = default) =>
+        workflowRunner.SubmitApprovalAnswerAsync(workspaceRoot, usId, question, answer, actor, cancellationToken);
+
     public Task<OperateCurrentPhaseArtifactResult> OperateCurrentPhaseArtifactAsync(
         string workspaceRoot,
         string usId,

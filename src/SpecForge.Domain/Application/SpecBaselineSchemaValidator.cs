@@ -46,7 +46,7 @@ internal static class SpecBaselineSchemaValidator
 
             if (heading == "## Human Approval Questions")
             {
-                unresolvedApprovalQuestions.AddRange(ParseUnresolvedApprovalQuestions(content));
+                unresolvedApprovalQuestions.AddRange(ApprovalQuestionMarkdown.GetUnresolvedQuestions(content));
             }
         }
 
@@ -90,91 +90,6 @@ internal static class SpecBaselineSchemaValidator
         throw new Workflow.WorkflowDomainException(builder.ToString());
     }
 
-    private static IReadOnlyCollection<string> ParseUnresolvedApprovalQuestions(string content)
-    {
-        var unresolved = new List<string>();
-        ApprovalQuestionState? current = null;
-        foreach (var rawLine in content.Split('\n'))
-        {
-            var line = rawLine.Trim();
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                continue;
-            }
-
-            if (TryParseApprovalQuestion(line, out var questionState))
-            {
-                if (current is { IsResolved: false })
-                {
-                    unresolved.Add(current.Question);
-                }
-
-                current = questionState;
-                continue;
-            }
-
-            if (current is not null && TryParseApprovalAnswer(line, out var answer) && !string.IsNullOrWhiteSpace(answer))
-            {
-                current = current with { Answer = answer.Trim(), IsResolved = true };
-            }
-        }
-
-        if (current is { IsResolved: false })
-        {
-            unresolved.Add(current.Question);
-        }
-
-        return unresolved;
-    }
-
-    private static bool TryParseApprovalQuestion(string line, out ApprovalQuestionState? question)
-    {
-        question = null;
-        var normalized = line.TrimStart('-', '*').Trim();
-        if (normalized.StartsWith("[x]", StringComparison.OrdinalIgnoreCase))
-        {
-            normalized = normalized[3..].Trim();
-        }
-        else if (normalized.StartsWith("[ ]", StringComparison.OrdinalIgnoreCase))
-        {
-            normalized = normalized[3..].Trim();
-        }
-        else
-        {
-            var dotIndex = normalized.IndexOf('.');
-            if (dotIndex > 0 && int.TryParse(normalized[..dotIndex], out _))
-            {
-                normalized = normalized[(dotIndex + 1)..].Trim();
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            return false;
-        }
-
-        if (normalized.StartsWith("Answer:", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        question = new ApprovalQuestionState(normalized, false, null);
-        return true;
-    }
-
-    private static bool TryParseApprovalAnswer(string line, out string? answer)
-    {
-        answer = null;
-        var normalized = line.TrimStart('-', '*').Trim();
-        if (!normalized.StartsWith("Answer:", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        answer = normalized["Answer:".Length..].Trim();
-        return true;
-    }
-
     private static bool LooksPlaceholder(string content)
     {
         if (string.IsNullOrWhiteSpace(content))
@@ -209,8 +124,3 @@ internal sealed record SpecBaselineValidationResult(
     IReadOnlyCollection<string> MissingSections,
     IReadOnlyCollection<string> PlaceholderSections,
     IReadOnlyCollection<string> UnresolvedApprovalQuestions);
-
-internal sealed record ApprovalQuestionState(
-    string Question,
-    bool IsResolved,
-    string? Answer);

@@ -28,6 +28,7 @@ type WorkflowPanelCommand =
   | { readonly command: "debugResetToCapture" }
   | { readonly command: "regress"; readonly phaseId?: string }
   | { readonly command: "submitClarificationAnswers"; readonly answers?: string[] }
+  | { readonly command: "submitApprovalAnswer"; readonly question?: string; readonly answer?: string }
   | { readonly command: "submitPhaseInput"; readonly prompt?: string }
   | { readonly command: "play" }
   | { readonly command: "pause" }
@@ -261,6 +262,11 @@ class WorkflowPanelController {
       case "submitClarificationAnswers":
         await this.submitClarificationAnswersAsync(message.answers ?? []);
         return;
+      case "submitApprovalAnswer":
+        if (message.question && message.answer) {
+          await this.submitApprovalAnswerAsync(message.question, message.answer);
+        }
+        return;
       case "submitPhaseInput":
         if (message.prompt) {
           await this.submitPhaseInputAsync(message.prompt);
@@ -343,6 +349,29 @@ class WorkflowPanelController {
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' submitPhaseInputAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
     await this.refreshAsync("submitPhaseInputAsync");
+  }
+
+  private async submitApprovalAnswerAsync(question: string, answer: string): Promise<void> {
+    const result = await this.getBackendClient().submitApprovalAnswer(
+      this.summary.usId,
+      question,
+      answer,
+      getCurrentActor()
+    );
+    appendSpecForgeLog(
+      `Workflow '${this.summary.usId}' recorded a human approval answer and generated '${result.generatedArtifactPath}'.`
+    );
+    this.summary = {
+      ...this.summary,
+      currentPhase: result.currentPhase,
+      status: result.status
+    };
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
+    this.selectedPhaseId = result.currentPhase;
+    appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' submitApprovalAnswerAsync requested explorer refresh.`);
+    await this.callbacks.refreshExplorer();
+    await this.refreshAsync("submitApprovalAnswerAsync");
   }
 
   private isExecutionConfigured(): boolean {

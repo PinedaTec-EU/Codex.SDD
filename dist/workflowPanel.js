@@ -235,6 +235,11 @@ class WorkflowPanelController {
             case "submitClarificationAnswers":
                 await this.submitClarificationAnswersAsync(message.answers ?? []);
                 return;
+            case "submitApprovalAnswer":
+                if (message.question && message.answer) {
+                    await this.submitApprovalAnswerAsync(message.question, message.answer);
+                }
+                return;
             case "submitPhaseInput":
                 if (message.prompt) {
                     await this.submitPhaseInputAsync(message.prompt);
@@ -311,6 +316,21 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' submitPhaseInputAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("submitPhaseInputAsync");
+    }
+    async submitApprovalAnswerAsync(question, answer) {
+        const result = await this.getBackendClient().submitApprovalAnswer(this.summary.usId, question, answer, (0, userActor_1.getCurrentActor)());
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' recorded a human approval answer and generated '${result.generatedArtifactPath}'.`);
+        this.summary = {
+            ...this.summary,
+            currentPhase: result.currentPhase,
+            status: result.status
+        };
+        this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
+        this.clearTransientExecutionPhase();
+        this.selectedPhaseId = result.currentPhase;
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' submitApprovalAnswerAsync requested explorer refresh.`);
+        await this.callbacks.refreshExplorer();
+        await this.refreshAsync("submitApprovalAnswerAsync");
     }
     isExecutionConfigured() {
         return (0, extensionSettings_1.getSpecForgeSettingsStatus)((0, extensionSettings_1.getSpecForgeSettings)()).executionConfigured;

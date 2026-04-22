@@ -82,43 +82,52 @@ public sealed class WorkflowRun
 
         if (CurrentPhase == PhaseId.Refinement)
         {
-            if (Branch is not null)
+            if (Branch is null)
             {
-                throw new WorkflowDomainException("A work branch already exists for this US.");
-            }
+                if (string.IsNullOrWhiteSpace(baseBranch))
+                {
+                    throw new WorkflowDomainException("Base branch is required to approve refinement.");
+                }
 
-            if (string.IsNullOrWhiteSpace(baseBranch))
-            {
-                throw new WorkflowDomainException("Base branch is required to approve refinement.");
-            }
+                if (string.IsNullOrWhiteSpace(workBranchName))
+                {
+                    throw new WorkflowDomainException("Work branch name is required to approve refinement.");
+                }
 
-            if (string.IsNullOrWhiteSpace(workBranchName))
-            {
-                throw new WorkflowDomainException("Work branch name is required to approve refinement.");
-            }
+                if (string.IsNullOrWhiteSpace(workBranchKind))
+                {
+                    throw new WorkflowDomainException("Work branch kind is required to approve refinement.");
+                }
 
-            if (string.IsNullOrWhiteSpace(workBranchKind))
-            {
-                throw new WorkflowDomainException("Work branch kind is required to approve refinement.");
-            }
+                if (string.IsNullOrWhiteSpace(workBranchCategory))
+                {
+                    throw new WorkflowDomainException("Work branch category is required to approve refinement.");
+                }
 
-            if (string.IsNullOrWhiteSpace(workBranchCategory))
-            {
-                throw new WorkflowDomainException("Work branch category is required to approve refinement.");
+                Branch = new WorkBranch(
+                    baseBranch,
+                    workBranchName,
+                    workBranchKind,
+                    workBranchCategory,
+                    titleSnapshot,
+                    sourceUsPath,
+                    approvedAtUtc ?? DateTimeOffset.UtcNow);
             }
-
-            Branch = new WorkBranch(
-                baseBranch,
-                workBranchName,
-                workBranchKind,
-                workBranchCategory,
-                titleSnapshot,
-                sourceUsPath,
-                approvedAtUtc ?? DateTimeOffset.UtcNow);
         }
 
         approvedPhases.Add(CurrentPhase);
         Status = UserStoryStatus.Active;
+    }
+
+    public void ReopenCurrentPhaseApproval()
+    {
+        if (!Definition.RequiresApproval(CurrentPhase))
+        {
+            throw new WorkflowDomainException($"Phase '{CurrentPhase}' does not require approval.");
+        }
+
+        approvedPhases.Remove(CurrentPhase);
+        Status = UserStoryStatus.WaitingUser;
     }
 
     public void RequestRegression(PhaseId targetPhase)

@@ -156,6 +156,12 @@ static async Task<JsonNode> HandleToolCallAsync(
             usId: GetRequired(arguments, "usId"),
             answers: GetStringArray(arguments, "answers"),
             actor: GetOptional(arguments, "actor") ?? "user"),
+        "submit_approval_answer" => await applicationService.SubmitApprovalAnswerAsync(
+            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+            usId: GetRequired(arguments, "usId"),
+            question: GetRequired(arguments, "question"),
+            answer: GetRequired(arguments, "answer"),
+            actor: GetOptional(arguments, "actor") ?? "user"),
         "operate_current_phase_artifact" => await applicationService.OperateCurrentPhaseArtifactAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
@@ -315,6 +321,16 @@ static JsonObject BuildToolsList()
                         ("usId",          Prop("string", "User story identifier.")),
                         ("answers",       ArrayProp("string", "Ordered list of answers matching the clarification questions.")),
                         ("actor",         Prop("string", "Actor submitting the answers. Defaults to 'user'."))))),
+
+            Tool("submit_approval_answer", "Persist a human approval answer into the current refinement artifact without invoking the model.",
+                Schema(
+                    required: ["workspaceRoot", "usId", "question", "answer"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier.")),
+                        ("question",      Prop("string", "Approval question being answered.")),
+                        ("answer",        Prop("string", "Human answer to persist into the refinement artifact.")),
+                        ("actor",         Prop("string", "Actor submitting the answer. Defaults to 'user'."))))),
 
             Tool("operate_current_phase_artifact", "Apply a model-assisted operation over the current phase artifact and persist the trace.",
                 Schema(
