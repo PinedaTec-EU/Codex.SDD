@@ -152,6 +152,40 @@ export SPECFORGE_CAPTURE_TOLERANCE=balanced
 export SPECFORGE_REVIEW_TOLERANCE=balanced
 ```
 
+For named routing across workflow phases, the extension can also send a profile catalog plus phase assignments:
+
+```json
+{
+  "specForge.execution.modelProfiles": [
+    {
+      "name": "light",
+      "baseUrl": "http://localhost:11434/v1",
+      "apiKey": "",
+      "model": "llama3.1"
+    },
+    {
+      "name": "top",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKey": "<your-api-key>",
+      "model": "gpt-4.1"
+    },
+    {
+      "name": "review",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKey": "<your-api-key>",
+      "model": "gpt-4.1-mini"
+    }
+  ],
+  "specForge.execution.phaseModels": {
+    "defaultProfile": "light",
+    "implementationProfile": "top",
+    "reviewProfile": "review"
+  }
+}
+```
+
+With that setup, capture, clarification, refinement, technical design, release approval, and PR preparation use `defaultProfile`; implementation can be routed to the strongest model; review can stay on the same model or use a separate middle tier. If no named profiles are configured, SpecForge.AI keeps using the legacy single `baseUrl/apiKey/model` path.
+
 For local testing with Ollama:
 
 ```bash
@@ -306,6 +340,8 @@ The extension contributes these settings:
 - `specForge.execution.baseUrl`
 - `specForge.execution.apiKey`
 - `specForge.execution.model`
+- `specForge.execution.modelProfiles`
+- `specForge.execution.phaseModels`
 - `specForge.execution.clarificationTolerance`
 - `specForge.execution.reviewTolerance`
 - `specForge.ui.enableWatcher`

@@ -131,7 +131,61 @@
         "specForge.execution.model": {
           "type": "string",
           "default": "",
-          "description": "Model name used by the OpenAI-compatible provider."
+          "description": "Legacy fallback model name used by the OpenAI-compatible provider when no named model profiles are configured."
+        },
+        "specForge.execution.modelProfiles": {
+          "type": "array",
+          "default": [],
+          "description": "Named OpenAI-compatible model profiles. Each profile can point to a different base URL, API key, and model so the workflow can route lighter and heavier phases differently.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "baseUrl",
+              "model"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Stable profile name used by phase assignments."
+              },
+              "baseUrl": {
+                "type": "string",
+                "description": "Base URL for the OpenAI-compatible endpoint."
+              },
+              "apiKey": {
+                "type": "string",
+                "default": "",
+                "description": "API key for the endpoint. Leave empty only for trusted local endpoints such as Ollama."
+              },
+              "model": {
+                "type": "string",
+                "description": "Concrete model identifier exposed by that endpoint."
+              }
+            }
+          }
+        },
+        "specForge.execution.phaseModels": {
+          "type": "object",
+          "default": {},
+          "description": "Assign named model profiles to workflow roles. Unassigned implementation or review phases fall back to the default profile.",
+          "properties": {
+            "defaultProfile": {
+              "type": "string",
+              "default": "",
+              "description": "Profile used by capture, clarification, refinement, technical design, release approval, and PR preparation."
+            },
+            "implementationProfile": {
+              "type": "string",
+              "default": "",
+              "description": "Optional profile override for implementation. This is the place for the strongest model."
+            },
+            "reviewProfile": {
+              "type": "string",
+              "default": "",
+              "description": "Optional profile override for review. Falls back to the default profile when unset."
+            }
+          }
         },
         "specForge.execution.clarificationTolerance": {
           "type": "string",

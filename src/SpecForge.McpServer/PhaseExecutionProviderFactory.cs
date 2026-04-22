@@ -1,5 +1,6 @@
 using SpecForge.Domain.Application;
 using SpecForge.OpenAICompatible;
+using System.Text.Json;
 
 namespace SpecForge.McpServer;
 
@@ -9,6 +10,8 @@ internal static class PhaseExecutionProviderFactory
     private const string BaseUrlEnvVar = "SPECFORGE_OPENAI_BASE_URL";
     private const string ApiKeyEnvVar = "SPECFORGE_OPENAI_API_KEY";
     private const string ModelEnvVar = "SPECFORGE_OPENAI_MODEL";
+    private const string ModelProfilesJsonEnvVar = "SPECFORGE_OPENAI_MODEL_PROFILES_JSON";
+    private const string PhaseModelAssignmentsJsonEnvVar = "SPECFORGE_OPENAI_PHASE_MODEL_ASSIGNMENTS_JSON";
     private const string ClarificationToleranceEnvVar = "SPECFORGE_CAPTURE_TOLERANCE";
     private const string ReviewToleranceEnvVar = "SPECFORGE_REVIEW_TOLERANCE";
     private const string SystemPromptEnvVar = "SPECFORGE_OPENAI_SYSTEM_PROMPT";
@@ -32,11 +35,19 @@ internal static class PhaseExecutionProviderFactory
 
     private static IPhaseExecutionProvider CreateOpenAiCompatibleProvider()
     {
-        var baseUrl = GetRequiredEnvironmentVariable(BaseUrlEnvVar);
-        var apiKey = LocalEndpointHelper.IsLocal(baseUrl)
+        var modelProfiles = ReadModelProfilesFromEnvironment();
+        var assignments = ReadPhaseModelAssignmentsFromEnvironment();
+        var baseUrl = modelProfiles.Count > 0
+            ? Environment.GetEnvironmentVariable(BaseUrlEnvVar)
+            : GetRequiredEnvironmentVariable(BaseUrlEnvVar);
+        var apiKey = modelProfiles.Count > 0
             ? Environment.GetEnvironmentVariable(ApiKeyEnvVar) ?? string.Empty
-            : GetRequiredEnvironmentVariable(ApiKeyEnvVar);
-        var model = GetRequiredEnvironmentVariable(ModelEnvVar);
+            : LocalEndpointHelper.IsLocal(baseUrl!)
+                ? Environment.GetEnvironmentVariable(ApiKeyEnvVar) ?? string.Empty
+                : GetRequiredEnvironmentVariable(ApiKeyEnvVar);
+        var model = modelProfiles.Count > 0
+            ? Environment.GetEnvironmentVariable(ModelEnvVar)
+            : GetRequiredEnvironmentVariable(ModelEnvVar);
         var clarificationTolerance = Environment.GetEnvironmentVariable(ClarificationToleranceEnvVar) ?? "balanced";
         var reviewTolerance = Environment.GetEnvironmentVariable(ReviewToleranceEnvVar) ?? "balanced";
         var systemPrompt = Environment.GetEnvironmentVariable(SystemPromptEnvVar) ??
@@ -51,8 +62,36 @@ internal static class PhaseExecutionProviderFactory
             Model: model,
             SystemPrompt: systemPrompt,
             ClarificationTolerance: clarificationTolerance,
-            ReviewTolerance: reviewTolerance);
+            ReviewTolerance: reviewTolerance,
+            ModelProfiles: modelProfiles,
+            PhaseModelAssignments: assignments);
         return new OpenAiCompatiblePhaseExecutionProvider(httpClient, options);
+    }
+
+    private static IReadOnlyList<OpenAiCompatibleModelProfile> ReadModelProfilesFromEnvironment()
+    {
+        var payload = Environment.GetEnvironmentVariable(ModelProfilesJsonEnvVar);
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return [];
+        }
+
+        return JsonSerializer.Deserialize<List<OpenAiCompatibleModelProfile>>(payload)
+               ?? throw new InvalidOperationException(
+                   $"Environment variable '{ModelProfilesJsonEnvVar}' could not be parsed as model profile JSON.");
+    }
+
+    private static OpenAiCompatiblePhaseModelAssignments? ReadPhaseModelAssignmentsFromEnvironment()
+    {
+        var payload = Environment.GetEnvironmentVariable(PhaseModelAssignmentsJsonEnvVar);
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return null;
+        }
+
+        return JsonSerializer.Deserialize<OpenAiCompatiblePhaseModelAssignments>(payload)
+               ?? throw new InvalidOperationException(
+                   $"Environment variable '{PhaseModelAssignmentsJsonEnvVar}' could not be parsed as phase assignment JSON.");
     }
 
     private static string GetRequiredEnvironmentVariable(string variableName)

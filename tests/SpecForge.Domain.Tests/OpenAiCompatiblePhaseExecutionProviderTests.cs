@@ -176,6 +176,59 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_UsesAssignedModelProfilePerPhase()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var handler = new CapturingFakeHttpMessageHandler("# review markdown");
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            new OpenAiCompatibleProviderOptions(
+                BaseUrl: null,
+                ApiKey: null,
+                Model: null,
+                ModelProfiles:
+                [
+                    new OpenAiCompatibleModelProfile(
+                        Name: "light",
+                        BaseUrl: "http://localhost:11434/v1",
+                        ApiKey: string.Empty,
+                        Model: "llama-light"),
+                    new OpenAiCompatibleModelProfile(
+                        Name: "top",
+                        BaseUrl: "http://localhost:22434/v1",
+                        ApiKey: string.Empty,
+                        Model: "llama-top")
+                ],
+                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
+                    DefaultProfile: "light",
+                    ImplementationProfile: "top",
+                    ReviewProfile: "light")));
+
+        var implementationContext = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Implementation,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        await provider.ExecuteAsync(implementationContext);
+
+        Assert.Equal("http://localhost:22434/v1/chat/completions", handler.LastRequest!.RequestUri!.ToString());
+        Assert.Contains("\"model\":\"llama-top\"", handler.LastBody);
+
+        var reviewContext = implementationContext with
+        {
+            PhaseId = PhaseId.Review
+        };
+
+        await provider.ExecuteAsync(reviewContext);
+
+        Assert.Equal("http://localhost:11434/v1/chat/completions", handler.LastRequest!.RequestUri!.ToString());
+        Assert.Contains("\"model\":\"llama-light\"", handler.LastBody);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_ClarificationOk_NormalizesToCanonicalReadyArtifact()
     {
         await PrepareInitializedWorkspaceAsync();

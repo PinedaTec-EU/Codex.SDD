@@ -543,6 +543,33 @@ function phaseSecondaryLabel(phase: WorkflowPhaseDetails): string {
   }
 }
 
+function phaseModelLaneLabel(phase: WorkflowPhaseDetails): string {
+  switch (phase.phaseId) {
+    case "implementation":
+      return "top lane";
+    case "review":
+      return "review lane";
+    default:
+      return "light lane";
+  }
+}
+
+function phaseModelProfileLabel(phase: WorkflowPhaseDetails, state: WorkflowViewState): string | null {
+  const assignments = state.phaseModelAssignments;
+  if (!assignments) {
+    return null;
+  }
+
+  switch (phase.phaseId) {
+    case "implementation":
+      return assignments.implementationProfileName ?? assignments.defaultProfileName;
+    case "review":
+      return assignments.reviewProfileName ?? assignments.defaultProfileName;
+    default:
+      return assignments.defaultProfileName;
+  }
+}
+
 function buildWorkflowHeroTitle(workflow: UserStoryWorkflowDetails): string {
   const normalizedTitle = workflow.title.trim();
   if (normalizedTitle.startsWith(`${workflow.usId} ·`) || normalizedTitle === workflow.usId) {
@@ -3626,6 +3653,7 @@ function buildPhaseGraph(
     const desktopPosition = desktopLayout.positions[phase.phaseId] ?? { left: desktopLayoutConfig.columns.left, top: desktopLayoutConfig.topOffset };
     const mobilePosition = mobileLayout.positions[phase.phaseId] ?? { left: mobileLayoutConfig.columns.left, top: mobileLayoutConfig.topOffset };
     const displayState = phaseToneLabel(visualTone, phase.state);
+    const modelProfileLabel = phaseModelProfileLabel(phase, state);
     return `
     <button
       class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phase.phaseId === selectedPhaseId ? " selected" : ""}${phase.isCurrent ? " phase-node--current" : ""}"
@@ -3642,6 +3670,8 @@ function buildPhaseGraph(
         <div class="phase-slug">${escapeHtml(phaseSecondaryLabel(phase))}</div>
         <div class="phase-tags">
           <span class="phase-tag phase-tag--${escapeHtmlAttribute(visualTone)}">${escapeHtml(displayState)}</span>
+          <span class="phase-tag">${escapeHtml(phaseModelLaneLabel(phase))}</span>
+          ${modelProfileLabel ? `<span class="phase-tag">model ${escapeHtml(modelProfileLabel)}</span>` : ""}
           ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
           ${phase.isApproved ? `<span class="phase-tag">approved</span>` : ""}
         </div>

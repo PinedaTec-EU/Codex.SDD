@@ -615,6 +615,7 @@ class WorkflowPanelController {
             contextSuggestions,
             settingsConfigured: settingsStatus.executionConfigured,
             settingsMessage: settingsStatus.message,
+            phaseModelAssignments: settings.effectivePhaseModelAssignments,
             runtimeVersion,
             executionPhaseId: this.transientExecutionPhaseId,
             completedPhaseIds: this.transientCompletedPhaseIds,

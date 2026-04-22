@@ -32,17 +32,24 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         this.options = options ?? throw new ArgumentNullException(nameof(options));
         this.promptCatalog = promptCatalog ?? throw new ArgumentNullException(nameof(promptCatalog));
 
-        if (string.IsNullOrWhiteSpace(options.BaseUrl))
+        if ((options.ModelProfiles is null or { Count: 0 })
+            && string.IsNullOrWhiteSpace(options.BaseUrl))
         {
             throw new ArgumentException("BaseUrl is required.", nameof(options));
         }
 
-        if (RequiresApiKey(options.BaseUrl) && string.IsNullOrWhiteSpace(options.ApiKey))
+        if ((options.ModelProfiles is null or { Count: 0 })
+            && RequiresApiKey(options.BaseUrl ?? string.Empty)
+            && string.IsNullOrWhiteSpace(options.ApiKey))
         {
             throw new ArgumentException("ApiKey is required.", nameof(options));
         }
 
-        if (string.IsNullOrWhiteSpace(options.Model))
+        if (options.ModelProfiles is { Count: > 0 })
+        {
+            ValidateModelProfiles(options.ModelProfiles, options.PhaseModelAssignments);
+        }
+        else if (string.IsNullOrWhiteSpace(options.Model))
         {
             throw new ArgumentException("Model is required.", nameof(options));
         }
@@ -98,7 +105,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private HttpRequestMessage BuildRequest(PhaseExecutionContext context, string systemPrompt, string userPrompt)
     {
-        var endpoint = $"{options.BaseUrl.TrimEnd('/')}/chat/completions";
+        var modelSelection = ResolveModelSelection(context.PhaseId);
+        var endpoint = $"{modelSelection.BaseUrl.TrimEnd('/')}/chat/completions";
         var messages = new List<object>();
 
         if (!string.IsNullOrWhiteSpace(systemPrompt))
@@ -118,7 +126,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         var requestBody = JsonSerializer.Serialize(new
         {
-            model = options.Model,
+            model = modelSelection.Model,
             messages,
             temperature = ResolveTemperature(context.PhaseId)
         });
@@ -128,9 +136,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             Content = new StringContent(requestBody, Encoding.UTF8, "application/json")
         };
 
-        if (!string.IsNullOrWhiteSpace(options.ApiKey))
+        if (!string.IsNullOrWhiteSpace(modelSelection.ApiKey))
         {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.ApiKey);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", modelSelection.ApiKey);
         }
 
         return request;
@@ -341,6 +349,64 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return new EffectivePrompt(systemPrompt, builder.ToString().Trim());
     }
 
+    private ResolvedModelSelection ResolveModelSelection(PhaseId phaseId)
+    {
+        if (options.ModelProfiles is { Count: > 0 })
+        {
+            var profileName = ResolveProfileNameForPhase(phaseId);
+            var profile = options.ModelProfiles.FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, profileName, StringComparison.Ordinal));
+
+            if (profile is null)
+            {
+                throw new InvalidOperationException($"Model profile '{profileName}' was not found for phase '{phaseId}'.");
+            }
+
+            return new ResolvedModelSelection(profile.BaseUrl, profile.ApiKey, profile.Model);
+        }
+
+        if (string.IsNullOrWhiteSpace(options.BaseUrl))
+        {
+            throw new InvalidOperationException("BaseUrl is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(options.Model))
+        {
+            throw new InvalidOperationException("Model is required.");
+        }
+
+        return new ResolvedModelSelection(options.BaseUrl, options.ApiKey ?? string.Empty, options.Model);
+    }
+
+    private string ResolveProfileNameForPhase(PhaseId phaseId)
+    {
+        var assignments = options.PhaseModelAssignments;
+        var explicitName = phaseId switch
+        {
+            PhaseId.Implementation => assignments?.ImplementationProfile,
+            PhaseId.Review => assignments?.ReviewProfile,
+            _ => assignments?.DefaultProfile
+        };
+
+        if (!string.IsNullOrWhiteSpace(explicitName))
+        {
+            return explicitName;
+        }
+
+        var defaultProfileName = assignments?.DefaultProfile;
+        if (!string.IsNullOrWhiteSpace(defaultProfileName))
+        {
+            return defaultProfileName;
+        }
+
+        if (options.ModelProfiles?.Count == 1)
+        {
+            return options.ModelProfiles[0].Name;
+        }
+
+        throw new InvalidOperationException("A default model profile assignment is required when multiple model profiles are configured.");
+    }
+
     private double ResolveTemperature(PhaseId phaseId) =>
         phaseId switch
         {
@@ -387,6 +453,60 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         string.IsNullOrWhiteSpace(tolerance)
             ? BalancedTolerance
             : tolerance.Trim().ToLowerInvariant();
+
+    private static void ValidateModelProfiles(
+        IReadOnlyList<OpenAiCompatibleModelProfile> modelProfiles,
+        OpenAiCompatiblePhaseModelAssignments? assignments)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var profile in modelProfiles)
+        {
+            if (string.IsNullOrWhiteSpace(profile.Name))
+            {
+                throw new ArgumentException("Model profile Name is required.", nameof(modelProfiles));
+            }
+
+            if (!names.Add(profile.Name))
+            {
+                throw new ArgumentException($"Duplicate model profile '{profile.Name}'.", nameof(modelProfiles));
+            }
+
+            if (string.IsNullOrWhiteSpace(profile.BaseUrl))
+            {
+                throw new ArgumentException($"BaseUrl is required for model profile '{profile.Name}'.", nameof(modelProfiles));
+            }
+
+            if (string.IsNullOrWhiteSpace(profile.Model))
+            {
+                throw new ArgumentException($"Model is required for model profile '{profile.Name}'.", nameof(modelProfiles));
+            }
+
+            if (RequiresApiKey(profile.BaseUrl) && string.IsNullOrWhiteSpace(profile.ApiKey))
+            {
+                throw new ArgumentException($"ApiKey is required for remote model profile '{profile.Name}'.", nameof(modelProfiles));
+            }
+        }
+
+        var defaultProfileName = assignments?.DefaultProfile;
+        if (string.IsNullOrWhiteSpace(defaultProfileName) && modelProfiles.Count > 1)
+        {
+            throw new ArgumentException("DefaultProfile is required when multiple model profiles are configured.", nameof(assignments));
+        }
+
+        foreach (var profileName in new[]
+                 {
+                     defaultProfileName,
+                     assignments?.ImplementationProfile,
+                     assignments?.ReviewProfile
+                 })
+        {
+            if (!string.IsNullOrWhiteSpace(profileName) && !names.Contains(profileName))
+            {
+                throw new ArgumentException($"Assigned model profile '{profileName}' was not configured.", nameof(assignments));
+            }
+        }
+    }
 
     private static string NormalizePhaseContent(PhaseExecutionContext context, string content)
     {
@@ -523,4 +643,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     }
 
     private sealed record EffectivePrompt(string SystemPrompt, string UserPrompt);
+
+    private sealed record ResolvedModelSelection(string BaseUrl, string ApiKey, string Model);
 }
