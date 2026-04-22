@@ -156,6 +156,11 @@ class WorkflowPanelController {
     async refreshAsync(reason = "unspecified") {
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' refresh start. reason='${reason}', selectedPhase='${this.selectedPhaseId}', playback='${this.playbackState}', summaryPhase='${this.summary.currentPhase}'.`);
         const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+        if (this.playbackState === "paused" && workflow.controls.canContinue) {
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' cleared stale paused playback after refresh because the workflow can continue again.`);
+            this.playbackState = "idle";
+            this.clearTransientExecutionPhase();
+        }
         this.lastWorkflow = workflow;
         this.summary = {
             ...this.summary,
@@ -545,9 +550,12 @@ class WorkflowPanelController {
     }
     deriveExecutionPhaseFromWatchedPath(filePath) {
         const normalizedPath = filePath.replace(/\\/g, "/");
+        // clarification.md is the input to refinement: when it changes (human answered questions),
+        // drive the UI progress indicator to "refinement" rather than "clarification".
         if (normalizedPath.endsWith("/clarification.md") || normalizedPath.endsWith("/phases/00-clarification.md")) {
             return "refinement";
         }
+        // 01-spec.md / 01-refinement.md are the refinement artifact; show refinement as the active phase.
         if (normalizedPath.endsWith("/phases/01-spec.md") || normalizedPath.endsWith("/phases/01-refinement.md")) {
             return "refinement";
         }

@@ -175,6 +175,13 @@ class WorkflowPanelController {
       `Workflow '${this.summary.usId}' refresh start. reason='${reason}', selectedPhase='${this.selectedPhaseId}', playback='${this.playbackState}', summaryPhase='${this.summary.currentPhase}'.`
     );
     const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+    if (this.playbackState === "paused" && workflow.controls.canContinue) {
+      appendSpecForgeDebugLog(
+        `Workflow '${this.summary.usId}' cleared stale paused playback after refresh because the workflow can continue again.`
+      );
+      this.playbackState = "idle";
+      this.clearTransientExecutionPhase();
+    }
     this.lastWorkflow = workflow;
     this.summary = {
       ...this.summary,
