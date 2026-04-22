@@ -1,3 +1,5 @@
+import * as vscode from "vscode";
+
 export interface SpecForgeSettings {
   readonly provider: string;
   readonly baseUrl: string | null;
@@ -17,7 +19,6 @@ export interface SpecForgeSettingsStatus {
 }
 
 export function getSpecForgeSettings(): SpecForgeSettings {
-  const vscode = require("vscode") as typeof import("vscode");
   return readSpecForgeSettings(vscode.workspace.getConfiguration("specForge"));
 }
 

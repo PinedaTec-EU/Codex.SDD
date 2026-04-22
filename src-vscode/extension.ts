@@ -28,6 +28,7 @@ import {
   deleteUserStory
 } from "./specsExplorer";
 import { getUserWorkspacePreferencesPath, readUserWorkspacePreferences, setStarredUserStory } from "./userWorkspacePreferences";
+import type { UserStorySummary } from "./backendClient";
 
 let previousAttentionSnapshot = new Map<string, string>();
 
@@ -100,7 +101,7 @@ function createExtensionActions(explorerProvider: { refresh(): void }, sidebarPr
 
       await openWorkflowView(
         workspaceRoot,
-        summary as any,
+        summary as UserStorySummary,
         () => getOrCreateBackendClient(workspaceRoot),
         {
           refreshExplorer: async () => {
