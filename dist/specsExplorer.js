@@ -54,6 +54,7 @@ const vscode = __importStar(require("vscode"));
 const backendClient_1 = require("./backendClient");
 const extensionSettings_1 = require("./extensionSettings");
 const outputChannel_1 = require("./outputChannel");
+const utils_1 = require("./utils");
 const userActor_1 = require("./userActor");
 const workflowPanel_1 = require("./workflowPanel");
 const explorerModel_1 = require("./explorerModel");
@@ -249,7 +250,7 @@ async function initializeRepoPrompts(overwrite = false) {
             : `Repo prompts initialized. Created ${createdCount} files and skipped ${skippedCount}.`);
     }
     catch (error) {
-        void vscode.window.showErrorMessage(asErrorMessage(error));
+        void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));
     }
 }
 async function openPromptTemplates() {
@@ -290,7 +291,7 @@ async function continuePhase(summary) {
         void vscode.window.showInformationMessage(`${summary.usId} advanced to ${result.currentPhase} with status ${result.status}.`);
     }
     catch (error) {
-        void vscode.window.showErrorMessage(asErrorMessage(error));
+        void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));
     }
 }
 async function approveCurrentPhase(summary) {
@@ -320,7 +321,7 @@ async function approveCurrentPhase(summary) {
         void vscode.window.showInformationMessage(`${updatedSummary.usId} approved. Current phase remains ${updatedSummary.currentPhase} until you continue the workflow.`);
     }
     catch (error) {
-        void vscode.window.showErrorMessage(asErrorMessage(error));
+        void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));
     }
 }
 async function requestRegression(summary) {
@@ -362,7 +363,7 @@ async function requestRegression(summary) {
         void vscode.window.showInformationMessage(`${summary.usId} regressed to ${result.currentPhase} with status ${result.status}.`);
     }
     catch (error) {
-        void vscode.window.showErrorMessage(asErrorMessage(error));
+        void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));
     }
 }
 async function restartUserStoryFromSource(summary) {
@@ -391,7 +392,7 @@ async function restartUserStoryFromSource(summary) {
         void vscode.window.showInformationMessage(`${summary.usId} restarted from source at ${result.currentPhase} with status ${result.status}.`);
     }
     catch (error) {
-        void vscode.window.showErrorMessage(asErrorMessage(error));
+        void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));
     }
 }
 async function deleteUserStory(summary) {
@@ -421,7 +422,7 @@ async function deleteUserStory(summary) {
         void vscode.window.showInformationMessage(`${summary.usId} deleted.`);
     }
     catch (error) {
-        void vscode.window.showErrorMessage(asErrorMessage(error));
+        void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));
     }
 }
 function getWorkspaceRoot() {
@@ -503,12 +504,6 @@ function disposeBackendClients() {
     }
     backendClients.clear();
 }
-function asErrorMessage(error) {
-    if (error instanceof Error) {
-        return error.message;
-    }
-    return "Unknown extension error.";
-}
 async function logUserStoryDiscoveryAsync(workspaceRoot, summaries, source) {
     const specsRoot = path.join(workspaceRoot, ".specs", "us");
     const physicalEntries = await describeSpecsUserStoryTreeAsync(specsRoot);
@@ -517,7 +512,7 @@ async function logUserStoryDiscoveryAsync(workspaceRoot, summaries, source) {
 async function logUserStoryDiscoveryFailureAsync(workspaceRoot, error, source) {
     const specsRoot = path.join(workspaceRoot, ".specs", "us");
     const physicalEntries = await describeSpecsUserStoryTreeAsync(specsRoot);
-    (0, outputChannel_1.appendSpecForgeLog)(`[${source}] failed to list user stories for '${workspaceRoot}': ${asErrorMessage(error)}. physical='${physicalEntries.join(", ") || "empty"}'.`);
+    (0, outputChannel_1.appendSpecForgeLog)(`[${source}] failed to list user stories for '${workspaceRoot}': ${(0, utils_1.asErrorMessage)(error)}. physical='${physicalEntries.join(", ") || "empty"}'.`);
 }
 async function describeSpecsUserStoryTreeAsync(specsRoot) {
     try {
@@ -538,7 +533,7 @@ async function describeSpecsUserStoryTreeAsync(specsRoot) {
         return descriptions;
     }
     catch (error) {
-        return [`error:${asErrorMessage(error)}`];
+        return [`error:${(0, utils_1.asErrorMessage)(error)}`];
     }
 }
 //# sourceMappingURL=specsExplorer.js.map

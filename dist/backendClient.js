@@ -39,6 +39,7 @@ const path = __importStar(require("node:path"));
 const backendClientModel_1 = require("./backendClientModel");
 const extensionSettings_1 = require("./extensionSettings");
 const outputChannel_1 = require("./outputChannel");
+const utils_1 = require("./utils");
 function createMcpBackendClient(workspaceRoot, hostRoot, settings) {
     return new StdioMcpBackendClient(workspaceRoot, hostRoot, settings);
 }
@@ -231,7 +232,7 @@ class StdioMcpBackendClient {
             return (0, backendClientModel_1.parseToolContent)(toolName, result);
         }
         catch (error) {
-            (0, outputChannel_1.appendSpecForgeLog)(`Tool '${toolName}' failed after ${Date.now() - startedAt} ms: ${asErrorMessage(error)}`);
+            (0, outputChannel_1.appendSpecForgeLog)(`Tool '${toolName}' failed after ${Date.now() - startedAt} ms: ${(0, utils_1.asErrorMessage)(error)}`);
             throw error;
         }
     }
@@ -336,11 +337,5 @@ async function writeAsync(stream, payload) {
             resolve();
         });
     });
-}
-function asErrorMessage(error) {
-    if (error instanceof Error) {
-        return error.message;
-    }
-    return "Unknown backend client error.";
 }
 //# sourceMappingURL=backendClient.js.map

@@ -46,6 +46,7 @@ const sidebarViewContent_1 = require("./sidebarViewContent");
 const userActor_1 = require("./userActor");
 const userStoryIntake_1 = require("./userStoryIntake");
 const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
+const utils_1 = require("./utils");
 class SidebarViewProvider {
     extensionUri;
     onDidCreateUserStory;
@@ -284,7 +285,7 @@ class SidebarViewProvider {
         for (const file of this.createFiles) {
             const targetDirectoryPath = path.join(userStoryDirectoryPath, file.kind === "context" ? "context" : "attachments");
             await fs.promises.mkdir(targetDirectoryPath, { recursive: true });
-            const targetPath = await getNextAttachmentPathAsync(targetDirectoryPath, file.name);
+            const targetPath = await (0, utils_1.getNextAttachmentPathAsync)(targetDirectoryPath, file.name);
             await fs.promises.copyFile(file.sourcePath, targetPath);
         }
     }
@@ -382,7 +383,7 @@ class SidebarViewProvider {
                 categories: [],
                 userStories: []
             });
-            void vscode.window.showErrorMessage(`SpecForge sidebar failed to load: ${asErrorMessage(error)}`);
+            void vscode.window.showErrorMessage(`SpecForge sidebar failed to load: ${(0, utils_1.asErrorMessage)(error)}`);
         }
     }
 }
@@ -434,24 +435,6 @@ async function hasInitializedRepoPromptsAsync(workspaceRoot) {
 async function openTextDocument(filePath) {
     const document = await vscode.workspace.openTextDocument(filePath);
     await vscode.window.showTextDocument(document, { preview: false });
-}
-async function getNextAttachmentPathAsync(directoryPath, fileName) {
-    const extension = path.extname(fileName);
-    const baseName = extension.length > 0 ? fileName.slice(0, -extension.length) : fileName;
-    for (let attempt = 0; attempt < 100; attempt += 1) {
-        const suffix = attempt === 0 ? "" : `.${String(attempt + 1).padStart(2, "0")}`;
-        const candidate = path.join(directoryPath, `${baseName}${suffix}${extension}`);
-        if (!await pathExistsAsync(candidate)) {
-            return candidate;
-        }
-    }
-    throw new Error(`Unable to persist '${fileName}' after 100 attempts.`);
-}
-function asErrorMessage(error) {
-    if (error instanceof Error) {
-        return error.message;
-    }
-    return "Unknown sidebar error.";
 }
 async function openSpecForgeSettingsAsync() {
     await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");

@@ -49,6 +49,7 @@ const userActor_1 = require("./userActor");
 const workflowPlaybackState_1 = require("./workflowPlaybackState");
 const workflowBranchName_1 = require("./workflowBranchName");
 const workflowView_1 = require("./workflowView");
+const utils_1 = require("./utils");
 const panels = new Map();
 async function openWorkflowView(workspaceRoot, summary, getBackendClient, callbacks) {
     const panelId = `${workspaceRoot}:${summary.usId}`;
@@ -120,9 +121,9 @@ class WorkflowPanelController {
             catch (error) {
                 this.playbackState = "paused";
                 await this.refreshAsync();
-                (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' command '${message.command}' failed: ${asErrorMessage(error)}`);
+                (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' command '${message.command}' failed: ${(0, utils_1.asErrorMessage)(error)}`);
                 (0, outputChannel_1.showSpecForgeOutput)(false);
-                void vscode.window.showErrorMessage(asErrorMessage(error));
+                void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));
             }
         });
     }
@@ -327,7 +328,7 @@ class WorkflowPanelController {
         const attachmentsDirectoryPath = path.join(this.summary.directoryPath, kind === "context" ? "context" : "attachments");
         await fs.promises.mkdir(attachmentsDirectoryPath, { recursive: true });
         for (const source of selection) {
-            const targetPath = await getNextAttachmentPathAsync(attachmentsDirectoryPath, path.basename(source.fsPath));
+            const targetPath = await (0, utils_1.getNextAttachmentPathAsync)(attachmentsDirectoryPath, path.basename(source.fsPath));
             await fs.promises.copyFile(source.fsPath, targetPath);
         }
         await this.refreshAsync();
@@ -346,7 +347,7 @@ class WorkflowPanelController {
             if (!sourceStats?.isFile()) {
                 continue;
             }
-            const targetPath = await getNextAttachmentPathAsync(contextDirectoryPath, path.basename(sourcePath));
+            const targetPath = await (0, utils_1.getNextAttachmentPathAsync)(contextDirectoryPath, path.basename(sourcePath));
             await fs.promises.copyFile(sourcePath, targetPath);
             copiedFiles += 1;
         }
@@ -363,7 +364,7 @@ class WorkflowPanelController {
             return;
         }
         await fs.promises.mkdir(targetDirectory, { recursive: true });
-        const targetPath = await getNextAttachmentPathAsync(targetDirectory, path.basename(sourcePath));
+        const targetPath = await (0, utils_1.getNextAttachmentPathAsync)(targetDirectory, path.basename(sourcePath));
         await fs.promises.rename(sourcePath, targetPath);
         await this.refreshAsync();
         void vscode.window.showInformationMessage(`Moved ${path.basename(sourcePath)} to ${targetKind === "context" ? "context" : "user story info"} in ${this.summary.usId}.`);
@@ -478,9 +479,9 @@ class WorkflowPanelController {
             this.playbackState = "paused";
             this.clearTransientExecutionPhase();
             await this.refreshAsync("autoplay:error");
-            (0, outputChannel_1.appendSpecForgeLog)(`Autoplay failed for '${this.summary.usId}': ${asErrorMessage(error)}`);
+            (0, outputChannel_1.appendSpecForgeLog)(`Autoplay failed for '${this.summary.usId}': ${(0, utils_1.asErrorMessage)(error)}`);
             (0, outputChannel_1.showSpecForgeOutput)(false);
-            void vscode.window.showErrorMessage(asErrorMessage(error));
+            void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));
         }
     }
     async renderWorkflowAsync(workflow) {
@@ -580,29 +581,8 @@ async function readArtifactContentAsync(artifactPath) {
         return null;
     }
 }
-async function getNextAttachmentPathAsync(directoryPath, fileName) {
-    const extension = path.extname(fileName);
-    const baseName = extension.length > 0 ? fileName.slice(0, -extension.length) : fileName;
-    for (let version = 1; version < 1000; version++) {
-        const suffix = version === 1 ? "" : `.v${String(version).padStart(2, "0")}`;
-        const candidate = path.join(directoryPath, `${baseName}${suffix}${extension}`);
-        try {
-            await fs.promises.access(candidate, fs.constants.F_OK);
-        }
-        catch {
-            return candidate;
-        }
-    }
-    throw new Error(`Unable to allocate attachment path for '${fileName}'.`);
-}
 async function openTextDocument(filePath) {
     const document = await vscode.workspace.openTextDocument(filePath);
     await vscode.window.showTextDocument(document, { preview: false });
-}
-function asErrorMessage(error) {
-    if (error instanceof Error) {
-        return error.message;
-    }
-    return "Unknown workflow view error.";
 }
 //# sourceMappingURL=workflowPanel.js.map
