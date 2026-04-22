@@ -345,6 +345,22 @@ function shouldRenderApprovalBranchEditor(workflow, selectedPhase) {
         && selectedPhase.isCurrent
         && workflow.controls.canApprove;
 }
+function buildArtifactPreviewSection(artifactPath, artifactPreviewHtml, artifactContent, options) {
+    const rawArtifact = options?.rawArtifact ?? false;
+    const footerNote = options?.footerNote?.trim() ?? "";
+    return `
+    <div class="detail-actions detail-actions--artifact">
+      <div class="artifact-view-label">
+        <span class="badge${rawArtifact ? " badge--attention" : ""}">${rawArtifact ? "Raw Artifact" : "Preview"}</span>
+      </div>
+      <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(artifactPath)}">Open Artifact</button>
+    </div>
+    ${artifactPreviewHtml
+        ? `<div class="markdown-preview${rawArtifact ? " markdown-preview--raw-artifact" : ""}">${artifactPreviewHtml}</div>`
+        : `<pre class="artifact-preview${rawArtifact ? " artifact-preview--raw-artifact" : ""}">${escapeHtml(artifactContent)}</pre>`}
+    ${footerNote ? `<p class="muted">${escapeHtml(footerNote)}</p>` : ""}
+  `;
+}
 function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
     const isClarificationDetail = selectedPhase.phaseId === "clarification" && workflow.clarification !== null;
@@ -477,26 +493,20 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         : "";
     const artifactSection = selectedPhase.artifactPath
         ? isClarificationDetail
-            ? `
-        <div class="detail-actions detail-actions--artifact">
-          <div class="artifact-view-label">
-            <span class="badge badge--attention">Raw Artifact</span>
-          </div>
-          <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.artifactPath)}">Open Artifact</button>
-        </div>
-        ${artifactPreviewHtml ? `<div class="markdown-preview markdown-preview--raw-artifact">${artifactPreviewHtml}</div>` : `<pre class="artifact-preview artifact-preview--raw-artifact">${escapeHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")}</pre>`}
-        <p class="muted">The raw artifact stays visible here to preserve model context beyond the structured clarification questions below.</p>
-      `
-            : `
-        <div class="detail-actions detail-actions--artifact">
-          <div class="artifact-view-label">
-            <span class="badge">Preview</span>
-          </div>
-          <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.artifactPath)}">Open Artifact</button>
-        </div>
-        ${artifactPreviewHtml ? `<div class="markdown-preview">${artifactPreviewHtml}</div>` : `<pre class="artifact-preview">${escapeHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")}</pre>`}
-      `
+            ? buildArtifactPreviewSection(selectedPhase.artifactPath, artifactPreviewHtml, state.selectedArtifactContent ?? "Artifact content unavailable.", {
+                rawArtifact: true,
+                footerNote: "The raw artifact stays visible here to preserve model context beyond the structured clarification questions below."
+            })
+            : buildArtifactPreviewSection(selectedPhase.artifactPath, artifactPreviewHtml, state.selectedArtifactContent ?? "Artifact content unavailable.")
         : "<p class=\"muted\">No artifact is persisted for this phase.</p>";
+    const captureSourceSection = selectedPhase.phaseId === "capture" && selectedPhase.artifactPath
+        ? `
+      <section class="detail-card">
+        <h3>User Story Source</h3>
+        ${buildArtifactPreviewSection(selectedPhase.artifactPath, artifactPreviewHtml, state.selectedArtifactContent ?? "Artifact content unavailable.")}
+      </section>
+    `
+        : "";
     const promptButtons = [
         selectedPhase.executePromptPath
             ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${escapeHtmlAttribute(selectedPhase.executePromptPath)}">Open Execute Prompt</button>`
@@ -2454,6 +2464,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           </section>
         </div>
         ${approvalBranchSection}
+        ${captureSourceSection}
         ${refinementClarificationSection}
         ${refinementApprovalQuestionsSection}
         <section class="detail-card">
