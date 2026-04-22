@@ -41,6 +41,7 @@ const detailsPanel_1 = require("./detailsPanel");
 const extensionRuntime_1 = require("./extensionRuntime");
 const extensionSettings_1 = require("./extensionSettings");
 const outputChannel_1 = require("./outputChannel");
+const runtimeVersion_1 = require("./runtimeVersion");
 const workflowPanel_1 = require("./workflowPanel");
 const sidebarView_1 = require("./sidebarView");
 const specsExplorer_1 = require("./specsExplorer");
@@ -50,6 +51,7 @@ function activate(context) {
     (0, specsExplorer_1.configureBackendHostRoot)(context.extensionUri.fsPath);
     (0, outputChannel_1.setSpecForgeDebugLoggingEnabled)(context.extensionMode === vscode.ExtensionMode.Development);
     context.subscriptions.push((0, outputChannel_1.getSpecForgeOutputChannel)());
+    void logActivationVersionAsync(context);
     (0, outputChannel_1.appendSpecForgeDebugLog)(`Extension activated in mode '${vscode.ExtensionMode[context.extensionMode]}'.`);
     const sidebarProvider = new sidebarView_1.SidebarViewProvider(context.extensionUri, async () => {
         await refreshWorkspaceUiAsync("sidebar:onDidCreateUserStory");
@@ -83,11 +85,22 @@ function deactivate() {
         disposeBackendClients: specsExplorer_1.disposeBackendClients
     });
 }
+async function logActivationVersionAsync(context) {
+    const manifestVersion = readManifestVersion(context);
+    const runtimeVersion = await (0, runtimeVersion_1.readRuntimeVersionAsync)();
+    (0, outputChannel_1.appendSpecForgeLog)(`Extension version manifest='${manifestVersion}' runtime='${runtimeVersion ?? "unknown"}'.`);
+}
 function createVsCodeHost() {
     return {
         registerTreeDataProvider: () => new vscode.Disposable(() => undefined),
         registerCommand: (command, callback) => vscode.commands.registerCommand(command, callback)
     };
+}
+function readManifestVersion(context) {
+    const rawVersion = context.extension.packageJSON?.version;
+    return typeof rawVersion === "string" && rawVersion.trim().length > 0
+        ? rawVersion.trim()
+        : "unknown";
 }
 function createExtensionActions(explorerProvider, sidebarProvider) {
     return {

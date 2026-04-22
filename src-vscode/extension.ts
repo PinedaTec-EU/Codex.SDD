@@ -5,10 +5,12 @@ import { activateExtension, deactivateExtension, type ExtensionActions, type Ext
 import { getSpecForgeSettings } from "./extensionSettings";
 import {
   appendSpecForgeDebugLog,
+  appendSpecForgeLog,
   getSpecForgeOutputChannel,
   setSpecForgeDebugLoggingEnabled,
   showSpecForgeOutput
 } from "./outputChannel";
+import { readRuntimeVersionAsync } from "./runtimeVersion";
 import { hasActiveWorkflowPlayback, notifyWorkflowFileChanged, openWorkflowView, refreshWorkflowViews } from "./workflowPanel";
 import { SidebarViewProvider } from "./sidebarView";
 import {
@@ -36,6 +38,7 @@ export function activate(context: vscode.ExtensionContext): void {
   configureBackendHostRoot(context.extensionUri.fsPath);
   setSpecForgeDebugLoggingEnabled(context.extensionMode === vscode.ExtensionMode.Development);
   context.subscriptions.push(getSpecForgeOutputChannel());
+  void logActivationVersionAsync(context);
   appendSpecForgeDebugLog(`Extension activated in mode '${vscode.ExtensionMode[context.extensionMode]}'.`);
   const sidebarProvider = new SidebarViewProvider(context.extensionUri, async () => {
     await refreshWorkspaceUiAsync("sidebar:onDidCreateUserStory");
@@ -80,11 +83,26 @@ export function deactivate(): void {
   });
 }
 
+async function logActivationVersionAsync(context: vscode.ExtensionContext): Promise<void> {
+  const manifestVersion = readManifestVersion(context);
+  const runtimeVersion = await readRuntimeVersionAsync();
+  appendSpecForgeLog(
+    `Extension version manifest='${manifestVersion}' runtime='${runtimeVersion ?? "unknown"}'.`
+  );
+}
+
 function createVsCodeHost(): ExtensionHost {
   return {
     registerTreeDataProvider: () => new vscode.Disposable(() => undefined),
     registerCommand: (command, callback) => vscode.commands.registerCommand(command, callback)
   };
+}
+
+function readManifestVersion(context: vscode.ExtensionContext): string {
+  const rawVersion = context.extension.packageJSON?.version;
+  return typeof rawVersion === "string" && rawVersion.trim().length > 0
+    ? rawVersion.trim()
+    : "unknown";
 }
 
 function createExtensionActions(explorerProvider: { refresh(): void }, sidebarProvider: SidebarViewProvider): ExtensionActions {
