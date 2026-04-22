@@ -642,6 +642,8 @@ export function buildWorkflowHtml(
     0
   );
   const selectedPhaseIterationCount = selectedPhaseMetricEvents.length;
+  const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
+  const canRewindSelectedPhase = rewindablePhaseIds.has(selectedPhase.phaseId);
   const phaseSpecificSections = buildPhaseSpecificSections(
     workflow,
     selectedPhase,
@@ -657,13 +659,14 @@ export function buildWorkflowHtml(
       ? { command: "restart", phaseId: undefined }
       : null;
   const selectedPhaseStateClass = heroTokenClass(selectedPhase.state);
-  const detailActions = selectedPhase.isCurrent && (workflow.controls.canApprove || detailRejectCommand)
+  const detailActions = (selectedPhase.isCurrent && (workflow.controls.canApprove || detailRejectCommand)) || canRewindSelectedPhase
     ? `
       <div class="detail-actions detail-actions--phase-header">
         ${workflow.controls.canApprove
           ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${shouldRenderApprovalBranchEditor(workflow, selectedPhase) && Boolean(state.requireExplicitApprovalBranchAcceptance) || unresolvedApprovalQuestionCount > 0 ? " disabled" : ""}>Approve</button>`
           : ""}
         ${detailRejectCommand ? `<button class="workflow-action-button workflow-action-button--danger" data-command="${detailRejectCommand.command}"${detailRejectCommand.phaseId ? ` data-phase-id="${escapeHtmlAttribute(detailRejectCommand.phaseId)}"` : ""}>Reject</button>` : ""}
+        ${canRewindSelectedPhase ? `<button class="workflow-action-button workflow-action-button--document" data-command="rewind" data-phase-id="${escapeHtmlAttribute(selectedPhase.phaseId)}">Rewind Here</button>` : ""}
       </div>
     `
     : "";
@@ -843,6 +846,9 @@ export function buildWorkflowHtml(
     </div>
   `;
   const playbackButtons = `
+    <button class="icon-button" data-command="rewind" data-phase-id="${escapeHtmlAttribute(selectedPhase.phaseId)}" aria-label="Rewind workflow to selected phase"${canRewindSelectedPhase ? "" : " disabled"}>
+      ${rewindIcon()}
+    </button>
     <button class="icon-button icon-button--primary${shouldPulsePlay ? " icon-button--pulse" : ""}" data-command="play" aria-label="Play workflow"${playDisabled ? " disabled" : ""}>
       ${playIcon()}
     </button>
@@ -1110,7 +1116,9 @@ export function buildWorkflowHtml(
       position: absolute;
       z-index: 1;
       inset: 14px 14px 14px 14px;
-      display: block;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
       text-align: right;
     }
     .phase-duration-pill__label {
@@ -1122,10 +1130,10 @@ export function buildWorkflowHtml(
       padding-right: 2px;
     }
     .phase-duration-pill__value {
-      position: absolute;
-      right: 8px;
-      bottom: 2px;
-      left: 94px;
+      display: block;
+      margin-top: auto;
+      min-height: 3.2rem;
+      padding-left: 94px;
       font-size: clamp(1.38rem, 2.9vw, 2.3rem);
       font-weight: 800;
       line-height: 1.05;
@@ -3778,6 +3786,14 @@ function playIcon(): string {
   return `
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M8 5.14v13.72c0 .72.78 1.17 1.4.8l10.2-6.86a.94.94 0 0 0 0-1.6L9.4 4.34A.94.94 0 0 0 8 5.14Z"></path>
+    </svg>
+  `;
+}
+
+function rewindIcon(): string {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M11.14 6.47a1 1 0 0 1 0 1.41L7.01 12l4.13 4.12a1 1 0 1 1-1.42 1.42l-4.83-4.83a1 1 0 0 1 0-1.42l4.83-4.83a1 1 0 0 1 1.42 0Zm8 0a1 1 0 0 1 0 1.41L15.01 12l4.13 4.12a1 1 0 1 1-1.42 1.42l-4.83-4.83a1 1 0 0 1 0-1.42l4.83-4.83a1 1 0 0 1 1.42 0Z"></path>
     </svg>
   `;
 }

@@ -296,6 +296,16 @@ public sealed class WorkflowRunner
         await File.WriteAllTextAsync(paths.MainArtifactPath, cleanedUserStory, cancellationToken);
         await File.WriteAllTextAsync(paths.TimelineFilePath, BuildInitialTimeline(usId, metadata.Title, "system"), cancellationToken);
 
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "workflow_reset_to_capture",
+            "system",
+            PhaseId.Capture,
+            BuildFileDeletionSummary(
+                "Reset the workflow to `capture` and removed derived artifacts.",
+                deletedPaths),
+            cancellationToken);
+
         var resetRun = new WorkflowRun(usId, currentSourceHash, existingRun.Definition);
         await fileStore.SaveAsync(resetRun, paths.RootDirectory, cancellationToken);
 
@@ -311,6 +321,45 @@ public sealed class WorkflowRunner
                 paths.StateFilePath,
                 paths.TimelineFilePath
             ]);
+    }
+
+    public async Task<RewindWorkflowResult> RewindWorkflowAsync(
+        string workspaceRoot,
+        string usId,
+        PhaseId targetPhase,
+        string actor = "user",
+        CancellationToken cancellationToken = default)
+    {
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
+        var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        ValidateRewindTarget(workflowRun, targetPhase);
+
+        var deletedPaths = await RewindDerivedArtifactsAsync(paths, workflowRun.CurrentPhase, targetPhase, workflowRun.Branch is not null, cancellationToken);
+        workflowRun.RewindToPhase(targetPhase);
+
+        if (targetPhase <= PhaseId.Refinement && workflowRun.Branch is not null)
+        {
+            workflowRun.RemoveBranch();
+        }
+
+        await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "workflow_rewound",
+            NormalizeActor(actor),
+            workflowRun.CurrentPhase,
+            BuildFileDeletionSummary(
+                $"Rewound the workflow to phase `{WorkflowPresentation.ToPhaseSlug(targetPhase)}`.",
+                deletedPaths),
+            cancellationToken);
+
+        return new RewindWorkflowResult(
+            workflowRun.UsId,
+            WorkflowPresentation.ToStatusSlug(workflowRun.Status),
+            WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
+            deletedPaths,
+            BuildRewindPreservedPaths(paths, targetPhase));
     }
 
     public async Task<ContinuePhaseResult> ContinuePhaseAsync(
@@ -683,6 +732,49 @@ public sealed class WorkflowRunner
         return Task.FromResult<IReadOnlyCollection<string>>(deletedPaths);
     }
 
+    private static Task<IReadOnlyCollection<string>> RewindDerivedArtifactsAsync(
+        UserStoryFilePaths paths,
+        PhaseId currentPhase,
+        PhaseId targetPhase,
+        bool hasBranch,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var deletedPaths = new List<string>();
+        if (Directory.Exists(paths.PhasesDirectoryPath))
+        {
+            foreach (var phaseId in EnumerateRewindDeletablePhases(currentPhase, targetPhase))
+            {
+                foreach (var candidate in EnumeratePhaseFiles(paths, phaseId))
+                {
+                    if (!File.Exists(candidate))
+                    {
+                        continue;
+                    }
+
+                    deletedPaths.Add(candidate);
+                    File.Delete(candidate);
+                }
+            }
+        }
+
+        if (File.Exists(paths.RuntimeFilePath))
+        {
+            deletedPaths.Add(paths.RuntimeFilePath);
+            File.Delete(paths.RuntimeFilePath);
+        }
+
+        if (targetPhase <= PhaseId.Refinement && hasBranch && File.Exists(paths.BranchFilePath))
+        {
+            deletedPaths.Add(paths.BranchFilePath);
+            File.Delete(paths.BranchFilePath);
+        }
+
+        Directory.CreateDirectory(paths.PhasesDirectoryPath);
+        return Task.FromResult<IReadOnlyCollection<string>>(deletedPaths);
+    }
+
     private static async Task AppendTimelineEventAsync(
         string timelinePath,
         string eventCode,
@@ -724,6 +816,116 @@ public sealed class WorkflowRunner
 
         await File.AppendAllTextAsync(timelinePath, builder.ToString(), cancellationToken);
     }
+
+    private static void ValidateRewindTarget(WorkflowRun workflowRun, PhaseId targetPhase)
+    {
+        if (targetPhase == PhaseId.Capture)
+        {
+            throw new WorkflowDomainException("Rewind to 'capture' is not allowed. Use reset to capture instead.");
+        }
+
+        if (targetPhase == PhaseId.PrPreparation)
+        {
+            throw new WorkflowDomainException("Rewind to the final workflow phase is not allowed.");
+        }
+
+        if (targetPhase >= workflowRun.CurrentPhase)
+        {
+            throw new WorkflowDomainException(
+                $"Rewind from '{workflowRun.CurrentPhase}' to '{targetPhase}' is not allowed.");
+        }
+    }
+
+    private static IReadOnlyCollection<string> BuildRewindPreservedPaths(UserStoryFilePaths paths, PhaseId targetPhase)
+    {
+        var preservedPaths = new List<string>
+        {
+            paths.MainArtifactPath,
+            paths.ContextDirectoryPath,
+            paths.AttachmentsDirectoryPath,
+            paths.StateFilePath,
+            paths.TimelineFilePath,
+            paths.PhasesDirectoryPath
+        };
+
+        if (targetPhase >= PhaseId.Clarification)
+        {
+            preservedPaths.Add(paths.ClarificationFilePath);
+        }
+
+        if (targetPhase > PhaseId.Refinement)
+        {
+            preservedPaths.Add(paths.BranchFilePath);
+        }
+
+        return preservedPaths;
+    }
+
+    private static string BuildFileDeletionSummary(string prefix, IReadOnlyCollection<string> deletedPaths)
+    {
+        if (deletedPaths.Count == 0)
+        {
+            return $"{prefix} No files needed deletion.";
+        }
+
+        var deletedList = string.Join(", ", deletedPaths.Select(static path => $"`{path.Replace('\\', '/')}`"));
+        return $"{prefix} Deleted: {deletedList}.";
+    }
+
+    private static IEnumerable<PhaseId> EnumerateRewindDeletablePhases(PhaseId currentPhase, PhaseId targetPhase)
+    {
+        foreach (var phaseId in new[]
+                 {
+                     PhaseId.Clarification,
+                     PhaseId.Refinement,
+                     PhaseId.TechnicalDesign,
+                     PhaseId.Implementation,
+                     PhaseId.Review
+                 })
+        {
+            if (phaseId > targetPhase && phaseId <= currentPhase)
+            {
+                yield return phaseId;
+            }
+        }
+    }
+
+    private static IEnumerable<string> EnumeratePhaseFiles(UserStoryFilePaths paths, PhaseId phaseId)
+    {
+        if (phaseId == PhaseId.Clarification)
+        {
+            yield return paths.GetPhaseArtifactPath(PhaseId.Clarification);
+            yield break;
+        }
+
+        if (phaseId is not (PhaseId.Refinement or PhaseId.TechnicalDesign or PhaseId.Implementation or PhaseId.Review))
+        {
+            yield break;
+        }
+
+        foreach (var stem in GetPhaseArtifactFileStems(phaseId))
+        {
+            var operationLogCandidate = Path.Combine(paths.PhasesDirectoryPath, $"{stem}.ops.md");
+            yield return operationLogCandidate;
+
+            for (var version = 1; version < 100; version++)
+            {
+                var versionSuffix = version <= 1 ? string.Empty : $".v{version:00}";
+                yield return Path.Combine(paths.PhasesDirectoryPath, $"{stem}{versionSuffix}.md");
+                yield return Path.Combine(paths.PhasesDirectoryPath, $"{stem}{versionSuffix}.json");
+            }
+        }
+    }
+
+    private static IReadOnlyList<string> GetPhaseArtifactFileStems(PhaseId phaseId) => phaseId switch
+    {
+        PhaseId.Refinement => ["01-spec", "01-refinement"],
+        PhaseId.Clarification => ["00-clarification"],
+        PhaseId.TechnicalDesign => ["02-technical-design"],
+        PhaseId.Implementation => ["03-implementation"],
+        PhaseId.Review => ["04-review"],
+        _ => []
+    };
 
     private static async Task AppendArtifactOperationEntryAsync(
         string operationLogPath,

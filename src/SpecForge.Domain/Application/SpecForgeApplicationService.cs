@@ -135,7 +135,8 @@ public sealed class SpecForgeApplicationService
                 currentPhase.RequiresApproval,
                 currentPhase.BlockingReason,
                 workflowRun.CurrentPhase != Workflow.PhaseId.Capture,
-                BuildRegressionTargets(workflowRun)),
+                BuildRegressionTargets(workflowRun),
+                BuildRewindTargets(workflowRun)),
             clarification is null
                 ? null
                 : new ClarificationSessionDetails(
@@ -309,6 +310,17 @@ public sealed class SpecForgeApplicationService
         string actor = "user",
         CancellationToken cancellationToken = default) =>
         workflowRunner.RestartUserStoryFromSourceAsync(workspaceRoot, usId, reason, actor, cancellationToken);
+
+    public Task<RewindWorkflowResult> RewindWorkflowAsync(
+        string workspaceRoot,
+        string usId,
+        string targetPhase,
+        string actor = "user",
+        CancellationToken cancellationToken = default)
+    {
+        var phaseId = WorkflowPresentation.ParsePhaseSlug(targetPhase);
+        return workflowRunner.RewindWorkflowAsync(workspaceRoot, usId, phaseId, actor, cancellationToken);
+    }
 
     public Task<ResetUserStoryResult> ResetUserStoryToCaptureAsync(
         string workspaceRoot,
@@ -614,6 +626,24 @@ public sealed class SpecForgeApplicationService
 
         return candidates
             .Where(target => workflowRun.Definition.CanRegress(workflowRun.CurrentPhase, target))
+            .Select(WorkflowPresentation.ToPhaseSlug)
+            .ToArray();
+    }
+
+    private static IReadOnlyCollection<string> BuildRewindTargets(Workflow.WorkflowRun workflowRun)
+    {
+        var candidates = new[]
+        {
+            Workflow.PhaseId.Clarification,
+            Workflow.PhaseId.Refinement,
+            Workflow.PhaseId.TechnicalDesign,
+            Workflow.PhaseId.Implementation,
+            Workflow.PhaseId.Review,
+            Workflow.PhaseId.ReleaseApproval
+        };
+
+        return candidates
+            .Where(target => target < workflowRun.CurrentPhase)
             .Select(WorkflowPresentation.ToPhaseSlug)
             .ToArray();
     }

@@ -71,6 +71,25 @@ export function buildRestartUserStoryArguments(
   return argumentsPayload;
 }
 
+export function buildRewindWorkflowArguments(
+  workspaceRoot: string,
+  usId: string,
+  targetPhase: string,
+  actor?: string
+): Record<string, string> {
+  const argumentsPayload: Record<string, string> = {
+    workspaceRoot,
+    usId,
+    targetPhase
+  };
+
+  if (actor && actor.trim().length > 0) {
+    argumentsPayload.actor = actor;
+  }
+
+  return argumentsPayload;
+}
+
 export function parseToolContent<T>(toolName: string, result: any): T {
   const content = result?.content?.[0]?.text;
   if (typeof content !== "string") {

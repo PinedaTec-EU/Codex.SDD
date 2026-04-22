@@ -28,6 +28,7 @@ type WorkflowPanelCommand =
   | { readonly command: "restart" }
   | { readonly command: "debugResetToCapture" }
   | { readonly command: "regress"; readonly phaseId?: string }
+  | { readonly command: "rewind"; readonly phaseId?: string }
   | { readonly command: "submitClarificationAnswers"; readonly answers?: string[] }
   | { readonly command: "submitApprovalAnswer"; readonly question?: string; readonly answer?: string }
   | { readonly command: "submitPhaseInput"; readonly prompt?: string }
@@ -266,6 +267,11 @@ class WorkflowPanelController {
       case "regress":
         if (message.phaseId) {
           await this.requestRegressionAsync(message.phaseId);
+        }
+        return;
+      case "rewind":
+        if (message.phaseId) {
+          await this.rewindWorkflowAsync(message.phaseId);
         }
         return;
       case "submitClarificationAnswers":
@@ -539,6 +545,44 @@ class WorkflowPanelController {
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' restartCurrentWorkflowAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
     await this.refreshAsync("restartCurrentWorkflowAsync");
+  }
+
+  private async rewindWorkflowAsync(targetPhase: string): Promise<void> {
+    const confirmation = await vscode.window.showWarningMessage(
+      `Rewind ${this.summary.usId} to ${targetPhase} and delete all later derived artifacts?`,
+      { modal: true },
+      "Rewind Workflow"
+    );
+
+    if (confirmation !== "Rewind Workflow") {
+      return;
+    }
+
+    const result = await this.getBackendClient().rewindWorkflow(this.summary.usId, targetPhase, getCurrentActor());
+    appendSpecForgeLog(
+      `Workflow '${this.summary.usId}' was rewound to '${result.currentPhase}' with status '${result.status}'.`
+    );
+    appendSpecForgeDebugLog(
+      `Workflow '${this.summary.usId}' rewind deleted paths: ${result.deletedPaths.length > 0 ? result.deletedPaths.join(", ") : "(none)"}.`
+    );
+    appendSpecForgeDebugLog(
+      `Workflow '${this.summary.usId}' rewind preserved paths: ${result.preservedPaths.length > 0 ? result.preservedPaths.join(", ") : "(none)"}.`
+    );
+    this.summary = {
+      ...this.summary,
+      currentPhase: result.currentPhase,
+      status: result.status,
+      workBranch: result.currentPhase === "clarification" || result.currentPhase === "refinement"
+        ? null
+        : this.summary.workBranch
+    };
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
+    this.selectedPhaseId = result.currentPhase;
+    this.selectedIterationArtifactPath = null;
+    appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' rewindWorkflowAsync requested explorer refresh.`);
+    await this.callbacks.refreshExplorer();
+    await this.refreshAsync("rewindWorkflowAsync");
   }
 
   private async debugResetToCaptureAsync(): Promise<void> {

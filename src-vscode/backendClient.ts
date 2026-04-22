@@ -2,6 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import * as path from "node:path";
 import {
   buildApprovePhaseArguments,
+  buildRewindWorkflowArguments,
   buildRequestRegressionArguments,
   buildRestartUserStoryArguments,
   buildServerProjectPath,
@@ -102,6 +103,14 @@ export interface ResetUserStoryResult {
   readonly preservedPaths: readonly string[];
 }
 
+export interface RewindWorkflowResult {
+  readonly usId: string;
+  readonly currentPhase: string;
+  readonly status: string;
+  readonly deletedPaths: readonly string[];
+  readonly preservedPaths: readonly string[];
+}
+
 export interface WorkflowPhaseDetails {
   readonly phaseId: string;
   readonly title: string;
@@ -136,6 +145,7 @@ export interface CurrentPhaseControls {
   readonly blockingReason: string | null;
   readonly canRestartFromSource: boolean;
   readonly regressionTargets: readonly string[];
+  readonly rewindTargets: readonly string[];
 }
 
 export interface TimelineEventDetails {
@@ -188,6 +198,7 @@ export interface SpecForgeBackendClient {
   approveCurrentPhase(usId: string, baseBranch?: string, workBranch?: string, actor?: string): Promise<UserStorySummary>;
   requestRegression(usId: string, targetPhase: string, reason?: string, actor?: string): Promise<RequestRegressionResult>;
   restartUserStoryFromSource(usId: string, reason?: string, actor?: string): Promise<RestartUserStoryResult>;
+  rewindWorkflow(usId: string, targetPhase: string, actor?: string): Promise<RewindWorkflowResult>;
   resetUserStoryToCapture(usId: string): Promise<ResetUserStoryResult>;
   submitClarificationAnswers(usId: string, answers: readonly string[], actor?: string): Promise<void>;
   submitApprovalAnswer(usId: string, question: string, answer: string, actor?: string): Promise<SubmitApprovalAnswerResult>;
@@ -345,6 +356,13 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     return this.callTool<RestartUserStoryResult>(
       "restart_user_story_from_source",
       buildRestartUserStoryArguments(this.workspaceRoot, usId, reason, actor)
+    );
+  }
+
+  public async rewindWorkflow(usId: string, targetPhase: string, actor?: string): Promise<RewindWorkflowResult> {
+    return this.callTool<RewindWorkflowResult>(
+      "rewind_workflow",
+      buildRewindWorkflowArguments(this.workspaceRoot, usId, targetPhase, actor)
     );
   }
 

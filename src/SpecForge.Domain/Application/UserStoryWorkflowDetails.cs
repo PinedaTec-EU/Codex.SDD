@@ -40,7 +40,8 @@ public sealed record CurrentPhaseControls(
     bool RequiresApproval,
     string? BlockingReason,
     bool CanRestartFromSource,
-    IReadOnlyCollection<string> RegressionTargets);
+    IReadOnlyCollection<string> RegressionTargets,
+    IReadOnlyCollection<string> RewindTargets);
 
 public sealed record TimelineEventDetails(
     string TimestampUtc,

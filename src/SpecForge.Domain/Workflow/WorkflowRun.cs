@@ -148,6 +148,26 @@ public sealed class WorkflowRun
             : UserStoryStatus.Active;
     }
 
+    public void RewindToPhase(PhaseId targetPhase)
+    {
+        if (targetPhase >= CurrentPhase)
+        {
+            throw new WorkflowDomainException(
+                $"Rewind from '{CurrentPhase}' to '{targetPhase}' is not allowed.");
+        }
+
+        approvedPhases.RemoveWhere(phase => phase >= targetPhase);
+        CurrentPhase = targetPhase;
+        Status = Definition.RequiresApproval(targetPhase)
+            ? UserStoryStatus.WaitingUser
+            : UserStoryStatus.Active;
+    }
+
+    public void RemoveBranch()
+    {
+        Branch = null;
+    }
+
     public void RestoreBranch(WorkBranch branch)
     {
         Branch = branch ?? throw new ArgumentNullException(nameof(branch));
