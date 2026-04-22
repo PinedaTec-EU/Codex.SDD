@@ -1131,6 +1131,7 @@ export function buildWorkflowHtml(
       display: block;
       margin-top: auto;
       min-height: 3.2rem;
+      padding-bottom: 6px;
       width: 100%;
       padding-left: 0;
       font-size: clamp(1.38rem, 2.9vw, 2.3rem);
