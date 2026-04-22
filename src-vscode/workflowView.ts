@@ -14,6 +14,7 @@ interface ExecutionOverlayModel {
   readonly title: string;
   readonly phaseId: string;
   readonly tone: "playing" | "paused" | "stopping";
+  readonly startedAtMs: number | null;
   readonly showElapsed: boolean;
   readonly messages: readonly string[];
 }
@@ -372,6 +373,7 @@ function buildExecutionOverlay(
       title: `Executing ${overlayPhase.title}`,
       phaseId: overlayPhase.phaseId,
       tone: "playing",
+      startedAtMs: state.playbackStartedAtMs ?? null,
       showElapsed: true,
       messages: [...(phaseExecutionMessages[overlayPhase.phaseId] ?? []), ...genericExecutionMessages]
     }
@@ -381,6 +383,7 @@ function buildExecutionOverlay(
         title: `Paused after ${currentPhase.title}`,
         phaseId: currentPhase.phaseId,
         tone: "paused",
+        startedAtMs: state.playbackStartedAtMs ?? null,
         showElapsed: false,
         messages: [
           "The current phase finished, but SpecForge.AI will wait before launching the next one.",
@@ -393,6 +396,7 @@ function buildExecutionOverlay(
         title: `Stopping after ${currentPhase.title}`,
         phaseId: currentPhase.phaseId,
         tone: "stopping",
+        startedAtMs: state.playbackStartedAtMs ?? null,
         showElapsed: false,
         messages: [
           "Stopping autoplay and asking the local runner to stand down.",
@@ -408,6 +412,7 @@ function buildExecutionOverlay(
       data-us-id="${escapeHtmlAttribute(overlay.usId)}"
       data-phase-id="${escapeHtmlAttribute(overlay.phaseId)}"
       data-tone="${escapeHtmlAttribute(overlay.tone)}"
+      data-started-at-ms="${overlay.startedAtMs ?? ""}"
       data-dismissible="${overlay.tone === "playing" ? "false" : "true"}"
       data-show-elapsed="${overlay.showElapsed ? "true" : "false"}"
       data-messages='${escapeHtmlAttribute(JSON.stringify(overlay.messages))}'>
@@ -3341,6 +3346,7 @@ export function buildWorkflowHtml(
       );
       const dismissKey = overlayKey + ":dismissed";
       const overlayTone = executionOverlay.dataset.tone ?? "";
+      const providedStartedAt = Number.parseInt(executionOverlay.dataset.startedAtMs ?? "", 10);
       const showElapsed = executionOverlay.dataset.showElapsed === "true";
       const dismissible = executionOverlay.dataset.dismissible === "true";
       if (overlayTone === "playing") {
@@ -3354,7 +3360,9 @@ export function buildWorkflowHtml(
       const restoredState = restoreExecutionOverlayState(overlayKey, messageCatalog);
       const shuffledMessages = restoredState.messages;
       let messageIndex = restoredState.messageIndex;
-      let startedAt = restoredState.startedAt;
+      let startedAt = Number.isFinite(providedStartedAt) && providedStartedAt > 0
+        ? providedStartedAt
+        : restoredState.startedAt;
 
       if (messageElement && shuffledMessages.length > 0) {
         messageElement.textContent = shuffledMessages[messageIndex] ?? shuffledMessages[0];

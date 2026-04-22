@@ -90,6 +90,7 @@ class WorkflowPanelController {
     selectedPhaseId;
     selectedIterationArtifactPath = null;
     playbackState = "idle";
+    playbackStartedAtMs = null;
     autoplayPromise = null;
     lastWorkflow = null;
     transientExecutionPhaseId = null;
@@ -163,6 +164,7 @@ class WorkflowPanelController {
         if (this.playbackState === "paused" && workflow.controls.canContinue) {
             (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' cleared stale paused playback after refresh because the workflow can continue again.`);
             this.playbackState = "idle";
+            this.playbackStartedAtMs = null;
             this.clearTransientExecutionPhase();
         }
         this.lastWorkflow = workflow;
@@ -504,6 +506,7 @@ class WorkflowPanelController {
                 return;
             }
             this.playbackState = "paused";
+            this.playbackStartedAtMs = null;
             this.clearTransientExecutionPhase();
             await this.refreshAsync("autoplay:error");
             (0, outputChannel_1.appendSpecForgeLog)(`Autoplay failed for '${this.summary.usId}': ${(0, utils_1.asErrorMessage)(error)}`);
@@ -514,6 +517,9 @@ class WorkflowPanelController {
     async startAutoplayAsync(reason) {
         (0, outputChannel_1.appendSpecForgeLog)(`Autoplay requested for '${this.summary.usId}'. reason='${reason}'.`);
         (0, outputChannel_1.showSpecForgeOutput)(true);
+        if (this.playbackState !== "paused" || this.playbackStartedAtMs === null) {
+            this.playbackStartedAtMs = Date.now();
+        }
         this.playbackState = "playing";
         this.setTransientExecutionPhase(this.deriveInitialExecutionPhaseId());
         if (!this.autoplayPromise) {
@@ -574,6 +580,7 @@ class WorkflowPanelController {
             runtimeVersion,
             executionPhaseId: this.transientExecutionPhaseId,
             completedPhaseIds: this.transientCompletedPhaseIds,
+            playbackStartedAtMs: this.playbackStartedAtMs,
             debugMode: (0, outputChannel_1.isSpecForgeDebugLoggingEnabled)(),
             approvalBaseBranchProposal: this.refinementApprovalBaseBranchProposal,
             approvalWorkBranchProposal: this.buildRefinementApprovalWorkBranchProposal(workflow),
@@ -628,6 +635,9 @@ class WorkflowPanelController {
     clearTransientExecutionPhase() {
         this.transientExecutionPhaseId = null;
         this.transientCompletedPhaseIds = [];
+        if (this.playbackState === "idle" || this.playbackState === "stopping") {
+            this.playbackStartedAtMs = null;
+        }
     }
     computeCompletedPhaseIds(executionPhaseId) {
         const phaseOrder = ["capture", "clarification", "refinement", "technical-design", "implementation", "review", "release-approval", "pr-preparation"];

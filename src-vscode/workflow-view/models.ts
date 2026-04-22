@@ -11,6 +11,7 @@ export interface WorkflowViewState {
   readonly runtimeVersion?: string | null;
   readonly executionPhaseId?: string | null;
   readonly completedPhaseIds?: readonly string[];
+  readonly playbackStartedAtMs?: number | null;
   readonly debugMode?: boolean;
   readonly approvalBaseBranchProposal?: string | null;
   readonly approvalWorkBranchProposal?: string | null;

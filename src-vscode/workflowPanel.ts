@@ -91,6 +91,7 @@ class WorkflowPanelController {
   private selectedPhaseId: string;
   private selectedIterationArtifactPath: string | null = null;
   private playbackState: "idle" | "playing" | "paused" | "stopping" = "idle";
+  private playbackStartedAtMs: number | null = null;
   private autoplayPromise: Promise<void> | null = null;
   private lastWorkflow: UserStoryWorkflowDetails | null = null;
   private transientExecutionPhaseId: string | null = null;
@@ -188,6 +189,7 @@ class WorkflowPanelController {
         `Workflow '${this.summary.usId}' cleared stale paused playback after refresh because the workflow can continue again.`
       );
       this.playbackState = "idle";
+      this.playbackStartedAtMs = null;
       this.clearTransientExecutionPhase();
     }
     this.lastWorkflow = workflow;
@@ -605,6 +607,7 @@ class WorkflowPanelController {
       }
 
       this.playbackState = "paused";
+      this.playbackStartedAtMs = null;
       this.clearTransientExecutionPhase();
       await this.refreshAsync("autoplay:error");
       appendSpecForgeLog(`Autoplay failed for '${this.summary.usId}': ${asErrorMessage(error)}`);
@@ -616,6 +619,9 @@ class WorkflowPanelController {
   private async startAutoplayAsync(reason: string): Promise<void> {
     appendSpecForgeLog(`Autoplay requested for '${this.summary.usId}'. reason='${reason}'.`);
     showSpecForgeOutput(true);
+    if (this.playbackState !== "paused" || this.playbackStartedAtMs === null) {
+      this.playbackStartedAtMs = Date.now();
+    }
     this.playbackState = "playing";
     this.setTransientExecutionPhase(this.deriveInitialExecutionPhaseId());
     if (!this.autoplayPromise) {
@@ -684,6 +690,7 @@ class WorkflowPanelController {
       runtimeVersion,
       executionPhaseId: this.transientExecutionPhaseId,
       completedPhaseIds: this.transientCompletedPhaseIds,
+      playbackStartedAtMs: this.playbackStartedAtMs,
       debugMode: isSpecForgeDebugLoggingEnabled(),
       approvalBaseBranchProposal: this.refinementApprovalBaseBranchProposal,
       approvalWorkBranchProposal: this.buildRefinementApprovalWorkBranchProposal(workflow),
@@ -752,6 +759,9 @@ class WorkflowPanelController {
   private clearTransientExecutionPhase(): void {
     this.transientExecutionPhaseId = null;
     this.transientCompletedPhaseIds = [];
+    if (this.playbackState === "idle" || this.playbackState === "stopping") {
+      this.playbackStartedAtMs = null;
+    }
   }
 
   private computeCompletedPhaseIds(executionPhaseId: string): readonly string[] {
