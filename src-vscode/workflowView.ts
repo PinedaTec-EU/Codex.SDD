@@ -604,6 +604,8 @@ function formatBlockingReason(reason: string | null | undefined): string | null 
       return "Implementation is blocked because the assigned executor does not have repository write access.";
     case "review_requires_repository_read_access":
       return "Review is blocked because the assigned reviewer cannot inspect repository artifacts.";
+    case "codex_cli_not_found":
+      return "Execution is blocked because the local Codex CLI could not be found on this machine.";
     default:
       return reason ? `Workflow blocked: ${reason}` : null;
   }

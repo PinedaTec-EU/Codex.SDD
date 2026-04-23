@@ -281,6 +281,21 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
+    public void GetPhaseExecutionReadiness_CodexProfileWithoutCli_BlocksExecution()
+    {
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new CapturingFakeHttpMessageHandler()),
+            CreateOptions(model: string.Empty, providerKind: "codex", baseUrl: string.Empty, apiKey: string.Empty),
+            new RepositoryPromptCatalog(),
+            new FakeCodexCliRunner(isAvailable: false));
+
+        var readiness = provider.GetPhaseExecutionReadiness(PhaseId.Implementation);
+
+        Assert.False(readiness.CanExecute);
+        Assert.Equal(PhaseExecutionBlockingReasons.CodexCliNotFound, readiness.BlockingReason);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_EmptyProfileProvider_DefaultsToOpenAiCompatible()
     {
         await PrepareInitializedWorkspaceAsync();
@@ -314,7 +329,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Theory]
-    [InlineData("codex")]
     [InlineData("copilot")]
     [InlineData("claude")]
     public async Task ExecuteAsync_SupportedBridgeProvider_PreservesConfiguredProviderKind(string providerKind)
@@ -348,6 +362,56 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         Assert.NotNull(result.Execution);
         Assert.Equal(providerKind, result.Execution!.ProviderKind);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CodexProvider_UsesNativeCodexRunnerForImplementation()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var fakeRunner = new FakeCodexCliRunner(isAvailable: true, responseJson: BuildMinimalImplementationJson());
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new ThrowingHttpMessageHandler()),
+            CreateOptions(
+                model: string.Empty,
+                providerKind: "codex",
+                baseUrl: string.Empty,
+                apiKey: string.Empty,
+                repositoryAccess: "read-write"),
+            new RepositoryPromptCatalog(),
+            fakeRunner);
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Implementation,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        var result = await provider.ExecuteAsync(context);
+
+        Assert.Equal("codex", result.ExecutionKind);
+        Assert.NotNull(result.Execution);
+        Assert.Equal("codex", result.Execution!.ProviderKind);
+        Assert.Equal("default", result.Execution.Model);
+        Assert.NotNull(fakeRunner.LastInvocation);
+        Assert.Equal("workspace-write", fakeRunner.LastInvocation!.SandboxMode);
+        Assert.Contains("SpecForge Native Codex Execution", fakeRunner.LastInvocation.Prompt);
+        Assert.Contains("Make the required repository changes", fakeRunner.LastInvocation.Prompt);
+        Assert.Contains("# Implementation · US-0001 · v01", result.Content);
+    }
+
+    [Fact]
+    public void Constructor_CodexProfileWithoutEndpointConfiguration_DoesNotThrow()
+    {
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new CapturingFakeHttpMessageHandler()),
+            CreateOptions(
+                model: string.Empty,
+                providerKind: "codex",
+                baseUrl: string.Empty,
+                apiKey: string.Empty));
+
+        Assert.NotNull(provider);
     }
 
     [Fact]
@@ -519,7 +583,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         string apiKey = "",
         string clarificationTolerance = "balanced",
         string reviewTolerance = "balanced",
-        string repositoryAccess = "read-write")
+        string repositoryAccess = "read-write",
+        string providerKind = "openai-compatible")
     {
         return new OpenAiCompatibleProviderOptions(
             ClarificationTolerance: clarificationTolerance,
@@ -528,7 +593,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             [
                 new OpenAiCompatibleModelProfile(
                     Name: profileName,
-                    Provider: "openai-compatible",
+                    Provider: providerKind,
                     BaseUrl: baseUrl,
                     ApiKey: apiKey,
                     Model: model,
@@ -580,6 +645,33 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             {
                 Content = new StringContent(payload, Encoding.UTF8, "application/json")
             };
+        }
+    }
+
+    private sealed class ThrowingHttpMessageHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("HTTP transport should not be used for native Codex execution.");
+    }
+
+    private sealed class FakeCodexCliRunner : OpenAiCompatiblePhaseExecutionProvider.ICodexCliRunner
+    {
+        private readonly string responseJson;
+
+        public FakeCodexCliRunner(bool isAvailable, string responseJson = "{}")
+        {
+            IsAvailable = isAvailable;
+            this.responseJson = responseJson;
+        }
+
+        public bool IsAvailable { get; }
+
+        public OpenAiCompatiblePhaseExecutionProvider.CodexCliInvocation? LastInvocation { get; private set; }
+
+        public Task<string> ExecuteAsync(OpenAiCompatiblePhaseExecutionProvider.CodexCliInvocation invocation, CancellationToken cancellationToken)
+        {
+            LastInvocation = invocation;
+            return Task.FromResult(responseJson);
         }
     }
 

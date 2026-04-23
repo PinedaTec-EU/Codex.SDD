@@ -117,5 +117,5 @@ internal static class PhaseExecutionProviderFactory
     private static string NormalizeProviderKind(string? providerKind) =>
         string.IsNullOrWhiteSpace(providerKind)
             ? OpenAiCompatibleKind
-            : providerKind.Trim();
+            : providerKind.Trim().ToLowerInvariant();
 }

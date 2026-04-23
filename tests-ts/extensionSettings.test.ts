@@ -363,6 +363,43 @@ test("getSpecForgeSettingsStatus accepts codex, copilot, and claude providers", 
   assert.match(status.diagnostics, /provider=copilot/);
 });
 
+test("getSpecForgeSettingsStatus allows codex without baseUrl apiKey or model", () => {
+  const status = getSpecForgeSettingsStatus({
+    modelProfiles: [
+      {
+        name: "codex-main",
+        provider: "codex",
+        baseUrl: "",
+        apiKey: null,
+        model: "",
+        repositoryAccess: "read-write"
+      }
+    ],
+    phaseModelAssignments: {
+      defaultProfile: null,
+      implementationProfile: null,
+      reviewProfile: null
+    },
+    effectivePhaseModelAssignments: {
+      defaultProfileName: "codex-main",
+      implementationProfileName: "codex-main",
+      reviewProfileName: "codex-main"
+    },
+    clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true,
+    contextSuggestionsEnabled: true,
+    requireExplicitApprovalBranchAcceptance: false,
+    autoPlayEnabled: false,
+    destructiveRewindEnabled: false
+  });
+
+  assert.equal(status.executionConfigured, true);
+  assert.equal(status.message, null);
+  assert.match(status.diagnostics, /provider=codex/);
+});
+
 test("getSpecForgeSettingsStatus rejects unsupported providers", () => {
   const status = getSpecForgeSettingsStatus({
     modelProfiles: [

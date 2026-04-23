@@ -131,7 +131,7 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
       };
     }
 
-    if (!profile.baseUrl) {
+    if (profile.provider !== "codex" && !profile.baseUrl) {
       return {
         executionConfigured: false,
         message: `SpecForge.AI model profile '${profile.name}' is missing base URL.`,
@@ -139,7 +139,7 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
       };
     }
 
-    if (!profile.model) {
+    if (profile.provider !== "codex" && !profile.model) {
       return {
         executionConfigured: false,
         message: `SpecForge.AI model profile '${profile.name}' is missing model.`,
@@ -147,7 +147,7 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
       };
     }
 
-    if (!profile.apiKey && !isLocalOpenAiCompatibleEndpoint(profile.baseUrl)) {
+    if (profile.provider !== "codex" && !profile.apiKey && !isLocalOpenAiCompatibleEndpoint(profile.baseUrl)) {
       return {
         executionConfigured: false,
         message: `SpecForge.AI model profile '${profile.name}' needs an API key for a remote base URL.`,

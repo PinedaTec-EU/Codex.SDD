@@ -144,9 +144,11 @@ By default, phase execution uses a deterministic local engine.
 
 To enable model-backed phase execution, configure at least one model profile.
 
-Important: `provider` is not a global setting anymore. It lives inside each item in `specForge.execution.modelProfiles`, next to that profile's `baseUrl`, `apiKey`, and `model`. If you omit it, SpecForge.AI defaults it to `openai-compatible`.
+Important: `provider` is not a global setting anymore. It lives inside each item in `specForge.execution.modelProfiles`, next to that profile's endpoint or local-runtime settings. If you omit it, SpecForge.AI defaults it to `openai-compatible`.
 
-Important too: `codex`, `copilot`, and `claude` are supported profile identities for routing and audit, but today they still run through the same OpenAI-compatible transport bridge. That means the developer can choose a provider family per phase now, while the repo stays honest about the fact that native provider adapters are still a later step.
+`codex` is now a native provider path for phase execution. When a phase resolves to a `codex` profile, SpecForge.AI invokes the local Codex CLI directly instead of the HTTP bridge. The CLI is auto-discovered from `/Applications/Codex.app/Contents/Resources/codex` or `PATH`, and you can override it with `SPECFORGE_CODEX_CLI_PATH`.
+
+`copilot` and `claude` are still routed through the OpenAI-compatible HTTP bridge today.
 
 Minimal shape of one profile:
 
@@ -189,9 +191,6 @@ Full example with routing:
     {
       "name": "implementer",
       "provider": "codex",
-      "baseUrl": "https://api.example.test/v1",
-      "apiKey": "<your-api-key>",
-      "model": "codex-5",
       "repositoryAccess": "read-write"
     },
     {
@@ -252,9 +251,6 @@ Example targeted routing for a developer who wants Codex for implementation and 
     {
       "name": "codex-main",
       "provider": "codex",
-      "baseUrl": "https://api.example.test/v1",
-      "apiKey": "<your-api-key>",
-      "model": "codex-5",
       "repositoryAccess": "read-write"
     },
     {
@@ -274,6 +270,12 @@ Example targeted routing for a developer who wants Codex for implementation and 
 }
 ```
 
+If you want to point SpecForge.AI at a specific Codex binary instead of the auto-discovered one:
+
+```bash
+export SPECFORGE_CODEX_CLI_PATH="/Applications/Codex.app/Contents/Resources/codex"
+```
+
 Tolerance can still be controlled through environment variables when launching the backend manually:
 
 ```bash
@@ -281,7 +283,11 @@ export SPECFORGE_CAPTURE_TOLERANCE=balanced
 export SPECFORGE_REVIEW_TOLERANCE=balanced
 ```
 
-The current supported `provider` values are `openai-compatible`, `codex`, `copilot`, and `claude`. Today all four share the same OpenAI-compatible chat-completions transport path, so the choice primarily controls routing, execution identity, audit metadata, and capability requirements rather than a fully native provider adapter.
+The current supported `provider` values are `openai-compatible`, `codex`, `copilot`, and `claude`.
+
+- `codex` uses the native local Codex CLI.
+- `openai-compatible` uses the OpenAI-compatible HTTP chat-completions path.
+- `copilot` and `claude` currently use that same HTTP bridge while preserving provider identity in routing and audit metadata.
 For clarification, the backend supports three tolerance levels: `strict`, `balanced`, and `inferential`.
 This value is sent as `SPECFORGE_CAPTURE_TOLERANCE`, adds explicit guidance to the clarification prompt, and maps clarification-only `temperature` as follows:
 

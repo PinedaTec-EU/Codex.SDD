@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -23,6 +24,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     private readonly HttpClient httpClient;
     private readonly OpenAiCompatibleProviderOptions options;
     private readonly RepositoryPromptCatalog promptCatalog;
+    private readonly ICodexCliRunner codexCliRunner;
 
     public OpenAiCompatiblePhaseExecutionProvider(
         HttpClient httpClient,
@@ -34,11 +36,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     internal OpenAiCompatiblePhaseExecutionProvider(
         HttpClient httpClient,
         OpenAiCompatibleProviderOptions options,
-        RepositoryPromptCatalog promptCatalog)
+        RepositoryPromptCatalog promptCatalog,
+        ICodexCliRunner? codexCliRunner = null)
     {
         this.httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         this.options = options ?? throw new ArgumentNullException(nameof(options));
         this.promptCatalog = promptCatalog ?? throw new ArgumentNullException(nameof(promptCatalog));
+        this.codexCliRunner = codexCliRunner ?? new SystemCodexCliRunner();
 
         if (options.ModelProfiles is not { Count: > 0 })
         {
@@ -64,6 +68,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId)
     {
+        var modelSelection = ResolveModelSelection(phaseId);
+        if (string.Equals(modelSelection.ProviderKind, CodexProviderKind, StringComparison.Ordinal) &&
+            !codexCliRunner.IsAvailable)
+        {
+            return new PhaseExecutionReadiness(phaseId, CanExecute: false, PhaseExecutionBlockingReasons.CodexCliNotFound);
+        }
+
         var requiredRepositoryAccess = phaseId switch
         {
             PhaseId.Implementation => RepositoryAccessReadWrite,
@@ -76,10 +87,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             return new PhaseExecutionReadiness(phaseId, CanExecute: true);
         }
 
-        var profileName = ResolveProfileNameForPhase(phaseId);
-        var profile = options.ModelProfiles!.First(candidate =>
-            string.Equals(candidate.Name, profileName, StringComparison.Ordinal));
-        var effectiveRepositoryAccess = NormalizeRepositoryAccess(profile.RepositoryAccess);
+        var effectiveRepositoryAccess = NormalizeRepositoryAccess(modelSelection.RepositoryAccess);
         var canExecute = HasRequiredRepositoryAccess(effectiveRepositoryAccess, requiredRepositoryAccess);
 
         return canExecute
@@ -100,6 +108,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         var prompt = await BuildEffectivePromptAsync(context, cancellationToken);
         var modelSelection = ResolveModelSelection(context.PhaseId);
+        if (string.Equals(modelSelection.ProviderKind, CodexProviderKind, StringComparison.Ordinal))
+        {
+            return await ExecuteViaCodexCliAsync(context, prompt, modelSelection, cancellationToken);
+        }
+
         var request = BuildRequest(context.PhaseId, modelSelection, prompt.SystemPrompt, prompt.UserPrompt);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         var payload = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -378,6 +391,95 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return new EffectivePrompt(systemPrompt, builder.ToString().Trim());
     }
 
+    private async Task<PhaseExecutionResult> ExecuteViaCodexCliAsync(
+        PhaseExecutionContext context,
+        EffectivePrompt prompt,
+        ResolvedModelSelection modelSelection,
+        CancellationToken cancellationToken)
+    {
+        if (!StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var contract))
+        {
+            throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract for Codex execution.");
+        }
+
+        if (!codexCliRunner.IsAvailable)
+        {
+            throw new InvalidOperationException("Codex CLI is not available for native provider execution.");
+        }
+
+        var sandboxMode = context.PhaseId == PhaseId.Implementation
+            ? "workspace-write"
+            : "read-only";
+        var codexPrompt = BuildCodexPrompt(context, prompt);
+        var responseJson = await codexCliRunner.ExecuteAsync(
+            new CodexCliInvocation(
+                context.WorkspaceRoot,
+                codexPrompt,
+                string.IsNullOrWhiteSpace(modelSelection.Model) ? null : modelSelection.Model,
+                contract.JsonSchema.GetRawText(),
+                sandboxMode),
+            cancellationToken);
+        var normalizedContent = NormalizePhaseContent(context, responseJson.Trim());
+
+        return new PhaseExecutionResult(
+            normalizedContent,
+            ExecutionKind: CodexProviderKind,
+            Usage: null,
+            Execution: new PhaseExecutionMetadata(
+                ProviderKind: CodexProviderKind,
+                Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
+                ProfileName: modelSelection.ProfileName));
+    }
+
+    private static string BuildCodexPrompt(PhaseExecutionContext context, EffectivePrompt prompt)
+    {
+        var builder = new StringBuilder()
+            .AppendLine("# SpecForge Native Codex Execution")
+            .AppendLine()
+            .AppendLine("You are Codex executing a SpecForge workflow phase inside the live repository.")
+            .AppendLine("Use the workspace root as the repository root.")
+            .AppendLine("Do not create commits or branches.")
+            .AppendLine("Return only JSON matching the provided schema in your final response.")
+            .AppendLine();
+
+        if (!string.IsNullOrWhiteSpace(prompt.SystemPrompt))
+        {
+            builder
+                .AppendLine("## System Instructions")
+                .AppendLine()
+                .AppendLine(prompt.SystemPrompt.Trim())
+                .AppendLine();
+        }
+
+        if (context.PhaseId == PhaseId.Implementation)
+        {
+            builder
+                .AppendLine("## Native Implementation Rules")
+                .AppendLine()
+                .AppendLine("- Make the required repository changes in this workspace before you finish.")
+                .AppendLine("- Run the most relevant validation commands you can justify from the repo.")
+                .AppendLine("- Base the JSON response on the changes and validation you actually performed.")
+                .AppendLine();
+        }
+        else if (context.PhaseId == PhaseId.Review)
+        {
+            builder
+                .AppendLine("## Native Review Rules")
+                .AppendLine()
+                .AppendLine("- Inspect the repository state and artifacts directly.")
+                .AppendLine("- Do not modify files during review.")
+                .AppendLine("- Base findings only on evidence you actually inspected.")
+                .AppendLine();
+        }
+
+        builder
+            .AppendLine("## Phase Instructions")
+            .AppendLine()
+            .AppendLine(prompt.UserPrompt.Trim());
+
+        return builder.ToString().Trim();
+    }
+
     private ResolvedModelSelection ResolveModelSelection(PhaseId phaseId)
     {
         var profileName = ResolveProfileNameForPhase(phaseId);
@@ -389,7 +491,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             throw new InvalidOperationException($"Model profile '{profileName}' was not found for phase '{phaseId}'.");
         }
 
-        return new ResolvedModelSelection(NormalizeProviderKind(profile.Provider), profile.BaseUrl, profile.ApiKey, profile.Model, profile.Name);
+        return new ResolvedModelSelection(
+            NormalizeProviderKind(profile.Provider),
+            profile.BaseUrl,
+            profile.ApiKey,
+            profile.Model,
+            profile.Name,
+            profile.RepositoryAccess);
     }
 
     private string ResolveProfileNameForPhase(PhaseId phaseId)
@@ -531,12 +639,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 throw new ArgumentException($"Duplicate model profile '{profile.Name}'.", nameof(modelProfiles));
             }
 
-            if (string.IsNullOrWhiteSpace(profile.BaseUrl))
+            if (!string.Equals(providerKind, CodexProviderKind, StringComparison.Ordinal) &&
+                string.IsNullOrWhiteSpace(profile.BaseUrl))
             {
                 throw new ArgumentException($"BaseUrl is required for model profile '{profile.Name}'.", nameof(modelProfiles));
             }
 
-            if (string.IsNullOrWhiteSpace(profile.Model))
+            if (!string.Equals(providerKind, CodexProviderKind, StringComparison.Ordinal) &&
+                string.IsNullOrWhiteSpace(profile.Model))
             {
                 throw new ArgumentException($"Model is required for model profile '{profile.Name}'.", nameof(modelProfiles));
             }
@@ -548,7 +658,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                     nameof(modelProfiles));
             }
 
-            if (RequiresApiKey(profile.BaseUrl) && string.IsNullOrWhiteSpace(profile.ApiKey))
+            if (!string.Equals(providerKind, CodexProviderKind, StringComparison.Ordinal) &&
+                RequiresApiKey(profile.BaseUrl) && string.IsNullOrWhiteSpace(profile.ApiKey))
             {
                 throw new ArgumentException($"ApiKey is required for remote model profile '{profile.Name}'.", nameof(modelProfiles));
             }
@@ -628,7 +739,163 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private sealed record EffectivePrompt(string SystemPrompt, string UserPrompt);
 
-    private sealed record ResolvedModelSelection(string ProviderKind, string BaseUrl, string ApiKey, string Model, string? ProfileName);
+    private sealed record ResolvedModelSelection(
+        string ProviderKind,
+        string BaseUrl,
+        string ApiKey,
+        string Model,
+        string? ProfileName,
+        string? RepositoryAccess);
+
+    internal sealed record CodexCliInvocation(
+        string WorkspaceRoot,
+        string Prompt,
+        string? Model,
+        string OutputSchemaJson,
+        string SandboxMode);
+
+    internal interface ICodexCliRunner
+    {
+        bool IsAvailable { get; }
+
+        Task<string> ExecuteAsync(CodexCliInvocation invocation, CancellationToken cancellationToken);
+    }
+
+    internal sealed class SystemCodexCliRunner : ICodexCliRunner
+    {
+        private const string CodexCliPathEnvVar = "SPECFORGE_CODEX_CLI_PATH";
+        private readonly string? executablePath = ResolveExecutablePath();
+
+        public bool IsAvailable => !string.IsNullOrWhiteSpace(executablePath);
+
+        public async Task<string> ExecuteAsync(CodexCliInvocation invocation, CancellationToken cancellationToken)
+        {
+            if (!IsAvailable)
+            {
+                throw new InvalidOperationException("Codex CLI executable could not be resolved.");
+            }
+
+            var schemaPath = Path.Combine(Path.GetTempPath(), $"specforge-codex-schema-{Guid.NewGuid():N}.json");
+            var outputPath = Path.Combine(Path.GetTempPath(), $"specforge-codex-output-{Guid.NewGuid():N}.json");
+            await File.WriteAllTextAsync(schemaPath, invocation.OutputSchemaJson, cancellationToken);
+
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = executablePath!,
+                    WorkingDirectory = invocation.WorkspaceRoot,
+                    RedirectStandardInput = true,
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false
+                };
+
+                startInfo.ArgumentList.Add("exec");
+                if (!string.IsNullOrWhiteSpace(invocation.Model))
+                {
+                    startInfo.ArgumentList.Add("-m");
+                    startInfo.ArgumentList.Add(invocation.Model);
+                }
+
+                startInfo.ArgumentList.Add("-C");
+                startInfo.ArgumentList.Add(invocation.WorkspaceRoot);
+                if (string.Equals(invocation.SandboxMode, "workspace-write", StringComparison.Ordinal))
+                {
+                    startInfo.ArgumentList.Add("--full-auto");
+                }
+                else
+                {
+                    startInfo.ArgumentList.Add("--sandbox");
+                    startInfo.ArgumentList.Add(invocation.SandboxMode);
+                }
+                startInfo.ArgumentList.Add("--color");
+                startInfo.ArgumentList.Add("never");
+                startInfo.ArgumentList.Add("--output-schema");
+                startInfo.ArgumentList.Add(schemaPath);
+                startInfo.ArgumentList.Add("-o");
+                startInfo.ArgumentList.Add(outputPath);
+                startInfo.ArgumentList.Add("-");
+
+                using var process = new Process { StartInfo = startInfo };
+                process.Start();
+                await process.StandardInput.WriteAsync(invocation.Prompt);
+                await process.StandardInput.FlushAsync();
+                process.StandardInput.Close();
+
+                var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+                var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+                await process.WaitForExitAsync(cancellationToken);
+                var stdout = await stdoutTask;
+                var stderr = await stderrTask;
+
+                if (process.ExitCode != 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Codex CLI execution failed with exit code {process.ExitCode}. stderr: {stderr.Trim()} stdout: {stdout.Trim()}");
+                }
+
+                if (!File.Exists(outputPath))
+                {
+                    throw new InvalidOperationException("Codex CLI execution completed without writing the expected final response file.");
+                }
+
+                return await File.ReadAllTextAsync(outputPath, cancellationToken);
+            }
+            finally
+            {
+                TryDelete(schemaPath);
+                TryDelete(outputPath);
+            }
+        }
+
+        private static string? ResolveExecutablePath()
+        {
+            var explicitPath = Environment.GetEnvironmentVariable(CodexCliPathEnvVar);
+            if (!string.IsNullOrWhiteSpace(explicitPath) && File.Exists(explicitPath))
+            {
+                return explicitPath;
+            }
+
+            const string appBundlePath = "/Applications/Codex.app/Contents/Resources/codex";
+            if (File.Exists(appBundlePath))
+            {
+                return appBundlePath;
+            }
+
+            var path = Environment.GetEnvironmentVariable("PATH");
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return null;
+            }
+
+            foreach (var candidateDirectory in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var candidatePath = Path.Combine(candidateDirectory, "codex");
+                if (File.Exists(candidatePath))
+                {
+                    return candidatePath;
+                }
+            }
+
+            return null;
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup only.
+            }
+        }
+    }
 
     private sealed record StructuredOutputResponseFormat(
         [property: JsonPropertyName("type")] string Type,
