@@ -293,6 +293,37 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         Assert.NotNull(runtimeAfterCompletion.LastCompletedAtUtc);
     }
 
+    [Fact]
+    public async Task GetCurrentPhaseAsync_BlocksAdvanceWhenImplementationProfileLacksRepositoryWriteAccess()
+    {
+        var runner = new WorkflowRunner(new CapabilityAwarePhaseExecutionProvider(
+            new PhaseExecutionReadiness(PhaseId.Implementation, CanExecute: false, PhaseExecutionBlockingReasons.ImplementationRequiresRepositoryWriteAccess)));
+        var applicationService = new SpecForgeApplicationService(
+            new UserStoryFileStore(),
+            runner,
+            new RepositoryPromptInitializer(),
+            new RepositoryCategoryCatalog(),
+            new UserStoryRuntimeStatusStore());
+
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var currentPhase = await applicationService.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal("technical-design", currentPhase.CurrentPhase);
+        Assert.False(currentPhase.CanAdvance);
+        Assert.False(currentPhase.CanApprove);
+        Assert.False(currentPhase.RequiresApproval);
+        Assert.Equal(PhaseExecutionBlockingReasons.ImplementationRequiresRepositoryWriteAccess, currentPhase.BlockingReason);
+
+        var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
+            applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001"));
+        Assert.Contains(PhaseExecutionBlockingReasons.ImplementationRequiresRepositoryWriteAccess, error.Message);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(workspaceRoot))
@@ -329,6 +360,9 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         private readonly TaskCompletionSource<bool> release = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly DeterministicPhaseExecutionProvider inner = new();
 
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+            inner.GetPhaseExecutionReadiness(phaseId);
+
         public async Task<PhaseExecutionResult> ExecuteAsync(PhaseExecutionContext context, CancellationToken cancellationToken = default)
         {
             started.TrySetResult(true);
@@ -339,5 +373,24 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         public Task WaitUntilStartedAsync() => started.Task;
 
         public void Release() => release.TrySetResult(true);
+    }
+
+    private sealed class CapabilityAwarePhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        private readonly DeterministicPhaseExecutionProvider inner = new();
+        private readonly IReadOnlyDictionary<PhaseId, PhaseExecutionReadiness> readinessByPhase;
+
+        public CapabilityAwarePhaseExecutionProvider(params PhaseExecutionReadiness[] readiness)
+        {
+            readinessByPhase = readiness.ToDictionary(item => item.PhaseId);
+        }
+
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+            readinessByPhase.TryGetValue(phaseId, out var readiness)
+                ? readiness
+                : inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<PhaseExecutionResult> ExecuteAsync(PhaseExecutionContext context, CancellationToken cancellationToken = default) =>
+            inner.ExecuteAsync(context, cancellationToken);
     }
 }

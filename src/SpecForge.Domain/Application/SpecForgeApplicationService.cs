@@ -216,9 +216,20 @@ public sealed class SpecForgeApplicationService
             }
         }
 
-        var blockingReason = canAdvance
-            ? null
-            : $"{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}_pending_user_approval";
+        string? blockingReason = null;
+        if (!canAdvance)
+        {
+            blockingReason = $"{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}_pending_user_approval";
+        }
+        else
+        {
+            var readiness = ResolveNextPhaseExecutionReadiness(workflowRun);
+            if (!readiness.CanExecute)
+            {
+                canAdvance = false;
+                blockingReason = readiness.BlockingReason;
+            }
+        }
 
         return new CurrentPhaseSummary(
             workflowRun.UsId,
@@ -237,6 +248,12 @@ public sealed class SpecForgeApplicationService
         CancellationToken cancellationToken = default)
     {
         var currentPhase = await GetCurrentPhaseAsync(workspaceRoot, usId, cancellationToken);
+        if (!currentPhase.CanAdvance)
+        {
+            throw new WorkflowDomainException(
+                $"Workflow cannot continue from phase '{currentPhase.CurrentPhase}' because '{currentPhase.BlockingReason ?? "phase_cannot_advance"}'.");
+        }
+
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         await using var operation = await runtimeStatusStore.StartOperationAsync(
             paths.RootDirectory,
@@ -264,6 +281,18 @@ public sealed class SpecForgeApplicationService
             await operation.FailAsync(currentPhase.CurrentPhase, exception.Message, cancellationToken);
             throw;
         }
+    }
+
+    private PhaseExecutionReadiness ResolveNextPhaseExecutionReadiness(WorkflowRun workflowRun)
+    {
+        if (!workflowRun.Definition.CanAdvanceFrom(workflowRun.CurrentPhase) ||
+            workflowRun.CurrentPhase == Workflow.PhaseId.PrPreparation)
+        {
+            return new PhaseExecutionReadiness(workflowRun.CurrentPhase, CanExecute: true);
+        }
+
+        var nextPhase = workflowRun.Definition.GetNextPhase(workflowRun.CurrentPhase);
+        return workflowRunner.GetPhaseExecutionReadiness(nextPhase);
     }
 
     public async Task<UserStoryRuntimeStatus> GetUserStoryRuntimeStatusAsync(
