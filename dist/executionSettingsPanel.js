@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.openExecutionSettingsPanelAsync = openExecutionSettingsPanelAsync;
+exports.buildExecutionSettingsHtml = buildExecutionSettingsHtml;
 const vscode = __importStar(require("vscode"));
 const extensionSettings_1 = require("./extensionSettings");
 let currentPanel = null;
@@ -250,6 +251,32 @@ function buildExecutionSettingsHtml(model) {
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(255, 255, 255, 0.06);
     }
+    .phase-field--invalid {
+      border-color: rgba(255, 139, 139, 0.42);
+      background: rgba(88, 28, 28, 0.22);
+      box-shadow: inset 0 0 0 1px rgba(255, 139, 139, 0.14);
+    }
+    .phase-field__hint {
+      font-size: 0.76rem;
+      color: rgba(255, 176, 176, 0.9);
+      line-height: 1.4;
+      display: none;
+    }
+    .phase-field--invalid .phase-field__hint {
+      display: block;
+    }
+    .warning-banner {
+      display: none;
+      gap: 8px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 139, 139, 0.32);
+      background: linear-gradient(180deg, rgba(70, 20, 20, 0.96), rgba(42, 16, 16, 0.98));
+      color: #ffd9d9;
+    }
+    .warning-banner--visible {
+      display: grid;
+    }
     .empty {
       padding: 14px;
       border-radius: 16px;
@@ -291,11 +318,18 @@ function buildExecutionSettingsHtml(model) {
           <h2>Per-phase selection</h2>
         </div>
       </div>
+      <div class="warning-banner" data-default-warning>
+        <strong>Default / fallback missing</strong>
+        <span>With multiple profiles, define a fallback profile or keep a single-profile setup.</span>
+      </div>
       <div class="phase-grid" data-phase-grid>
         ${executionPhases.map((phase) => `
-          <label class="phase-field">
+          <label class="phase-field" data-phase-wrapper="${escapeHtmlAttr(String(phase.key))}">
             <span>${escapeHtml(phase.label)}</span>
             <select data-phase-field="${escapeHtmlAttr(String(phase.key))}"></select>
+            ${phase.key === "defaultProfile"
+        ? '<span class="phase-field__hint">Required when you have multiple profiles and no single implicit fallback.</span>'
+        : ""}
           </label>
         `).join("")}
       </div>
@@ -341,9 +375,16 @@ function buildExecutionSettingsHtml(model) {
       return options.join("");
     }
 
+    function hasFallbackProblem() {
+      const nonEmptyProfiles = state.modelProfiles.filter((profile) => String(profile.name || "").trim().length > 0);
+      return nonEmptyProfiles.length > 1 && !String(state.phaseModelAssignments.defaultProfile || "").trim();
+    }
+
     function render() {
       const profilesHost = document.querySelector("[data-profiles]");
       const phaseGrid = document.querySelector("[data-phase-grid]");
+      const warning = document.querySelector("[data-default-warning]");
+      const saveButton = document.querySelector('button[type="submit"]');
       if (!(profilesHost instanceof HTMLElement) || !(phaseGrid instanceof HTMLElement)) {
         return;
       }
@@ -380,6 +421,21 @@ function buildExecutionSettingsHtml(model) {
         select.addEventListener("change", () => {
           state.phaseModelAssignments[select.dataset.phaseField] = select.value;
         });
+      }
+
+      const fallbackProblem = hasFallbackProblem();
+      if (warning instanceof HTMLElement) {
+        warning.classList.toggle("warning-banner--visible", fallbackProblem);
+      }
+      const defaultWrapper = document.querySelector('[data-phase-wrapper="defaultProfile"]');
+      if (defaultWrapper instanceof HTMLElement) {
+        defaultWrapper.classList.toggle("phase-field--invalid", fallbackProblem);
+      }
+      if (saveButton instanceof HTMLButtonElement) {
+        saveButton.disabled = fallbackProblem;
+        saveButton.title = fallbackProblem
+          ? "Define the default fallback profile before saving."
+          : "";
       }
 
       for (const button of profilesHost.querySelectorAll("[data-remove-profile]")) {
@@ -481,6 +537,9 @@ function buildExecutionSettingsHtml(model) {
     document.getElementById("execution-settings-form")?.addEventListener("submit", (event) => {
       event.preventDefault();
       syncFromDom();
+      if (hasFallbackProblem()) {
+        return;
+      }
       vscode.postMessage({
         command: "saveExecutionSettings",
         modelProfiles: state.modelProfiles,

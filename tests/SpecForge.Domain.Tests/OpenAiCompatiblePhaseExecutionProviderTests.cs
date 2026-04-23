@@ -431,6 +431,39 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
+    public void Constructor_MultipleProfilesWithoutDefault_ButExplicitModelDrivenAssignments_DoesNotThrow()
+    {
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new CapturingFakeHttpMessageHandler()),
+            new OpenAiCompatibleProviderOptions(
+                ModelProfiles:
+                [
+                    new OpenAiCompatibleModelProfile(
+                        Name: "planner",
+                        Provider: "openai-compatible",
+                        BaseUrl: "https://api.example.test/v1",
+                        ApiKey: "secret",
+                        Model: "gpt-5.4",
+                        RepositoryAccess: "read"),
+                    new OpenAiCompatibleModelProfile(
+                        Name: "implementer",
+                        Provider: "codex",
+                        BaseUrl: string.Empty,
+                        ApiKey: string.Empty,
+                        Model: string.Empty,
+                        RepositoryAccess: "read-write")
+                ],
+                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
+                    ClarificationProfile: "planner",
+                    RefinementProfile: "planner",
+                    TechnicalDesignProfile: "planner",
+                    ImplementationProfile: "implementer",
+                    ReviewProfile: "planner")));
+
+        Assert.NotNull(provider);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_ClarificationOk_NormalizesToCanonicalReadyArtifact()
     {
         await PrepareInitializedWorkspaceAsync();
