@@ -262,6 +262,76 @@ test("buildWorkflowHtml requires explicit base-branch acceptance before approve 
   assert.match(html, /Approve stays disabled until you accept this branch value explicitly\./);
 });
 
+test("buildWorkflowHtml shows readonly work branch in refinement detail once the branch already exists", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0101",
+    title: "Existing work branch",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "release-approval",
+    directoryPath: "/tmp/us.US-0101",
+    workBranch: "feature/us-0101-existing-work-branch",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: true,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: "/tmp/01-spec.md",
+        executePromptPath: "/tmp/refinement.execute.md",
+        approvePromptPath: "/tmp/refinement.approve.md"
+      },
+      {
+        phaseId: "release-approval",
+        title: "Release Approval",
+        order: 6,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/06-release-approval.md",
+        executePromptPath: "/tmp/release-approval.execute.md",
+        approvePromptPath: "/tmp/release-approval.approve.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "release-approval_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: []
+    },
+    clarification: null,
+    approvalQuestions: [],
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: [],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: []
+  }, {
+    selectedPhaseId: "refinement",
+    selectedArtifactContent: "# Spec",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /<h3>Approval Branch<\/h3>/);
+  assert.match(html, /value="feature\/us-0101-existing-work-branch"/);
+  assert.match(html, /data-approval-work-branch-input[^>]*readonly/);
+  assert.match(html, /already been created for this user story and is now shown here as read only\./);
+  assert.doesNotMatch(html, /for="approval-base-branch">Base Branch<\/label>/);
+});
+
 test("buildWorkflowHtml keeps disabled approve visible for refinement when approval is still pending", () => {
   const html = buildWorkflowHtml({
     usId: "US-0099",
