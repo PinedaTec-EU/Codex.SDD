@@ -286,6 +286,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var paths = new PromptFilePaths(context.WorkspaceRoot);
         var phasePromptPath = promptCatalog.GetExecutePromptPath(context.WorkspaceRoot, context.PhaseId);
         var sharedSystemPrompt = await File.ReadAllTextAsync(paths.SharedSystemPromptPath, cancellationToken);
+        var phaseExecutionSystemPrompt = await File.ReadAllTextAsync(paths.PhaseExecutionSystemPromptPath, cancellationToken);
         var sharedStylePrompt = await File.ReadAllTextAsync(paths.SharedStylePromptPath, cancellationToken);
         var sharedOutputRulesPrompt = await File.ReadAllTextAsync(paths.SharedOutputRulesPromptPath, cancellationToken);
         var phasePrompt = await File.ReadAllTextAsync(phasePromptPath, cancellationToken);
@@ -297,6 +298,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             {
                 options.SystemPrompt,
                 sharedSystemPrompt.Trim(),
+                phaseExecutionSystemPrompt.Trim(),
                 sharedStylePrompt.Trim(),
                 sharedOutputRulesPrompt.Trim()
             }.Where(static part => !string.IsNullOrWhiteSpace(part)));
@@ -477,6 +479,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     {
         var paths = new PromptFilePaths(context.WorkspaceRoot);
         var sharedSystemPrompt = await File.ReadAllTextAsync(paths.SharedSystemPromptPath, cancellationToken);
+        var autoClarificationAnswersSystemPrompt = await File.ReadAllTextAsync(paths.AutoClarificationAnswersSystemPromptPath, cancellationToken);
         var sharedStylePrompt = await File.ReadAllTextAsync(paths.SharedStylePromptPath, cancellationToken);
         var sharedOutputRulesPrompt = await File.ReadAllTextAsync(paths.SharedOutputRulesPromptPath, cancellationToken);
         var phasePrompt = await File.ReadAllTextAsync(paths.ClarificationExecutePromptPath, cancellationToken);
@@ -491,6 +494,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             {
                 options.SystemPrompt,
                 sharedSystemPrompt.Trim(),
+                autoClarificationAnswersSystemPrompt.Trim(),
                 sharedStylePrompt.Trim(),
                 sharedOutputRulesPrompt.Trim()
             }.Where(static part => !string.IsNullOrWhiteSpace(part)));

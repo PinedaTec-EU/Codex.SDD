@@ -15,10 +15,13 @@ public sealed class PromptFilePaths
         PromptsDirectoryPath = Path.Combine(SpecsDirectoryPath, "prompts");
         PromptManifestPath = Path.Combine(PromptsDirectoryPath, "prompts.yaml");
         SharedPromptsDirectoryPath = Path.Combine(PromptsDirectoryPath, "shared");
+        SystemPromptsDirectoryPath = Path.Combine(PromptsDirectoryPath, "system");
         PhasePromptsDirectoryPath = Path.Combine(PromptsDirectoryPath, "phases");
         SharedSystemPromptPath = Path.Combine(SharedPromptsDirectoryPath, "system.md");
         SharedStylePromptPath = Path.Combine(SharedPromptsDirectoryPath, "style.md");
         SharedOutputRulesPromptPath = Path.Combine(SharedPromptsDirectoryPath, "output-rules.md");
+        PhaseExecutionSystemPromptPath = Path.Combine(SystemPromptsDirectoryPath, "phase-execution.md");
+        AutoClarificationAnswersSystemPromptPath = Path.Combine(SystemPromptsDirectoryPath, "auto-clarification-answers.md");
         ClarificationExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "clarification.execute.md");
         RefinementExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "refinement.execute.md");
         RefinementApprovePromptPath = Path.Combine(PhasePromptsDirectoryPath, "refinement.approve.md");
@@ -40,6 +43,8 @@ public sealed class PromptFilePaths
 
     public string SharedPromptsDirectoryPath { get; }
 
+    public string SystemPromptsDirectoryPath { get; }
+
     public string PhasePromptsDirectoryPath { get; }
 
     public string SharedSystemPromptPath { get; }
@@ -47,6 +52,10 @@ public sealed class PromptFilePaths
     public string SharedStylePromptPath { get; }
 
     public string SharedOutputRulesPromptPath { get; }
+
+    public string PhaseExecutionSystemPromptPath { get; }
+
+    public string AutoClarificationAnswersSystemPromptPath { get; }
 
     public string ClarificationExecutePromptPath { get; }
 

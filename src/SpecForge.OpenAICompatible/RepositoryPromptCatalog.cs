@@ -15,6 +15,8 @@ internal sealed class RepositoryPromptCatalog
             paths.SharedSystemPromptPath,
             paths.SharedStylePromptPath,
             paths.SharedOutputRulesPromptPath,
+            paths.PhaseExecutionSystemPromptPath,
+            paths.AutoClarificationAnswersSystemPromptPath,
             paths.ClarificationExecutePromptPath,
             paths.RefinementExecutePromptPath,
             paths.RefinementApprovePromptPath,

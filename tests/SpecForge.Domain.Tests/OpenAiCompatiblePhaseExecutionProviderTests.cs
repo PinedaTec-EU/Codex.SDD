@@ -56,6 +56,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("refinement_artifact", ReadResponseSchemaName(handler.LastBody));
         Assert.Contains("Role: refinement analyst.", handler.LastBody);
         Assert.Contains("Initial text", handler.LastBody);
+        Assert.Contains("This is a model-backed phase execution call.", ReadSystemPrompt(handler.LastBody));
     }
 
     [Theory]
@@ -146,6 +147,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("http://localhost:22434/v1/chat/completions", handler.LastRequest!.RequestUri!.ToString());
         Assert.Equal("auto_clarification_answers", ReadResponseSchemaName(handler.LastBody));
         Assert.Contains("\"model\":\"llama-resolver\"", handler.LastBody);
+        Assert.Contains("This is a model-backed auto clarification resolution call.", ReadSystemPrompt(handler.LastBody));
         Assert.Contains("## Auto Clarification Answer Task", ReadUserPrompt(handler.LastBody));
         Assert.Contains("Which role publishes the article?", ReadUserPrompt(handler.LastBody));
     }
@@ -754,6 +756,17 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             .GetProperty("messages")
             .EnumerateArray()
             .First(message => string.Equals(message.GetProperty("role").GetString(), "user", StringComparison.Ordinal))
+            .GetProperty("content")
+            .GetString() ?? string.Empty;
+    }
+
+    private static string ReadSystemPrompt(string requestBody)
+    {
+        using var document = JsonDocument.Parse(requestBody);
+        return document.RootElement
+            .GetProperty("messages")
+            .EnumerateArray()
+            .First(message => string.Equals(message.GetProperty("role").GetString(), "system", StringComparison.Ordinal))
             .GetProperty("content")
             .GetString() ?? string.Empty;
     }

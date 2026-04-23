@@ -18,6 +18,7 @@ public sealed class RepositoryPromptInitializer
         Directory.CreateDirectory(paths.SpecsDirectoryPath);
         Directory.CreateDirectory(paths.PromptsDirectoryPath);
         Directory.CreateDirectory(paths.SharedPromptsDirectoryPath);
+        Directory.CreateDirectory(paths.SystemPromptsDirectoryPath);
         Directory.CreateDirectory(paths.PhasePromptsDirectoryPath);
 
         var createdFiles = new List<string>();
@@ -29,6 +30,8 @@ public sealed class RepositoryPromptInitializer
             [paths.SharedSystemPromptPath] = BuildSharedSystemPrompt(),
             [paths.SharedStylePromptPath] = BuildSharedStylePrompt(),
             [paths.SharedOutputRulesPromptPath] = BuildSharedOutputRulesPrompt(),
+            [paths.PhaseExecutionSystemPromptPath] = BuildPhaseExecutionSystemPrompt(),
+            [paths.AutoClarificationAnswersSystemPromptPath] = BuildAutoClarificationAnswersSystemPrompt(),
             [paths.ClarificationExecutePromptPath] = BuildClarificationExecutePrompt(),
             [paths.RefinementExecutePromptPath] = BuildRefinementExecutePrompt(),
             [paths.RefinementApprovePromptPath] = BuildRefinementApprovePrompt(),
@@ -77,11 +80,14 @@ public sealed class RepositoryPromptInitializer
 
     private static string BuildPromptManifestYaml() =>
         """
-        version: 1
+        version: 2
         shared:
           system: .specs/prompts/shared/system.md
           style: .specs/prompts/shared/style.md
           outputRules: .specs/prompts/shared/output-rules.md
+        systemCalls:
+          phaseExecution: .specs/prompts/system/phase-execution.md
+          autoClarificationAnswers: .specs/prompts/system/auto-clarification-answers.md
         phases:
           clarification:
             execute: .specs/prompts/phases/clarification.execute.md
@@ -105,6 +111,24 @@ public sealed class RepositoryPromptInitializer
         Act strictly within the requested phase contract.
         Prefer concrete, auditable markdown over generic prose.
         Do not invent missing repository facts.
+        """;
+
+    private static string BuildPhaseExecutionSystemPrompt() =>
+        """
+        This is a model-backed phase execution call.
+
+        Treat repository prompt templates and runtime artifacts as the authoritative contract for the current run.
+        Apply the current phase instructions exactly as provided in the user message.
+        Never omit schema-critical sections or silently downgrade the requested phase contract.
+        """;
+
+    private static string BuildAutoClarificationAnswersSystemPrompt() =>
+        """
+        This is a model-backed auto clarification resolution call.
+
+        Resolve pending clarification questions only from grounded repository evidence.
+        Return resolvable answers only when the provided context supports them directly enough to retry clarification without user input.
+        If the evidence is insufficient, preserve uncertainty explicitly instead of guessing.
         """;
 
     private static string BuildSharedStylePrompt() =>

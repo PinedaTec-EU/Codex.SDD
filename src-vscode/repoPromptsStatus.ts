@@ -15,6 +15,8 @@ export async function getRepoPromptsStatusAsync(workspaceRoot: string): Promise<
     path.join(workspaceRoot, ".specs", "prompts", "shared", "system.md"),
     path.join(workspaceRoot, ".specs", "prompts", "shared", "style.md"),
     path.join(workspaceRoot, ".specs", "prompts", "shared", "output-rules.md"),
+    path.join(workspaceRoot, ".specs", "prompts", "system", "phase-execution.md"),
+    path.join(workspaceRoot, ".specs", "prompts", "system", "auto-clarification-answers.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "clarification.execute.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "refinement.execute.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "refinement.approve.md"),
