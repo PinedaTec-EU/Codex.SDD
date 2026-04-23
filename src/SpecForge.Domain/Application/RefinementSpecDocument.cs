@@ -204,6 +204,11 @@ public static class RefinementSpecJson
 
     private static string NormalizeStatus(string? status, string? answer)
     {
+        if (!string.IsNullOrWhiteSpace(answer))
+        {
+            return "resolved";
+        }
+
         if (!string.IsNullOrWhiteSpace(status))
         {
             var normalized = status.Trim().ToLowerInvariant();
