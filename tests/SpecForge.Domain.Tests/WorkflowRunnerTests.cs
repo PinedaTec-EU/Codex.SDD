@@ -567,6 +567,27 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Contains("- Duration:", timeline);
     }
 
+    [Fact]
+    public async Task ContinuePhaseAsync_WhenImplementationExecutionIsNotReady_ThrowsBeforeAdvancing()
+    {
+        var runner = new WorkflowRunner(new CapabilityAwarePhaseExecutionProvider(
+            new PhaseExecutionReadiness(PhaseId.Implementation, CanExecute: false, PhaseExecutionBlockingReasons.ImplementationRequiresRepositoryWriteAccess)));
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
+            runner.ContinuePhaseAsync(workspaceRoot, "US-0001"));
+
+        Assert.Contains(PhaseExecutionBlockingReasons.ImplementationRequiresRepositoryWriteAccess, error.Message);
+
+        var loadedRun = await new UserStoryFileStore().LoadAsync(
+            UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
+        Assert.Equal(PhaseId.TechnicalDesign, loadedRun.CurrentPhase);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(workspaceRoot))
@@ -599,6 +620,9 @@ public sealed class WorkflowRunnerTests : IDisposable
 
     private sealed class UsageCapturingPhaseExecutionProvider : IPhaseExecutionProvider
     {
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+            new(phaseId, CanExecute: true);
+
         public Task<PhaseExecutionResult> ExecuteAsync(
             PhaseExecutionContext context,
             CancellationToken cancellationToken = default) =>
@@ -608,5 +632,26 @@ public sealed class WorkflowRunnerTests : IDisposable
                     "test-double",
                     new TokenUsage(321, 123, 444),
                     new PhaseExecutionMetadata("test-double", "stub-model", "test-profile", "http://stub.test/v1")));
+    }
+
+    private sealed class CapabilityAwarePhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        private readonly DeterministicPhaseExecutionProvider inner = new();
+        private readonly IReadOnlyDictionary<PhaseId, PhaseExecutionReadiness> readinessByPhase;
+
+        public CapabilityAwarePhaseExecutionProvider(params PhaseExecutionReadiness[] readiness)
+        {
+            readinessByPhase = readiness.ToDictionary(item => item.PhaseId);
+        }
+
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+            readinessByPhase.TryGetValue(phaseId, out var readiness)
+                ? readiness
+                : inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<PhaseExecutionResult> ExecuteAsync(
+            PhaseExecutionContext context,
+            CancellationToken cancellationToken = default) =>
+            inner.ExecuteAsync(context, cancellationToken);
     }
 }

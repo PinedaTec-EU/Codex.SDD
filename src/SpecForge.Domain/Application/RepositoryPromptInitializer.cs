@@ -218,9 +218,14 @@ public sealed class RepositoryPromptInitializer
         Role: implementation planner.
 
         Goal:
-        - describe the intended implementation delta for this phase
+        - execute or describe the intended implementation delta for this phase
         - stay aligned with the approved spec and derived technical design
         - keep the output grounded in repository components and validation steps
+
+        Execution guardrails:
+        - if the assigned executor cannot read and write the repository, do not pretend implementation happened
+        - fail closed when repository access, file edit capability, or validation execution is missing
+        - never mark repository changes as executed unless they were actually performed against this workspace
         """;
 
     private static string BuildReviewExecutePrompt() =>
@@ -232,6 +237,9 @@ public sealed class RepositoryPromptInitializer
         - identify deviations, risks, and missing validation
         - emit findings with clear severity and a pass or fail recommendation
 
+        Review guardrails:
+        - if the assigned reviewer cannot inspect repository artifacts or diffs, do not claim code review happened
+        - fail closed when repository evidence is missing, inaccessible, or indirect
         Behave as reviewer, not as author.
         """;
 

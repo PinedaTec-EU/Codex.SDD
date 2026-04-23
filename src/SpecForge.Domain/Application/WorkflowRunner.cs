@@ -46,6 +46,9 @@ public sealed class WorkflowRunner
         this.captureTolerance = captureTolerance is "strict" or "balanced" or "inferential" ? captureTolerance : "balanced";
     }
 
+    public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+        phaseExecutionProvider.GetPhaseExecutionReadiness(phaseId);
+
     public async Task<string> CreateUserStoryAsync(
         string workspaceRoot,
         string usId,
@@ -410,6 +413,7 @@ public sealed class WorkflowRunner
                 clarificationResult.Execution);
         }
 
+        EnsureNextPhaseExecutionIsReady(workflowRun);
         workflowRun.GenerateNextPhase();
 
         string? artifactPath = null;
@@ -448,6 +452,28 @@ public sealed class WorkflowRunner
 
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
         return new ContinuePhaseResult(workflowRun.UsId, workflowRun.CurrentPhase, workflowRun.Status, artifactPath, usage, execution);
+    }
+
+    private void EnsureNextPhaseExecutionIsReady(WorkflowRun workflowRun)
+    {
+        if (!workflowRun.Definition.CanAdvanceFrom(workflowRun.CurrentPhase) ||
+            workflowRun.CurrentPhase == PhaseId.PrPreparation)
+        {
+            return;
+        }
+
+        var nextPhase = workflowRun.Definition.GetNextPhase(workflowRun.CurrentPhase);
+        if (!HasArtifact(nextPhase))
+        {
+            return;
+        }
+
+        var readiness = phaseExecutionProvider.GetPhaseExecutionReadiness(nextPhase);
+        if (!readiness.CanExecute)
+        {
+            throw new WorkflowDomainException(
+                $"Phase '{WorkflowPresentation.ToPhaseSlug(nextPhase)}' cannot run because '{readiness.BlockingReason ?? "phase_execution_not_ready"}'.");
+        }
     }
 
     public async Task<SubmitClarificationAnswersResult> SubmitClarificationAnswersAsync(
