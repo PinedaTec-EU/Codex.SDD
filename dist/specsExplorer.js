@@ -284,7 +284,7 @@ async function continuePhase(summary) {
         return;
     }
     try {
-        const result = await getBackendClient(workspaceRoot).continuePhase(summary.usId);
+        const result = await getBackendClient(workspaceRoot).continuePhase(summary.usId, (0, userActor_1.getCurrentActor)());
         if (result.generatedArtifactPath) {
             await openTextDocument(result.generatedArtifactPath);
         }

@@ -51,7 +51,8 @@ public sealed record TimelineEventDetails(
     string? Summary,
     IReadOnlyCollection<string> Artifacts,
     TokenUsage? Usage,
-    long? DurationMs);
+    long? DurationMs,
+    PhaseExecutionMetadata? Execution);
 
 public sealed record ClarificationSessionDetails(
     string Status,

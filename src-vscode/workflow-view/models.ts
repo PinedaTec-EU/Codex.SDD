@@ -40,6 +40,12 @@ export interface PhaseIterationItem {
   readonly artifactPath: string;
   readonly usage: { inputTokens: number; outputTokens: number; totalTokens: number } | null;
   readonly durationMs: number | null;
+  readonly execution?: {
+    readonly providerKind: string;
+    readonly model: string;
+    readonly profileName: string | null;
+    readonly baseUrl: string | null;
+  } | null;
 }
 
 export interface PhaseSectionFragments {

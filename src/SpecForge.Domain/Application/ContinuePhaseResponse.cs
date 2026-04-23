@@ -5,4 +5,5 @@ public sealed record ContinuePhaseResponse(
     string CurrentPhase,
     string Status,
     string? GeneratedArtifactPath,
-    TokenUsage? Usage);
+    TokenUsage? Usage,
+    PhaseExecutionMetadata? Execution);

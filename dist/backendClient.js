@@ -140,10 +140,11 @@ class StdioMcpBackendClient {
             overwrite
         });
     }
-    async continuePhase(usId) {
+    async continuePhase(usId, actor) {
         return this.callTool("generate_next_phase", {
             workspaceRoot: this.workspaceRoot,
-            usId
+            usId,
+            ...(actor && actor.trim().length > 0 ? { actor } : {})
         });
     }
     async approveCurrentPhase(usId, baseBranch, workBranch, actor) {

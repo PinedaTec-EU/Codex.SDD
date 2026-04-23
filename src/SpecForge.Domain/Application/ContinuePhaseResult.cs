@@ -7,4 +7,5 @@ public sealed record ContinuePhaseResult(
     PhaseId CurrentPhase,
     UserStoryStatus Status,
     string? GeneratedArtifactPath,
-    TokenUsage? Usage = null);
+    TokenUsage? Usage = null,
+    PhaseExecutionMetadata? Execution = null);

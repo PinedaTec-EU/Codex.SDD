@@ -97,10 +97,10 @@ test("buildSidebarHtml exposes a compact prompt reset action when repo prompts a
     }],
   }));
 
-  assert.match(html, /aria-label="Reinitialize repo prompts"/);
+  assert.match(html, /aria-label="Prompt actions"/);
+  assert.match(html, /Refresh Prompts/);
   assert.match(html, /aria-label="Create new user story"/);
   assert.doesNotMatch(html, /Repo prompts ready/);
-  assert.doesNotMatch(html, /Open Prompt Templates/);
 });
 
 test("buildSidebarHtml uses compact actions instead of a separate create card when stories already exist", () => {

@@ -226,6 +226,7 @@ public sealed class SpecForgeApplicationService
     public async Task<ContinuePhaseResponse> GenerateNextPhaseAsync(
         string workspaceRoot,
         string usId,
+        string actor = "user",
         CancellationToken cancellationToken = default)
     {
         var currentPhase = await GetCurrentPhaseAsync(workspaceRoot, usId, cancellationToken);
@@ -239,7 +240,7 @@ public sealed class SpecForgeApplicationService
 
         try
         {
-            var result = await workflowRunner.ContinuePhaseAsync(workspaceRoot, usId, cancellationToken);
+            var result = await workflowRunner.ContinuePhaseAsync(workspaceRoot, usId, actor, cancellationToken);
             var resultPhase = WorkflowPresentation.ToPhaseSlug(result.CurrentPhase);
             operation.UpdatePhase(resultPhase);
             await operation.CompleteAsync(resultPhase, cancellationToken);
@@ -248,7 +249,8 @@ public sealed class SpecForgeApplicationService
                 resultPhase,
                 WorkflowPresentation.ToStatusSlug(result.Status),
                 result.GeneratedArtifactPath,
-                result.Usage);
+                result.Usage,
+                result.Execution);
         }
         catch (Exception exception)
         {

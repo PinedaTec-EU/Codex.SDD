@@ -18,7 +18,10 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
             _ => throw new WorkflowDomainException($"Phase '{context.PhaseId}' has no materialized artifact.")
         };
 
-        return new PhaseExecutionResult(content, ExecutionKind: "deterministic");
+        return new PhaseExecutionResult(
+            content,
+            ExecutionKind: "deterministic",
+            Execution: new PhaseExecutionMetadata("deterministic", "deterministic"));
     }
 
     private static async Task<string> ComposeClarificationAsync(

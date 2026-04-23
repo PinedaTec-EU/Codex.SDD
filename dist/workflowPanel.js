@@ -284,11 +284,14 @@ class WorkflowPanelController {
     }
     async continueCurrentPhaseAsync() {
         const previousPhase = this.summary.currentPhase;
-        const result = await this.getBackendClient().continuePhase(this.summary.usId);
+        const result = await this.getBackendClient().continuePhase(this.summary.usId, (0, userActor_1.getCurrentActor)());
         const usageSummary = result.usage
             ? ` Tokens in/out/total: ${result.usage.inputTokens}/${result.usage.outputTokens}/${result.usage.totalTokens}.`
             : "";
-        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' advanced from '${previousPhase}' to '${result.currentPhase}' with status '${result.status}'.${usageSummary}`);
+        const executionSummary = result.execution
+            ? ` Model: ${result.execution.profileName ? `${result.execution.profileName} / ` : ""}${result.execution.model}.`
+            : "";
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' advanced from '${previousPhase}' to '${result.currentPhase}' with status '${result.status}'.${executionSummary}${usageSummary}`);
         this.summary = {
             ...this.summary,
             currentPhase: result.currentPhase,
@@ -317,7 +320,7 @@ class WorkflowPanelController {
             return;
         }
         const result = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, normalizedPrompt, (0, userActor_1.getCurrentActor)());
-        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regenerated phase '${result.currentPhase}' after human input.`);
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regenerated phase '${result.currentPhase}' after human input.${result.execution ? ` Model: ${result.execution.profileName ? `${result.execution.profileName} / ` : ""}${result.execution.model}.` : ""}`);
         this.summary = {
             ...this.summary,
             currentPhase: result.currentPhase,

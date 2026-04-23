@@ -7,4 +7,5 @@ public sealed record OperateCurrentPhaseArtifactResult(
     string OperationLogPath,
     string SourceArtifactPath,
     string GeneratedArtifactPath,
-    TokenUsage? Usage);
+    TokenUsage? Usage,
+    PhaseExecutionMetadata? Execution);

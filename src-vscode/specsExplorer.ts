@@ -283,7 +283,7 @@ export async function continuePhase(summary?: UserStorySummary): Promise<void> {
   }
 
   try {
-    const result = await getBackendClient(workspaceRoot).continuePhase(summary.usId);
+    const result = await getBackendClient(workspaceRoot).continuePhase(summary.usId, getCurrentActor());
 
     if (result.generatedArtifactPath) {
       await openTextDocument(result.generatedArtifactPath);

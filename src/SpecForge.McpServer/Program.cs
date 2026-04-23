@@ -130,7 +130,8 @@ static async Task<JsonNode> HandleToolCallAsync(
             usId: GetRequired(arguments, "usId")),
         "generate_next_phase" => await applicationService.GenerateNextPhaseAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId")),
+            usId: GetRequired(arguments, "usId"),
+            actor: GetOptional(arguments, "actor") ?? "user"),
         "approve_phase" => await applicationService.ApprovePhaseAsync(
             workspaceRoot: GetRequired(arguments, "workspaceRoot"),
             usId: GetRequired(arguments, "usId"),
@@ -282,7 +283,8 @@ static JsonObject BuildToolsList()
                     required: ["workspaceRoot", "usId"],
                     Props(
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
-                        ("usId",          Prop("string", "User story identifier."))))),
+                        ("usId",          Prop("string", "User story identifier.")),
+                        ("actor",         Prop("string", "Actor requesting the phase execution. Defaults to 'user'."))))),
 
             Tool("approve_phase", "Approve the current phase. Creates the work branch when reaching the branch-creation phase.",
                 Schema(

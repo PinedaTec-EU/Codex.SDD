@@ -41,6 +41,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal(120, result.Usage!.InputTokens);
         Assert.Equal(48, result.Usage.OutputTokens);
         Assert.Equal(168, result.Usage.TotalTokens);
+        Assert.NotNull(result.Execution);
+        Assert.Equal("openai-compatible", result.Execution!.ProviderKind);
+        Assert.Equal("llama3.1", result.Execution.Model);
+        Assert.Null(result.Execution.ProfileName);
         Assert.NotNull(handler.LastRequest);
         Assert.Equal(HttpMethod.Post, handler.LastRequest!.Method);
         Assert.Equal("http://localhost:11434/v1/chat/completions", handler.LastRequest.RequestUri!.ToString());
@@ -222,10 +226,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             PhaseId = PhaseId.Review
         };
 
-        await provider.ExecuteAsync(reviewContext);
+        var reviewResult = await provider.ExecuteAsync(reviewContext);
 
         Assert.Equal("http://localhost:11434/v1/chat/completions", handler.LastRequest!.RequestUri!.ToString());
         Assert.Contains("\"model\":\"llama-light\"", handler.LastBody);
+        Assert.NotNull(reviewResult.Execution);
+        Assert.Equal("light", reviewResult.Execution!.ProfileName);
+        Assert.Equal("llama-light", reviewResult.Execution.Model);
     }
 
     [Fact]

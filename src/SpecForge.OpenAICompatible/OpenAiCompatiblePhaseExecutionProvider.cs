@@ -76,7 +76,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         promptCatalog.EnsureRepositoryIsInitialized(context.WorkspaceRoot);
 
         var prompt = await BuildEffectivePromptAsync(context, cancellationToken);
-        var request = BuildRequest(context, prompt.SystemPrompt, prompt.UserPrompt);
+        var modelSelection = ResolveModelSelection(context.PhaseId);
+        var request = BuildRequest(context.PhaseId, modelSelection, prompt.SystemPrompt, prompt.UserPrompt);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         var payload = await response.Content.ReadAsStringAsync(cancellationToken);
 
@@ -100,12 +101,19 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
 
         var normalizedContent = NormalizePhaseContent(context, content.Trim());
-        return new PhaseExecutionResult(normalizedContent, ExecutionKind: "openai-compatible", usage);
+        return new PhaseExecutionResult(
+            normalizedContent,
+            ExecutionKind: "openai-compatible",
+            usage,
+            new PhaseExecutionMetadata(
+                ProviderKind: "openai-compatible",
+                Model: modelSelection.Model,
+                ProfileName: modelSelection.ProfileName,
+                BaseUrl: modelSelection.BaseUrl));
     }
 
-    private HttpRequestMessage BuildRequest(PhaseExecutionContext context, string systemPrompt, string userPrompt)
+    private HttpRequestMessage BuildRequest(PhaseId phaseId, ResolvedModelSelection modelSelection, string systemPrompt, string userPrompt)
     {
-        var modelSelection = ResolveModelSelection(context.PhaseId);
         var endpoint = $"{modelSelection.BaseUrl.TrimEnd('/')}/chat/completions";
         var messages = new List<object>();
 
@@ -128,7 +136,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         {
             model = modelSelection.Model,
             messages,
-            temperature = ResolveTemperature(context.PhaseId)
+            temperature = ResolveTemperature(phaseId)
         });
 
         var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
@@ -362,7 +370,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 throw new InvalidOperationException($"Model profile '{profileName}' was not found for phase '{phaseId}'.");
             }
 
-            return new ResolvedModelSelection(profile.BaseUrl, profile.ApiKey, profile.Model);
+            return new ResolvedModelSelection(profile.BaseUrl, profile.ApiKey, profile.Model, profile.Name);
         }
 
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
@@ -375,7 +383,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             throw new InvalidOperationException("Model is required.");
         }
 
-        return new ResolvedModelSelection(options.BaseUrl, options.ApiKey ?? string.Empty, options.Model);
+        return new ResolvedModelSelection(options.BaseUrl, options.ApiKey ?? string.Empty, options.Model, null);
     }
 
     private string ResolveProfileNameForPhase(PhaseId phaseId)
@@ -644,5 +652,5 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private sealed record EffectivePrompt(string SystemPrompt, string UserPrompt);
 
-    private sealed record ResolvedModelSelection(string BaseUrl, string ApiKey, string Model);
+    private sealed record ResolvedModelSelection(string BaseUrl, string ApiKey, string Model, string? ProfileName);
 }

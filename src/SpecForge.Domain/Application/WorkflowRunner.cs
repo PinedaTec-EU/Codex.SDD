@@ -254,14 +254,15 @@ public sealed class WorkflowRunner
         await ArchiveDerivedArtifactsAsync(paths, existingRun, restartTimestamp, cancellationToken);
 
         var restartedRun = new WorkflowRun(existingRun.UsId, currentSourceHash, existingRun.Definition);
-        var regeneration = await ContinueFromCaptureOrClarificationAsync(workspaceRoot, paths, restartedRun, cancellationToken);
+        var normalizedActor = NormalizeActor(actor);
+        var regeneration = await ContinueFromCaptureOrClarificationAsync(workspaceRoot, paths, restartedRun, normalizedActor, cancellationToken);
         var generatedArtifactPath = regeneration.ArtifactPath;
         await fileStore.SaveAsync(restartedRun, paths.RootDirectory, cancellationToken);
 
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             "source_hash_mismatch_detected",
-            "system",
+            normalizedActor,
             restartedRun.CurrentPhase,
             $"Detected source change. Previous hash `{existingRun.SourceHash}` differs from current hash `{currentSourceHash}`.",
             cancellationToken);
@@ -389,21 +390,29 @@ public sealed class WorkflowRunner
     public async Task<ContinuePhaseResult> ContinuePhaseAsync(
         string workspaceRoot,
         string usId,
+        string actor = "user",
         CancellationToken cancellationToken = default)
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        var normalizedActor = NormalizeActor(actor);
 
         if (workflowRun.CurrentPhase is PhaseId.Capture or PhaseId.Clarification)
         {
-            var clarificationResult = await ContinueFromCaptureOrClarificationAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+            var clarificationResult = await ContinueFromCaptureOrClarificationAsync(workspaceRoot, paths, workflowRun, normalizedActor, cancellationToken);
             await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
-            return new ContinuePhaseResult(workflowRun.UsId, workflowRun.CurrentPhase, workflowRun.Status, clarificationResult.ArtifactPath, clarificationResult.Usage);
+            return new ContinuePhaseResult(
+                workflowRun.UsId,
+                workflowRun.CurrentPhase,
+                workflowRun.Status,
+                clarificationResult.ArtifactPath,
+                clarificationResult.Usage,
+                clarificationResult.Execution);
         }
 
         if (workflowRun.CurrentPhase == PhaseId.Refinement)
         {
-            var validationResult = await ValidateApprovedRefinementAsync(workspaceRoot, paths, workflowRun, cancellationToken);
+            var validationResult = await ValidateApprovedRefinementAsync(workspaceRoot, paths, workflowRun, normalizedActor, cancellationToken);
             if (validationResult is not null)
             {
                 await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
@@ -416,36 +425,39 @@ public sealed class WorkflowRunner
         string? artifactPath = null;
         TokenUsage? usage = null;
         long? durationMs = null;
+        PhaseExecutionMetadata? execution = null;
         if (HasArtifact(workflowRun.CurrentPhase))
         {
             var generation = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
             artifactPath = generation.ArtifactPath;
             usage = generation.Usage;
             durationMs = generation.DurationMs;
+            execution = generation.Execution;
             await AppendTimelineEventAsync(
                 paths.TimelineFilePath,
                 "phase_completed",
-                "system",
+                normalizedActor,
                 workflowRun.CurrentPhase,
                 $"Generated artifact for phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}`.",
                 cancellationToken,
                 artifactPath,
                 usage,
-                durationMs);
+                durationMs,
+                generation.Execution);
         }
         else
         {
             await AppendTimelineEventAsync(
                 paths.TimelineFilePath,
                 "phase_started",
-                "system",
+                normalizedActor,
                 workflowRun.CurrentPhase,
                 $"Transitioned to phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}`.",
                 cancellationToken);
         }
 
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
-        return new ContinuePhaseResult(workflowRun.UsId, workflowRun.CurrentPhase, workflowRun.Status, artifactPath, usage);
+        return new ContinuePhaseResult(workflowRun.UsId, workflowRun.CurrentPhase, workflowRun.Status, artifactPath, usage, execution);
     }
 
     public async Task<SubmitClarificationAnswersResult> SubmitClarificationAnswersAsync(
@@ -530,7 +542,8 @@ public sealed class WorkflowRunner
             cancellationToken,
             operationLogPath,
             generation.Usage,
-            generation.DurationMs);
+            generation.DurationMs,
+            generation.Execution);
 
         return new OperateCurrentPhaseArtifactResult(
             workflowRun.UsId,
@@ -539,13 +552,15 @@ public sealed class WorkflowRunner
             operationLogPath,
             sourceArtifactPath,
             generation.ArtifactPath,
-            generation.Usage);
+            generation.Usage,
+            generation.Execution);
     }
 
     private async Task<CaptureTransitionResult> ContinueFromCaptureOrClarificationAsync(
         string workspaceRoot,
         UserStoryFilePaths paths,
         WorkflowRun workflowRun,
+        string actor,
         CancellationToken cancellationToken)
     {
         if (workflowRun.CurrentPhase == PhaseId.Capture)
@@ -559,18 +574,23 @@ public sealed class WorkflowRunner
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             clarification.IsReady ? "clarification_passed" : "clarification_requested",
-            "system",
+            actor,
             workflowRun.CurrentPhase,
             clarification.Summary,
             cancellationToken,
             clarificationGeneration.ArtifactPath,
             clarificationGeneration.Usage,
-            clarificationGeneration.DurationMs);
+            clarificationGeneration.DurationMs,
+            clarificationGeneration.Execution);
 
         if (!clarification.IsReady)
         {
             workflowRun.RestoreState(PhaseId.Clarification, UserStoryStatus.WaitingUser);
-            return new CaptureTransitionResult(clarificationGeneration.ArtifactPath, clarificationGeneration.Usage, clarificationGeneration.DurationMs);
+            return new CaptureTransitionResult(
+                clarificationGeneration.ArtifactPath,
+                clarificationGeneration.Usage,
+                clarificationGeneration.DurationMs,
+                clarificationGeneration.Execution);
         }
 
         workflowRun.GenerateNextPhase();
@@ -578,15 +598,20 @@ public sealed class WorkflowRunner
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             "phase_completed",
-            "system",
+            actor,
             workflowRun.CurrentPhase,
             $"Generated artifact for phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}` after clarification.",
             cancellationToken,
             refinementGeneration.ArtifactPath,
             refinementGeneration.Usage,
-            refinementGeneration.DurationMs);
+            refinementGeneration.DurationMs,
+            refinementGeneration.Execution);
 
-        return new CaptureTransitionResult(refinementGeneration.ArtifactPath, refinementGeneration.Usage, refinementGeneration.DurationMs);
+        return new CaptureTransitionResult(
+            refinementGeneration.ArtifactPath,
+            refinementGeneration.Usage,
+            refinementGeneration.DurationMs,
+            refinementGeneration.Execution);
     }
 
     private async Task<ArtifactGenerationResult> MaterializePhaseArtifactAsync(
@@ -626,7 +651,7 @@ public sealed class WorkflowRunner
             await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
         }
 
-        return new ArtifactGenerationResult(artifactPath, result.Usage, stopwatch.ElapsedMilliseconds);
+        return new ArtifactGenerationResult(artifactPath, result.Usage, stopwatch.ElapsedMilliseconds, result.Execution);
     }
 
     private static IReadOnlyDictionary<PhaseId, string> BuildPreviousArtifactMap(UserStoryFilePaths paths, PhaseId currentPhase)
@@ -808,7 +833,8 @@ public sealed class WorkflowRunner
         CancellationToken cancellationToken,
         string? artifactPath = null,
         TokenUsage? usage = null,
-        long? durationMs = null)
+        long? durationMs = null,
+        PhaseExecutionMetadata? execution = null)
     {
         var timestamp = DateTimeOffset.UtcNow.ToString("O");
         var builder = new StringBuilder()
@@ -831,6 +857,23 @@ public sealed class WorkflowRunner
                 .AppendLine($"  - input: `{usage.InputTokens}`")
                 .AppendLine($"  - output: `{usage.OutputTokens}`")
                 .AppendLine($"  - total: `{usage.TotalTokens}`");
+        }
+
+        if (execution is not null)
+        {
+            builder.AppendLine("- Execution:")
+                .AppendLine($"  - provider: `{execution.ProviderKind}`")
+                .AppendLine($"  - model: `{execution.Model}`");
+
+            if (!string.IsNullOrWhiteSpace(execution.ProfileName))
+            {
+                builder.AppendLine($"  - profile: `{execution.ProfileName}`");
+            }
+
+            if (!string.IsNullOrWhiteSpace(execution.BaseUrl))
+            {
+                builder.AppendLine($"  - base-url: `{execution.BaseUrl}`");
+            }
         }
 
         if (durationMs is not null)
@@ -1053,6 +1096,7 @@ public sealed class WorkflowRunner
         string workspaceRoot,
         UserStoryFilePaths paths,
         WorkflowRun workflowRun,
+        string actor,
         CancellationToken cancellationToken)
     {
         if (!workflowRun.IsPhaseApproved(PhaseId.Refinement))
@@ -1079,13 +1123,14 @@ public sealed class WorkflowRunner
             await AppendTimelineEventAsync(
                 paths.TimelineFilePath,
                 "refinement_validated",
-                "system",
+                actor,
                 workflowRun.CurrentPhase,
                 "Validated the approved refinement baseline before advancing to technical design.",
                 cancellationToken,
                 generation.ArtifactPath,
                 generation.Usage,
-                generation.DurationMs);
+                generation.DurationMs,
+                generation.Execution);
             return null;
         }
 
@@ -1093,25 +1138,27 @@ public sealed class WorkflowRunner
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             "approval_questions_requested",
-            "system",
+            actor,
             workflowRun.CurrentPhase,
             $"Refinement validation requested additional human approval input. Remaining questions: {string.Join(" | ", unresolvedQuestions)}.",
             cancellationToken,
             generation.ArtifactPath,
             generation.Usage,
-            generation.DurationMs);
+            generation.DurationMs,
+            generation.Execution);
 
         return new ContinuePhaseResult(
             workflowRun.UsId,
             workflowRun.CurrentPhase,
             workflowRun.Status,
             generation.ArtifactPath,
-            generation.Usage);
+            generation.Usage,
+            generation.Execution);
     }
 
-    private sealed record ArtifactGenerationResult(string ArtifactPath, TokenUsage? Usage, long DurationMs);
+    private sealed record ArtifactGenerationResult(string ArtifactPath, TokenUsage? Usage, long DurationMs, PhaseExecutionMetadata? Execution);
     private sealed record ClarificationAssessment(bool IsReady, string Reason, IReadOnlyCollection<string> Questions, string Summary);
-    private sealed record CaptureTransitionResult(string ArtifactPath, TokenUsage? Usage, long DurationMs);
+    private sealed record CaptureTransitionResult(string ArtifactPath, TokenUsage? Usage, long DurationMs, PhaseExecutionMetadata? Execution);
 
     private static string BuildInitialTimeline(string usId, string title, string actor)
     {

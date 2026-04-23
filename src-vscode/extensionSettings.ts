@@ -77,28 +77,21 @@ export function buildBackendEnvironment(settings: SpecForgeSettings): NodeJS.Pro
     SPECFORGE_PHASE_PROVIDER: settings.provider
   };
 
-  const legacyFallback = settings.modelProfiles.length > 0
-    ? resolveDefaultModelProfile(settings.modelProfiles, settings.phaseModelAssignments)
-    : null;
-  const effectiveBaseUrl = legacyFallback?.baseUrl ?? settings.baseUrl;
-  const effectiveApiKey = legacyFallback?.apiKey ?? settings.apiKey;
-  const effectiveModel = legacyFallback?.model ?? settings.model;
-
-  if (effectiveBaseUrl) {
-    env.SPECFORGE_OPENAI_BASE_URL = effectiveBaseUrl;
-  }
-
-  if (effectiveApiKey) {
-    env.SPECFORGE_OPENAI_API_KEY = effectiveApiKey;
-  }
-
-  if (effectiveModel) {
-    env.SPECFORGE_OPENAI_MODEL = effectiveModel;
-  }
-
   if (settings.modelProfiles.length > 0) {
     env.SPECFORGE_OPENAI_MODEL_PROFILES_JSON = JSON.stringify(settings.modelProfiles);
     env.SPECFORGE_OPENAI_PHASE_MODEL_ASSIGNMENTS_JSON = JSON.stringify(settings.phaseModelAssignments);
+  } else {
+    if (settings.baseUrl) {
+      env.SPECFORGE_OPENAI_BASE_URL = settings.baseUrl;
+    }
+
+    if (settings.apiKey) {
+      env.SPECFORGE_OPENAI_API_KEY = settings.apiKey;
+    }
+
+    if (settings.model) {
+      env.SPECFORGE_OPENAI_MODEL = settings.model;
+    }
   }
 
   env.SPECFORGE_CAPTURE_TOLERANCE = settings.clarificationTolerance;

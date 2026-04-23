@@ -280,9 +280,6 @@ test("buildBackendEnvironment serializes named model profiles and phase assignme
     destructiveRewindEnabled: false
   }), {
     SPECFORGE_PHASE_PROVIDER: "openai-compatible",
-    SPECFORGE_OPENAI_BASE_URL: "https://light.example.test/v1",
-    SPECFORGE_OPENAI_API_KEY: "light-secret",
-    SPECFORGE_OPENAI_MODEL: "gpt-light",
     SPECFORGE_OPENAI_MODEL_PROFILES_JSON: JSON.stringify([
       {
         name: "light",
@@ -305,6 +302,46 @@ test("buildBackendEnvironment serializes named model profiles and phase assignme
     SPECFORGE_CAPTURE_TOLERANCE: "balanced",
     SPECFORGE_REVIEW_TOLERANCE: "strict"
   });
+});
+
+test("buildBackendEnvironment ignores legacy connection fields when model profiles are configured", () => {
+  const env = buildBackendEnvironment({
+    provider: "openai-compatible",
+    baseUrl: "https://legacy.example.test/v1",
+    apiKey: "legacy-secret",
+    model: "legacy-model",
+    modelProfiles: [
+      {
+        name: "light",
+        baseUrl: "https://light.example.test/v1",
+        apiKey: "light-secret",
+        model: "gpt-light"
+      }
+    ],
+    phaseModelAssignments: {
+      defaultProfile: "light",
+      implementationProfile: null,
+      reviewProfile: null
+    },
+    effectivePhaseModelAssignments: {
+      defaultProfileName: "light",
+      implementationProfileName: "light",
+      reviewProfileName: "light"
+    },
+    clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true,
+    contextSuggestionsEnabled: true,
+    requireExplicitApprovalBranchAcceptance: false,
+    autoPlayEnabled: false,
+    destructiveRewindEnabled: false
+  });
+
+  assert.equal(env.SPECFORGE_OPENAI_BASE_URL, undefined);
+  assert.equal(env.SPECFORGE_OPENAI_API_KEY, undefined);
+  assert.equal(env.SPECFORGE_OPENAI_MODEL, undefined);
+  assert.match(env.SPECFORGE_OPENAI_MODEL_PROFILES_JSON ?? "", /gpt-light/);
 });
 
 test("getSpecForgeSettingsStatus validates named profile assignments", () => {

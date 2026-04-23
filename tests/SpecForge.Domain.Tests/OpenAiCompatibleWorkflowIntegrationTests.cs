@@ -126,6 +126,11 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Equal(2, clarificationWorkflow.Clarification.Items.Count);
         Assert.Contains(clarificationWorkflow.Phases, phase => phase.PhaseId == "clarification" && phase.IsCurrent && phase.State == "current");
         Assert.Contains(clarificationWorkflow.Events, timelineEvent => timelineEvent.Code == "clarification_requested");
+        Assert.Contains(clarificationWorkflow.Events, timelineEvent =>
+            timelineEvent.Code == "clarification_requested"
+            && timelineEvent.Actor == "user"
+            && timelineEvent.Execution is not null
+            && timelineEvent.Execution.Model == "stub-model");
 
         await applicationService.SubmitClarificationAnswersAsync(
             workspaceRoot,

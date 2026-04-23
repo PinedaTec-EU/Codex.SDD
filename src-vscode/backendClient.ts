@@ -43,12 +43,20 @@ export interface ContinuePhaseResult {
   readonly status: string;
   readonly generatedArtifactPath: string | null;
   readonly usage: TokenUsage | null;
+  readonly execution?: PhaseExecutionMetadata | null;
 }
 
 export interface TokenUsage {
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly totalTokens: number;
+}
+
+export interface PhaseExecutionMetadata {
+  readonly providerKind: string;
+  readonly model: string;
+  readonly profileName: string | null;
+  readonly baseUrl: string | null;
 }
 
 export interface CreateOrImportUserStoryResult {
@@ -65,6 +73,7 @@ export interface OperateCurrentPhaseArtifactResult {
   readonly sourceArtifactPath: string;
   readonly generatedArtifactPath: string;
   readonly usage: TokenUsage | null;
+  readonly execution?: PhaseExecutionMetadata | null;
 }
 
 export interface SubmitApprovalAnswerResult {
@@ -157,6 +166,7 @@ export interface TimelineEventDetails {
   readonly artifacts: readonly string[];
   readonly usage: TokenUsage | null;
   readonly durationMs: number | null;
+  readonly execution?: PhaseExecutionMetadata | null;
 }
 
 export interface UserStoryFileDetails {
@@ -194,7 +204,7 @@ export interface SpecForgeBackendClient {
   createUserStory(usId: string, title: string, kind: string, category: string, sourceText: string, actor?: string): Promise<CreateOrImportUserStoryResult>;
   importUserStory(usId: string, sourcePath: string, title: string, kind: string, category: string, actor?: string): Promise<CreateOrImportUserStoryResult>;
   initializeRepoPrompts(overwrite?: boolean): Promise<InitializeRepoPromptsResult>;
-  continuePhase(usId: string): Promise<ContinuePhaseResult>;
+  continuePhase(usId: string, actor?: string): Promise<ContinuePhaseResult>;
   approveCurrentPhase(usId: string, baseBranch?: string, workBranch?: string, actor?: string): Promise<UserStorySummary>;
   requestRegression(usId: string, targetPhase: string, reason?: string, actor?: string, destructive?: boolean): Promise<RequestRegressionResult>;
   restartUserStoryFromSource(usId: string, reason?: string, actor?: string): Promise<RestartUserStoryResult>;
@@ -331,10 +341,11 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     });
   }
 
-  public async continuePhase(usId: string): Promise<ContinuePhaseResult> {
+  public async continuePhase(usId: string, actor?: string): Promise<ContinuePhaseResult> {
     return this.callTool<ContinuePhaseResult>("generate_next_phase", {
       workspaceRoot: this.workspaceRoot,
-      usId
+      usId,
+      ...(actor && actor.trim().length > 0 ? { actor } : {})
     });
   }
 

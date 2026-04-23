@@ -508,6 +508,10 @@ public sealed class WorkflowRunnerTests : IDisposable
   - input: `486`
   - output: `1644`
   - total: `2130`
+- Execution:
+  - provider: `openai-compatible`
+  - model: `gpt-4.1-mini`
+  - profile: `light`
 - Duration: `18765` ms
 """;
 
@@ -518,6 +522,10 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal(486, timelineEvent.Usage!.InputTokens);
         Assert.Equal(1644, timelineEvent.Usage.OutputTokens);
         Assert.Equal(2130, timelineEvent.Usage.TotalTokens);
+        Assert.NotNull(timelineEvent.Execution);
+        Assert.Equal("openai-compatible", timelineEvent.Execution!.ProviderKind);
+        Assert.Equal("gpt-4.1-mini", timelineEvent.Execution.Model);
+        Assert.Equal("light", timelineEvent.Execution.ProfileName);
         Assert.Equal(18765, timelineEvent.DurationMs);
     }
 
@@ -540,6 +548,9 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Contains("input: `321`", timeline);
         Assert.Contains("output: `123`", timeline);
         Assert.Contains("total: `444`", timeline);
+        Assert.Contains("- Execution:", timeline);
+        Assert.Contains("model: `stub-model`", timeline);
+        Assert.Contains("profile: `test-profile`", timeline);
         Assert.Contains("- Duration:", timeline);
     }
 
@@ -582,6 +593,7 @@ public sealed class WorkflowRunnerTests : IDisposable
                 new PhaseExecutionResult(
                     "# generated markdown\n\n## Tokens\n- captured",
                     "test-double",
-                    new TokenUsage(321, 123, 444)));
+                    new TokenUsage(321, 123, 444),
+                    new PhaseExecutionMetadata("test-double", "stub-model", "test-profile", "http://stub.test/v1")));
     }
 }

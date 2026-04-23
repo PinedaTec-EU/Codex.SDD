@@ -11,7 +11,7 @@ const releaseApprovalPhaseView_1 = require("./workflow-view/releaseApprovalPhase
 const reviewPhaseView_1 = require("./workflow-view/reviewPhaseView");
 const technicalDesignPhaseView_1 = require("./workflow-view/technicalDesignPhaseView");
 const phaseNodeWidth = 220;
-const phaseNodeHeight = 152;
+const phaseNodeHeight = 180;
 const mobilePhaseNodeWidth = 188;
 const phaseSequence = [
     { phaseId: "capture", expectsHumanIntervention: false },
@@ -153,10 +153,19 @@ function buildPhaseIterations(workflow, phaseId) {
             summary: event.summary,
             artifactPath,
             usage: event.usage,
-            durationMs: event.durationMs
+            durationMs: event.durationMs,
+            execution: event.execution
         });
     }
     return iterations;
+}
+function formatExecutionLabel(execution) {
+    if (!execution?.model) {
+        return null;
+    }
+    return execution.profileName
+        ? `${execution.profileName} / ${execution.model}`
+        : execution.model;
 }
 function buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPreviewHtml, artifactQuestionBlock, refinementApprovalQuestions, unresolvedApprovalQuestionCount) {
     switch (selectedPhase.phaseId) {
@@ -478,8 +487,7 @@ function buildArtifactPreviewSection(artifactPath, artifactPreviewHtml, artifact
     const effectiveArtifactPreviewHtml = isMarkdownArtifact
         ? (artifactPreviewHtml ?? renderMarkdownToHtml(artifactContent))
         : null;
-    const isPreview = effectiveArtifactPreviewHtml !== null;
-    const badgeLabel = isPreview ? "Preview" : rawArtifact ? "Raw Artifact" : "Preview";
+    const badgeLabel = rawArtifact ? "Raw Artifact" : "Preview";
     const badgeClass = rawArtifact ? " badge--muted" : "";
     return `
     <div class="detail-actions detail-actions--artifact">
@@ -620,6 +628,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
                 <span class="iteration-rail__meta">
                   ${escapeHtml(iteration.code)}
                   ${iteration.actor ? ` · ${escapeHtml(iteration.actor)}` : ""}
+                  ${formatExecutionLabel(iteration.execution) ? ` · ${escapeHtml(formatExecutionLabel(iteration.execution) ?? "")}` : ""}
                   ${iteration.usage ? ` · ${escapeHtml(`${formatMetricNumber(iteration.usage.inputTokens)}/${formatMetricNumber(iteration.usage.outputTokens)} tok`)}` : ""}
                   ${iteration.durationMs !== null ? ` · ${escapeHtml(formatDuration(iteration.durationMs))}` : ""}
                 </span>
@@ -639,6 +648,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           <span class="badge">${escapeHtml(selectedIteration.code)}</span>
           <span class="badge">${escapeHtml(formatUtcTimestamp(selectedIteration.timestampUtc))}</span>
           ${selectedIteration.actor ? `<span class="badge">${escapeHtml(selectedIteration.actor)}</span>` : ""}
+          ${formatExecutionLabel(selectedIteration.execution) ? `<span class="badge">model ${escapeHtml(formatExecutionLabel(selectedIteration.execution) ?? "")}</span>` : ""}
           ${selectedIteration.usage ? `<span class="badge">in/out ${escapeHtml(`${formatMetricNumber(selectedIteration.usage.inputTokens)}/${formatMetricNumber(selectedIteration.usage.outputTokens)}`)}</span>` : ""}
           ${selectedIteration.usage ? `<span class="badge">total ${escapeHtml(formatMetricNumber(selectedIteration.usage.totalTokens))}</span>` : ""}
           ${selectedIteration.durationMs !== null ? `<span class="badge">${escapeHtml(formatDuration(selectedIteration.durationMs))}</span>` : ""}
@@ -760,8 +770,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           </div>
         </div>
         <div class="audit-body">${escapeHtml(event.summary ?? "")}</div>
-        ${event.usage || event.durationMs !== null
+        ${event.usage || event.durationMs !== null || event.execution
             ? `<div class="audit-metrics">
+              ${formatExecutionLabel(event.execution) ? `<span class="badge">model ${escapeHtml(formatExecutionLabel(event.execution) ?? "")}</span>` : ""}
               ${event.usage ? `<span class="badge">in/out ${escapeHtml(`${formatMetricNumber(event.usage.inputTokens)}/${formatMetricNumber(event.usage.outputTokens)}`)}</span>` : ""}
               ${event.usage ? `<span class="badge">total ${escapeHtml(formatMetricNumber(event.usage.totalTokens))}</span>` : ""}
               ${event.durationMs !== null ? `<span class="badge">${escapeHtml(formatDuration(event.durationMs))}</span>` : ""}
@@ -1679,6 +1690,14 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .phase-node h3 {
       margin: 14px 0 4px;
       font-size: 1rem;
+      position: relative;
+      z-index: 1;
+    }
+    .phase-priority-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
       position: relative;
       z-index: 1;
     }
@@ -3496,13 +3515,13 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
           <span class="phase-index">${index + 1}</span>
           <span class="phase-status-dot"></span>
         </div>
+        ${phase.requiresApproval ? `<div class="phase-priority-tags"><span class="phase-tag approval">approval</span></div>` : ""}
         <h3>${escapeHtml(phase.title)}</h3>
         <div class="phase-slug">${escapeHtml(phaseSecondaryLabel(phase))}</div>
         <div class="phase-tags">
           <span class="phase-tag phase-tag--${escapeHtmlAttribute(visualTone)}">${escapeHtml(displayState)}</span>
           <span class="phase-tag">${escapeHtml(phaseModelLaneLabel(phase))}</span>
           ${modelProfileLabel ? `<span class="phase-tag">model ${escapeHtml(modelProfileLabel)}</span>` : ""}
-          ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
           ${phase.isApproved ? `<span class="phase-tag">approved</span>` : ""}
         </div>
       </div>

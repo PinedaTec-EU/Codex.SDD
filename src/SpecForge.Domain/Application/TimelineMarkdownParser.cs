@@ -25,8 +25,10 @@ public static partial class TimelineMarkdownParser
         var artifacts = new List<string>();
         TokenUsage? usage = null;
         long? durationMs = null;
+        PhaseExecutionMetadata? execution = null;
         var readingArtifacts = false;
         var readingTokens = false;
+        var readingExecution = false;
 
         void FlushCurrent()
         {
@@ -43,7 +45,8 @@ public static partial class TimelineMarkdownParser
                 summary,
                 artifacts.ToArray(),
                 usage,
-                durationMs));
+                durationMs,
+                execution));
 
             timestamp = null;
             code = null;
@@ -55,6 +58,7 @@ public static partial class TimelineMarkdownParser
             durationMs = null;
             readingArtifacts = false;
             readingTokens = false;
+            readingExecution = false;
         }
 
         foreach (var rawLine in lines)
@@ -86,6 +90,15 @@ public static partial class TimelineMarkdownParser
             {
                 readingTokens = true;
                 readingArtifacts = false;
+                readingExecution = false;
+                continue;
+            }
+
+            if (trimmed.StartsWith("- Execution:", StringComparison.Ordinal))
+            {
+                readingExecution = true;
+                readingArtifacts = false;
+                readingTokens = false;
                 continue;
             }
 
@@ -122,6 +135,27 @@ public static partial class TimelineMarkdownParser
                 if (!string.IsNullOrWhiteSpace(trimmed))
                 {
                     readingTokens = false;
+                }
+            }
+
+            if (readingExecution)
+            {
+                var executionLine = trimmed.Trim();
+                if (executionLine.StartsWith("- ", StringComparison.Ordinal))
+                {
+                    var executionContent = executionLine[2..].Trim();
+                    if (IsExecutionMetadataLine(executionContent))
+                    {
+                        execution = ParseExecutionMetadataLine(execution, executionContent);
+                        continue;
+                    }
+
+                    readingExecution = false;
+                }
+
+                if (!string.IsNullOrWhiteSpace(trimmed))
+                {
+                    readingExecution = false;
                 }
             }
 
@@ -195,6 +229,34 @@ public static partial class TimelineMarkdownParser
         line.StartsWith("input:", StringComparison.Ordinal) ||
         line.StartsWith("output:", StringComparison.Ordinal) ||
         line.StartsWith("total:", StringComparison.Ordinal);
+
+    private static PhaseExecutionMetadata ParseExecutionMetadataLine(PhaseExecutionMetadata? current, string line)
+    {
+        var separatorIndex = line.IndexOf(':', StringComparison.Ordinal);
+        if (separatorIndex < 0)
+        {
+            return current ?? new PhaseExecutionMetadata(string.Empty, string.Empty);
+        }
+
+        var key = line[..separatorIndex].Trim();
+        var value = ExtractInlineCode(line[(separatorIndex + 1)..]) ?? line[(separatorIndex + 1)..].Trim();
+        var execution = current ?? new PhaseExecutionMetadata(string.Empty, string.Empty);
+
+        return key switch
+        {
+            "provider" => execution with { ProviderKind = value },
+            "model" => execution with { Model = value },
+            "profile" => execution with { ProfileName = value },
+            "base-url" => execution with { BaseUrl = value },
+            _ => execution
+        };
+    }
+
+    private static bool IsExecutionMetadataLine(string line) =>
+        line.StartsWith("provider:", StringComparison.Ordinal) ||
+        line.StartsWith("model:", StringComparison.Ordinal) ||
+        line.StartsWith("profile:", StringComparison.Ordinal) ||
+        line.StartsWith("base-url:", StringComparison.Ordinal);
 
     private static long? ParseDurationMs(string line)
     {
