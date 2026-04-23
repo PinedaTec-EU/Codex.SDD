@@ -223,8 +223,8 @@ class WorkflowPanelController {
                     await vscode.commands.executeCommand("specForge.openExecutionSettings");
                     return;
                 }
-                (0, outputChannel_1.appendSpecForgeLog)(`Continuing workflow '${this.summary.usId}' from phase '${this.summary.currentPhase}'.`);
-                await this.startManualContinueAsync();
+                (0, outputChannel_1.appendSpecForgeLog)(`Autoplay requested from detail continue for '${this.summary.usId}' at phase '${this.summary.currentPhase}'.`);
+                await this.startAutoplayAsync("command:continue");
                 return;
             case "approve":
                 await this.approveCurrentPhaseAsync(message.baseBranch, message.workBranch);
@@ -303,33 +303,6 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' continueCurrentPhaseAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("continueCurrentPhaseAsync");
-    }
-    async startManualContinueAsync() {
-        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' entering transient playing state for manual continue from '${this.summary.currentPhase}'.`);
-        (0, outputChannel_1.showSpecForgeOutput)(true);
-        if (this.playbackStartedAtMs === null) {
-            this.playbackStartedAtMs = Date.now();
-        }
-        this.playbackState = "playing";
-        this.setTransientExecutionPhase(this.deriveInitialExecutionPhaseId());
-        await this.renderCachedWorkflowAsync("command:continue:started");
-        try {
-            await this.continueCurrentPhaseAsync();
-        }
-        catch (error) {
-            if (this.playbackState === "playing") {
-                this.playbackState = "idle";
-                this.clearTransientExecutionPhase();
-            }
-            (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' left transient playing state after manual continue failure.`);
-            throw error;
-        }
-        if (this.playbackState === "playing") {
-            this.playbackState = "idle";
-            this.clearTransientExecutionPhase();
-            (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' left transient playing state after manual continue completion.`);
-            await this.refreshAsync("command:continue:completed");
-        }
     }
     async submitClarificationAnswersAsync(answers) {
         await this.getBackendClient().submitClarificationAnswers(this.summary.usId, answers, (0, userActor_1.getCurrentActor)());
@@ -582,6 +555,11 @@ class WorkflowPanelController {
     }
     async startAutoplayAsync(reason) {
         (0, outputChannel_1.appendSpecForgeLog)(`Autoplay requested for '${this.summary.usId}'. reason='${reason}'.`);
+        if (this.playbackState === "playing" || this.playbackState === "stopping") {
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' ignored autoplay request because playback is already '${this.playbackState}'. reason='${reason}'.`);
+            await this.refreshAsync(`${reason}:ignored`);
+            return;
+        }
         (0, outputChannel_1.showSpecForgeOutput)(true);
         if (this.playbackState !== "paused" || this.playbackStartedAtMs === null) {
             this.playbackStartedAtMs = Date.now();
