@@ -30,6 +30,26 @@ Not implemented yet:
 - full PR integration
 - richer prompt inspection UX, diffing, and effective prompt visibility
 
+## Interface Preview
+
+The workflow view is one of the strongest parts of the product already: it makes phase state, checkpoints, runtime metrics, and model routing visible in one place instead of scattering them across logs and prompts.
+
+<p align="center">
+  <img loading="lazy" alt="Workflow overview showing the constellation graph and refinement detail" src="./doc/images/workflow-overview.png" width="92%"/>
+</p>
+
+The clarification step is also designed as an operational screen, not just a modal interruption. It keeps the blocked questions, repo-context suggestions, and current artifact visible together.
+
+<p align="center">
+  <img loading="lazy" alt="Clarification view showing suggested context files and pending answers" src="./doc/images/workflow-clarification-context.png" width="92%"/>
+</p>
+
+Playback is intentionally theatrical enough to communicate that the workflow is moving without becoming noisy. The execution overlay pushes the current run state above the graph instead of burying it in the timeline.
+
+<p align="center">
+  <img loading="lazy" alt="Workflow playback overlay showing the active execution state" src="./doc/images/workflow-playback-overlay.png" width="92%"/>
+</p>
+
 ## Features
 
 - Canonical user story workflow:
