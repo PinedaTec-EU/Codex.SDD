@@ -11,6 +11,9 @@ namespace SpecForge.OpenAICompatible;
 public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProvider
 {
     private const string OpenAiCompatibleProviderKind = "openai-compatible";
+    private const string RepositoryAccessNone = "none";
+    private const string RepositoryAccessRead = "read";
+    private const string RepositoryAccessReadWrite = "read-write";
     private const string StrictTolerance = "strict";
     private const string BalancedTolerance = "balanced";
     private const string InferentialTolerance = "inferential";
@@ -54,6 +57,36 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 "ReviewTolerance must be one of: strict, balanced, inferential.",
                 nameof(options));
         }
+    }
+
+    public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId)
+    {
+        var requiredRepositoryAccess = phaseId switch
+        {
+            PhaseId.Implementation => RepositoryAccessReadWrite,
+            PhaseId.Review => RepositoryAccessRead,
+            _ => null
+        };
+
+        if (requiredRepositoryAccess is null)
+        {
+            return new PhaseExecutionReadiness(phaseId, CanExecute: true);
+        }
+
+        var profileName = ResolveProfileNameForPhase(phaseId);
+        var profile = options.ModelProfiles!.First(candidate =>
+            string.Equals(candidate.Name, profileName, StringComparison.Ordinal));
+        var effectiveRepositoryAccess = NormalizeRepositoryAccess(profile.RepositoryAccess);
+        var canExecute = HasRequiredRepositoryAccess(effectiveRepositoryAccess, requiredRepositoryAccess);
+
+        return canExecute
+            ? new PhaseExecutionReadiness(phaseId, CanExecute: true)
+            : new PhaseExecutionReadiness(
+                phaseId,
+                CanExecute: false,
+                phaseId == PhaseId.Implementation
+                    ? PhaseExecutionBlockingReasons.ImplementationRequiresRepositoryWriteAccess
+                    : PhaseExecutionBlockingReasons.ReviewRequiresRepositoryReadAccess);
     }
 
     public async Task<PhaseExecutionResult> ExecuteAsync(
@@ -184,6 +217,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine($"- US ID: `{context.UsId}`")
             .AppendLine($"- Phase: `{context.PhaseId}`")
             .AppendLine($"- User story path: `{context.UserStoryPath}`")
+            .AppendLine($"- Repository access: `{NormalizeRepositoryAccess(options.ModelProfiles!.First(candidate => string.Equals(candidate.Name, ResolveProfileNameForPhase(context.PhaseId), StringComparison.Ordinal)).RepositoryAccess)}`")
             .AppendLine();
 
         builder
@@ -436,6 +470,35 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             ? OpenAiCompatibleProviderKind
             : providerKind.Trim();
 
+    private static bool IsSupportedRepositoryAccess(string? repositoryAccess) =>
+        NormalizeRepositoryAccess(repositoryAccess) is RepositoryAccessNone or RepositoryAccessRead or RepositoryAccessReadWrite;
+
+    private static string NormalizeRepositoryAccess(string? repositoryAccess)
+    {
+        var normalized = string.IsNullOrWhiteSpace(repositoryAccess)
+            ? RepositoryAccessNone
+            : repositoryAccess.Trim().ToLowerInvariant();
+
+        return normalized switch
+        {
+            "write" => RepositoryAccessReadWrite,
+            "readwrite" => RepositoryAccessReadWrite,
+            RepositoryAccessReadWrite => RepositoryAccessReadWrite,
+            RepositoryAccessRead => RepositoryAccessRead,
+            _ => RepositoryAccessNone
+        };
+    }
+
+    private static bool HasRequiredRepositoryAccess(string actual, string required) =>
+        (actual, required) switch
+        {
+            (_, RepositoryAccessNone) => true,
+            (RepositoryAccessReadWrite, RepositoryAccessReadWrite) => true,
+            (RepositoryAccessReadWrite, RepositoryAccessRead) => true,
+            (RepositoryAccessRead, RepositoryAccessRead) => true,
+            _ => false
+        };
+
     private static void ValidateModelProfiles(
         IReadOnlyList<OpenAiCompatibleModelProfile> modelProfiles,
         OpenAiCompatiblePhaseModelAssignments? assignments)
@@ -468,6 +531,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             if (string.IsNullOrWhiteSpace(profile.Model))
             {
                 throw new ArgumentException($"Model is required for model profile '{profile.Name}'.", nameof(modelProfiles));
+            }
+
+            if (!IsSupportedRepositoryAccess(profile.RepositoryAccess))
+            {
+                throw new ArgumentException(
+                    $"RepositoryAccess must be one of: {RepositoryAccessNone}, {RepositoryAccessRead}, {RepositoryAccessReadWrite} for model profile '{profile.Name}'.",
+                    nameof(modelProfiles));
             }
 
             if (RequiresApiKey(profile.BaseUrl) && string.IsNullOrWhiteSpace(profile.ApiKey))

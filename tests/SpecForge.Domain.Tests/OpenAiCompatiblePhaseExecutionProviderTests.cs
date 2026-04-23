@@ -187,13 +187,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                         Provider: "openai-compatible",
                         BaseUrl: "http://localhost:11434/v1",
                         ApiKey: string.Empty,
-                        Model: "llama-light"),
+                        Model: "llama-light",
+                        RepositoryAccess: "read"),
                     new OpenAiCompatibleModelProfile(
                         Name: "top",
                         Provider: "openai-compatible",
                         BaseUrl: "http://localhost:22434/v1",
                         ApiKey: string.Empty,
-                        Model: "llama-top")
+                        Model: "llama-top",
+                        RepositoryAccess: "read-write")
                 ],
                 PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
                     DefaultProfile: "light",
@@ -250,6 +252,32 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.NotNull(reviewResult.Execution);
         Assert.Equal("light", reviewResult.Execution!.ProfileName);
         Assert.Equal("llama-light", reviewResult.Execution.Model);
+    }
+
+    [Fact]
+    public void GetPhaseExecutionReadiness_BlocksImplementationWithoutRepositoryWriteAccess()
+    {
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new CapturingFakeHttpMessageHandler()),
+            CreateOptions(model: "llama3.1", repositoryAccess: "read"));
+
+        var readiness = provider.GetPhaseExecutionReadiness(PhaseId.Implementation);
+
+        Assert.False(readiness.CanExecute);
+        Assert.Equal(PhaseExecutionBlockingReasons.ImplementationRequiresRepositoryWriteAccess, readiness.BlockingReason);
+    }
+
+    [Fact]
+    public void GetPhaseExecutionReadiness_BlocksReviewWithoutRepositoryReadAccess()
+    {
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new CapturingFakeHttpMessageHandler()),
+            CreateOptions(model: "llama3.1", repositoryAccess: "none"));
+
+        var readiness = provider.GetPhaseExecutionReadiness(PhaseId.Review);
+
+        Assert.False(readiness.CanExecute);
+        Assert.Equal(PhaseExecutionBlockingReasons.ReviewRequiresRepositoryReadAccess, readiness.BlockingReason);
     }
 
     [Fact]
@@ -453,7 +481,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         string baseUrl = "http://localhost:11434/v1",
         string apiKey = "",
         string clarificationTolerance = "balanced",
-        string reviewTolerance = "balanced")
+        string reviewTolerance = "balanced",
+        string repositoryAccess = "read-write")
     {
         return new OpenAiCompatibleProviderOptions(
             ClarificationTolerance: clarificationTolerance,
@@ -465,7 +494,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                     Provider: "openai-compatible",
                     BaseUrl: baseUrl,
                     ApiKey: apiKey,
-                    Model: model)
+                    Model: model,
+                    RepositoryAccess: repositoryAccess)
             ],
             PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
                 DefaultProfile: profileName));
