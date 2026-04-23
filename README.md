@@ -90,6 +90,7 @@ See the detailed design documents in:
 
 - [doc/product-vision.md](doc/product-vision.md)
 - [doc/architecture.md](doc/architecture.md)
+- [doc/business-rules-convention.md](doc/business-rules-convention.md)
 - [doc/workflow-canonico-fase-1.md](doc/workflow-canonico-fase-1.md)
 - [doc/spec-schema-fase-1.md](doc/spec-schema-fase-1.md)
 - [doc/mcp-contract-fase-1.md](doc/mcp-contract-fase-1.md)

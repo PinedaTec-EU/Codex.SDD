@@ -51,6 +51,7 @@ function buildWorkflow(): UserStoryWorkflowDetails {
         title: "Clarification",
         order: 1,
         requiresApproval: false,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",

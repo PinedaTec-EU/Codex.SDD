@@ -187,9 +187,12 @@ public static class RefinementSpecJson
 
     public static IReadOnlyCollection<string> GetUnresolvedQuestions(RefinementSpecDocument document) =>
         Normalize(document).HumanApprovalQuestions
-            .Where(static item => !string.Equals(item.Status, "resolved", StringComparison.OrdinalIgnoreCase))
+            .Where(static item => !IsResolved(item))
             .Select(static item => item.Question)
             .ToArray();
+
+    public static bool IsResolved(RefinementApprovalQuestionDocument item) =>
+        string.Equals(NormalizeStatus(item.Status, item.Answer), "resolved", StringComparison.Ordinal);
 
     private static IReadOnlyList<RefinementApprovalQuestionDocument> NormalizeQuestions(IReadOnlyList<RefinementApprovalQuestionDocument> items) =>
         (items ?? Array.Empty<RefinementApprovalQuestionDocument>())

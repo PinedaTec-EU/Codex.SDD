@@ -125,6 +125,7 @@ export interface WorkflowPhaseDetails {
   readonly title: string;
   readonly order: number;
   readonly requiresApproval: boolean;
+  readonly expectsHumanIntervention: boolean;
   readonly isApproved: boolean;
   readonly isCurrent: boolean;
   readonly state: string;
@@ -151,6 +152,7 @@ export interface ApprovalQuestionDetails {
   readonly index: number;
   readonly question: string;
   readonly status: string;
+  readonly isResolved: boolean;
   readonly answer: string | null;
   readonly answeredBy: string | null;
   readonly answeredAtUtc: string | null;

@@ -30,10 +30,7 @@ type PhaseVisualTone = "active" | "waiting-user" | "paused" | "blocked" | "compl
 
 type PhasePosition = { left: number; top: number };
 type PhaseColumn = "left" | "right";
-type LayoutPhaseDescriptor = {
-  readonly phaseId: string;
-  readonly expectsHumanIntervention: boolean;
-};
+type LayoutPhaseDescriptor = Pick<WorkflowPhaseDetails, "phaseId" | "expectsHumanIntervention">;
 type PhaseGraphLayout = {
   readonly positions: Record<string, PhasePosition>;
   readonly width: number;
@@ -52,16 +49,6 @@ type PhaseLayoutConfig = {
 const phaseNodeWidth = 220;
 const phaseNodeHeight = 180;
 const mobilePhaseNodeWidth = 188;
-const phaseSequence: readonly LayoutPhaseDescriptor[] = [
-  { phaseId: "capture", expectsHumanIntervention: false },
-  { phaseId: "clarification", expectsHumanIntervention: true },
-  { phaseId: "refinement", expectsHumanIntervention: true },
-  { phaseId: "technical-design", expectsHumanIntervention: false },
-  { phaseId: "implementation", expectsHumanIntervention: false },
-  { phaseId: "review", expectsHumanIntervention: false },
-  { phaseId: "release-approval", expectsHumanIntervention: true },
-  { phaseId: "pr-preparation", expectsHumanIntervention: false }
-] as const;
 const desktopLayoutConfig: PhaseLayoutConfig = {
   columns: { left: 38, right: 400 },
   topOffset: 40,
@@ -78,8 +65,18 @@ const mobileLayoutConfig: PhaseLayoutConfig = {
   rightPadding: 88,
   bottomPadding: 96
 };
-const defaultDesktopLayout = buildPhaseLayout(phaseSequence, desktopLayoutConfig, phaseNodeWidth);
-const defaultMobileLayout = buildPhaseLayout(phaseSequence, mobileLayoutConfig, mobilePhaseNodeWidth);
+const defaultPhaseSequence: readonly LayoutPhaseDescriptor[] = [
+  { phaseId: "capture", expectsHumanIntervention: false },
+  { phaseId: "clarification", expectsHumanIntervention: true },
+  { phaseId: "refinement", expectsHumanIntervention: true },
+  { phaseId: "technical-design", expectsHumanIntervention: false },
+  { phaseId: "implementation", expectsHumanIntervention: false },
+  { phaseId: "review", expectsHumanIntervention: false },
+  { phaseId: "release-approval", expectsHumanIntervention: true },
+  { phaseId: "pr-preparation", expectsHumanIntervention: false }
+] as const;
+const defaultDesktopLayout = buildPhaseLayout(defaultPhaseSequence, desktopLayoutConfig, phaseNodeWidth);
+const defaultMobileLayout = buildPhaseLayout(defaultPhaseSequence, mobileLayoutConfig, mobilePhaseNodeWidth);
 const desktopGraphHeight = defaultDesktopLayout.height;
 const mobileGraphHeight = defaultMobileLayout.height;
 const desktopGraphWidth = defaultDesktopLayout.width;
@@ -93,10 +90,6 @@ function computeGraphHeight(positions: Record<string, PhasePosition>, nodeHeight
 function computeGraphWidth(positions: Record<string, PhasePosition>, nodeWidth: number, rightPadding: number): number {
   const maxLeft = Math.max(...Object.values(positions).map((position) => position.left));
   return maxLeft + nodeWidth + rightPadding;
-}
-
-function expectsHumanIntervention(phaseId: string, requiresApproval: boolean): boolean {
-  return phaseId === "clarification" || requiresApproval;
 }
 
 function resolvePhaseColumn(expectsHumanIntervention: boolean): PhaseColumn {
@@ -666,18 +659,15 @@ export function buildWorkflowHtml(
     ? renderMarkdownToHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")
     : null;
   const artifactQuestionBlock = extractArtifactQuestionBlock(state.selectedArtifactContent);
-  const backendApprovalQuestions = workflow.approvalQuestions ?? [];
   const refinementApprovalQuestions = selectedPhase.phaseId === "refinement"
-    ? (backendApprovalQuestions.length > 0
-      ? backendApprovalQuestions.map((item) => ({
-        index: item.index,
-        question: item.question,
-        answer: item.answer,
-        resolved: item.status.trim().toLowerCase() === "resolved",
-        answeredBy: item.answeredBy,
-        answeredAtUtc: item.answeredAtUtc
-      }))
-      : extractMarkdownApprovalItems(state.selectedArtifactContent))
+    ? (workflow.approvalQuestions ?? []).map((item) => ({
+      index: item.index,
+      question: item.question,
+      answer: item.answer,
+      resolved: item.isResolved,
+      answeredBy: item.answeredBy,
+      answeredAtUtc: item.answeredAtUtc
+    }))
     : [];
   const unresolvedApprovalQuestionCount = refinementApprovalQuestions.filter((item) => !item.resolved).length;
   const phaseIterations = buildPhaseIterations(workflow, selectedPhase.phaseId);
@@ -714,8 +704,7 @@ export function buildWorkflowHtml(
   const continueActionLabel = selectedPhase.isCurrent ? "Continue" : "Continue Current Phase";
   const approveActionLabel = selectedPhase.isCurrent ? "Approve" : "Approve Current Phase";
   const shouldRenderApproveAction = selectedPhase.isCurrent
-    && selectedPhase.requiresApproval
-    && selectedPhase.phaseId === "refinement";
+    && selectedPhase.requiresApproval;
   const detailActions = (selectedPhase.isCurrent && (workflow.controls.canApprove || shouldRenderApproveAction || detailRejectCommand))
     || canRewindSelectedPhase
     || workflow.controls.canContinue
@@ -727,7 +716,7 @@ export function buildWorkflowHtml(
             ? `<button class="workflow-action-button workflow-action-button--progress" data-command="continue"${playDisabled ? " disabled" : ""}>${continueActionLabel}</button>`
             : ""}
         ${shouldRenderApproveAction
-            ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${!workflow.controls.canApprove || shouldRenderApprovalBranchEditor(workflow, selectedPhase) && Boolean(state.requireExplicitApprovalBranchAcceptance) || unresolvedApprovalQuestionCount > 0 ? " disabled" : ""}>${approveActionLabel}</button>`
+            ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${!workflow.controls.canApprove || shouldRenderApprovalBranchEditor(workflow, selectedPhase) && Boolean(state.requireExplicitApprovalBranchAcceptance) ? " disabled" : ""}>${approveActionLabel}</button>`
             : ""}
         ${detailRejectCommand ? `<button class="workflow-action-button workflow-action-button--danger" data-command="${detailRejectCommand.command}"${detailRejectCommand.phaseId ? ` data-phase-id="${escapeHtmlAttribute(detailRejectCommand.phaseId)}"` : ""}>Reject</button>` : ""}
         ${canRewindSelectedPhase ? `<button class="workflow-action-button workflow-action-button--document" data-command="rewind" data-phase-id="${escapeHtmlAttribute(selectedPhase.phaseId)}">Rewind Here</button>` : ""}
@@ -3684,7 +3673,7 @@ function buildPhaseGraph(
     shouldShowPhase(phase.phaseId, clarificationVisible, currentPhase.phaseId, executionPhaseId));
   const layoutPhases = visiblePhases.map((phase) => ({
     phaseId: phase.phaseId,
-    expectsHumanIntervention: expectsHumanIntervention(phase.phaseId, phase.requiresApproval)
+    expectsHumanIntervention: phase.expectsHumanIntervention
   }));
   const desktopLayout = buildPhaseLayout(layoutPhases, desktopLayoutConfig, phaseNodeWidth);
   const mobileLayout = buildPhaseLayout(layoutPhases, mobileLayoutConfig, mobilePhaseNodeWidth);
@@ -4133,132 +4122,6 @@ export function escapeHtml(value: string): string {
 
 function escapeHtmlAttribute(value: string): string {
   return escapeHtml(value);
-}
-
-function extractMarkdownApprovalItems(markdown: string | null | undefined): ApprovalQuestionItem[] {
-  if (!markdown) {
-    return [];
-  }
-
-  const headingPatterns = [
-    /^##\s+Human Approval Questions\s*$/i,
-    /^##\s+Questions for Human Approval\s*$/i,
-    /^##\s+Preguntas para aprobaci[oó]n humana\s*$/i
-  ];
-  const answerPattern = /^(?:[-*]\s+)?Answer:\s*(.+?)\s*$/i;
-  const answeredByPattern = /^(?:[-*]\s+)?Answered By:\s*(.+?)\s*$/i;
-  const answeredAtPattern = /^(?:[-*]\s+)?Answered At:\s*(.+?)\s*$/i;
-  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
-  const startIndex = lines.findIndex((line) => headingPatterns.some((pattern) => pattern.test(line.trim())));
-  if (startIndex < 0) {
-    return [];
-  }
-
-  const items: ApprovalQuestionItem[] = [];
-  let pendingQuestion: ApprovalQuestionItem | null = null;
-  for (let index = startIndex + 1; index < lines.length; index += 1) {
-    const trimmed = lines[index].trim();
-    if (!trimmed) {
-      continue;
-    }
-
-    if (/^##\s+/.test(trimmed)) {
-      break;
-    }
-
-    const answerMatch = trimmed.match(answerPattern);
-    if (answerMatch && pendingQuestion) {
-      const answer = answerMatch[1].trim();
-      pendingQuestion = {
-        index: pendingQuestion.index,
-        question: pendingQuestion.question,
-        answer,
-        resolved: answer.length > 0,
-        answeredBy: pendingQuestion.answeredBy,
-        answeredAtUtc: pendingQuestion.answeredAtUtc
-      };
-      items[items.length - 1] = pendingQuestion;
-      continue;
-    }
-
-    const answeredByMatch = trimmed.match(answeredByPattern);
-    if (answeredByMatch && pendingQuestion) {
-      pendingQuestion = {
-        index: pendingQuestion.index,
-        question: pendingQuestion.question,
-        answer: pendingQuestion.answer,
-        resolved: pendingQuestion.resolved,
-        answeredBy: answeredByMatch[1].trim(),
-        answeredAtUtc: pendingQuestion.answeredAtUtc
-      };
-      items[items.length - 1] = pendingQuestion;
-      continue;
-    }
-
-    const answeredAtMatch = trimmed.match(answeredAtPattern);
-    if (answeredAtMatch && pendingQuestion) {
-      pendingQuestion = {
-        index: pendingQuestion.index,
-        question: pendingQuestion.question,
-        answer: pendingQuestion.answer,
-        resolved: pendingQuestion.resolved,
-        answeredBy: pendingQuestion.answeredBy,
-        answeredAtUtc: answeredAtMatch[1].trim()
-      };
-      items[items.length - 1] = pendingQuestion;
-      continue;
-    }
-
-    const parsedQuestion = parseApprovalQuestionLine(trimmed);
-    if (!parsedQuestion) {
-      continue;
-    }
-
-    const question = parsedQuestion.question;
-    if (question) {
-      pendingQuestion = {
-        index: items.length + 1,
-        question,
-        answer: null,
-        resolved: parsedQuestion.resolved,
-        answeredBy: null,
-        answeredAtUtc: null
-      };
-      items.push(pendingQuestion);
-    }
-  }
-
-  return items;
-}
-
-function parseApprovalQuestionLine(line: string): { question: string; resolved: boolean } | null {
-  let normalized = line.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  normalized = normalized.replace(/^(?:[-*]\s+|\d+\.\s+)/, "");
-  let resolved = false;
-  if (/^\[[xX]\]\s*/.test(normalized)) {
-    resolved = true;
-    normalized = normalized.replace(/^\[[xX]\]\s*/, "");
-  } else if (/^\[\s\]\s*/.test(normalized)) {
-    normalized = normalized.replace(/^\[\s\]\s*/, "");
-  }
-
-  if (!normalized
-    || normalized === "..."
-    || /^no human approval questions remain\.?$/i.test(normalized)
-    || /^answer:\s*/i.test(normalized)
-    || /^answered by:\s*/i.test(normalized)
-    || /^answered at:\s*/i.test(normalized)) {
-    return null;
-  }
-
-  return {
-    question: normalized.trim(),
-    resolved
-  };
 }
 
 function extractArtifactQuestionBlock(markdown: string | null | undefined): ArtifactQuestionBlock | null {

@@ -20,6 +20,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: false,
         state: "completed",
@@ -32,6 +33,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
         title: "Refinement",
         order: 1,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -188,6 +190,7 @@ test("buildWorkflowHtml requires explicit base-branch acceptance before approve 
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: false,
         state: "completed",
@@ -200,6 +203,7 @@ test("buildWorkflowHtml requires explicit base-branch acceptance before approve 
         title: "Refinement",
         order: 1,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -262,6 +266,7 @@ test("buildWorkflowHtml keeps disabled approve visible for refinement when appro
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: false,
         state: "completed",
@@ -274,6 +279,7 @@ test("buildWorkflowHtml keeps disabled approve visible for refinement when appro
         title: "Refinement",
         order: 1,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -292,6 +298,17 @@ test("buildWorkflowHtml keeps disabled approve visible for refinement when appro
       rewindTargets: []
     },
     clarification: null,
+    approvalQuestions: [
+      {
+        index: 1,
+        question: "Is the scope precise enough?",
+        status: "pending",
+        isResolved: false,
+        answer: null,
+        answeredBy: null,
+        answeredAtUtc: null
+      }
+    ],
     events: [],
     contextFilesDirectoryPath: "/tmp/context",
     contextFiles: [],
@@ -299,10 +316,7 @@ test("buildWorkflowHtml keeps disabled approve visible for refinement when appro
     attachments: []
   }, {
     selectedPhaseId: "refinement",
-    selectedArtifactContent: `
-## Human Approval Questions
-- [ ] Is the scope precise enough?
-`,
+    selectedArtifactContent: "# Spec · US-0099 · v01",
     selectedOperationContent: null,
     contextSuggestions: [],
     settingsConfigured: true,
@@ -332,6 +346,7 @@ test("buildWorkflowHtml prefers backend-normalized approval questions over markd
         title: "Refinement",
         order: 1,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -355,6 +370,7 @@ test("buildWorkflowHtml prefers backend-normalized approval questions over markd
         index: 1,
         question: "Does runtime inherit persisted state?",
         status: "resolved",
+        isResolved: true,
         answer: "Yes.",
         answeredBy: "Analyst",
         answeredAtUtc: "2024-05-21T10:00:00Z"
@@ -400,6 +416,7 @@ test("buildWorkflowHtml hides reject when current phase has no regression target
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: false,
         state: "completed",
@@ -412,6 +429,7 @@ test("buildWorkflowHtml hides reject when current phase has no regression target
         title: "Refinement",
         order: 1,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: true,
         isCurrent: true,
         state: "current",
@@ -424,6 +442,7 @@ test("buildWorkflowHtml hides reject when current phase has no regression target
         title: "Technical Design",
         order: 2,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: false,
         state: "pending",
@@ -479,6 +498,7 @@ test("buildWorkflowHtml shows phase actions in the selected detail only for the 
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: false,
         state: "completed",
@@ -491,6 +511,7 @@ test("buildWorkflowHtml shows phase actions in the selected detail only for the 
         title: "Spec",
         order: 1,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -544,6 +565,7 @@ test("buildWorkflowHtml ignores placeholder approval questions and renders copy 
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: false,
         state: "completed",
@@ -556,6 +578,7 @@ test("buildWorkflowHtml ignores placeholder approval questions and renders copy 
         title: "Refinement",
         order: 1,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -574,6 +597,17 @@ test("buildWorkflowHtml ignores placeholder approval questions and renders copy 
       regressionTargets: []
     },
     clarification: null,
+    approvalQuestions: [
+      {
+        index: 1,
+        question: "Confirm outbound contract for omitted fields?",
+        status: "resolved",
+        isResolved: true,
+        answer: "Omit them from the payload.",
+        answeredBy: "tester",
+        answeredAtUtc: "2026-04-22T13:20:00Z"
+      }
+    ],
     events: [],
     contextFilesDirectoryPath: "/tmp/context",
     contextFiles: [],
@@ -581,15 +615,7 @@ test("buildWorkflowHtml ignores placeholder approval questions and renders copy 
     attachments: []
   }, {
     selectedPhaseId: "refinement",
-    selectedArtifactContent: `# Spec · US-0099 · v01
-
-## Human Approval Questions
-- [ ] ...
-- [ ] Confirm outbound contract for omitted fields?
-  - Answer: Omit them from the payload.
-  - Answered By: tester
-  - Answered At: 2026-04-22T13:20:00Z
-`,
+    selectedArtifactContent: "# Spec · US-0099 · v01",
     contextSuggestions: [],
     settingsConfigured: true,
     settingsMessage: null
@@ -619,6 +645,7 @@ test("buildWorkflowHtml uses US as the secondary label for capture and clarifica
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: false,
         state: "completed",
@@ -631,6 +658,7 @@ test("buildWorkflowHtml uses US as the secondary label for capture and clarifica
         title: "Refinement",
         order: 1,
         requiresApproval: false,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -690,6 +718,7 @@ test("buildWorkflowHtml shows the debug reset action only in debug mode", () => 
       title: "Refinement",
       order: 1,
       requiresApproval: true,
+      expectsHumanIntervention: true,
       isApproved: false,
       isCurrent: true,
       state: "current",
@@ -740,6 +769,7 @@ test("buildWorkflowHtml shows configuration warning and disables execution contr
       title: "Capture",
       order: 0,
       requiresApproval: false,
+      expectsHumanIntervention: false,
       isApproved: false,
       isCurrent: true,
       state: "current",
@@ -792,6 +822,7 @@ test("buildWorkflowHtml animates the current execution phase while autoplay is r
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -804,6 +835,7 @@ test("buildWorkflowHtml animates the current execution phase while autoplay is r
         title: "Refinement",
         order: 1,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: false,
         state: "pending",
@@ -866,6 +898,7 @@ test("buildWorkflowHtml shows clarification as the active execution step from ca
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -878,6 +911,7 @@ test("buildWorkflowHtml shows clarification as the active execution step from ca
         title: "Clarification",
         order: 1,
         requiresApproval: false,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: false,
         state: "pending",
@@ -890,6 +924,7 @@ test("buildWorkflowHtml shows clarification as the active execution step from ca
         title: "Refinement",
         order: 2,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: false,
         state: "pending",
@@ -944,6 +979,7 @@ test("buildWorkflowHtml keeps clarification visible in the graph even before any
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -956,6 +992,7 @@ test("buildWorkflowHtml keeps clarification visible in the graph even before any
         title: "Clarification",
         order: 1,
         requiresApproval: false,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: false,
         state: "pending",
@@ -968,6 +1005,7 @@ test("buildWorkflowHtml keeps clarification visible in the graph even before any
         title: "Refinement",
         order: 2,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: false,
         state: "pending",
@@ -1018,6 +1056,7 @@ test("buildWorkflowHtml computes deterministic two-column graph positions with o
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -1030,6 +1069,7 @@ test("buildWorkflowHtml computes deterministic two-column graph positions with o
         title: "Clarification",
         order: 1,
         requiresApproval: false,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: false,
         state: "pending",
@@ -1042,6 +1082,7 @@ test("buildWorkflowHtml computes deterministic two-column graph positions with o
         title: "Refinement",
         order: 2,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: false,
         state: "pending",
@@ -1094,6 +1135,7 @@ test("buildWorkflowHtml advances the execution overlay to refinement after clari
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -1106,6 +1148,7 @@ test("buildWorkflowHtml advances the execution overlay to refinement after clari
         title: "Clarification",
         order: 1,
         requiresApproval: false,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: false,
         state: "pending",
@@ -1118,6 +1161,7 @@ test("buildWorkflowHtml advances the execution overlay to refinement after clari
         title: "Refinement",
         order: 2,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: false,
         state: "pending",
@@ -1171,6 +1215,7 @@ test("buildWorkflowHtml embeds a broad rotating execution message catalog for lo
         title: "Implementation",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -1227,6 +1272,7 @@ test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
         title: "Review",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -1282,6 +1328,7 @@ test("buildWorkflowHtml locks background interaction while the workflow files mo
       title: "Refinement",
       order: 0,
       requiresApproval: true,
+      expectsHumanIntervention: true,
       isApproved: false,
       isCurrent: true,
       state: "current",
@@ -1332,6 +1379,7 @@ test("buildWorkflowHtml highlights waiting-user and runner paused hero tokens as
         title: "Clarification",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -1384,6 +1432,7 @@ test("buildWorkflowHtml reuses sidebar status colors in graph nodes and hero tok
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: false,
         state: "completed",
@@ -1396,6 +1445,7 @@ test("buildWorkflowHtml reuses sidebar status colors in graph nodes and hero tok
         title: "Technical Design",
         order: 1,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -1450,6 +1500,7 @@ test("buildWorkflowHtml warns when the workflow is open without an SLM or LLM pr
       title: "Capture",
       order: 0,
       requiresApproval: false,
+      expectsHumanIntervention: false,
       isApproved: false,
       isCurrent: true,
       state: "current",
@@ -1500,6 +1551,7 @@ test("buildWorkflowHtml renders clarification questions and embedded answer inpu
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: false,
         state: "completed",
@@ -1512,6 +1564,7 @@ test("buildWorkflowHtml renders clarification questions and embedded answer inpu
         title: "Clarification",
         order: 1,
         requiresApproval: false,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -1581,6 +1634,7 @@ test("buildWorkflowHtml proposes manual and suggested context files during clari
         title: "Clarification",
         order: 1,
         requiresApproval: false,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -1651,6 +1705,7 @@ test("buildWorkflowHtml keeps clarification visible after the model skips additi
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: false,
         state: "completed",
@@ -1663,6 +1718,7 @@ test("buildWorkflowHtml keeps clarification visible after the model skips additi
         title: "Clarification",
         order: 1,
         requiresApproval: false,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: false,
         state: "completed",
@@ -1675,6 +1731,7 @@ test("buildWorkflowHtml keeps clarification visible after the model skips additi
         title: "Refinement",
         order: 2,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -1734,7 +1791,7 @@ test("buildWorkflowHtml keeps clarification visible after the model skips additi
   assert.match(html, /<h3>Clarification<\/h3>/);
 });
 
-test("buildWorkflowHtml renders refinement approval questions from the spec artifact", () => {
+test("buildWorkflowHtml renders refinement approval questions from the workflow DTO", () => {
   const html = buildWorkflowHtml({
     usId: "US-0014",
     title: "Refinement approval questions",
@@ -1752,6 +1809,7 @@ test("buildWorkflowHtml renders refinement approval questions from the spec arti
         title: "Refinement",
         order: 2,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -1769,16 +1827,32 @@ test("buildWorkflowHtml renders refinement approval questions from the spec arti
       regressionTargets: []
     },
     clarification: null,
+    approvalQuestions: [
+      {
+        index: 1,
+        question: "Which id pattern should be used for articles.json?",
+        status: "pending",
+        isResolved: false,
+        answer: null,
+        answeredBy: null,
+        answeredAtUtc: null
+      },
+      {
+        index: 2,
+        question: "Can the en-US translation be generated automatically?",
+        status: "pending",
+        isResolved: false,
+        answer: null,
+        answeredBy: null,
+        answeredAtUtc: null
+      }
+    ],
     events: [],
     attachmentsDirectoryPath: "/tmp/attachments",
     attachments: []
   }, {
     selectedPhaseId: "refinement",
     selectedArtifactContent: `# Spec · US-0014 · v01
-
-## Preguntas para aprobación humana
-1. Which id pattern should be used for articles.json?
-2. Can the en-US translation be generated automatically?
 
 ## Acceptance Criteria
 - [ ] Review the outcome`,
@@ -1792,6 +1866,57 @@ test("buildWorkflowHtml renders refinement approval questions from the spec arti
   assert.match(html, /Can the en-US translation be generated automatically\?/);
   assert.match(html, /approval-question-item__index">1</);
   assert.match(html, /These are the open decisions the approver still needs to resolve before freezing the spec baseline\./);
+});
+
+test("buildWorkflowHtml renders approve action for release approval from canonical phase controls", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0098",
+    title: "Release approval action",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "release-approval",
+    directoryPath: "/tmp/us.US-0098",
+    workBranch: "feature/us-0098-release-approval",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "release-approval",
+        title: "Release Approval",
+        order: 6,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/06-release-approval.md",
+        executePromptPath: "/tmp/release-approval.execute.md",
+        approvePromptPath: "/tmp/release-approval.approve.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "release-approval_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: []
+    },
+    clarification: null,
+    approvalQuestions: [],
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "release-approval",
+    selectedArtifactContent: "## Release Approval\nReady for approval.",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /data-command="approve"[^>]*>Approve</);
 });
 
 test("buildWorkflowHtml renders refinement clarification questions from a blocking artifact", () => {
@@ -1812,6 +1937,7 @@ test("buildWorkflowHtml renders refinement clarification questions from a blocki
         title: "Refinement",
         order: 2,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -1880,6 +2006,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
         title: "Capture",
         order: 0,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: true,
         isCurrent: false,
         state: "completed",
@@ -1892,6 +2019,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
         title: "Clarification",
         order: 1,
         requiresApproval: false,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: false,
         state: "completed",
@@ -1904,6 +2032,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
         title: "Refinement",
         order: 2,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: true,
         isCurrent: false,
         state: "completed",
@@ -1916,6 +2045,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
         title: "Technical Design",
         order: 3,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: true,
         isCurrent: false,
         state: "completed",
@@ -1928,6 +2058,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
         title: "Implementation",
         order: 4,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: true,
         state: "current",
@@ -1940,6 +2071,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
         title: "Review",
         order: 5,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: false,
         state: "pending",
@@ -1952,6 +2084,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
         title: "Release Approval",
         order: 6,
         requiresApproval: true,
+        expectsHumanIntervention: true,
         isApproved: false,
         isCurrent: false,
         state: "pending",
@@ -1964,6 +2097,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
         title: "PR Preparation",
         order: 7,
         requiresApproval: false,
+        expectsHumanIntervention: false,
         isApproved: false,
         isCurrent: false,
         state: "pending",

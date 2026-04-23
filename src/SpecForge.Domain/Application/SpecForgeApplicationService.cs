@@ -476,18 +476,23 @@ public sealed class SpecForgeApplicationService
         };
 
         return phases
-            .Select((phaseId, index) => new WorkflowPhaseDetails(
-                WorkflowPresentation.ToPhaseSlug(phaseId),
-                ToPhaseTitle(phaseId),
-                index,
-                workflowRun.Definition.RequiresApproval(phaseId),
-                workflowRun.IsPhaseApproved(phaseId),
-                workflowRun.CurrentPhase == phaseId,
-                ResolvePhaseState(workflowRun, phaseId),
-                TryGetLatestArtifactPath(paths, phaseId),
-                TryGetLatestOperationLogPath(paths, phaseId),
-                TryGetExecutePromptPath(paths, phaseId),
-                TryGetApprovePromptPath(paths, phaseId)))
+            .Select((phaseId, index) =>
+            {
+                var requiresApproval = workflowRun.Definition.RequiresApproval(phaseId);
+                return new WorkflowPhaseDetails(
+                    WorkflowPresentation.ToPhaseSlug(phaseId),
+                    ToPhaseTitle(phaseId),
+                    index,
+                    requiresApproval,
+                    WorkflowPresentation.ExpectsHumanIntervention(phaseId, requiresApproval),
+                    workflowRun.IsPhaseApproved(phaseId),
+                    workflowRun.CurrentPhase == phaseId,
+                    ResolvePhaseState(workflowRun, phaseId),
+                    TryGetLatestArtifactPath(paths, phaseId),
+                    TryGetLatestOperationLogPath(paths, phaseId),
+                    TryGetExecutePromptPath(paths, phaseId),
+                    TryGetApprovePromptPath(paths, phaseId));
+            })
             .ToArray();
     }
 
@@ -713,6 +718,7 @@ public sealed class SpecForgeApplicationService
                 index + 1,
                 item.Question,
                 item.Status,
+                RefinementSpecJson.IsResolved(item),
                 item.Answer,
                 item.AnsweredBy,
                 item.AnsweredAtUtc))

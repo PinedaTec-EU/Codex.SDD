@@ -27,6 +27,7 @@ public sealed record WorkflowPhaseDetails(
     string Title,
     int Order,
     bool RequiresApproval,
+    bool ExpectsHumanIntervention,
     bool IsApproved,
     bool IsCurrent,
     string State,
@@ -70,6 +71,7 @@ public sealed record ApprovalQuestionDetails(
     int Index,
     string Question,
     string Status,
+    bool IsResolved,
     string? Answer,
     string? AnsweredBy,
     string? AnsweredAtUtc);

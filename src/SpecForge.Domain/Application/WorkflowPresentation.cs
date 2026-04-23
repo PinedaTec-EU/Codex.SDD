@@ -39,4 +39,7 @@ public static class WorkflowPresentation
         "pr-preparation" => PhaseId.PrPreparation,
         _ => throw new ArgumentOutOfRangeException(nameof(phaseSlug), phaseSlug, "Unknown phase slug.")
     };
+
+    public static bool ExpectsHumanIntervention(PhaseId phaseId, bool requiresApproval) =>
+        phaseId == PhaseId.Clarification || requiresApproval;
 }
