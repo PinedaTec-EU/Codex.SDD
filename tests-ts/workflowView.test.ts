@@ -157,6 +157,8 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, />321 \/ 144</);
   assert.match(html, /Total/);
   assert.match(html, />465</);
+  assert.match(html, /Model/);
+  assert.match(html, /light \/ gpt-4\.1-mini/);
   assert.match(html, /Response Speed/);
   assert.match(html, /29\.5 tok\/s/);
   assert.match(html, /phase_completed[^]*badge\">system</);

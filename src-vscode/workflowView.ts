@@ -231,6 +231,24 @@ function formatExecutionLabel(execution: { model: string; profileName?: string |
     : execution.model;
 }
 
+function findLatestPhaseExecutionLabel(
+  workflow: UserStoryWorkflowDetails,
+  phaseId: string
+): string | null {
+  for (const event of [...workflow.events].reverse()) {
+    if (event.phase !== phaseId) {
+      continue;
+    }
+
+    const executionLabel = formatExecutionLabel(event.execution);
+    if (executionLabel) {
+      return executionLabel;
+    }
+  }
+
+  return null;
+}
+
 function buildPhaseSpecificSections(
   workflow: UserStoryWorkflowDetails,
   selectedPhase: WorkflowPhaseDetails,
@@ -686,6 +704,7 @@ export function buildWorkflowHtml(
     0
   );
   const selectedPhaseIterationCount = selectedPhaseMetricEvents.length;
+  const selectedPhaseExecutionLabel = findLatestPhaseExecutionLabel(workflow, selectedPhase.phaseId);
   const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
   const canRewindSelectedPhase = rewindablePhaseIds.has(selectedPhase.phaseId);
   const phaseSpecificSections = buildPhaseSpecificSections(
@@ -748,6 +767,7 @@ export function buildWorkflowHtml(
         <div class="token-summary__rows">
           ${renderTokenSummaryRow("Input / Output", `${formatMetricNumber(selectedPhaseUsageAggregate.inputTokens)} / ${formatMetricNumber(selectedPhaseUsageAggregate.outputTokens)}`)}
           ${renderTokenSummaryRow("Total", formatMetricNumber(selectedPhaseUsageAggregate.totalTokens))}
+          ${selectedPhaseExecutionLabel ? renderTokenSummaryRow("Model", selectedPhaseExecutionLabel) : ""}
           ${selectedPhaseDurationAggregate > 0
             ? renderTokenSummaryRow("Response Speed", formatTokensPerSecond(selectedPhaseUsageAggregate.outputTokens, selectedPhaseDurationAggregate))
             : ""}

@@ -164,6 +164,18 @@ function formatExecutionLabel(execution) {
         ? `${execution.profileName} / ${execution.model}`
         : execution.model;
 }
+function findLatestPhaseExecutionLabel(workflow, phaseId) {
+    for (const event of [...workflow.events].reverse()) {
+        if (event.phase !== phaseId) {
+            continue;
+        }
+        const executionLabel = formatExecutionLabel(event.execution);
+        if (executionLabel) {
+            return executionLabel;
+        }
+    }
+    return null;
+}
 function buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPreviewHtml, artifactQuestionBlock, refinementApprovalQuestions, unresolvedApprovalQuestionCount) {
     switch (selectedPhase.phaseId) {
         case "capture":
@@ -552,6 +564,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         .filter((usage) => Boolean(usage)));
     const selectedPhaseDurationAggregate = selectedPhaseMetricEvents.reduce((aggregate, event) => aggregate + (event.durationMs ?? 0), 0);
     const selectedPhaseIterationCount = selectedPhaseMetricEvents.length;
+    const selectedPhaseExecutionLabel = findLatestPhaseExecutionLabel(workflow, selectedPhase.phaseId);
     const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
     const canRewindSelectedPhase = rewindablePhaseIds.has(selectedPhase.phaseId);
     const phaseSpecificSections = buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPreviewHtml, artifactQuestionBlock, refinementApprovalQuestions, unresolvedApprovalQuestionCount);
@@ -606,6 +619,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         <div class="token-summary__rows">
           ${renderTokenSummaryRow("Input / Output", `${formatMetricNumber(selectedPhaseUsageAggregate.inputTokens)} / ${formatMetricNumber(selectedPhaseUsageAggregate.outputTokens)}`)}
           ${renderTokenSummaryRow("Total", formatMetricNumber(selectedPhaseUsageAggregate.totalTokens))}
+          ${selectedPhaseExecutionLabel ? renderTokenSummaryRow("Model", selectedPhaseExecutionLabel) : ""}
           ${selectedPhaseDurationAggregate > 0
             ? renderTokenSummaryRow("Response Speed", formatTokensPerSecond(selectedPhaseUsageAggregate.outputTokens, selectedPhaseDurationAggregate))
             : ""}
