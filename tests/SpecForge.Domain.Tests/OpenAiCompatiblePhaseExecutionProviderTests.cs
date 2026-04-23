@@ -551,6 +551,49 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_CodexProviderImplementationDetectsChangesInsideAlreadyDirtyFiles()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        await InitializeGitWorkspaceAsync();
+        var dirtyFilePath = Path.Combine(workspaceRoot, "src", "ExistingService.cs");
+        Directory.CreateDirectory(Path.GetDirectoryName(dirtyFilePath)!);
+        await File.WriteAllTextAsync(dirtyFilePath, "namespace TravelAgent;\npublic static class ExistingService { }\n");
+        await RunGitAsync("add", "src/ExistingService.cs");
+        await RunGitAsync("commit", "-m", "seed dirty file");
+        await File.WriteAllTextAsync(dirtyFilePath, "namespace TravelAgent;\npublic static class ExistingService { public const int Before = 1; }\n");
+
+        var fakeRunner = new FakeCodexCliRunner(
+            isAvailable: true,
+            responseJson: BuildMinimalImplementationJson(),
+            onExecute: _ =>
+            {
+                File.AppendAllText(dirtyFilePath, "public const int After = 2;\n");
+            });
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new ThrowingHttpMessageHandler()),
+            CreateOptions(
+                model: string.Empty,
+                providerKind: "codex",
+                baseUrl: string.Empty,
+                apiKey: string.Empty,
+                repositoryAccess: "read-write"),
+            new RepositoryPromptCatalog(),
+            fakeRunner);
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Implementation,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        var result = await provider.ExecuteAsync(context);
+
+        Assert.Equal("codex", result.ExecutionKind);
+        Assert.Contains("# Implementation · US-0001 · v01", result.Content);
+    }
+
+    [Fact]
     public void Constructor_CodexProfileWithoutEndpointConfiguration_DoesNotThrow()
     {
         var provider = new OpenAiCompatiblePhaseExecutionProvider(

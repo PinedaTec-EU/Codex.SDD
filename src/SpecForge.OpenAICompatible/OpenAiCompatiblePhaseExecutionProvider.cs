@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -851,7 +852,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     private static async Task EnsureImplementationTouchedWorkspaceAsync(
         string workspaceRoot,
         string userStoryPath,
-        IReadOnlyCollection<string>? baselineWorkspaceChanges,
+        IReadOnlyCollection<GitStatusSnapshotEntry>? baselineWorkspaceChanges,
         CancellationToken cancellationToken)
     {
         if (baselineWorkspaceChanges is null)
@@ -876,8 +877,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .TrimEnd('/');
 
         var meaningfulChanges = currentWorkspaceChanges
-            .Except(baselineWorkspaceChanges, StringComparer.Ordinal)
-            .Where(change => !IsIgnoredWorkflowChange(change, relativeUserStoryRoot))
+            .Except(baselineWorkspaceChanges)
+            .Where(change => !IsIgnoredWorkflowChange(change.StatusLine, relativeUserStoryRoot))
             .ToArray();
 
         if (meaningfulChanges.Length > 0)
@@ -897,13 +898,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             return true;
         }
 
-        var normalized = gitStatusLine.Trim();
-        if (normalized.Length <= 3)
+        if (gitStatusLine.Length <= 3)
         {
             return false;
         }
 
-        var pathPortion = normalized[3..].Trim();
+        var pathPortion = gitStatusLine[3..].Trim();
         if (string.IsNullOrWhiteSpace(pathPortion))
         {
             return false;
@@ -924,7 +924,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return true;
     }
 
-    private static async Task<IReadOnlyCollection<string>?> TryCaptureGitStatusSnapshotAsync(
+    private static async Task<IReadOnlyCollection<GitStatusSnapshotEntry>?> TryCaptureGitStatusSnapshotAsync(
         string workspaceRoot,
         CancellationToken cancellationToken)
     {
@@ -961,8 +961,62 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
 
         return stdout
-            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(statusLine => BuildGitStatusSnapshotEntry(workspaceRoot, statusLine))
             .ToArray();
+    }
+
+    private static GitStatusSnapshotEntry BuildGitStatusSnapshotEntry(string workspaceRoot, string statusLine)
+    {
+        var fingerprints = ParseGitStatusCandidatePaths(statusLine)
+            .Select(candidatePath => BuildPathFingerprint(workspaceRoot, candidatePath))
+            .ToArray();
+
+        return new GitStatusSnapshotEntry(statusLine, string.Join("|", fingerprints));
+    }
+
+    private static IEnumerable<string> ParseGitStatusCandidatePaths(string gitStatusLine)
+    {
+        if (string.IsNullOrWhiteSpace(gitStatusLine))
+        {
+            return [];
+        }
+
+        if (gitStatusLine.Length <= 3)
+        {
+            return [];
+        }
+
+        var pathPortion = gitStatusLine[3..].Trim();
+        if (string.IsNullOrWhiteSpace(pathPortion))
+        {
+            return [];
+        }
+
+        return pathPortion
+            .Split(" -> ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(static path => path.Replace('\\', '/'));
+    }
+
+    private static string BuildPathFingerprint(string workspaceRoot, string relativePath)
+    {
+        var absolutePath = Path.Combine(
+            workspaceRoot,
+            relativePath.Replace('/', Path.DirectorySeparatorChar));
+
+        if (Directory.Exists(absolutePath))
+        {
+            return $"{relativePath}:dir";
+        }
+
+        if (!File.Exists(absolutePath))
+        {
+            return $"{relativePath}:missing";
+        }
+
+        using var stream = File.OpenRead(absolutePath);
+        var hash = Convert.ToHexString(SHA256.HashData(stream));
+        return $"{relativePath}:{hash}";
     }
 
     private ResolvedModelSelection ResolveModelSelection(PhaseId phaseId)
@@ -1293,6 +1347,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     }
 
     private sealed record EffectivePrompt(string SystemPrompt, string UserPrompt, IReadOnlyCollection<string>? Warnings = null);
+
+    private sealed record GitStatusSnapshotEntry(string StatusLine, string Fingerprint);
 
     private sealed record AutoClarificationAnswersDocument(
         bool CanResolve,
