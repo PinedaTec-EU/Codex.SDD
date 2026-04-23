@@ -38,6 +38,7 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const fs = __importStar(require("node:fs"));
 const detailsPanel_1 = require("./detailsPanel");
+const executionSettingsPanel_1 = require("./executionSettingsPanel");
 const extensionRuntime_1 = require("./extensionRuntime");
 const extensionSettings_1 = require("./extensionSettings");
 const outputChannel_1 = require("./outputChannel");
@@ -68,7 +69,11 @@ function activate(context) {
         await (0, workflowPanel_1.refreshWorkflowViews)(reason);
         await notifyAttentionChangesAsync();
     };
-    context.subscriptions.push(vscode.window.registerWebviewViewProvider("specForge.userStories", sidebarProvider), createWorkspaceWatcher(refreshWorkspaceUiAsync), vscode.workspace.onDidChangeConfiguration((event) => {
+    context.subscriptions.push(vscode.window.registerWebviewViewProvider("specForge.userStories", sidebarProvider), vscode.commands.registerCommand("specForge.openExecutionSettings", async () => {
+        await (0, executionSettingsPanel_1.openExecutionSettingsPanelAsync)(context.extensionUri, async () => {
+            await refreshWorkspaceUiAsync("executionSettingsSaved");
+        });
+    }), createWorkspaceWatcher(refreshWorkspaceUiAsync), vscode.workspace.onDidChangeConfiguration((event) => {
         if (!event.affectsConfiguration("specForge")) {
             return;
         }

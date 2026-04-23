@@ -4,9 +4,7 @@ import * as vscode from "vscode";
 import type { UserStorySummary } from "./backendClient";
 import {
   getSpecForgeSettings,
-  getSpecForgeSettingsStatus,
-  type SpecForgeModelProfile,
-  type SpecForgePhaseModelAssignments
+  getSpecForgeSettingsStatus
 } from "./extensionSettings";
 import { DEFAULT_USER_STORY_CATEGORIES, nextUserStoryIdFromSummaries, parseYamlSequence } from "./explorerModel";
 import { appendSpecForgeLog } from "./outputChannel";
@@ -28,8 +26,7 @@ import { asErrorMessage, getNextAttachmentPathAsync } from "./utils";
 type SidebarMessage =
   | { readonly command: "showCreateForm" }
   | { readonly command: "hideCreateForm" }
-  | { readonly command: "showExecutionSettingsForm" }
-  | { readonly command: "hideExecutionSettingsForm" }
+  | { readonly command: "openExecutionSettings" }
   | { readonly command: "toggleViewMode" }
   | { readonly command: "initializeRepoPrompts" }
   | { readonly command: "openSettings" }
@@ -44,11 +41,6 @@ type SidebarMessage =
   | { readonly command: "scanCreateSourceReferences"; readonly sourceText?: string }
   | { readonly command: "setCreateFileKind"; readonly sourcePath?: string; readonly kind?: string }
   | { readonly command: "removeCreateFile"; readonly sourcePath?: string }
-  | {
-    readonly command: "saveExecutionSettings";
-    readonly modelProfiles?: readonly Partial<SpecForgeModelProfile>[];
-    readonly phaseModelAssignments?: Partial<SpecForgePhaseModelAssignments>;
-  }
   | {
     readonly command: "submitCreateForm";
     readonly title?: string;
@@ -68,7 +60,6 @@ type DraftCreateFile = {
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
   private webviewView: vscode.WebviewView | undefined;
   private showCreateForm = false;
-  private showExecutionSettingsForm = false;
   private busyMessage: string | null = null;
   private viewMode: "category" | "phase" = "category";
   private activeWorkflowUsId: string | null = null;
@@ -117,7 +108,6 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     switch (message.command) {
       case "showCreateForm":
         this.showCreateForm = true;
-        this.showExecutionSettingsForm = false;
         this.createFileMode = "context";
         this.createFiles = [];
         this.createFormResetToken += 1;
@@ -128,14 +118,8 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         this.createFiles = [];
         await this.safeRenderAsync();
         return;
-      case "showExecutionSettingsForm":
-        this.showExecutionSettingsForm = true;
-        this.showCreateForm = false;
-        await this.safeRenderAsync();
-        return;
-      case "hideExecutionSettingsForm":
-        this.showExecutionSettingsForm = false;
-        await this.safeRenderAsync();
+      case "openExecutionSettings":
+        await vscode.commands.executeCommand("specForge.openExecutionSettings");
         return;
       case "toggleViewMode":
         this.viewMode = this.viewMode === "category" ? "phase" : "category";
@@ -209,13 +193,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         await vscode.commands.executeCommand("specForge.openPromptTemplates");
         return;
       case "openSettings":
-        await openSpecForgeSettingsAsync();
-        return;
-      case "saveExecutionSettings":
-        await this.runBusyActionAsync("Saving execution settings...", async () => {
-          await this.saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {});
-          this.showExecutionSettingsForm = false;
-        });
+        await vscode.commands.executeCommand("specForge.openExecutionSettings");
         return;
       case "submitCreateForm":
         await this.runBusyActionAsync("Creating user story...", async () => {
@@ -455,36 +433,6 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     await vscode.commands.executeCommand("specForge.initializeRepoPrompts", true);
   }
 
-  private async saveExecutionSettingsAsync(
-    modelProfiles: readonly Partial<SpecForgeModelProfile>[],
-    phaseModelAssignments: Partial<SpecForgePhaseModelAssignments>
-  ): Promise<void> {
-    const configuration = vscode.workspace.getConfiguration("specForge");
-    const normalizedProfiles = modelProfiles.map((profile) => ({
-      name: typeof profile.name === "string" ? profile.name : "",
-      provider: typeof profile.provider === "string" ? profile.provider : "openai-compatible",
-      baseUrl: typeof profile.baseUrl === "string" ? profile.baseUrl : "",
-      apiKey: typeof profile.apiKey === "string" ? profile.apiKey : "",
-      model: typeof profile.model === "string" ? profile.model : "",
-      repositoryAccess: typeof profile.repositoryAccess === "string" ? profile.repositoryAccess : "none"
-    }));
-
-    const normalizedAssignments: SpecForgePhaseModelAssignments = {
-      defaultProfile: normalizeOptionalAssignment(phaseModelAssignments.defaultProfile),
-      captureProfile: normalizeOptionalAssignment(phaseModelAssignments.captureProfile),
-      clarificationProfile: normalizeOptionalAssignment(phaseModelAssignments.clarificationProfile),
-      refinementProfile: normalizeOptionalAssignment(phaseModelAssignments.refinementProfile),
-      technicalDesignProfile: normalizeOptionalAssignment(phaseModelAssignments.technicalDesignProfile),
-      implementationProfile: normalizeOptionalAssignment(phaseModelAssignments.implementationProfile),
-      reviewProfile: normalizeOptionalAssignment(phaseModelAssignments.reviewProfile),
-      releaseApprovalProfile: normalizeOptionalAssignment(phaseModelAssignments.releaseApprovalProfile),
-      prPreparationProfile: normalizeOptionalAssignment(phaseModelAssignments.prPreparationProfile)
-    };
-
-    await configuration.update("execution.modelProfiles", normalizedProfiles, vscode.ConfigurationTarget.Workspace);
-    await configuration.update("execution.phaseModels", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
-  }
-
   private async renderAsync(): Promise<void> {
     if (!this.webviewView) {
       return;
@@ -497,14 +445,11 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       this.webviewView.webview.html = buildSidebarHtml({
         hasWorkspace: false,
         showCreateForm: false,
-        showExecutionSettingsForm: this.showExecutionSettingsForm,
         busyMessage: this.busyMessage,
         promptsInitialized: false,
         promptsMessage: null,
         settingsConfigured: settingsStatus.executionConfigured,
         settingsMessage: settingsStatus.message,
-        modelProfiles: getSpecForgeSettings().modelProfiles,
-        phaseModelAssignments: getSpecForgeSettings().phaseModelAssignments,
         starredUserStoryId: null,
         activeWorkflowUsId: this.activeWorkflowUsId,
         runtimeVersion,
@@ -538,14 +483,11 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     this.webviewView.webview.html = buildSidebarHtml({
       hasWorkspace: true,
       showCreateForm: this.showCreateForm,
-      showExecutionSettingsForm: this.showExecutionSettingsForm,
       busyMessage: this.busyMessage,
       promptsInitialized: promptsStatus.initialized,
       promptsMessage: promptsStatus.message,
       settingsConfigured: settingsStatus.executionConfigured,
       settingsMessage: settingsStatus.message,
-      modelProfiles: settings.modelProfiles,
-      phaseModelAssignments: settings.phaseModelAssignments,
       starredUserStoryId: preferences.starredUserStoryId,
       activeWorkflowUsId: this.activeWorkflowUsId,
       runtimeVersion,
@@ -569,24 +511,11 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       this.webviewView.webview.html = buildSidebarHtml({
         hasWorkspace: true,
         showCreateForm: false,
-        showExecutionSettingsForm: false,
         busyMessage: this.busyMessage,
         promptsInitialized: false,
         promptsMessage: null,
         settingsConfigured: false,
         settingsMessage: "SpecForge.AI settings could not be evaluated.",
-        modelProfiles: [],
-        phaseModelAssignments: {
-          defaultProfile: null,
-          captureProfile: null,
-          clarificationProfile: null,
-          refinementProfile: null,
-          technicalDesignProfile: null,
-          implementationProfile: null,
-          reviewProfile: null,
-          releaseApprovalProfile: null,
-          prPreparationProfile: null
-        },
         starredUserStoryId: null,
         activeWorkflowUsId: this.activeWorkflowUsId,
         runtimeVersion: await readRuntimeVersionAsync(),
@@ -659,13 +588,4 @@ async function hasPersistedUserStoriesAsync(workspaceRoot: string): Promise<bool
 async function openTextDocument(filePath: string): Promise<void> {
   const document = await vscode.workspace.openTextDocument(filePath);
   await vscode.window.showTextDocument(document, { preview: false });
-}
-
-async function openSpecForgeSettingsAsync(): Promise<void> {
-  await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
-}
-
-function normalizeOptionalAssignment(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
 }

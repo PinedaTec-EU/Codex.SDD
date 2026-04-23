@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as fs from "node:fs";
 import { showUserStoryDetails } from "./detailsPanel";
+import { openExecutionSettingsPanelAsync } from "./executionSettingsPanel";
 import { activateExtension, deactivateExtension, type ExtensionActions, type ExtensionHost } from "./extensionRuntime";
 import { getSpecForgeSettings } from "./extensionSettings";
 import {
@@ -59,6 +60,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("specForge.userStories", sidebarProvider),
+    vscode.commands.registerCommand("specForge.openExecutionSettings", async () => {
+      await openExecutionSettingsPanelAsync(context.extensionUri, async () => {
+        await refreshWorkspaceUiAsync("executionSettingsSaved");
+      });
+    }),
     createWorkspaceWatcher(refreshWorkspaceUiAsync),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (!event.affectsConfiguration("specForge")) {

@@ -227,7 +227,7 @@ class WorkflowPanelController {
         }
         return;
       case "openSettings":
-        await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
+        await vscode.commands.executeCommand("specForge.openExecutionSettings");
         return;
       case "attachFiles":
         await this.attachFilesAsync(message.kind === "context" ? "context" : "attachment");
@@ -249,7 +249,7 @@ class WorkflowPanelController {
         return;
       case "continue":
         if (!this.isExecutionConfigured()) {
-          await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
+          await vscode.commands.executeCommand("specForge.openExecutionSettings");
           return;
         }
         appendSpecForgeLog(`Continuing workflow '${this.summary.usId}' from phase '${this.summary.currentPhase}'.`);
@@ -289,7 +289,7 @@ class WorkflowPanelController {
         return;
       case "play":
         if (!this.isExecutionConfigured()) {
-          await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
+          await vscode.commands.executeCommand("specForge.openExecutionSettings");
           return;
         }
         await this.startAutoplayAsync("command:play");

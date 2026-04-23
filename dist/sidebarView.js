@@ -54,7 +54,6 @@ class SidebarViewProvider {
     onDidCreateUserStory;
     webviewView;
     showCreateForm = false;
-    showExecutionSettingsForm = false;
     busyMessage = null;
     viewMode = "category";
     activeWorkflowUsId = null;
@@ -94,7 +93,6 @@ class SidebarViewProvider {
         switch (message.command) {
             case "showCreateForm":
                 this.showCreateForm = true;
-                this.showExecutionSettingsForm = false;
                 this.createFileMode = "context";
                 this.createFiles = [];
                 this.createFormResetToken += 1;
@@ -105,14 +103,8 @@ class SidebarViewProvider {
                 this.createFiles = [];
                 await this.safeRenderAsync();
                 return;
-            case "showExecutionSettingsForm":
-                this.showExecutionSettingsForm = true;
-                this.showCreateForm = false;
-                await this.safeRenderAsync();
-                return;
-            case "hideExecutionSettingsForm":
-                this.showExecutionSettingsForm = false;
-                await this.safeRenderAsync();
+            case "openExecutionSettings":
+                await vscode.commands.executeCommand("specForge.openExecutionSettings");
                 return;
             case "toggleViewMode":
                 this.viewMode = this.viewMode === "category" ? "phase" : "category";
@@ -178,13 +170,7 @@ class SidebarViewProvider {
                 await vscode.commands.executeCommand("specForge.openPromptTemplates");
                 return;
             case "openSettings":
-                await openSpecForgeSettingsAsync();
-                return;
-            case "saveExecutionSettings":
-                await this.runBusyActionAsync("Saving execution settings...", async () => {
-                    await this.saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {});
-                    this.showExecutionSettingsForm = false;
-                });
+                await vscode.commands.executeCommand("specForge.openExecutionSettings");
                 return;
             case "submitCreateForm":
                 await this.runBusyActionAsync("Creating user story...", async () => {
@@ -379,30 +365,6 @@ class SidebarViewProvider {
         }
         await vscode.commands.executeCommand("specForge.initializeRepoPrompts", true);
     }
-    async saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments) {
-        const configuration = vscode.workspace.getConfiguration("specForge");
-        const normalizedProfiles = modelProfiles.map((profile) => ({
-            name: typeof profile.name === "string" ? profile.name : "",
-            provider: typeof profile.provider === "string" ? profile.provider : "openai-compatible",
-            baseUrl: typeof profile.baseUrl === "string" ? profile.baseUrl : "",
-            apiKey: typeof profile.apiKey === "string" ? profile.apiKey : "",
-            model: typeof profile.model === "string" ? profile.model : "",
-            repositoryAccess: typeof profile.repositoryAccess === "string" ? profile.repositoryAccess : "none"
-        }));
-        const normalizedAssignments = {
-            defaultProfile: normalizeOptionalAssignment(phaseModelAssignments.defaultProfile),
-            captureProfile: normalizeOptionalAssignment(phaseModelAssignments.captureProfile),
-            clarificationProfile: normalizeOptionalAssignment(phaseModelAssignments.clarificationProfile),
-            refinementProfile: normalizeOptionalAssignment(phaseModelAssignments.refinementProfile),
-            technicalDesignProfile: normalizeOptionalAssignment(phaseModelAssignments.technicalDesignProfile),
-            implementationProfile: normalizeOptionalAssignment(phaseModelAssignments.implementationProfile),
-            reviewProfile: normalizeOptionalAssignment(phaseModelAssignments.reviewProfile),
-            releaseApprovalProfile: normalizeOptionalAssignment(phaseModelAssignments.releaseApprovalProfile),
-            prPreparationProfile: normalizeOptionalAssignment(phaseModelAssignments.prPreparationProfile)
-        };
-        await configuration.update("execution.modelProfiles", normalizedProfiles, vscode.ConfigurationTarget.Workspace);
-        await configuration.update("execution.phaseModels", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
-    }
     async renderAsync() {
         if (!this.webviewView) {
             return;
@@ -414,14 +376,11 @@ class SidebarViewProvider {
             this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
                 hasWorkspace: false,
                 showCreateForm: false,
-                showExecutionSettingsForm: this.showExecutionSettingsForm,
                 busyMessage: this.busyMessage,
                 promptsInitialized: false,
                 promptsMessage: null,
                 settingsConfigured: settingsStatus.executionConfigured,
                 settingsMessage: settingsStatus.message,
-                modelProfiles: (0, extensionSettings_1.getSpecForgeSettings)().modelProfiles,
-                phaseModelAssignments: (0, extensionSettings_1.getSpecForgeSettings)().phaseModelAssignments,
                 starredUserStoryId: null,
                 activeWorkflowUsId: this.activeWorkflowUsId,
                 runtimeVersion,
@@ -454,14 +413,11 @@ class SidebarViewProvider {
         this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
             hasWorkspace: true,
             showCreateForm: this.showCreateForm,
-            showExecutionSettingsForm: this.showExecutionSettingsForm,
             busyMessage: this.busyMessage,
             promptsInitialized: promptsStatus.initialized,
             promptsMessage: promptsStatus.message,
             settingsConfigured: settingsStatus.executionConfigured,
             settingsMessage: settingsStatus.message,
-            modelProfiles: settings.modelProfiles,
-            phaseModelAssignments: settings.phaseModelAssignments,
             starredUserStoryId: preferences.starredUserStoryId,
             activeWorkflowUsId: this.activeWorkflowUsId,
             runtimeVersion,
@@ -484,24 +440,11 @@ class SidebarViewProvider {
             this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
                 hasWorkspace: true,
                 showCreateForm: false,
-                showExecutionSettingsForm: false,
                 busyMessage: this.busyMessage,
                 promptsInitialized: false,
                 promptsMessage: null,
                 settingsConfigured: false,
                 settingsMessage: "SpecForge.AI settings could not be evaluated.",
-                modelProfiles: [],
-                phaseModelAssignments: {
-                    defaultProfile: null,
-                    captureProfile: null,
-                    clarificationProfile: null,
-                    refinementProfile: null,
-                    technicalDesignProfile: null,
-                    implementationProfile: null,
-                    reviewProfile: null,
-                    releaseApprovalProfile: null,
-                    prPreparationProfile: null
-                },
                 starredUserStoryId: null,
                 activeWorkflowUsId: this.activeWorkflowUsId,
                 runtimeVersion: await (0, runtimeVersion_1.readRuntimeVersionAsync)(),
@@ -566,12 +509,5 @@ async function hasPersistedUserStoriesAsync(workspaceRoot) {
 async function openTextDocument(filePath) {
     const document = await vscode.workspace.openTextDocument(filePath);
     await vscode.window.showTextDocument(document, { preview: false });
-}
-async function openSpecForgeSettingsAsync() {
-    await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
-}
-function normalizeOptionalAssignment(value) {
-    const trimmed = value?.trim();
-    return trimmed ? trimmed : null;
 }
 //# sourceMappingURL=sidebarView.js.map

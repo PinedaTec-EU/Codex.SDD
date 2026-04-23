@@ -358,8 +358,8 @@ The extension currently provides:
 - explicit category selection from the repo category catalog when creating or importing a US
 - user-story intake guidance that distinguishes minimum information from recommended extra detail
 - extension settings for per-profile model routing, watcher behavior, and attention notifications
-- visible configuration warnings with a direct action to open the sidebar execution form when model profiles or phase assignments are incomplete
-- a sidebar execution-settings form to manage provider profiles and per-phase routing without editing raw VS Code JSON settings
+- visible configuration warnings with a direct action to open the central execution settings view when model profiles or phase assignments are incomplete
+- a central execution-settings view, launched from the sidebar gear icon, to manage provider profiles and per-phase routing without editing raw VS Code JSON settings
 - auto-refresh watcher over `.specs/us/**` when enabled
 - lightweight TypeScript tests for explorer grouping, detail rendering, MCP client payload/parsing, and extension command wiring
 
@@ -435,9 +435,9 @@ The extension contributes these settings:
 - `specForge.ui.notifyOnAttention`
 - `specForge.features.enableContextSuggestions`
 
-### Execution settings form
+### Execution settings view
 
-The left sidebar now exposes a dedicated execution-settings form from the new header gear icon.
+The left sidebar now exposes a gear icon that opens a dedicated central execution-settings view.
 
 Use it to:
 

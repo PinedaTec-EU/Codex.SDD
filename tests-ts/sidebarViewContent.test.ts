@@ -11,19 +11,6 @@ function model(overrides: Partial<SidebarViewModel>): SidebarViewModel {
     promptsInitialized: true,
     settingsConfigured: true,
     settingsMessage: null,
-    showExecutionSettingsForm: false,
-    modelProfiles: [],
-    phaseModelAssignments: {
-      defaultProfile: null,
-      captureProfile: null,
-      clarificationProfile: null,
-      refinementProfile: null,
-      technicalDesignProfile: null,
-      implementationProfile: null,
-      reviewProfile: null,
-      releaseApprovalProfile: null,
-      prPreparationProfile: null
-    },
     starredUserStoryId: null,
     activeWorkflowUsId: null,
     runtimeVersion: null,
@@ -257,52 +244,6 @@ test("buildSidebarHtml surfaces the model warning when the deterministic fallbac
 
   assert.match(html, /configured model profile/);
   assert.match(html, /Open Execution Form/);
-});
-
-test("buildSidebarHtml renders the execution settings form inside the sidebar", () => {
-  const html = buildSidebarHtml(model({
-    showExecutionSettingsForm: true,
-    modelProfiles: [
-      {
-        name: "codex-main",
-        provider: "codex",
-        baseUrl: "",
-        apiKey: null,
-        model: "",
-        repositoryAccess: "read-write"
-      },
-      {
-        name: "fallback",
-        provider: "openai-compatible",
-        baseUrl: "https://api.example.test/v1",
-        apiKey: "secret",
-        model: "gpt-5.4",
-        repositoryAccess: "read"
-      }
-    ],
-    phaseModelAssignments: {
-      defaultProfile: "fallback",
-      captureProfile: null,
-      clarificationProfile: null,
-      refinementProfile: null,
-      technicalDesignProfile: null,
-      implementationProfile: "codex-main",
-      reviewProfile: "fallback",
-      releaseApprovalProfile: null,
-      prPreparationProfile: null
-    }
-  }));
-
-  assert.match(html, /Providers and phase routing/);
-  assert.match(html, /execution-settings-form/);
-  assert.match(html, /Provider Profiles/);
-  assert.match(html, /Phase Routing/);
-  assert.match(html, /Configure execution providers/);
-  assert.match(html, /Save Execution Settings/);
-  assert.match(html, /Default \/ fallback/);
-  assert.match(html, /Technical Design/);
-  assert.match(html, /Release Approval/);
-  assert.match(html, /codex-main/);
 });
 
 test("buildSidebarHtml shows a busy indicator and disables actions while a sidebar operation is running", () => {

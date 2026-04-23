@@ -19,6 +19,7 @@
     "onCommand:specForge.initializeRepoPrompts",
     "onCommand:specForge.openPromptTemplates",
     "onCommand:specForge.openWorkflowView",
+    "onCommand:specForge.openExecutionSettings",
     "onCommand:specForge.openMainArtifact",
     "onCommand:specForge.continuePhase",
     "onCommand:specForge.approveCurrentPhase",
@@ -72,6 +73,10 @@
       {
         "command": "specForge.openWorkflowView",
         "title": "Open Workflow View"
+      },
+      {
+        "command": "specForge.openExecutionSettings",
+        "title": "Open Execution Settings"
       },
       {
         "command": "specForge.openMainArtifact",

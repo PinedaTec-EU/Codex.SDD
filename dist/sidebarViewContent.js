@@ -6,13 +6,9 @@ function buildSidebarHtml(model) {
     const isBusy = model.busyMessage !== null;
     const createFileMode = model.createFileMode ?? "context";
     const createFiles = model.createFiles ?? [];
-    const executionSettingsMarkup = model.showExecutionSettingsForm
-        ? buildExecutionSettingsMarkup(model)
-        : "";
     if (!model.hasWorkspace) {
         return wrapHtml(`
       ${busyIndicatorMarkup}
-      ${executionSettingsMarkup}
       <section class="empty-state">
         <div class="panel-caption">
           <p class="eyebrow">SpecForge.AI</p>
@@ -31,14 +27,12 @@ function buildSidebarHtml(model) {
       ${busyIndicatorMarkup}
       ${buildSettingsWarningMarkup(model)}
       ${promptsBootstrapMarkup}
-      ${executionSettingsMarkup}
     `, isBusy, model.createFormResetToken ?? 0);
     }
     if (model.userStories.length === 0 && !model.showCreateForm && model.promptsInitialized) {
         return wrapHtml(`
       ${busyIndicatorMarkup}
       ${buildSettingsWarningMarkup(model)}
-      ${executionSettingsMarkup}
       <section class="empty-state hero">
         <div class="hero-header">
           <div>
@@ -267,7 +261,6 @@ function buildSidebarHtml(model) {
     ${busyIndicatorMarkup}
     ${buildSettingsWarningMarkup(model)}
     ${promptsBootstrapMarkup}
-    ${executionSettingsMarkup}
     ${formMarkup}
     <section class="story-list">
       <div class="section-header">
@@ -296,7 +289,7 @@ function buildSettingsWarningMarkup(model) {
         <h2>SpecForge.AI settings are incomplete</h2>
         <p class="copy">${escapeHtml(model.settingsMessage)}</p>
       </div>
-      <button class="warning-action" data-command="showExecutionSettingsForm">Open Execution Form</button>
+      <button class="warning-action" data-command="openExecutionSettings">Open Execution Form</button>
     </section>
   `;
 }
@@ -374,7 +367,7 @@ function buildExecutionSettingsActionButton() {
     return `
     <button
       class="icon-action"
-      data-command="showExecutionSettingsForm"
+      data-command="openExecutionSettings"
       title="Configure execution providers"
       aria-label="Configure execution providers">
       <span aria-hidden="true">⚙</span>
@@ -390,123 +383,6 @@ function buildCompactActions(model) {
       ${buildPromptMenu(model.promptsInitialized)}
     </div>
   `;
-}
-function buildExecutionSettingsMarkup(model) {
-    return `
-    <section class="form-card">
-      <div class="section-header">
-        <div>
-          <p class="eyebrow">Execution Setup</p>
-          <h2>Providers and phase routing</h2>
-        </div>
-        <button class="ghost-action" data-command="hideExecutionSettingsForm">Close</button>
-      </div>
-      <p class="copy">Define named provider profiles once, then assign a profile to each workflow phase. Native <code>codex</code> does not need URL or API key.</p>
-      <form id="execution-settings-form">
-        <section class="execution-settings-block">
-          <div class="execution-settings-block__header">
-            <div>
-              <span class="intake-guidance__title">Provider Profiles</span>
-              <p class="copy">Each profile is selectable later per phase.</p>
-            </div>
-            <button class="ghost-action" type="button" data-execution-add-profile>Add Profile</button>
-          </div>
-          <div class="execution-profiles" data-execution-profiles>
-            ${model.modelProfiles.length > 0
-        ? model.modelProfiles.map((profile, index) => buildExecutionProfileRowMarkup(profile, index)).join("")
-        : `<p class="copy execution-settings-empty">No provider profiles configured yet.</p>`}
-          </div>
-        </section>
-        <section class="execution-settings-block">
-          <div class="execution-settings-block__header">
-            <div>
-              <span class="intake-guidance__title">Phase Routing</span>
-              <p class="copy">Choose which defined profile runs each phase. Empty values fall back to the default profile.</p>
-            </div>
-          </div>
-          <div class="execution-phase-grid" data-execution-phase-grid>
-            ${EXECUTION_PHASES.map((phase) => buildExecutionPhaseAssignmentMarkup(phase.key, phase.label, model.phaseModelAssignments[phase.key], model.modelProfiles)).join("")}
-          </div>
-        </section>
-        <button class="primary-action" type="submit">Save Execution Settings</button>
-      </form>
-    </section>
-  `;
-}
-const EXECUTION_PHASES = [
-    { key: "defaultProfile", label: "Default / fallback" },
-    { key: "captureProfile", label: "Capture" },
-    { key: "clarificationProfile", label: "Clarification" },
-    { key: "refinementProfile", label: "Refinement" },
-    { key: "technicalDesignProfile", label: "Technical Design" },
-    { key: "implementationProfile", label: "Implementation" },
-    { key: "reviewProfile", label: "Review" },
-    { key: "releaseApprovalProfile", label: "Release Approval" },
-    { key: "prPreparationProfile", label: "PR Preparation" }
-];
-function buildExecutionProfileRowMarkup(profile, index) {
-    const showsEndpointFields = profile.provider !== "codex";
-    return `
-    <div class="execution-profile-card" data-execution-profile-index="${index}">
-      <div class="execution-profile-card__header">
-        <strong>Profile ${index + 1}</strong>
-        <button class="icon-action icon-action--danger" type="button" data-execution-remove-profile="${index}" aria-label="Remove profile ${index + 1}" title="Remove profile ${index + 1}">×</button>
-      </div>
-      <div class="execution-profile-grid">
-        <label>
-          <span>Name</span>
-          <input type="text" data-execution-profile-field="name" value="${escapeHtmlAttr(profile.name)}" placeholder="codex-main" />
-        </label>
-        <label>
-          <span>Provider</span>
-          <select data-execution-profile-field="provider">
-            ${buildProviderOptionsMarkup(profile.provider)}
-          </select>
-        </label>
-        <label>
-          <span>Repository Access</span>
-          <select data-execution-profile-field="repositoryAccess">
-            ${buildRepositoryAccessOptionsMarkup(profile.repositoryAccess)}
-          </select>
-        </label>
-        <label class="${showsEndpointFields ? "" : "execution-field-hidden"}" data-execution-endpoint-field="baseUrl">
-          <span>Base URL</span>
-          <input type="text" data-execution-profile-field="baseUrl" value="${escapeHtmlAttr(profile.baseUrl)}" placeholder="https://api.example.test/v1" />
-        </label>
-        <label class="${showsEndpointFields ? "" : "execution-field-hidden"}" data-execution-endpoint-field="apiKey">
-          <span>API Key</span>
-          <input type="password" data-execution-profile-field="apiKey" value="${escapeHtmlAttr(profile.apiKey ?? "")}" placeholder="secret" />
-        </label>
-        <label class="${showsEndpointFields ? "" : "execution-field-hidden"}" data-execution-endpoint-field="model">
-          <span>Model</span>
-          <input type="text" data-execution-profile-field="model" value="${escapeHtmlAttr(profile.model)}" placeholder="${profile.provider === "openai-compatible" ? "gpt-5.4" : "provider-model"}" />
-        </label>
-      </div>
-    </div>
-  `;
-}
-function buildExecutionPhaseAssignmentMarkup(key, label, value, profiles) {
-    return `
-    <label class="execution-phase-field">
-      <span>${escapeHtml(label)}</span>
-      <select data-execution-phase-field="${escapeHtmlAttr(String(key))}">
-        <option value="">Use default</option>
-        ${profiles.map((profile) => `
-          <option value="${escapeHtmlAttr(profile.name)}"${profile.name === value ? " selected" : ""}>${escapeHtml(profile.name)}</option>
-        `).join("")}
-      </select>
-    </label>
-  `;
-}
-function buildProviderOptionsMarkup(selectedProvider) {
-    return ["codex", "copilot", "claude", "openai-compatible"]
-        .map((provider) => `<option value="${provider}"${provider === selectedProvider ? " selected" : ""}>${provider}</option>`)
-        .join("");
-}
-function buildRepositoryAccessOptionsMarkup(selectedValue) {
-    return ["none", "read", "read-write"]
-        .map((value) => `<option value="${value}"${value === selectedValue ? " selected" : ""}>${value}</option>`)
-        .join("");
 }
 function buildPromptsBootstrapMarkup(isFirstRun, promptsMessage) {
     return `
@@ -1314,60 +1190,6 @@ function wrapHtml(content, busy, createFormResetToken) {
       font-size: 0.8rem;
       color: rgba(255, 255, 255, 0.62);
     }
-    .execution-settings-block {
-      display: grid;
-      gap: 12px;
-      padding: 12px;
-      border-radius: 16px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      background: rgba(255, 255, 255, 0.02);
-    }
-    .execution-settings-block__header {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: flex-start;
-      flex-wrap: wrap;
-    }
-    .execution-profiles {
-      display: grid;
-      gap: 10px;
-    }
-    .execution-settings-empty {
-      padding: 12px;
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px dashed rgba(255, 255, 255, 0.08);
-    }
-    .execution-profile-card {
-      display: grid;
-      gap: 12px;
-      padding: 12px;
-      border-radius: 16px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .execution-profile-card__header {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
-    }
-    .execution-profile-grid,
-    .execution-phase-grid {
-      display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    }
-    .execution-phase-field {
-      padding: 10px;
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .execution-field-hidden {
-      display: none;
-    }
     @keyframes spin {
       to {
         transform: rotate(360deg);
@@ -1421,21 +1243,6 @@ function wrapHtml(content, busy, createFormResetToken) {
     };
     let sourceReferenceSuggestions = [];
     let referenceScanTimer = undefined;
-    let executionState = {
-      modelProfiles: [],
-      phaseModelAssignments: {
-        defaultProfile: "",
-        captureProfile: "",
-        clarificationProfile: "",
-        refinementProfile: "",
-        technicalDesignProfile: "",
-        implementationProfile: "",
-        reviewProfile: "",
-        releaseApprovalProfile: "",
-        prPreparationProfile: ""
-      }
-    };
-
     function buildGuidedSourceText(state) {
       const lines = [
         "## Minimum Information",
@@ -1591,186 +1398,6 @@ function wrapHtml(content, busy, createFormResetToken) {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
-    }
-
-    function readExecutionStateFromDom() {
-      const nextProfiles = [];
-      for (const card of document.querySelectorAll("[data-execution-profile-index]")) {
-        nextProfiles.push({
-          name: readProfileField(card, "name"),
-          provider: readProfileField(card, "provider") || "openai-compatible",
-          baseUrl: readProfileField(card, "baseUrl"),
-          apiKey: readProfileField(card, "apiKey"),
-          model: readProfileField(card, "model"),
-          repositoryAccess: readProfileField(card, "repositoryAccess") || "none"
-        });
-      }
-
-      const nextAssignments = Object.assign({}, executionState.phaseModelAssignments);
-      for (const field of document.querySelectorAll("[data-execution-phase-field]")) {
-        if (!(field instanceof HTMLSelectElement) || !field.dataset.executionPhaseField) {
-          continue;
-        }
-        nextAssignments[field.dataset.executionPhaseField] = field.value;
-      }
-
-      executionState = {
-        modelProfiles: nextProfiles,
-        phaseModelAssignments: nextAssignments
-      };
-    }
-
-    function readProfileField(card, field) {
-      const input = card.querySelector('[data-execution-profile-field="' + field + '"]');
-      return input instanceof HTMLInputElement || input instanceof HTMLSelectElement
-        ? input.value
-        : "";
-    }
-
-    function buildExecutionProfileCard(profile, index) {
-      const showsEndpointFields = profile.provider !== "codex";
-      return '<div class="execution-profile-card" data-execution-profile-index="' + index + '">'
-        + '<div class="execution-profile-card__header">'
-        + '<strong>Profile ' + (index + 1) + '</strong>'
-        + '<button class="icon-action icon-action--danger" type="button" data-execution-remove-profile="' + index + '" aria-label="Remove profile ' + (index + 1) + '" title="Remove profile ' + (index + 1) + '">×</button>'
-        + '</div>'
-        + '<div class="execution-profile-grid">'
-        + buildExecutionField("Name", '<input type="text" data-execution-profile-field="name" value="' + escapeHtml(profile.name || "") + '" placeholder="codex-main" />')
-        + buildExecutionField("Provider", '<select data-execution-profile-field="provider">' + buildExecutionProviderOptions(profile.provider || "openai-compatible") + '</select>')
-        + buildExecutionField("Repository Access", '<select data-execution-profile-field="repositoryAccess">' + buildExecutionRepositoryAccessOptions(profile.repositoryAccess || "none") + '</select>')
-        + buildExecutionField("Base URL", '<input type="text" data-execution-profile-field="baseUrl" value="' + escapeHtml(profile.baseUrl || "") + '" placeholder="https://api.example.test/v1" />', "baseUrl", showsEndpointFields)
-        + buildExecutionField("API Key", '<input type="password" data-execution-profile-field="apiKey" value="' + escapeHtml(profile.apiKey || "") + '" placeholder="secret" />', "apiKey", showsEndpointFields)
-        + buildExecutionField("Model", '<input type="text" data-execution-profile-field="model" value="' + escapeHtml(profile.model || "") + '" placeholder="' + escapeHtml(profile.provider === "openai-compatible" ? "gpt-5.4" : "provider-model") + '" />', "model", showsEndpointFields)
-        + '</div>'
-        + '</div>';
-    }
-
-    function buildExecutionField(label, controlMarkup, endpointField, visible) {
-      const hiddenClass = endpointField && !visible ? " execution-field-hidden" : "";
-      const endpointAttribute = endpointField ? ' data-execution-endpoint-field="' + endpointField + '"' : "";
-      return '<label class="' + hiddenClass.trim() + '"' + endpointAttribute + '>'
-        + '<span>' + escapeHtml(label) + '</span>'
-        + controlMarkup
-        + '</label>';
-    }
-
-    function buildExecutionProviderOptions(selectedProvider) {
-      return ["codex", "copilot", "claude", "openai-compatible"]
-        .map((provider) => '<option value="' + provider + '"' + (provider === selectedProvider ? " selected" : "") + '>' + escapeHtml(provider) + '</option>')
-        .join("");
-    }
-
-    function buildExecutionRepositoryAccessOptions(selectedValue) {
-      return ["none", "read", "read-write"]
-        .map((value) => '<option value="' + value + '"' + (value === selectedValue ? " selected" : "") + '>' + escapeHtml(value) + '</option>')
-        .join("");
-    }
-
-    function buildExecutionPhaseOptions(selectedValue) {
-      const options = ['<option value="">Use default</option>'];
-      for (const profile of executionState.modelProfiles) {
-        options.push('<option value="' + escapeHtml(profile.name || "") + '"' + ((profile.name || "") === selectedValue ? " selected" : "") + '>' + escapeHtml(profile.name || "") + '</option>');
-      }
-      return options.join("");
-    }
-
-    function renderExecutionSettingsForm() {
-      const profilesContainer = document.querySelector("[data-execution-profiles]");
-      const phaseGrid = document.querySelector("[data-execution-phase-grid]");
-      if (!(profilesContainer instanceof HTMLElement) || !(phaseGrid instanceof HTMLElement)) {
-        return;
-      }
-
-      if (executionState.modelProfiles.length === 0) {
-        profilesContainer.innerHTML = '<p class="copy execution-settings-empty">No provider profiles configured yet.</p>';
-      } else {
-        profilesContainer.innerHTML = executionState.modelProfiles
-          .map((profile, index) => buildExecutionProfileCard(profile, index))
-          .join("");
-      }
-
-      for (const select of phaseGrid.querySelectorAll("[data-execution-phase-field]")) {
-        if (!(select instanceof HTMLSelectElement) || !select.dataset.executionPhaseField) {
-          continue;
-        }
-        const currentValue = executionState.phaseModelAssignments[select.dataset.executionPhaseField] || "";
-        select.innerHTML = buildExecutionPhaseOptions(currentValue);
-        select.value = currentValue;
-        select.disabled = busy;
-        select.addEventListener("change", () => {
-          executionState.phaseModelAssignments[select.dataset.executionPhaseField] = select.value;
-        });
-      }
-
-      for (const button of profilesContainer.querySelectorAll("[data-execution-remove-profile]")) {
-        if (!(button instanceof HTMLButtonElement)) {
-          continue;
-        }
-        button.disabled = busy;
-        button.addEventListener("click", () => {
-          const index = Number(button.dataset.executionRemoveProfile ?? "-1");
-          if (index < 0) {
-            return;
-          }
-          executionState.modelProfiles.splice(index, 1);
-          for (const key of Object.keys(executionState.phaseModelAssignments)) {
-            const selectedName = executionState.phaseModelAssignments[key];
-            if (selectedName && !executionState.modelProfiles.some((profile) => profile.name === selectedName)) {
-              executionState.phaseModelAssignments[key] = "";
-            }
-          }
-          renderExecutionSettingsForm();
-        });
-      }
-
-      for (const card of profilesContainer.querySelectorAll("[data-execution-profile-index]")) {
-        const providerSelect = card.querySelector('[data-execution-profile-field="provider"]');
-        for (const field of card.querySelectorAll("[data-execution-profile-field]")) {
-          if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) {
-            continue;
-          }
-          field.disabled = busy;
-          field.addEventListener("input", () => {
-            readExecutionStateFromDom();
-            renderExecutionEndpointVisibility(card);
-            renderExecutionPhaseAssignmentsOnly();
-          });
-          field.addEventListener("change", () => {
-            readExecutionStateFromDom();
-            renderExecutionEndpointVisibility(card);
-            renderExecutionPhaseAssignmentsOnly();
-          });
-        }
-        if (providerSelect instanceof HTMLSelectElement) {
-          renderExecutionEndpointVisibility(card);
-        }
-      }
-    }
-
-    function renderExecutionPhaseAssignmentsOnly() {
-      const phaseGrid = document.querySelector("[data-execution-phase-grid]");
-      if (!(phaseGrid instanceof HTMLElement)) {
-        return;
-      }
-
-      for (const select of phaseGrid.querySelectorAll("[data-execution-phase-field]")) {
-        if (!(select instanceof HTMLSelectElement) || !select.dataset.executionPhaseField) {
-          continue;
-        }
-        const currentValue = executionState.phaseModelAssignments[select.dataset.executionPhaseField] || "";
-        const hadOption = Array.from(select.options).some((option) => option.value === currentValue);
-        select.innerHTML = buildExecutionPhaseOptions(hadOption ? currentValue : "");
-        select.value = hadOption ? currentValue : "";
-        executionState.phaseModelAssignments[select.dataset.executionPhaseField] = select.value;
-      }
-    }
-
-    function renderExecutionEndpointVisibility(card) {
-      const provider = readProfileField(card, "provider");
-      const showsEndpointFields = provider !== "codex";
-      for (const field of card.querySelectorAll("[data-execution-endpoint-field]")) {
-        field.classList.toggle("execution-field-hidden", !showsEndpointFields);
-      }
     }
 
     for (const element of document.querySelectorAll("[data-command]")) {
@@ -2007,40 +1634,6 @@ function wrapHtml(content, busy, createFormResetToken) {
       requestSourceReferenceScan();
     }
 
-    const executionSettingsForm = document.getElementById("execution-settings-form");
-    if (executionSettingsForm instanceof HTMLFormElement) {
-      readExecutionStateFromDom();
-      renderExecutionSettingsForm();
-
-      const addProfileButton = executionSettingsForm.querySelector("[data-execution-add-profile]");
-      if (addProfileButton instanceof HTMLButtonElement) {
-        addProfileButton.disabled = busy;
-        addProfileButton.addEventListener("click", () => {
-          executionState.modelProfiles.push({
-            name: "",
-            provider: "codex",
-            baseUrl: "",
-            apiKey: "",
-            model: "",
-            repositoryAccess: "none"
-          });
-          renderExecutionSettingsForm();
-        });
-      }
-
-      executionSettingsForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-        if (busy) {
-          return;
-        }
-        readExecutionStateFromDom();
-        vscode.postMessage({
-          command: "saveExecutionSettings",
-          modelProfiles: executionState.modelProfiles,
-          phaseModelAssignments: executionState.phaseModelAssignments
-        });
-      });
-    }
   </script>
 </body>
 </html>`;
