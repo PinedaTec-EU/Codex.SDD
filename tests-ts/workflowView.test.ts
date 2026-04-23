@@ -26,7 +26,9 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
         state: "completed",
         artifactPath: null,
         executePromptPath: null,
-        approvePromptPath: null
+        approvePromptPath: null,
+        executeSystemPromptPath: null,
+        approveSystemPromptPath: null
       },
       {
         phaseId: "refinement",
@@ -40,7 +42,9 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
         artifactPath: "/tmp/01-refinement.md",
         operationLogPath: "/tmp/01-refinement.ops.md",
         executePromptPath: "/tmp/refinement.execute.md",
-        approvePromptPath: "/tmp/refinement.approve.md"
+        approvePromptPath: "/tmp/refinement.approve.md",
+        executeSystemPromptPath: "/tmp/refinement.execute.system.md",
+        approveSystemPromptPath: "/tmp/refinement.approve.system.md"
       }
     ],
     controls: {
@@ -116,7 +120,9 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /<h2>Refinement<\/h2>/);
   assert.match(html, /Open Artifact/);
   assert.match(html, /Open Execute Prompt/);
+  assert.match(html, /Open Execute System Prompt/);
   assert.match(html, /Open Approve Prompt/);
+  assert.match(html, /Open Approve System Prompt/);
   assert.match(html, /detail-card-shell[^]*detail-actions--phase-header[^]*data-command="approve"[^>]*>Approve</);
   assert.match(html, /<h3>Approval Branch<\/h3>/);
   assert.match(html, /data-approval-base-branch-input/);
@@ -124,7 +130,9 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.doesNotMatch(html, /data-command="restart">Reject</);
   assert.match(html, /workflow-action-button--document[^]*Open Artifact/);
   assert.match(html, /workflow-action-button--document[^]*Open Execute Prompt/);
+  assert.match(html, /workflow-action-button--document[^]*Open Execute System Prompt/);
   assert.match(html, /workflow-action-button--document[^]*Open Approve Prompt/);
+  assert.match(html, /workflow-action-button--document[^]*Open Approve System Prompt/);
   assert.match(html, /id="submit-phase-input" class="workflow-action-button workflow-action-button--progress"/);
   assert.match(html, /Open Operation Log/);
   assert.doesNotMatch(html, /action-btn--approve/);

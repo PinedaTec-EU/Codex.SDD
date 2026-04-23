@@ -135,6 +135,8 @@ export interface WorkflowPhaseDetails {
   readonly operationLogPath?: string | null;
   readonly executePromptPath: string | null;
   readonly approvePromptPath: string | null;
+  readonly executeSystemPromptPath?: string | null;
+  readonly approveSystemPromptPath?: string | null;
 }
 
 export interface ClarificationQuestionAnswerDetails {

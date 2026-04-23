@@ -538,7 +538,9 @@ public sealed class SpecForgeApplicationService
                     TryGetLatestArtifactPath(paths, phaseId),
                     TryGetLatestOperationLogPath(paths, phaseId),
                     TryGetExecutePromptPath(paths, phaseId),
-                    TryGetApprovePromptPath(paths, phaseId));
+                    TryGetApprovePromptPath(paths, phaseId),
+                    TryGetExecuteSystemPromptPath(paths, phaseId),
+                    TryGetApproveSystemPromptPath(paths, phaseId));
             })
             .ToArray();
     }
@@ -660,6 +662,35 @@ public sealed class SpecForgeApplicationService
         {
             Workflow.PhaseId.Refinement => promptPaths.RefinementApprovePromptPath,
             Workflow.PhaseId.ReleaseApproval => promptPaths.ReleaseApprovalApprovePromptPath,
+            _ => null
+        };
+
+        return candidate is not null && File.Exists(candidate) ? candidate : null;
+    }
+
+    private static string? TryGetExecuteSystemPromptPath(UserStoryFilePaths paths, Workflow.PhaseId phaseId)
+    {
+        var promptPaths = new PromptFilePaths(FindWorkspaceRoot(paths));
+        var candidate = phaseId switch
+        {
+            Workflow.PhaseId.Clarification => promptPaths.ClarificationExecuteSystemPromptPath,
+            Workflow.PhaseId.Refinement => promptPaths.RefinementExecuteSystemPromptPath,
+            Workflow.PhaseId.TechnicalDesign => promptPaths.TechnicalDesignExecuteSystemPromptPath,
+            Workflow.PhaseId.Implementation => promptPaths.ImplementationExecuteSystemPromptPath,
+            Workflow.PhaseId.Review => promptPaths.ReviewExecuteSystemPromptPath,
+            _ => null
+        };
+
+        return candidate is not null && File.Exists(candidate) ? candidate : null;
+    }
+
+    private static string? TryGetApproveSystemPromptPath(UserStoryFilePaths paths, Workflow.PhaseId phaseId)
+    {
+        var promptPaths = new PromptFilePaths(FindWorkspaceRoot(paths));
+        var candidate = phaseId switch
+        {
+            Workflow.PhaseId.Refinement => promptPaths.RefinementApproveSystemPromptPath,
+            Workflow.PhaseId.ReleaseApproval => promptPaths.ReleaseApprovalApproveSystemPromptPath,
             _ => null
         };
 

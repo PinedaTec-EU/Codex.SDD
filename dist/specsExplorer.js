@@ -293,10 +293,19 @@ async function continuePhase(summary) {
         if (result.generatedArtifactPath) {
             await openTextDocument(result.generatedArtifactPath);
         }
+        logExecutionWarnings(summary.usId, result.execution);
         void vscode.window.showInformationMessage(`${summary.usId} advanced to ${result.currentPhase} with status ${result.status}.`);
     }
     catch (error) {
         void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));
+    }
+}
+function logExecutionWarnings(usId, execution) {
+    if (!execution?.warnings || execution.warnings.length === 0) {
+        return;
+    }
+    for (const warning of execution.warnings) {
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${usId}' system prompt warning: ${warning}`);
     }
 }
 async function approveCurrentPhase(summary) {

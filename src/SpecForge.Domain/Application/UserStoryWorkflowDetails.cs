@@ -34,7 +34,9 @@ public sealed record WorkflowPhaseDetails(
     string? ArtifactPath,
     string? OperationLogPath,
     string? ExecutePromptPath,
-    string? ApprovePromptPath);
+    string? ApprovePromptPath,
+    string? ExecuteSystemPromptPath = null,
+    string? ApproveSystemPromptPath = null);
 
 public sealed record CurrentPhaseControls(
     bool CanContinue,

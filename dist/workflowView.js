@@ -682,8 +682,14 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         selectedPhase.executePromptPath
             ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${escapeHtmlAttribute(selectedPhase.executePromptPath)}">Open Execute Prompt</button>`
             : "",
+        selectedPhase.executeSystemPromptPath
+            ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${escapeHtmlAttribute(selectedPhase.executeSystemPromptPath)}">Open Execute System Prompt</button>`
+            : "",
         selectedPhase.approvePromptPath
             ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${escapeHtmlAttribute(selectedPhase.approvePromptPath)}">Open Approve Prompt</button>`
+            : "",
+        selectedPhase.approveSystemPromptPath
+            ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${escapeHtmlAttribute(selectedPhase.approveSystemPromptPath)}">Open Approve System Prompt</button>`
             : ""
     ].filter(Boolean).join("");
     const promptSection = promptButtons
@@ -3404,7 +3410,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         const nodeRect = anchorNode.getBoundingClientRect();
         const overlayRect = executionOverlay.getBoundingClientRect();
         const padding = 12;
-        const gap = 18;
+        const gap = 34;
         const preferredLeft = nodeRect.left - stageRect.left + ((nodeRect.width - overlayRect.width) / 2);
         const maxLeft = Math.max(padding, graphStage.clientWidth - overlayRect.width - padding);
         const nextLeft = Math.min(maxLeft, Math.max(padding, preferredLeft));

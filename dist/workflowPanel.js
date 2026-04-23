@@ -292,6 +292,7 @@ class WorkflowPanelController {
             ? ` Model: ${result.execution.profileName ? `${result.execution.profileName} / ` : ""}${result.execution.model}.`
             : "";
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' advanced from '${previousPhase}' to '${result.currentPhase}' with status '${result.status}'.${executionSummary}${usageSummary}`);
+        this.logExecutionWarnings(result.execution);
         this.summary = {
             ...this.summary,
             currentPhase: result.currentPhase,
@@ -321,6 +322,7 @@ class WorkflowPanelController {
         }
         const result = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, normalizedPrompt, (0, userActor_1.getCurrentActor)());
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regenerated phase '${result.currentPhase}' after human input.${result.execution ? ` Model: ${result.execution.profileName ? `${result.execution.profileName} / ` : ""}${result.execution.model}.` : ""}`);
+        this.logExecutionWarnings(result.execution);
         this.summary = {
             ...this.summary,
             currentPhase: result.currentPhase,
@@ -350,6 +352,14 @@ class WorkflowPanelController {
     }
     isExecutionConfigured() {
         return (0, extensionSettings_1.getSpecForgeSettingsStatus)((0, extensionSettings_1.getSpecForgeSettings)()).executionConfigured;
+    }
+    logExecutionWarnings(execution) {
+        if (!execution?.warnings || execution.warnings.length === 0) {
+            return;
+        }
+        for (const warning of execution.warnings) {
+            (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' system prompt warning: ${warning}`);
+        }
     }
     async attachFilesAsync(kind) {
         const selection = await vscode.window.showOpenDialog({
