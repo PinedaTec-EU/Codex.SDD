@@ -97,6 +97,7 @@ interface ConfigurationReader {
 }
 
 const defaultModelProvider = "openai-compatible";
+const supportedModelProviders = new Set(["openai-compatible", "codex", "copilot", "claude"]);
 
 function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSettingsStatus {
   const profilesByName = new Map<string, SpecForgeModelProfile>();
@@ -114,7 +115,7 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
       };
     }
 
-    if (profile.provider !== "openai-compatible") {
+    if (!supportedModelProviders.has(profile.provider)) {
       return {
         executionConfigured: false,
         message: `SpecForge.AI model profile '${profile.name}' uses unsupported provider '${profile.provider}'.`,
@@ -237,7 +238,7 @@ function normalizeModelProfile(value: unknown): SpecForgeModelProfile | null {
   }
 
   const candidate = value as Record<string, unknown>;
-  const provider = normalizeUnknownOptional(candidate.provider);
+  const provider = normalizeUnknownOptional(candidate.provider)?.toLowerCase() ?? null;
   const name = normalizeUnknownOptional(candidate.name);
   const baseUrl = normalizeUnknownOptional(candidate.baseUrl);
   const apiKey = normalizeUnknownOptional(candidate.apiKey);

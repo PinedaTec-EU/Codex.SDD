@@ -313,6 +313,43 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("openai-compatible", result.Execution!.ProviderKind);
     }
 
+    [Theory]
+    [InlineData("codex")]
+    [InlineData("copilot")]
+    [InlineData("claude")]
+    public async Task ExecuteAsync_SupportedBridgeProvider_PreservesConfiguredProviderKind(string providerKind)
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            new OpenAiCompatibleProviderOptions(
+                ModelProfiles:
+                [
+                    new OpenAiCompatibleModelProfile(
+                        Name: "bridge",
+                        Provider: providerKind,
+                        BaseUrl: "https://api.example.test/v1",
+                        ApiKey: "secret",
+                        Model: "model-1",
+                        RepositoryAccess: "read-write")
+                ],
+                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
+                    DefaultProfile: "bridge")));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Refinement,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        var result = await provider.ExecuteAsync(context);
+
+        Assert.NotNull(result.Execution);
+        Assert.Equal(providerKind, result.Execution!.ProviderKind);
+    }
+
     [Fact]
     public async Task ExecuteAsync_ClarificationOk_NormalizesToCanonicalReadyArtifact()
     {

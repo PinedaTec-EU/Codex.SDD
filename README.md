@@ -146,6 +146,8 @@ To enable model-backed phase execution, configure at least one model profile.
 
 Important: `provider` is not a global setting anymore. It lives inside each item in `specForge.execution.modelProfiles`, next to that profile's `baseUrl`, `apiKey`, and `model`. If you omit it, SpecForge.AI defaults it to `openai-compatible`.
 
+Important too: `codex`, `copilot`, and `claude` are supported profile identities for routing and audit, but today they still run through the same OpenAI-compatible transport bridge. That means the developer can choose a provider family per phase now, while the repo stays honest about the fact that native provider adapters are still a later step.
+
 Minimal shape of one profile:
 
 ```json
@@ -154,7 +156,8 @@ Minimal shape of one profile:
   "provider": "openai-compatible",
   "baseUrl": "http://localhost:11434/v1",
   "apiKey": "",
-  "model": "llama3.1"
+  "model": "llama3.1",
+  "repositoryAccess": "none"
 }
 ```
 
@@ -165,7 +168,8 @@ Equivalent shorthand without an explicit `provider` field:
   "name": "light",
   "baseUrl": "http://localhost:11434/v1",
   "apiKey": "",
-  "model": "llama3.1"
+  "model": "llama3.1",
+  "repositoryAccess": "none"
 }
 ```
 
@@ -175,34 +179,45 @@ Full example with routing:
 {
   "specForge.execution.modelProfiles": [
     {
-      "name": "light",
-      "provider": "openai-compatible",
-      "baseUrl": "http://localhost:11434/v1",
-      "apiKey": "",
-      "model": "llama3.1"
+      "name": "planner",
+      "provider": "copilot",
+      "baseUrl": "https://api.example.test/v1",
+      "apiKey": "<your-api-key>",
+      "model": "gpt-4.1-mini",
+      "repositoryAccess": "none"
     },
     {
-      "name": "top",
-      "baseUrl": "https://api.openai.com/v1",
+      "name": "implementer",
+      "provider": "codex",
+      "baseUrl": "https://api.example.test/v1",
       "apiKey": "<your-api-key>",
-      "model": "gpt-4.1"
+      "model": "codex-5",
+      "repositoryAccess": "read-write"
     },
     {
-      "name": "review",
-      "baseUrl": "https://api.openai.com/v1",
+      "name": "reviewer",
+      "provider": "claude",
+      "baseUrl": "https://api.example.test/v1",
       "apiKey": "<your-api-key>",
-      "model": "gpt-4.1-mini"
+      "model": "claude-sonnet",
+      "repositoryAccess": "read"
     }
   ],
   "specForge.execution.phaseModels": {
-    "defaultProfile": "light",
-    "implementationProfile": "top",
-    "reviewProfile": "review"
+    "defaultProfile": "planner",
+    "implementationProfile": "implementer",
+    "reviewProfile": "reviewer"
   }
 }
 ```
 
-With that setup, capture, clarification, refinement, technical design, release approval, and PR preparation use `defaultProfile`; implementation can be routed to the strongest model; review can stay on the same model or use a separate middle tier. If no model profiles are configured, SpecForge.AI stays on the deterministic local engine and the UI warns that model-backed execution is incomplete.
+With that setup, capture, clarification, refinement, technical design, release approval, and PR preparation use `defaultProfile`; implementation can be routed to the developer's preferred executor; review can use a separate provider family. `repositoryAccess` is part of the contract now:
+
+- `none`: planning-only, no repo execution claims allowed
+- `read`: enough for repository-aware review
+- `read-write`: required before implementation can continue
+
+If no model profiles are configured, SpecForge.AI stays on the deterministic local engine and the UI warns that model-backed execution is incomplete.
 
 For local testing with Ollama, use a single profile that points at the local endpoint:
 
@@ -214,9 +229,48 @@ For local testing with Ollama, use a single profile that points at the local end
       "provider": "openai-compatible",
       "baseUrl": "http://localhost:11434/v1",
       "apiKey": "ollama-local",
-      "model": "llama3.1"
+      "model": "llama3.1",
+      "repositoryAccess": "none"
     }
   ]
+}
+```
+
+Example targeted routing for a developer who wants Codex for implementation and Claude for review:
+
+```json
+{
+  "specForge.execution.modelProfiles": [
+    {
+      "name": "default-planner",
+      "provider": "copilot",
+      "baseUrl": "https://api.example.test/v1",
+      "apiKey": "<your-api-key>",
+      "model": "gpt-4.1-mini",
+      "repositoryAccess": "none"
+    },
+    {
+      "name": "codex-main",
+      "provider": "codex",
+      "baseUrl": "https://api.example.test/v1",
+      "apiKey": "<your-api-key>",
+      "model": "codex-5",
+      "repositoryAccess": "read-write"
+    },
+    {
+      "name": "claude-review",
+      "provider": "claude",
+      "baseUrl": "https://api.example.test/v1",
+      "apiKey": "<your-api-key>",
+      "model": "claude-sonnet",
+      "repositoryAccess": "read"
+    }
+  ],
+  "specForge.execution.phaseModels": {
+    "defaultProfile": "default-planner",
+    "implementationProfile": "codex-main",
+    "reviewProfile": "claude-review"
+  }
 }
 ```
 
@@ -227,7 +281,7 @@ export SPECFORGE_CAPTURE_TOLERANCE=balanced
 export SPECFORGE_REVIEW_TOLERANCE=balanced
 ```
 
-The current supported `provider` value is `openai-compatible`. It targets the OpenAI-compatible chat completions shape, so OpenAI and Ollama can share the same backend integration path.
+The current supported `provider` values are `openai-compatible`, `codex`, `copilot`, and `claude`. Today all four share the same OpenAI-compatible chat-completions transport path, so the choice primarily controls routing, execution identity, audit metadata, and capability requirements rather than a fully native provider adapter.
 For clarification, the backend supports three tolerance levels: `strict`, `balanced`, and `inferential`.
 This value is sent as `SPECFORGE_CAPTURE_TOLERANCE`, adds explicit guidance to the clarification prompt, and maps clarification-only `temperature` as follows:
 

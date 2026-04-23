@@ -7,7 +7,7 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
     ["execution.modelProfiles", [
       {
         name: "light",
-        provider: " openai-compatible ",
+        provider: " CODEX ",
         baseUrl: " https://light.example.test/v1 ",
         apiKey: " light-secret ",
         model: " gpt-light ",
@@ -45,7 +45,7 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
     modelProfiles: [
       {
         name: "light",
-        provider: "openai-compatible",
+        provider: "codex",
         baseUrl: "https://light.example.test/v1",
         apiKey: "light-secret",
         model: "gpt-light",
@@ -306,6 +306,61 @@ test("getSpecForgeSettingsStatus accepts profiles using the default provider", (
   assert.equal(status.executionConfigured, true);
   assert.equal(status.message, null);
   assert.match(status.diagnostics, /effective\.default=<unset>/);
+});
+
+test("getSpecForgeSettingsStatus accepts codex, copilot, and claude providers", () => {
+  const status = getSpecForgeSettingsStatus({
+    modelProfiles: [
+      {
+        name: "implementer",
+        provider: "codex",
+        baseUrl: "https://api.example.test/v1",
+        apiKey: "secret",
+        model: "codex-5",
+        repositoryAccess: "read-write"
+      },
+      {
+        name: "reviewer",
+        provider: "claude",
+        baseUrl: "https://api.example.test/v1",
+        apiKey: "secret",
+        model: "claude-sonnet",
+        repositoryAccess: "read"
+      },
+      {
+        name: "fallback",
+        provider: "copilot",
+        baseUrl: "https://api.example.test/v1",
+        apiKey: "secret",
+        model: "gpt-4.1",
+        repositoryAccess: "none"
+      }
+    ],
+    phaseModelAssignments: {
+      defaultProfile: "fallback",
+      implementationProfile: "implementer",
+      reviewProfile: "reviewer"
+    },
+    effectivePhaseModelAssignments: {
+      defaultProfileName: "fallback",
+      implementationProfileName: "implementer",
+      reviewProfileName: "reviewer"
+    },
+    clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true,
+    contextSuggestionsEnabled: true,
+    requireExplicitApprovalBranchAcceptance: false,
+    autoPlayEnabled: false,
+    destructiveRewindEnabled: false
+  });
+
+  assert.equal(status.executionConfigured, true);
+  assert.equal(status.message, null);
+  assert.match(status.diagnostics, /provider=codex/);
+  assert.match(status.diagnostics, /provider=claude/);
+  assert.match(status.diagnostics, /provider=copilot/);
 });
 
 test("getSpecForgeSettingsStatus rejects unsupported providers", () => {

@@ -11,6 +11,9 @@ namespace SpecForge.OpenAICompatible;
 public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProvider
 {
     private const string OpenAiCompatibleProviderKind = "openai-compatible";
+    private const string CodexProviderKind = "codex";
+    private const string CopilotProviderKind = "copilot";
+    private const string ClaudeProviderKind = "claude";
     private const string RepositoryAccessNone = "none";
     private const string RepositoryAccessRead = "read";
     private const string RepositoryAccessReadWrite = "read-write";
@@ -468,7 +471,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     private static string NormalizeProviderKind(string? providerKind) =>
         string.IsNullOrWhiteSpace(providerKind)
             ? OpenAiCompatibleProviderKind
-            : providerKind.Trim();
+            : providerKind.Trim().ToLowerInvariant();
+
+    private static bool IsSupportedProviderKind(string providerKind) =>
+        providerKind is OpenAiCompatibleProviderKind or CodexProviderKind or CopilotProviderKind or ClaudeProviderKind;
 
     private static bool IsSupportedRepositoryAccess(string? repositoryAccess) =>
         NormalizeRepositoryAccess(repositoryAccess) is RepositoryAccessNone or RepositoryAccessRead or RepositoryAccessReadWrite;
@@ -513,9 +519,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             }
 
             var providerKind = NormalizeProviderKind(profile.Provider);
-            if (!string.Equals(providerKind, OpenAiCompatibleProviderKind, StringComparison.Ordinal))
+            if (!IsSupportedProviderKind(providerKind))
             {
-                throw new ArgumentException($"Unsupported provider '{profile.Provider}' for model profile '{profile.Name}'.", nameof(modelProfiles));
+                throw new ArgumentException(
+                    $"Unsupported provider '{profile.Provider}' for model profile '{profile.Name}'. Supported values: '{OpenAiCompatibleProviderKind}', '{CodexProviderKind}', '{CopilotProviderKind}', '{ClaudeProviderKind}'.",
+                    nameof(modelProfiles));
             }
 
             if (!names.Add(profile.Name))

@@ -6,6 +6,14 @@ namespace SpecForge.McpServer;
 
 internal static class PhaseExecutionProviderFactory
 {
+    private static readonly IReadOnlySet<string> BridgeableProviderKinds = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "openai-compatible",
+        "codex",
+        "copilot",
+        "claude"
+    };
+
     private const string ModelProfilesJsonEnvVar = "SPECFORGE_OPENAI_MODEL_PROFILES_JSON";
     private const string PhaseModelAssignmentsJsonEnvVar = "SPECFORGE_OPENAI_PHASE_MODEL_ASSIGNMENTS_JSON";
     private const string ClarificationToleranceEnvVar = "SPECFORGE_CAPTURE_TOLERANCE";
@@ -32,17 +40,13 @@ internal static class PhaseExecutionProviderFactory
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
-        if (providerKinds.Length != 1)
+        if (providerKinds.All(static providerKind => BridgeableProviderKinds.Contains(providerKind)))
         {
-            throw new InvalidOperationException("All configured model profiles must use the same provider kind.");
+            return CreateOpenAiCompatibleProvider(modelProfiles);
         }
 
-        return providerKinds[0] switch
-        {
-            OpenAiCompatibleKind => CreateOpenAiCompatibleProvider(modelProfiles),
-            _ => throw new InvalidOperationException(
-                $"Unsupported model profile provider '{providerKinds[0]}'. Valid values: '{OpenAiCompatibleKind}'.")
-        };
+        throw new InvalidOperationException(
+            $"Unsupported model profile provider set '{string.Join(", ", providerKinds)}'. Valid values: '{OpenAiCompatibleKind}', 'codex', 'copilot', 'claude'.");
     }
 
     private static IPhaseExecutionProvider CreateOpenAiCompatibleProvider(IReadOnlyList<OpenAiCompatibleModelProfile> modelProfiles)

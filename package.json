@@ -129,9 +129,12 @@
                 "type": "string",
                 "default": "openai-compatible",
                 "enum": [
-                  "openai-compatible"
+                  "openai-compatible",
+                  "codex",
+                  "copilot",
+                  "claude"
                 ],
-                "description": "Provider kind used by this profile. Defaults to openai-compatible."
+                "description": "Provider kind used by this profile. `codex`, `copilot`, and `claude` currently use the same OpenAI-compatible transport bridge while preserving provider identity for routing and audit."
               },
               "baseUrl": {
                 "type": "string",
