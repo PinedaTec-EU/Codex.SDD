@@ -3331,81 +3331,81 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           graphStage.classList.remove("graph-stage--overlay-active");
         }
       } else {
-      const restoredState = restoreExecutionOverlayState(overlayKey, messageCatalog);
-      const shuffledMessages = restoredState.messages;
-      let messageIndex = restoredState.messageIndex;
-      let startedAt = Number.isFinite(providedStartedAt) && providedStartedAt > 0
-        ? providedStartedAt
-        : restoredState.startedAt;
+        const restoredState = restoreExecutionOverlayState(overlayKey, messageCatalog);
+        const shuffledMessages = restoredState.messages;
+        let messageIndex = restoredState.messageIndex;
+        let startedAt = Number.isFinite(providedStartedAt) && providedStartedAt > 0
+          ? providedStartedAt
+          : restoredState.startedAt;
 
-      if (messageElement && shuffledMessages.length > 0) {
-        messageElement.textContent = shuffledMessages[messageIndex] ?? shuffledMessages[0];
-      }
+        if (messageElement && shuffledMessages.length > 0) {
+          messageElement.textContent = shuffledMessages[messageIndex] ?? shuffledMessages[0];
+        }
 
-      if (elapsedElement && showElapsed) {
-        elapsedElement.textContent = formatOverlayElapsed(Date.now() - startedAt);
-      }
-
-      if (messageElement && shuffledMessages.length > 1) {
-        window.setInterval(() => {
-          messageIndex = (messageIndex + 1) % shuffledMessages.length;
-          if (messageIndex === 0) {
-            const reshuffled = shuffleMessages(messageCatalog);
-            shuffledMessages.splice(0, shuffledMessages.length, ...reshuffled);
-          }
-          messageElement.textContent = shuffledMessages[messageIndex];
-          persistExecutionOverlayState(overlayKey, {
-            startedAt,
-            messageIndex,
-            messages: shuffledMessages
-          });
-        }, 3800);
-      }
-
-      if (elapsedElement && showElapsed) {
-        window.setInterval(() => {
+        if (elapsedElement && showElapsed) {
           elapsedElement.textContent = formatOverlayElapsed(Date.now() - startedAt);
-        }, 1000);
-      }
-
-      persistExecutionOverlayState(overlayKey, {
-        startedAt,
-        messageIndex,
-        messages: shuffledMessages
-      });
-
-      const dismissOverlay = () => {
-        if (dismissible) {
-          persistExecutionOverlayDismissed(dismissKey);
         }
-        executionOverlay.remove();
-        if (graphStage) {
-          graphStage.classList.remove("graph-stage--overlay-active");
-        }
-      };
 
-      if (dismissButton instanceof HTMLButtonElement) {
-        dismissButton.addEventListener("click", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          dismissOverlay();
+        if (messageElement && shuffledMessages.length > 1) {
+          window.setInterval(() => {
+            messageIndex = (messageIndex + 1) % shuffledMessages.length;
+            if (messageIndex === 0) {
+              const reshuffled = shuffleMessages(messageCatalog);
+              shuffledMessages.splice(0, shuffledMessages.length, ...reshuffled);
+            }
+            messageElement.textContent = shuffledMessages[messageIndex];
+            persistExecutionOverlayState(overlayKey, {
+              startedAt,
+              messageIndex,
+              messages: shuffledMessages
+            });
+          }, 3800);
+        }
+
+        if (elapsedElement && showElapsed) {
+          window.setInterval(() => {
+            elapsedElement.textContent = formatOverlayElapsed(Date.now() - startedAt);
+          }, 1000);
+        }
+
+        persistExecutionOverlayState(overlayKey, {
+          startedAt,
+          messageIndex,
+          messages: shuffledMessages
         });
-      }
 
-      if (overlayTone !== "playing" && graphStage) {
-        document.addEventListener("pointerdown", (event) => {
-          const target = event.target;
-          if (!(target instanceof Node)) {
-            return;
+        const dismissOverlay = () => {
+          if (dismissible) {
+            persistExecutionOverlayDismissed(dismissKey);
           }
-
-          if (executionOverlay.contains(target)) {
-            return;
+          executionOverlay.remove();
+          if (graphStage) {
+            graphStage.classList.remove("graph-stage--overlay-active");
           }
+        };
 
-          dismissOverlay();
-        }, { once: true });
-      }
+        if (dismissButton instanceof HTMLButtonElement) {
+          dismissButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            dismissOverlay();
+          });
+        }
+
+        if (overlayTone !== "playing" && graphStage) {
+          document.addEventListener("pointerdown", (event) => {
+            const target = event.target;
+            if (!(target instanceof Node)) {
+              return;
+            }
+
+            if (executionOverlay.contains(target)) {
+              return;
+            }
+
+            dismissOverlay();
+          }, { once: true });
+        }
       }
     }
 

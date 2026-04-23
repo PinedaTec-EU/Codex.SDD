@@ -705,6 +705,8 @@ test("buildWorkflowHtml animates the current execution phase while autoplay is r
   assert.match(html, /restoreExecutionOverlayState/);
   assert.match(html, /persistExecutionOverlayState/);
   assert.match(html, /sessionStorage/);
+  assert.match(html, /if \(overlayTone === "playing"\) \{\s*clearExecutionOverlayDismissed\(dismissKey\);\s*\} else if \(dismissible && isExecutionOverlayDismissed\(dismissKey\)\)/);
+  assert.match(html, /if \(messageElement && shuffledMessages\.length > 0\)/);
   assert.match(html, /if \(overlayTone !== "playing" && graphStage\)/);
 });
 
