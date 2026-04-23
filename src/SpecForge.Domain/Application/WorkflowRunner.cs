@@ -396,14 +396,21 @@ public sealed class WorkflowRunner
         string actor = "user",
         CancellationToken cancellationToken = default)
     {
+        await using var diagnostics = SpecForgeDiagnostics.StartProgressScope(
+            $"[runner.continue_phase] usId={usId} actor={actor}",
+            interval: TimeSpan.FromSeconds(20));
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         var normalizedActor = NormalizeActor(actor);
+        SpecForgeDiagnostics.Log(
+            $"[runner.continue_phase] usId={usId} loaded phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} status={WorkflowPresentation.ToStatusSlug(workflowRun.Status)}");
 
         if (workflowRun.CurrentPhase is PhaseId.Capture or PhaseId.Clarification)
         {
             var clarificationResult = await ContinueFromCaptureOrClarificationAsync(workspaceRoot, paths, workflowRun, normalizedActor, cancellationToken);
             await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+            diagnostics.MarkCompleted(
+                $"phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} status={WorkflowPresentation.ToStatusSlug(workflowRun.Status)}");
             return new ContinuePhaseResult(
                 workflowRun.UsId,
                 workflowRun.CurrentPhase,
@@ -414,7 +421,10 @@ public sealed class WorkflowRunner
         }
 
         EnsureNextPhaseExecutionIsReady(workflowRun);
+        var sourcePhase = workflowRun.CurrentPhase;
         workflowRun.GenerateNextPhase();
+        SpecForgeDiagnostics.Log(
+            $"[runner.continue_phase] usId={usId} advanced phase {WorkflowPresentation.ToPhaseSlug(sourcePhase)} -> {WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}");
 
         string? artifactPath = null;
         TokenUsage? usage = null;
@@ -451,6 +461,8 @@ public sealed class WorkflowRunner
         }
 
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+        diagnostics.MarkCompleted(
+            $"phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} status={WorkflowPresentation.ToStatusSlug(workflowRun.Status)} artifact={(artifactPath ?? "(none)")}");
         return new ContinuePhaseResult(workflowRun.UsId, workflowRun.CurrentPhase, workflowRun.Status, artifactPath, usage, execution);
     }
 
@@ -785,6 +797,9 @@ public sealed class WorkflowRunner
         string? operationPrompt,
         CancellationToken cancellationToken)
     {
+        await using var diagnostics = SpecForgeDiagnostics.StartProgressScope(
+            $"[runner.materialize] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}",
+            interval: TimeSpan.FromSeconds(20));
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
         var artifactPath = NextAvailableArtifactPath(paths, workflowRun.CurrentPhase);
         var executionContext = new PhaseExecutionContext(
@@ -796,9 +811,24 @@ public sealed class WorkflowRunner
             BuildContextFilePaths(paths),
             currentArtifactPath,
             operationPrompt);
+        SpecForgeDiagnostics.Log(
+            $"[runner.materialize] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} artifactPath='{artifactPath}' contextFiles={executionContext.ContextFilePaths.Count} previousArtifacts={executionContext.PreviousArtifactPaths.Count} currentArtifactPath='{currentArtifactPath ?? "(none)"}' operationPrompt={(string.IsNullOrWhiteSpace(operationPrompt) ? "no" : "yes")}");
         var stopwatch = Stopwatch.StartNew();
-        var result = await phaseExecutionProvider.ExecuteAsync(executionContext, cancellationToken);
+        PhaseExecutionResult result;
+
+        try
+        {
+            result = await phaseExecutionProvider.ExecuteAsync(executionContext, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            diagnostics.MarkFailed(exception);
+            throw;
+        }
+
         stopwatch.Stop();
+        SpecForgeDiagnostics.Log(
+            $"[runner.materialize] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} providerReturned executionKind={result.ExecutionKind} durationMs={stopwatch.ElapsedMilliseconds}");
 
         if (workflowRun.CurrentPhase == PhaseId.Refinement)
         {
@@ -814,6 +844,7 @@ public sealed class WorkflowRunner
             await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
         }
 
+        diagnostics.MarkCompleted($"artifactPath='{artifactPath}'");
         return new ArtifactGenerationResult(artifactPath, result.Usage, stopwatch.ElapsedMilliseconds, result.Execution);
     }
 

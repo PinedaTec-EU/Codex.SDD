@@ -89,122 +89,136 @@ static async Task<JsonNode> HandleToolCallAsync(
     var parameters = payload["params"]?.AsObject() ?? throw new InvalidOperationException("Missing tool call parameters.");
     var toolName = parameters["name"]?.GetValue<string>() ?? throw new InvalidOperationException("Missing tool name.");
     var arguments = parameters["arguments"]?.AsObject() ?? new JsonObject();
+    var toolRequestId = payload["id"]?.ToJsonString() ?? "null";
+    await using var diagnostics = SpecForgeDiagnostics.StartProgressScope(
+        $"[mcp.tool] {toolName} requestId={toolRequestId}",
+        interval: TimeSpan.FromSeconds(15));
 
-    object result = toolName switch
+    try
     {
-        "create_us_from_chat" => await applicationService.CreateUserStoryAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId"),
-            title: GetRequired(arguments, "title"),
-            kind: GetRequired(arguments, "kind"),
-            category: GetRequired(arguments, "category"),
-            sourceText: GetRequired(arguments, "sourceText"),
-            actor: GetOptional(arguments, "actor") ?? "user"),
-        "import_us_from_markdown" => await applicationService.ImportUserStoryAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId"),
-            sourcePath: GetRequired(arguments, "sourcePath"),
-            title: GetRequired(arguments, "title"),
-            kind: GetRequired(arguments, "kind"),
-            category: GetRequired(arguments, "category"),
-            actor: GetOptional(arguments, "actor") ?? "user"),
-        "initialize_repo_prompts" => await applicationService.InitializeRepoPromptsAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            overwrite: GetOptionalBoolean(arguments, "overwrite")),
-        "list_user_stories" => new
+        object result = toolName switch
         {
-            items = await applicationService.ListUserStoriesAsync(
-                workspaceRoot: GetRequired(arguments, "workspaceRoot"))
-        },
-        "get_user_story_summary" => await applicationService.GetUserStorySummaryAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId")),
-        "get_user_story_workflow" => await applicationService.GetUserStoryWorkflowAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId")),
-        "get_current_phase" => await applicationService.GetCurrentPhaseAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId")),
-        "get_user_story_runtime_status" => await applicationService.GetUserStoryRuntimeStatusAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId")),
-        "generate_next_phase" => await applicationService.GenerateNextPhaseAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId"),
-            actor: GetOptional(arguments, "actor") ?? "user"),
-        "approve_phase" => await applicationService.ApprovePhaseAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId"),
-            baseBranch: GetOptional(arguments, "baseBranch"),
-            workBranch: GetOptional(arguments, "workBranch"),
-            actor: GetOptional(arguments, "actor") ?? "user"),
-        "request_regression" => await applicationService.RequestRegressionAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId"),
-            targetPhase: GetRequired(arguments, "targetPhase"),
-            reason: GetOptional(arguments, "reason"),
-            destructive: GetOptionalBoolean(arguments, "destructive"),
-            actor: GetOptional(arguments, "actor") ?? "user"),
-        "restart_user_story_from_source" => await applicationService.RestartUserStoryFromSourceAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId"),
-            reason: GetOptional(arguments, "reason"),
-            actor: GetOptional(arguments, "actor") ?? "user"),
-        "rewind_workflow" => await applicationService.RewindWorkflowAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId"),
-            targetPhase: GetRequired(arguments, "targetPhase"),
-            destructive: GetOptionalBoolean(arguments, "destructive"),
-            actor: GetOptional(arguments, "actor") ?? "user"),
-        "reset_user_story_to_capture" => await applicationService.ResetUserStoryToCaptureAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId")),
-        "submit_clarification_answers" => await applicationService.SubmitClarificationAnswersAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId"),
-            answers: GetStringArray(arguments, "answers"),
-            actor: GetOptional(arguments, "actor") ?? "user"),
-        "submit_approval_answer" => await applicationService.SubmitApprovalAnswerAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId"),
-            question: GetRequired(arguments, "question"),
-            answer: GetRequired(arguments, "answer"),
-            actor: GetOptional(arguments, "actor") ?? "user"),
-        "operate_current_phase_artifact" => await applicationService.OperateCurrentPhaseArtifactAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId"),
-            prompt: GetRequired(arguments, "prompt"),
-            actor: GetOptional(arguments, "actor") ?? "user"),
-        "list_user_story_files" => await applicationService.ListUserStoryFilesAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId")),
-        "add_user_story_files" => await applicationService.AddUserStoryFilesAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId"),
-            sourcePaths: GetStringArray(arguments, "sourcePaths"),
-            kind: GetRequired(arguments, "kind")),
-        "set_user_story_file_kind" => await applicationService.SetUserStoryFileKindAsync(
-            workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-            usId: GetRequired(arguments, "usId"),
-            filePath: GetRequired(arguments, "filePath"),
-            kind: GetRequired(arguments, "kind")),
-        _ => throw new InvalidOperationException($"Tool '{toolName}' is not supported.")
-    };
-
-    var resultJson = JsonSerializer.Serialize(result, serializerOptions);
-    return BuildSuccessResponse(
-        payload["id"],
-        new JsonObject
-        {
-            ["content"] = new JsonArray
+            "create_us_from_chat" => await applicationService.CreateUserStoryAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                title: GetRequired(arguments, "title"),
+                kind: GetRequired(arguments, "kind"),
+                category: GetRequired(arguments, "category"),
+                sourceText: GetRequired(arguments, "sourceText"),
+                actor: GetOptional(arguments, "actor") ?? "user"),
+            "import_us_from_markdown" => await applicationService.ImportUserStoryAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                sourcePath: GetRequired(arguments, "sourcePath"),
+                title: GetRequired(arguments, "title"),
+                kind: GetRequired(arguments, "kind"),
+                category: GetRequired(arguments, "category"),
+                actor: GetOptional(arguments, "actor") ?? "user"),
+            "initialize_repo_prompts" => await applicationService.InitializeRepoPromptsAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                overwrite: GetOptionalBoolean(arguments, "overwrite")),
+            "list_user_stories" => new
             {
-                new JsonObject
+                items = await applicationService.ListUserStoriesAsync(
+                    workspaceRoot: GetRequired(arguments, "workspaceRoot"))
+            },
+            "get_user_story_summary" => await applicationService.GetUserStorySummaryAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId")),
+            "get_user_story_workflow" => await applicationService.GetUserStoryWorkflowAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId")),
+            "get_current_phase" => await applicationService.GetCurrentPhaseAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId")),
+            "get_user_story_runtime_status" => await applicationService.GetUserStoryRuntimeStatusAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId")),
+            "generate_next_phase" => await applicationService.GenerateNextPhaseAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                actor: GetOptional(arguments, "actor") ?? "user"),
+            "approve_phase" => await applicationService.ApprovePhaseAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                baseBranch: GetOptional(arguments, "baseBranch"),
+                workBranch: GetOptional(arguments, "workBranch"),
+                actor: GetOptional(arguments, "actor") ?? "user"),
+            "request_regression" => await applicationService.RequestRegressionAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                targetPhase: GetRequired(arguments, "targetPhase"),
+                reason: GetOptional(arguments, "reason"),
+                destructive: GetOptionalBoolean(arguments, "destructive"),
+                actor: GetOptional(arguments, "actor") ?? "user"),
+            "restart_user_story_from_source" => await applicationService.RestartUserStoryFromSourceAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                reason: GetOptional(arguments, "reason"),
+                actor: GetOptional(arguments, "actor") ?? "user"),
+            "rewind_workflow" => await applicationService.RewindWorkflowAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                targetPhase: GetRequired(arguments, "targetPhase"),
+                destructive: GetOptionalBoolean(arguments, "destructive"),
+                actor: GetOptional(arguments, "actor") ?? "user"),
+            "reset_user_story_to_capture" => await applicationService.ResetUserStoryToCaptureAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId")),
+            "submit_clarification_answers" => await applicationService.SubmitClarificationAnswersAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                answers: GetStringArray(arguments, "answers"),
+                actor: GetOptional(arguments, "actor") ?? "user"),
+            "submit_approval_answer" => await applicationService.SubmitApprovalAnswerAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                question: GetRequired(arguments, "question"),
+                answer: GetRequired(arguments, "answer"),
+                actor: GetOptional(arguments, "actor") ?? "user"),
+            "operate_current_phase_artifact" => await applicationService.OperateCurrentPhaseArtifactAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                prompt: GetRequired(arguments, "prompt"),
+                actor: GetOptional(arguments, "actor") ?? "user"),
+            "list_user_story_files" => await applicationService.ListUserStoryFilesAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId")),
+            "add_user_story_files" => await applicationService.AddUserStoryFilesAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                sourcePaths: GetStringArray(arguments, "sourcePaths"),
+                kind: GetRequired(arguments, "kind")),
+            "set_user_story_file_kind" => await applicationService.SetUserStoryFileKindAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                filePath: GetRequired(arguments, "filePath"),
+                kind: GetRequired(arguments, "kind")),
+            _ => throw new InvalidOperationException($"Tool '{toolName}' is not supported.")
+        };
+
+        diagnostics.MarkCompleted();
+
+        var resultJson = JsonSerializer.Serialize(result, serializerOptions);
+        return BuildSuccessResponse(
+            payload["id"],
+            new JsonObject
+            {
+                ["content"] = new JsonArray
                 {
-                    ["type"] = "text",
-                    ["text"] = resultJson
+                    new JsonObject
+                    {
+                        ["type"] = "text",
+                        ["text"] = resultJson
+                    }
                 }
-            }
-        });
+            });
+    }
+    catch (Exception exception)
+    {
+        diagnostics.MarkFailed(exception);
+        throw;
+    }
 }
 
 static JsonObject BuildToolsList()

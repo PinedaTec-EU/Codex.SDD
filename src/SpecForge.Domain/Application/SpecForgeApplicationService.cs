@@ -265,6 +265,9 @@ public sealed class SpecForgeApplicationService
         string actor = "user",
         CancellationToken cancellationToken = default)
     {
+        await using var diagnostics = SpecForgeDiagnostics.StartProgressScope(
+            $"[app.generate_next_phase] usId={usId} actor={actor}",
+            interval: TimeSpan.FromSeconds(20));
         var currentPhase = await GetCurrentPhaseAsync(workspaceRoot, usId, cancellationToken);
         if (!currentPhase.CanAdvance)
         {
@@ -282,10 +285,13 @@ public sealed class SpecForgeApplicationService
 
         try
         {
+            SpecForgeDiagnostics.Log(
+                $"[app.generate_next_phase] usId={usId} currentPhase={currentPhase.CurrentPhase} status={currentPhase.Status} canAdvance={currentPhase.CanAdvance} requiresApproval={currentPhase.RequiresApproval}");
             var result = await workflowRunner.ContinuePhaseAsync(workspaceRoot, usId, actor, cancellationToken);
             var resultPhase = WorkflowPresentation.ToPhaseSlug(result.CurrentPhase);
             operation.UpdatePhase(resultPhase);
             await operation.CompleteAsync(resultPhase, cancellationToken);
+            diagnostics.MarkCompleted($"resultPhase={resultPhase} status={WorkflowPresentation.ToStatusSlug(result.Status)}");
             return new ContinuePhaseResponse(
                 result.UsId,
                 resultPhase,
@@ -297,6 +303,7 @@ public sealed class SpecForgeApplicationService
         catch (Exception exception)
         {
             await operation.FailAsync(currentPhase.CurrentPhase, exception.Message, cancellationToken);
+            diagnostics.MarkFailed(exception);
             throw;
         }
     }

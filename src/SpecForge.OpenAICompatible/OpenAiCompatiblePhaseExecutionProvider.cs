@@ -114,6 +114,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
 
         var modelSelection = ResolveAutoClarificationAnswersModelSelection();
+        SpecForgeDiagnostics.Log(
+            $"[provider.auto_clarification] usId={context.UsId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={modelSelection.Model} questions={session.Items.Count}");
         var prompt = await BuildAutoClarificationAnswersPromptAsync(context, session, cancellationToken);
         if (string.Equals(modelSelection.ProviderKind, CodexProviderKind, StringComparison.Ordinal))
         {
@@ -168,8 +170,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     {
         promptCatalog.EnsureRepositoryIsInitialized(context.WorkspaceRoot);
 
-        var prompt = await BuildEffectivePromptAsync(context, cancellationToken);
         var modelSelection = ResolveModelSelection(context.PhaseId);
+        SpecForgeDiagnostics.Log(
+            $"[provider.execute] usId={context.UsId} phase={context.PhaseId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={modelSelection.Model} baseUrl={(string.IsNullOrWhiteSpace(modelSelection.BaseUrl) ? "(none)" : modelSelection.BaseUrl)}");
+        var prompt = await BuildEffectivePromptAsync(context, cancellationToken);
+        SpecForgeDiagnostics.Log(
+            $"[provider.execute] usId={context.UsId} phase={context.PhaseId} promptBuilt systemChars={prompt.SystemPrompt.Length} userChars={prompt.UserPrompt.Length} warnings={(prompt.Warnings?.Count ?? 0)}");
         if (string.Equals(modelSelection.ProviderKind, CodexProviderKind, StringComparison.Ordinal))
         {
             return await ExecuteViaCodexCliAsync(context, prompt, modelSelection, cancellationToken);
@@ -263,12 +269,21 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         StructuredOutputResponseFormat? responseFormat,
         CancellationToken cancellationToken)
     {
+        await using var diagnostics = SpecForgeDiagnostics.StartProgressScope(
+            $"[provider.http] provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={modelSelection.Model}",
+            interval: TimeSpan.FromSeconds(20));
+        SpecForgeDiagnostics.Log(
+            $"[provider.http] sending model={modelSelection.Model} endpoint={modelSelection.BaseUrl.TrimEnd('/')}/chat/completions temperature={temperature:0.###} responseFormat={responseFormat?.Type ?? "(none)"}");
         var request = BuildRequest(modelSelection, systemPrompt, userPrompt, temperature, responseFormat);
         using var response = await httpClient.SendAsync(request, cancellationToken);
+        SpecForgeDiagnostics.Log(
+            $"[provider.http] response received status={(int)response.StatusCode} model={modelSelection.Model}");
         var payload = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
+            diagnostics.MarkFailed(new InvalidOperationException(
+                $"OpenAI-compatible provider call failed with status {(int)response.StatusCode}: {payload}"));
             throw new InvalidOperationException(
                 $"OpenAI-compatible provider call failed with status {(int)response.StatusCode}: {payload}");
         }
@@ -279,6 +294,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .GetProperty("message")
             .GetProperty("content")
             .GetString();
+        diagnostics.MarkCompleted($"payloadChars={payload.Length} contentChars={(content ?? string.Empty).Length}");
         return (content ?? string.Empty, TryReadUsage(document.RootElement));
     }
 
@@ -688,6 +704,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         ResolvedModelSelection modelSelection,
         CancellationToken cancellationToken)
     {
+        SpecForgeDiagnostics.Log(
+            $"[provider.codex] usId={context.UsId} phase={context.PhaseId} profile={modelSelection.ProfileName ?? "default"} model={(string.IsNullOrWhiteSpace(modelSelection.Model) ? "(default)" : modelSelection.Model)}");
         if (!StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var contract))
         {
             throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract for Codex execution.");
@@ -740,7 +758,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             throw new InvalidOperationException("Codex CLI is not available for native provider execution.");
         }
 
-        return await codexCliRunner.ExecuteAsync(
+        await using var diagnostics = SpecForgeDiagnostics.StartProgressScope(
+            $"[provider.codex.cli] profile={modelSelection.ProfileName ?? "default"} model={(string.IsNullOrWhiteSpace(modelSelection.Model) ? "(default)" : modelSelection.Model)} sandbox={sandboxMode}",
+            interval: TimeSpan.FromSeconds(20));
+        var response = await codexCliRunner.ExecuteAsync(
             new CodexCliInvocation(
                 workspaceRoot,
                 prompt,
@@ -748,6 +769,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 outputSchemaJson,
                 sandboxMode),
             cancellationToken);
+        diagnostics.MarkCompleted($"responseChars={response.Length}");
+        return response;
     }
 
     private static string BuildCodexPrompt(PhaseExecutionContext context, EffectivePrompt prompt)
