@@ -4,6 +4,9 @@ namespace SpecForge.Domain.Application;
 
 public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvider
 {
+    public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+        new(phaseId, CanExecute: true);
+
     public async Task<PhaseExecutionResult> ExecuteAsync(
         PhaseExecutionContext context,
         CancellationToken cancellationToken = default)
