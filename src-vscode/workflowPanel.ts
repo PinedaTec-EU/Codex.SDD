@@ -253,7 +253,7 @@ class WorkflowPanelController {
           return;
         }
         appendSpecForgeLog(`Continuing workflow '${this.summary.usId}' from phase '${this.summary.currentPhase}'.`);
-        await this.continueCurrentPhaseAsync();
+        await this.startManualContinueAsync();
         return;
       case "approve":
         await this.approveCurrentPhaseAsync(message.baseBranch, message.workBranch);
@@ -335,6 +335,41 @@ class WorkflowPanelController {
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' continueCurrentPhaseAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
     await this.refreshAsync("continueCurrentPhaseAsync");
+  }
+
+  private async startManualContinueAsync(): Promise<void> {
+    appendSpecForgeDebugLog(
+      `Workflow '${this.summary.usId}' entering transient playing state for manual continue from '${this.summary.currentPhase}'.`
+    );
+    showSpecForgeOutput(true);
+    if (this.playbackStartedAtMs === null) {
+      this.playbackStartedAtMs = Date.now();
+    }
+    this.playbackState = "playing";
+    this.setTransientExecutionPhase(this.deriveInitialExecutionPhaseId());
+    await this.renderCachedWorkflowAsync("command:continue:started");
+
+    try {
+      await this.continueCurrentPhaseAsync();
+    } catch (error) {
+      if (this.playbackState === "playing") {
+        this.playbackState = "idle";
+        this.clearTransientExecutionPhase();
+      }
+      appendSpecForgeDebugLog(
+        `Workflow '${this.summary.usId}' left transient playing state after manual continue failure.`
+      );
+      throw error;
+    }
+
+    if (this.playbackState === "playing") {
+      this.playbackState = "idle";
+      this.clearTransientExecutionPhase();
+      appendSpecForgeDebugLog(
+        `Workflow '${this.summary.usId}' left transient playing state after manual continue completion.`
+      );
+      await this.refreshAsync("command:continue:completed");
+    }
   }
 
   private async submitClarificationAnswersAsync(answers: string[]): Promise<void> {
