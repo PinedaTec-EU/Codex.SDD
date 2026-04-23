@@ -1774,10 +1774,10 @@ export function buildWorkflowHtml(
     }
     .phase-node-header-main {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       align-items: center;
       gap: 10px;
-      min-width: 52px;
+      min-width: 0;
     }
     .phase-current-rail {
       position: absolute;
@@ -1868,6 +1868,10 @@ export function buildWorkflowHtml(
     .phase-node-header .phase-priority-tags {
       margin-top: 0;
       justify-content: center;
+      flex-wrap: nowrap;
+    }
+    .phase-node-header .phase-tag.approval {
+      line-height: 1;
     }
     .phase-slug {
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -3697,7 +3701,7 @@ function buildPhaseGraph(
         <div class="phase-node-header">
           <div class="phase-node-header-main">
             <span class="phase-index">${index + 1}</span>
-            ${phase.requiresApproval ? `<div class="phase-priority-tags"><span class="phase-tag approval">approval</span></div>` : ""}
+            ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
           </div>
           <span class="phase-status-dot"></span>
         </div>
