@@ -162,7 +162,7 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
 });
 
 test("getSpecForgeSettingsStatus requires at least one model profile", () => {
-  assert.deepEqual(getSpecForgeSettingsStatus({
+  const status = getSpecForgeSettingsStatus({
     modelProfiles: [],
     phaseModelAssignments: {
       defaultProfile: null,
@@ -182,14 +182,15 @@ test("getSpecForgeSettingsStatus requires at least one model profile", () => {
     requireExplicitApprovalBranchAcceptance: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
-  }), {
-    executionConfigured: false,
-    message: "SpecForge.AI needs at least one configured model profile before workflow stages can run."
   });
+
+  assert.equal(status.executionConfigured, false);
+  assert.equal(status.message, "SpecForge.AI needs at least one configured model profile before workflow stages can run.");
+  assert.match(status.diagnostics, /profiles=0/);
 });
 
 test("getSpecForgeSettingsStatus allows a single valid local profile without api key", () => {
-  assert.deepEqual(getSpecForgeSettingsStatus({
+  const status = getSpecForgeSettingsStatus({
     modelProfiles: [
       {
         name: "light",
@@ -217,14 +218,15 @@ test("getSpecForgeSettingsStatus allows a single valid local profile without api
     requireExplicitApprovalBranchAcceptance: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
-  }), {
-    executionConfigured: true,
-    message: null
   });
+
+  assert.equal(status.executionConfigured, true);
+  assert.equal(status.message, null);
+  assert.match(status.diagnostics, /catalog=\[light\{provider=openai-compatible,baseUrl=http:\/\/localhost:11434\/v1,model=llama3\.1,apiKey=empty\}\]/);
 });
 
 test("getSpecForgeSettingsStatus still requires an api key for remote profiles", () => {
-  assert.deepEqual(getSpecForgeSettingsStatus({
+  const status = getSpecForgeSettingsStatus({
     modelProfiles: [
       {
         name: "light",
@@ -252,14 +254,15 @@ test("getSpecForgeSettingsStatus still requires an api key for remote profiles",
     requireExplicitApprovalBranchAcceptance: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
-  }), {
-    executionConfigured: false,
-    message: "SpecForge.AI model profile 'light' needs an API key for a remote base URL."
   });
+
+  assert.equal(status.executionConfigured, false);
+  assert.equal(status.message, "SpecForge.AI model profile 'light' needs an API key for a remote base URL.");
+  assert.match(status.diagnostics, /apiKey=empty/);
 });
 
 test("getSpecForgeSettingsStatus accepts profiles using the default provider", () => {
-  assert.deepEqual(getSpecForgeSettingsStatus({
+  const status = getSpecForgeSettingsStatus({
     modelProfiles: [
       {
         name: "light",
@@ -287,14 +290,15 @@ test("getSpecForgeSettingsStatus accepts profiles using the default provider", (
     requireExplicitApprovalBranchAcceptance: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
-  }), {
-    executionConfigured: true,
-    message: null
   });
+
+  assert.equal(status.executionConfigured, true);
+  assert.equal(status.message, null);
+  assert.match(status.diagnostics, /effective\.default=<unset>/);
 });
 
 test("getSpecForgeSettingsStatus rejects unsupported providers", () => {
-  assert.deepEqual(getSpecForgeSettingsStatus({
+  const status = getSpecForgeSettingsStatus({
     modelProfiles: [
       {
         name: "light",
@@ -322,14 +326,15 @@ test("getSpecForgeSettingsStatus rejects unsupported providers", () => {
     requireExplicitApprovalBranchAcceptance: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
-  }), {
-    executionConfigured: false,
-    message: "SpecForge.AI model profile 'light' uses unsupported provider 'anthropic'."
   });
+
+  assert.equal(status.executionConfigured, false);
+  assert.equal(status.message, "SpecForge.AI model profile 'light' uses unsupported provider 'anthropic'.");
+  assert.match(status.diagnostics, /provider=anthropic/);
 });
 
 test("getSpecForgeSettingsStatus validates named profile assignments", () => {
-  assert.deepEqual(getSpecForgeSettingsStatus({
+  const status = getSpecForgeSettingsStatus({
     modelProfiles: [
       {
         name: "light",
@@ -357,10 +362,11 @@ test("getSpecForgeSettingsStatus validates named profile assignments", () => {
     requireExplicitApprovalBranchAcceptance: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
-  }), {
-    executionConfigured: false,
-    message: "SpecForge.AI phase model assignment 'default' references unknown profile 'missing'."
   });
+
+  assert.equal(status.executionConfigured, false);
+  assert.equal(status.message, "SpecForge.AI phase model assignment 'default' references unknown profile 'missing'.");
+  assert.match(status.diagnostics, /phaseModels\.default=missing/);
 });
 
 test("readSpecForgeSettings falls back to balanced clarification tolerance for unsupported values", () => {

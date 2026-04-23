@@ -40,6 +40,7 @@ const vscode = __importStar(require("vscode"));
 const extensionSettings_1 = require("./extensionSettings");
 const explorerModel_1 = require("./explorerModel");
 const outputChannel_1 = require("./outputChannel");
+const repoPromptsStatus_1 = require("./repoPromptsStatus");
 const runtimeVersion_1 = require("./runtimeVersion");
 const specsExplorer_1 = require("./specsExplorer");
 const sidebarViewContent_1 = require("./sidebarViewContent");
@@ -349,8 +350,8 @@ class SidebarViewProvider {
         if (!workspaceRoot) {
             return;
         }
-        const promptsInitialized = await hasInitializedRepoPromptsAsync(workspaceRoot);
-        if (!promptsInitialized) {
+        const promptsStatus = await (0, repoPromptsStatus_1.getRepoPromptsStatusAsync)(workspaceRoot);
+        if (!promptsStatus.initialized) {
             await vscode.commands.executeCommand("specForge.initializeRepoPrompts", false);
             return;
         }
@@ -374,6 +375,7 @@ class SidebarViewProvider {
                 showCreateForm: false,
                 busyMessage: this.busyMessage,
                 promptsInitialized: false,
+                promptsMessage: null,
                 settingsConfigured: settingsStatus.executionConfigured,
                 settingsMessage: settingsStatus.message,
                 starredUserStoryId: null,
@@ -394,15 +396,22 @@ class SidebarViewProvider {
             ? await (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot).listUserStories()
             : [];
         const categories = await getUserStoryCategoriesAsync(workspaceRoot);
-        const promptsInitialized = await hasInitializedRepoPromptsAsync(workspaceRoot);
+        const promptsStatus = await (0, repoPromptsStatus_1.getRepoPromptsStatusAsync)(workspaceRoot);
         const settingsStatus = (0, extensionSettings_1.getSpecForgeSettingsStatus)((0, extensionSettings_1.getSpecForgeSettings)());
+        if (!settingsStatus.executionConfigured) {
+            (0, outputChannel_1.appendSpecForgeLog)(`Sidebar settings warning for '${workspaceRoot}': ${settingsStatus.message}. Diagnostics: ${settingsStatus.diagnostics}`);
+        }
+        if (!promptsStatus.initialized) {
+            (0, outputChannel_1.appendSpecForgeLog)(`Sidebar prompt bootstrap warning for '${workspaceRoot}': ${promptsStatus.message ?? "missing prompt files"}. Checked: ${promptsStatus.checkedPaths.join(", ")}`);
+        }
         const preferences = await (0, userWorkspacePreferences_1.readUserWorkspacePreferences)(workspaceRoot);
         const runtimeVersion = await (0, runtimeVersion_1.readRuntimeVersionAsync)();
         this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
             hasWorkspace: true,
             showCreateForm: this.showCreateForm,
             busyMessage: this.busyMessage,
-            promptsInitialized,
+            promptsInitialized: promptsStatus.initialized,
+            promptsMessage: promptsStatus.message,
             settingsConfigured: settingsStatus.executionConfigured,
             settingsMessage: settingsStatus.message,
             starredUserStoryId: preferences.starredUserStoryId,
@@ -429,6 +438,7 @@ class SidebarViewProvider {
                 showCreateForm: false,
                 busyMessage: this.busyMessage,
                 promptsInitialized: false,
+                promptsMessage: null,
                 settingsConfigured: false,
                 settingsMessage: "SpecForge.AI settings could not be evaluated.",
                 starredUserStoryId: null,
@@ -491,11 +501,6 @@ async function hasPersistedUserStoriesAsync(workspaceRoot) {
         }
     }
     return false;
-}
-async function hasInitializedRepoPromptsAsync(workspaceRoot) {
-    const configPath = path.join(workspaceRoot, ".specs", "config.yaml");
-    const promptsPath = path.join(workspaceRoot, ".specs", "prompts", "prompts.yaml");
-    return await pathExistsAsync(configPath) && await pathExistsAsync(promptsPath);
 }
 async function openTextDocument(filePath) {
     const document = await vscode.workspace.openTextDocument(filePath);

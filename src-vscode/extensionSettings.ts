@@ -15,6 +15,7 @@ export interface SpecForgeSettings {
 export interface SpecForgeSettingsStatus {
   readonly executionConfigured: boolean;
   readonly message: string | null;
+  readonly diagnostics: string;
 }
 
 export interface SpecForgeModelProfile {
@@ -82,7 +83,8 @@ export function getSpecForgeSettingsStatus(settings: SpecForgeSettings): SpecFor
   if (settings.modelProfiles.length === 0) {
     return {
       executionConfigured: false,
-      message: "SpecForge.AI needs at least one configured model profile before workflow stages can run."
+      message: "SpecForge.AI needs at least one configured model profile before workflow stages can run.",
+      diagnostics: buildSettingsDiagnostics(settings)
     };
   }
 
@@ -97,6 +99,7 @@ const defaultModelProvider = "openai-compatible";
 
 function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSettingsStatus {
   const profilesByName = new Map<string, SpecForgeModelProfile>();
+  const diagnostics = buildSettingsDiagnostics(settings);
 
   for (const profile of settings.modelProfiles) {
     const duplicate = profilesByName.has(profile.name);
@@ -105,42 +108,48 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
     if (!profile.name) {
       return {
         executionConfigured: false,
-        message: "SpecForge.AI found a model profile without a name."
+        message: "SpecForge.AI found a model profile without a name.",
+        diagnostics
       };
     }
 
     if (profile.provider !== "openai-compatible") {
       return {
         executionConfigured: false,
-        message: `SpecForge.AI model profile '${profile.name}' uses unsupported provider '${profile.provider}'.`
+        message: `SpecForge.AI model profile '${profile.name}' uses unsupported provider '${profile.provider}'.`,
+        diagnostics
       };
     }
 
     if (duplicate) {
       return {
         executionConfigured: false,
-        message: `SpecForge.AI found duplicate model profile name '${profile.name}'.`
+        message: `SpecForge.AI found duplicate model profile name '${profile.name}'.`,
+        diagnostics
       };
     }
 
     if (!profile.baseUrl) {
       return {
         executionConfigured: false,
-        message: `SpecForge.AI model profile '${profile.name}' is missing base URL.`
+        message: `SpecForge.AI model profile '${profile.name}' is missing base URL.`,
+        diagnostics
       };
     }
 
     if (!profile.model) {
       return {
         executionConfigured: false,
-        message: `SpecForge.AI model profile '${profile.name}' is missing model.`
+        message: `SpecForge.AI model profile '${profile.name}' is missing model.`,
+        diagnostics
       };
     }
 
     if (!profile.apiKey && !isLocalOpenAiCompatibleEndpoint(profile.baseUrl)) {
       return {
         executionConfigured: false,
-        message: `SpecForge.AI model profile '${profile.name}' needs an API key for a remote base URL.`
+        message: `SpecForge.AI model profile '${profile.name}' needs an API key for a remote base URL.`,
+        diagnostics
       };
     }
   }
@@ -151,7 +160,8 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
   if (!defaultProfileName) {
     return {
       executionConfigured: false,
-      message: "SpecForge.AI needs a default phase model assignment when model profiles are configured."
+      message: "SpecForge.AI needs a default phase model assignment when model profiles are configured.",
+      diagnostics
     };
   }
 
@@ -165,15 +175,33 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
     if (profileName && !profilesByName.has(profileName)) {
       return {
         executionConfigured: false,
-        message: `SpecForge.AI phase model assignment '${assignmentName}' references unknown profile '${profileName}'.`
+        message: `SpecForge.AI phase model assignment '${assignmentName}' references unknown profile '${profileName}'.`,
+        diagnostics
       };
     }
   }
 
   return {
     executionConfigured: true,
-    message: null
+    message: null,
+    diagnostics
   };
+}
+
+function buildSettingsDiagnostics(settings: SpecForgeSettings): string {
+  const profiles = settings.modelProfiles.map((profile) =>
+    `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"},apiKey=${profile.apiKey ? "set" : "empty"}}`);
+
+  return [
+    `profiles=${settings.modelProfiles.length}`,
+    `catalog=[${profiles.join(", ")}]`,
+    `phaseModels.default=${settings.phaseModelAssignments.defaultProfile ?? "<unset>"}`,
+    `phaseModels.implementation=${settings.phaseModelAssignments.implementationProfile ?? "<unset>"}`,
+    `phaseModels.review=${settings.phaseModelAssignments.reviewProfile ?? "<unset>"}`,
+    `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
+    `effective.implementation=${settings.effectivePhaseModelAssignments.implementationProfileName ?? "<unset>"}`,
+    `effective.review=${settings.effectivePhaseModelAssignments.reviewProfileName ?? "<unset>"}`
+  ].join("; ");
 }
 
 function normalizeOptional(value: string | undefined): string | null {

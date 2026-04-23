@@ -11,6 +11,7 @@ export interface SidebarViewModel {
   readonly showCreateForm: boolean;
   readonly busyMessage: string | null;
   readonly promptsInitialized: boolean;
+  readonly promptsMessage?: string | null;
   readonly settingsConfigured: boolean;
   readonly settingsMessage: string | null;
   readonly starredUserStoryId: string | null;
@@ -45,7 +46,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
   }
 
   const promptsBootstrapMarkup = !model.promptsInitialized
-    ? buildPromptsBootstrapMarkup(model.userStories.length === 0)
+    ? buildPromptsBootstrapMarkup(model.userStories.length === 0, model.promptsMessage ?? null)
     : "";
 
   if (model.userStories.length === 0 && !model.showCreateForm && !model.promptsInitialized) {
@@ -412,7 +413,7 @@ function buildCompactActions(model: SidebarViewModel): string {
   `;
 }
 
-function buildPromptsBootstrapMarkup(isFirstRun: boolean): string {
+function buildPromptsBootstrapMarkup(isFirstRun: boolean, promptsMessage: string | null): string {
   return `
     <section class="action-card bootstrap-card">
       <div class="section-header">
@@ -422,6 +423,7 @@ function buildPromptsBootstrapMarkup(isFirstRun: boolean): string {
         </div>
       </div>
       <p class="copy">SpecForge.AI needs the repo prompt set under <code>.specs/prompts/</code> before the sidebar can create or refresh workflow intake.</p>
+      ${promptsMessage ? `<p class="copy">${escapeHtml(promptsMessage)}</p>` : ""}
       <button class="primary-action" data-command="initializeRepoPrompts">Bootstrap Prompts</button>
     </section>
   `;

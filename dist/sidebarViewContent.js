@@ -20,7 +20,7 @@ function buildSidebarHtml(model) {
     `, isBusy, model.createFormResetToken ?? 0);
     }
     const promptsBootstrapMarkup = !model.promptsInitialized
-        ? buildPromptsBootstrapMarkup(model.userStories.length === 0)
+        ? buildPromptsBootstrapMarkup(model.userStories.length === 0, model.promptsMessage ?? null)
         : "";
     if (model.userStories.length === 0 && !model.showCreateForm && !model.promptsInitialized) {
         return wrapHtml(`
@@ -369,7 +369,7 @@ function buildCompactActions(model) {
     </div>
   `;
 }
-function buildPromptsBootstrapMarkup(isFirstRun) {
+function buildPromptsBootstrapMarkup(isFirstRun, promptsMessage) {
     return `
     <section class="action-card bootstrap-card">
       <div class="section-header">
@@ -379,6 +379,7 @@ function buildPromptsBootstrapMarkup(isFirstRun) {
         </div>
       </div>
       <p class="copy">SpecForge.AI needs the repo prompt set under <code>.specs/prompts/</code> before the sidebar can create or refresh workflow intake.</p>
+      ${promptsMessage ? `<p class="copy">${escapeHtml(promptsMessage)}</p>` : ""}
       <button class="primary-action" data-command="initializeRepoPrompts">Bootstrap Prompts</button>
     </section>
   `;

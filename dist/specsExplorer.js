@@ -58,6 +58,7 @@ const utils_1 = require("./utils");
 const userActor_1 = require("./userActor");
 const workflowPanel_1 = require("./workflowPanel");
 const explorerModel_1 = require("./explorerModel");
+const repoPromptsStatus_1 = require("./repoPromptsStatus");
 const backendClients = new Map();
 const REGRESSION_TARGETS = {
     review: ["implementation", "technical-design", "refinement"],
@@ -97,10 +98,12 @@ class UserStoryCategoryTreeItem extends vscode.TreeItem {
 }
 class RepoPromptSetupTreeItem extends vscode.TreeItem {
     contextValue = "repoPromptSetup";
-    constructor() {
+    constructor(message) {
         super("Repo Prompts Not Initialized", vscode.TreeItemCollapsibleState.None);
         this.description = "required for real providers";
-        this.tooltip = "Initialize .specs/config.yaml and .specs/prompts/ for provider-backed phase execution.";
+        this.tooltip = message
+            ? `Initialize .specs/config.yaml and .specs/prompts/ for model-backed phase execution.\n${message}`
+            : "Initialize .specs/config.yaml and .specs/prompts/ for model-backed phase execution.";
         this.iconPath = new vscode.ThemeIcon("warning");
         this.command = {
             command: "specForge.initializeRepoPrompts",
@@ -154,11 +157,13 @@ class SpecsExplorerProvider {
             return [];
         }
         const items = [];
-        if (await hasInitializedRepoPromptsAsync(workspaceRoot)) {
+        const promptsStatus = await (0, repoPromptsStatus_1.getRepoPromptsStatusAsync)(workspaceRoot);
+        if (promptsStatus.initialized) {
             items.push(new RepoPromptTemplatesTreeItem());
         }
         else {
-            items.push(new RepoPromptSetupTreeItem());
+            (0, outputChannel_1.appendSpecForgeLog)(`[explorer.getChildren] prompt bootstrap warning for '${workspaceRoot}': ${promptsStatus.message ?? "missing prompt files"}. Checked: ${promptsStatus.checkedPaths.join(", ")}`);
+            items.push(new RepoPromptSetupTreeItem(promptsStatus.message));
         }
         for (const group of (0, explorerModel_1.groupUserStoriesByCategory)(summaries)) {
             items.push(new UserStoryCategoryTreeItem(group.category, group.summaries.length));
@@ -460,11 +465,6 @@ async function getUserStoryCategoriesAsync(workspaceRoot) {
     const yaml = await fs.promises.readFile(configPath, "utf8");
     const categories = (0, explorerModel_1.parseYamlSequence)(yaml, "categories");
     return categories.length === 0 ? explorerModel_1.DEFAULT_USER_STORY_CATEGORIES : categories;
-}
-async function hasInitializedRepoPromptsAsync(workspaceRoot) {
-    const hasConfig = await pathExistsAsync(path.join(workspaceRoot, ".specs", "config.yaml"));
-    const hasManifest = await pathExistsAsync(path.join(workspaceRoot, ".specs", "prompts", "prompts.yaml"));
-    return hasConfig && hasManifest;
 }
 async function nextUserStoryId(workspaceRoot) {
     const summaries = await getBackendClient(workspaceRoot).listUserStories();

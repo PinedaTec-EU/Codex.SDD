@@ -5,6 +5,7 @@ import type { UserStorySummary } from "./backendClient";
 import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSettings";
 import { DEFAULT_USER_STORY_CATEGORIES, nextUserStoryIdFromSummaries, parseYamlSequence } from "./explorerModel";
 import { appendSpecForgeLog } from "./outputChannel";
+import { getRepoPromptsStatusAsync } from "./repoPromptsStatus";
 import { readRuntimeVersionAsync } from "./runtimeVersion";
 import { getOrCreateBackendClient } from "./specsExplorer";
 import { buildSidebarHtml } from "./sidebarViewContent";
@@ -405,8 +406,8 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    const promptsInitialized = await hasInitializedRepoPromptsAsync(workspaceRoot);
-    if (!promptsInitialized) {
+    const promptsStatus = await getRepoPromptsStatusAsync(workspaceRoot);
+    if (!promptsStatus.initialized) {
       await vscode.commands.executeCommand("specForge.initializeRepoPrompts", false);
       return;
     }
@@ -439,6 +440,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         showCreateForm: false,
         busyMessage: this.busyMessage,
         promptsInitialized: false,
+        promptsMessage: null,
         settingsConfigured: settingsStatus.executionConfigured,
         settingsMessage: settingsStatus.message,
         starredUserStoryId: null,
@@ -460,15 +462,22 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       ? await getOrCreateBackendClient(workspaceRoot).listUserStories()
       : [];
     const categories = await getUserStoryCategoriesAsync(workspaceRoot);
-    const promptsInitialized = await hasInitializedRepoPromptsAsync(workspaceRoot);
+    const promptsStatus = await getRepoPromptsStatusAsync(workspaceRoot);
     const settingsStatus = getSpecForgeSettingsStatus(getSpecForgeSettings());
+    if (!settingsStatus.executionConfigured) {
+      appendSpecForgeLog(`Sidebar settings warning for '${workspaceRoot}': ${settingsStatus.message}. Diagnostics: ${settingsStatus.diagnostics}`);
+    }
+    if (!promptsStatus.initialized) {
+      appendSpecForgeLog(`Sidebar prompt bootstrap warning for '${workspaceRoot}': ${promptsStatus.message ?? "missing prompt files"}. Checked: ${promptsStatus.checkedPaths.join(", ")}`);
+    }
     const preferences = await readUserWorkspacePreferences(workspaceRoot);
     const runtimeVersion = await readRuntimeVersionAsync();
     this.webviewView.webview.html = buildSidebarHtml({
       hasWorkspace: true,
       showCreateForm: this.showCreateForm,
       busyMessage: this.busyMessage,
-      promptsInitialized,
+      promptsInitialized: promptsStatus.initialized,
+      promptsMessage: promptsStatus.message,
       settingsConfigured: settingsStatus.executionConfigured,
       settingsMessage: settingsStatus.message,
       starredUserStoryId: preferences.starredUserStoryId,
@@ -496,6 +505,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         showCreateForm: false,
         busyMessage: this.busyMessage,
         promptsInitialized: false,
+        promptsMessage: null,
         settingsConfigured: false,
         settingsMessage: "SpecForge.AI settings could not be evaluated.",
         starredUserStoryId: null,
@@ -565,12 +575,6 @@ async function hasPersistedUserStoriesAsync(workspaceRoot: string): Promise<bool
   }
 
   return false;
-}
-
-async function hasInitializedRepoPromptsAsync(workspaceRoot: string): Promise<boolean> {
-  const configPath = path.join(workspaceRoot, ".specs", "config.yaml");
-  const promptsPath = path.join(workspaceRoot, ".specs", "prompts", "prompts.yaml");
-  return await pathExistsAsync(configPath) && await pathExistsAsync(promptsPath);
 }
 
 async function openTextDocument(filePath: string): Promise<void> {

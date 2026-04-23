@@ -188,6 +188,7 @@ test("buildSidebarHtml hides the phase rail for completed user stories", () => {
 test("buildSidebarHtml shows a bootstrap block above the backlog when prompts are missing", () => {
   const html = buildSidebarHtml(model({
     promptsInitialized: false,
+    promptsMessage: "Missing 2 required prompt file(s): .specs/prompts/prompts.yaml, .specs/prompts/shared/system.md.",
     categories: ["workflow"],
     userStories: [{
       usId: "US-0001",
@@ -203,6 +204,7 @@ test("buildSidebarHtml shows a bootstrap block above the backlog when prompts ar
 
   assert.match(html, /Initialize missing repo prompts/);
   assert.match(html, /Bootstrap Prompts/);
+  assert.match(html, /Missing 2 required prompt file\(s\)/);
   assert.match(html, /aria-label="Initialize repo prompts before creating a user story"/);
 });
 

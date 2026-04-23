@@ -737,6 +737,9 @@ class WorkflowPanelController {
     const sourceText = await readArtifactContentAsync(workflow.mainArtifactPath) ?? "";
     const settings = getSpecForgeSettings();
     const settingsStatus = getSpecForgeSettingsStatus(settings);
+    if (!settingsStatus.executionConfigured) {
+      appendSpecForgeLog(`Workflow settings warning for '${this.workspaceRoot}' (${workflow.usId}): ${settingsStatus.message}. Diagnostics: ${settingsStatus.diagnostics}`);
+    }
     const contextSuggestions = settings.contextSuggestionsEnabled && workflow.currentPhase === "clarification"
       ? await suggestContextFiles(this.workspaceRoot, workflow, sourceText)
       : [];

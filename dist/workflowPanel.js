@@ -605,6 +605,9 @@ class WorkflowPanelController {
         const sourceText = await readArtifactContentAsync(workflow.mainArtifactPath) ?? "";
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
         const settingsStatus = (0, extensionSettings_1.getSpecForgeSettingsStatus)(settings);
+        if (!settingsStatus.executionConfigured) {
+            (0, outputChannel_1.appendSpecForgeLog)(`Workflow settings warning for '${this.workspaceRoot}' (${workflow.usId}): ${settingsStatus.message}. Diagnostics: ${settingsStatus.diagnostics}`);
+        }
         const contextSuggestions = settings.contextSuggestionsEnabled && workflow.currentPhase === "clarification"
             ? await (0, contextSuggestions_1.suggestContextFiles)(this.workspaceRoot, workflow, sourceText)
             : [];

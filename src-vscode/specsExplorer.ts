@@ -19,6 +19,7 @@ import {
   normalizeCategory,
   parseYamlSequence
 } from "./explorerModel";
+import { getRepoPromptsStatusAsync } from "./repoPromptsStatus";
 
 export type UserStoryTreeItemKind = "userStory" | "userStoryCategory" | "repoPromptSetup" | "repoPromptTemplates";
 const backendClients = new Map<string, SpecForgeBackendClient>();
@@ -61,10 +62,12 @@ class UserStoryCategoryTreeItem extends vscode.TreeItem {
 class RepoPromptSetupTreeItem extends vscode.TreeItem {
   public readonly contextValue: UserStoryTreeItemKind = "repoPromptSetup";
 
-  public constructor() {
+  public constructor(message?: string | null) {
     super("Repo Prompts Not Initialized", vscode.TreeItemCollapsibleState.None);
     this.description = "required for real providers";
-    this.tooltip = "Initialize .specs/config.yaml and .specs/prompts/ for provider-backed phase execution.";
+    this.tooltip = message
+      ? `Initialize .specs/config.yaml and .specs/prompts/ for model-backed phase execution.\n${message}`
+      : "Initialize .specs/config.yaml and .specs/prompts/ for model-backed phase execution.";
     this.iconPath = new vscode.ThemeIcon("warning");
     this.command = {
       command: "specForge.initializeRepoPrompts",
@@ -128,10 +131,12 @@ export class SpecsExplorerProvider implements vscode.TreeDataProvider<vscode.Tre
     }
 
     const items: vscode.TreeItem[] = [];
-    if (await hasInitializedRepoPromptsAsync(workspaceRoot)) {
+    const promptsStatus = await getRepoPromptsStatusAsync(workspaceRoot);
+    if (promptsStatus.initialized) {
       items.push(new RepoPromptTemplatesTreeItem());
     } else {
-      items.push(new RepoPromptSetupTreeItem());
+      appendSpecForgeLog(`[explorer.getChildren] prompt bootstrap warning for '${workspaceRoot}': ${promptsStatus.message ?? "missing prompt files"}. Checked: ${promptsStatus.checkedPaths.join(", ")}`);
+      items.push(new RepoPromptSetupTreeItem(promptsStatus.message));
     }
 
     for (const group of groupUserStoriesByCategory(summaries)) {
@@ -518,12 +523,6 @@ async function getUserStoryCategoriesAsync(workspaceRoot: string): Promise<reado
   const yaml = await fs.promises.readFile(configPath, "utf8");
   const categories = parseYamlSequence(yaml, "categories");
   return categories.length === 0 ? DEFAULT_USER_STORY_CATEGORIES : categories;
-}
-
-async function hasInitializedRepoPromptsAsync(workspaceRoot: string): Promise<boolean> {
-  const hasConfig = await pathExistsAsync(path.join(workspaceRoot, ".specs", "config.yaml"));
-  const hasManifest = await pathExistsAsync(path.join(workspaceRoot, ".specs", "prompts", "prompts.yaml"));
-  return hasConfig && hasManifest;
 }
 
 async function nextUserStoryId(workspaceRoot: string): Promise<string> {
