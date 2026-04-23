@@ -294,11 +294,23 @@ export async function continuePhase(summary?: UserStorySummary): Promise<void> {
       await openTextDocument(result.generatedArtifactPath);
     }
 
+    logExecutionWarnings(summary.usId, result.execution);
+
     void vscode.window.showInformationMessage(
       `${summary.usId} advanced to ${result.currentPhase} with status ${result.status}.`
     );
   } catch (error) {
     void vscode.window.showErrorMessage(asErrorMessage(error));
+  }
+}
+
+function logExecutionWarnings(usId: string, execution?: { readonly warnings?: readonly string[] | null } | null): void {
+  if (!execution?.warnings || execution.warnings.length === 0) {
+    return;
+  }
+
+  for (const warning of execution.warnings) {
+    appendSpecForgeLog(`Workflow '${usId}' system prompt warning: ${warning}`);
   }
 }
 

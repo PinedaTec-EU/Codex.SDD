@@ -1037,6 +1037,14 @@ public sealed class WorkflowRunner
             {
                 builder.AppendLine($"  - base-url: `{execution.BaseUrl}`");
             }
+
+            if (execution.Warnings is { Count: > 0 })
+            {
+                foreach (var warning in execution.Warnings)
+                {
+                    builder.AppendLine($"  - warning: {warning}");
+                }
+            }
         }
 
         if (durationMs is not null)

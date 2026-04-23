@@ -58,10 +58,21 @@ public sealed class RepositoryPromptInitializer
             createdFiles.Add(file.Key);
         }
 
+        if (File.Exists(paths.PromptSystemHashesPath) && !overwrite)
+        {
+            skippedFiles.Add(paths.PromptSystemHashesPath);
+        }
+        else
+        {
+            await PromptSystemHashManifest.WriteAsync(paths, cancellationToken);
+            createdFiles.Add(paths.PromptSystemHashesPath);
+        }
+
         return new InitializeRepoPromptsResult(
             workspaceRoot,
             paths.ConfigFilePath,
             paths.PromptManifestPath,
+            paths.PromptSystemHashesPath,
             createdFiles,
             skippedFiles);
     }

@@ -132,7 +132,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 Execution: new PhaseExecutionMetadata(
                     ProviderKind: CodexProviderKind,
                     Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
-                    ProfileName: modelSelection.ProfileName));
+                    ProfileName: modelSelection.ProfileName,
+                    Warnings: prompt.Warnings));
         }
 
         var (content, usage) = await ExecuteStructuredHttpAsync(
@@ -157,7 +158,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 ProviderKind: modelSelection.ProviderKind,
                 Model: modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
-                BaseUrl: modelSelection.BaseUrl));
+                BaseUrl: modelSelection.BaseUrl,
+                Warnings: prompt.Warnings));
     }
 
     public async Task<PhaseExecutionResult> ExecuteAsync(
@@ -203,7 +205,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 ProviderKind: modelSelection.ProviderKind,
                 Model: modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
-                BaseUrl: modelSelection.BaseUrl));
+                BaseUrl: modelSelection.BaseUrl,
+                Warnings: prompt.Warnings));
     }
 
     private HttpRequestMessage BuildRequest(
@@ -292,6 +295,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var sharedOutputRulesPrompt = await File.ReadAllTextAsync(paths.SharedOutputRulesPromptPath, cancellationToken);
         var phasePrompt = await File.ReadAllTextAsync(phasePromptPath, cancellationToken);
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
+        var warnings = await BuildPromptWarningsAsync(
+            context.WorkspaceRoot,
+            cancellationToken,
+            paths.SharedSystemPromptPath,
+            phaseSystemPromptPath);
         var clarificationLogPath = Path.Combine(Path.GetDirectoryName(context.UserStoryPath)!, "clarification.md");
         var systemPrompt = string.Join(
             $"{Environment.NewLine}{Environment.NewLine}",
@@ -470,7 +478,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine("Return only structured data that conforms to the response schema.");
         }
 
-        return new EffectivePrompt(systemPrompt, builder.ToString().Trim());
+        return new EffectivePrompt(systemPrompt, builder.ToString().Trim(), warnings);
     }
 
     private async Task<EffectivePrompt> BuildAutoClarificationAnswersPromptAsync(
@@ -486,6 +494,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var sharedOutputRulesPrompt = await File.ReadAllTextAsync(paths.SharedOutputRulesPromptPath, cancellationToken);
         var phasePrompt = await File.ReadAllTextAsync(paths.ClarificationExecutePromptPath, cancellationToken);
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
+        var warnings = await BuildPromptWarningsAsync(
+            context.WorkspaceRoot,
+            cancellationToken,
+            paths.SharedSystemPromptPath,
+            paths.ClarificationExecuteSystemPromptPath,
+            paths.AutoClarificationAnswersSystemPromptPath);
         var clarificationLogPath = Path.Combine(Path.GetDirectoryName(context.UserStoryPath)!, "clarification.md");
         var clarificationLog = File.Exists(clarificationLogPath)
             ? await File.ReadAllTextAsync(clarificationLogPath, cancellationToken)
@@ -588,7 +602,49 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine("- Keep the answers in the same order as the pending questions.")
             .AppendLine("- Do not invent facts that are not grounded in the provided context.");
 
-        return new EffectivePrompt(systemPrompt, builder.ToString().Trim());
+        return new EffectivePrompt(systemPrompt, builder.ToString().Trim(), warnings);
+    }
+
+    private static async Task<IReadOnlyCollection<string>?> BuildPromptWarningsAsync(
+        string workspaceRoot,
+        CancellationToken cancellationToken,
+        params string[] promptPaths)
+    {
+        var paths = new PromptFilePaths(workspaceRoot);
+        IReadOnlyDictionary<string, string> expectedHashes;
+
+        try
+        {
+            expectedHashes = await PromptSystemHashManifest.ReadAsync(paths, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            return
+            [
+                $"System prompt hash manifest '{PromptSystemHashManifest.ToRelativePromptPath(workspaceRoot, paths.PromptSystemHashesPath)}' could not be read. Reason: {exception.Message}"
+            ];
+        }
+
+        var warnings = new List<string>();
+        foreach (var promptPath in promptPaths.Distinct(StringComparer.Ordinal))
+        {
+            var relativePath = PromptSystemHashManifest.ToRelativePromptPath(workspaceRoot, promptPath);
+            if (!expectedHashes.TryGetValue(relativePath, out var expectedHash))
+            {
+                warnings.Add($"System prompt '{relativePath}' is missing from the engine hash manifest.");
+                continue;
+            }
+
+            var currentContent = await File.ReadAllTextAsync(promptPath, cancellationToken);
+            var currentHash = PromptSystemHashManifest.ComputeSha256(currentContent);
+            if (!string.Equals(expectedHash, currentHash, StringComparison.Ordinal))
+            {
+                warnings.Add(
+                    $"System prompt '{relativePath}' was modified outside the engine. Expected hash `{expectedHash}`, current hash `{currentHash}`.");
+            }
+        }
+
+        return warnings.Count == 0 ? null : warnings;
     }
 
     private static JsonElement BuildAutoClarificationAnswersSchema()
@@ -667,7 +723,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             Execution: new PhaseExecutionMetadata(
                 ProviderKind: CodexProviderKind,
                 Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
-                ProfileName: modelSelection.ProfileName));
+                ProfileName: modelSelection.ProfileName,
+                Warnings: prompt.Warnings));
     }
 
     private async Task<string> ExecuteStructuredCodexAsync(
@@ -1212,7 +1269,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         };
     }
 
-    private sealed record EffectivePrompt(string SystemPrompt, string UserPrompt);
+    private sealed record EffectivePrompt(string SystemPrompt, string UserPrompt, IReadOnlyCollection<string>? Warnings = null);
 
     private sealed record AutoClarificationAnswersDocument(
         bool CanResolve,

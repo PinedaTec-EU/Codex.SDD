@@ -12,6 +12,7 @@ internal sealed class RepositoryPromptCatalog
         {
             paths.ConfigFilePath,
             paths.PromptManifestPath,
+            paths.PromptSystemHashesPath,
             paths.SharedSystemPromptPath,
             paths.SharedStylePromptPath,
             paths.SharedOutputRulesPromptPath,

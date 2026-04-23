@@ -324,6 +324,7 @@ class WorkflowPanelController {
     appendSpecForgeLog(
       `Workflow '${this.summary.usId}' advanced from '${previousPhase}' to '${result.currentPhase}' with status '${result.status}'.${executionSummary}${usageSummary}`
     );
+    this.logExecutionWarnings(result.execution);
     this.summary = {
       ...this.summary,
       currentPhase: result.currentPhase,
@@ -358,6 +359,7 @@ class WorkflowPanelController {
     appendSpecForgeLog(
       `Workflow '${this.summary.usId}' regenerated phase '${result.currentPhase}' after human input.${result.execution ? ` Model: ${result.execution.profileName ? `${result.execution.profileName} / ` : ""}${result.execution.model}.` : ""}`
     );
+    this.logExecutionWarnings(result.execution);
     this.summary = {
       ...this.summary,
       currentPhase: result.currentPhase,
@@ -396,6 +398,16 @@ class WorkflowPanelController {
 
   private isExecutionConfigured(): boolean {
     return getSpecForgeSettingsStatus(getSpecForgeSettings()).executionConfigured;
+  }
+
+  private logExecutionWarnings(execution?: { readonly warnings?: readonly string[] | null } | null): void {
+    if (!execution?.warnings || execution.warnings.length === 0) {
+      return;
+    }
+
+    for (const warning of execution.warnings) {
+      appendSpecForgeLog(`Workflow '${this.summary.usId}' system prompt warning: ${warning}`);
+    }
   }
 
   private async attachFilesAsync(kind: "context" | "attachment"): Promise<void> {

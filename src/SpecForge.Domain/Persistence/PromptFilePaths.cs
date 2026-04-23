@@ -14,6 +14,7 @@ public sealed class PromptFilePaths
         ConfigFilePath = Path.Combine(SpecsDirectoryPath, "config.yaml");
         PromptsDirectoryPath = Path.Combine(SpecsDirectoryPath, "prompts");
         PromptManifestPath = Path.Combine(PromptsDirectoryPath, "prompts.yaml");
+        PromptSystemHashesPath = Path.Combine(PromptsDirectoryPath, "system-prompt-hashes.json");
         SharedPromptsDirectoryPath = Path.Combine(PromptsDirectoryPath, "shared");
         PhasePromptsDirectoryPath = Path.Combine(PromptsDirectoryPath, "phases");
         SharedSystemPromptPath = Path.Combine(SharedPromptsDirectoryPath, "system.md");
@@ -45,6 +46,8 @@ public sealed class PromptFilePaths
     public string PromptsDirectoryPath { get; }
 
     public string PromptManifestPath { get; }
+
+    public string PromptSystemHashesPath { get; }
 
     public string SharedPromptsDirectoryPath { get; }
 

@@ -57,6 +57,7 @@ export interface PhaseExecutionMetadata {
   readonly model: string;
   readonly profileName: string | null;
   readonly baseUrl: string | null;
+  readonly warnings?: readonly string[] | null;
 }
 
 export interface CreateOrImportUserStoryResult {
@@ -87,6 +88,7 @@ export interface InitializeRepoPromptsResult {
   readonly workspaceRoot: string;
   readonly configPath: string;
   readonly promptManifestPath: string;
+  readonly promptSystemHashesPath: string;
   readonly createdFiles: readonly string[];
   readonly skippedFiles: readonly string[];
 }

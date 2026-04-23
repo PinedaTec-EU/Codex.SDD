@@ -17,9 +17,11 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
 
         Assert.Equal(paths.ConfigFilePath, result.ConfigPath);
         Assert.Equal(paths.PromptManifestPath, result.PromptManifestPath);
+        Assert.Equal(paths.PromptSystemHashesPath, result.PromptSystemHashesPath);
         Assert.Contains(paths.RefinementExecutePromptPath, result.CreatedFiles);
         Assert.True(File.Exists(paths.ConfigFilePath));
         Assert.True(File.Exists(paths.PromptManifestPath));
+        Assert.True(File.Exists(paths.PromptSystemHashesPath));
         Assert.True(File.Exists(paths.SharedSystemPromptPath));
         Assert.True(File.Exists(paths.ClarificationExecuteSystemPromptPath));
         Assert.True(File.Exists(paths.RefinementExecuteSystemPromptPath));
@@ -37,6 +39,8 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.Contains("clarification.execute.system.md", manifestContent);
         Assert.Contains("release-approval.approve.system.md", manifestContent);
         Assert.Contains("internalCalls:", manifestContent);
+        var hashContent = await File.ReadAllTextAsync(paths.PromptSystemHashesPath);
+        Assert.Contains("clarification.execute.system.md", hashContent);
     }
 
     [Fact]

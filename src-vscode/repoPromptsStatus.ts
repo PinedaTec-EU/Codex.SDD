@@ -12,6 +12,7 @@ export async function getRepoPromptsStatusAsync(workspaceRoot: string): Promise<
   const checkedPaths = [
     path.join(workspaceRoot, ".specs", "config.yaml"),
     path.join(workspaceRoot, ".specs", "prompts", "prompts.yaml"),
+    path.join(workspaceRoot, ".specs", "prompts", "system-prompt-hashes.json"),
     path.join(workspaceRoot, ".specs", "prompts", "shared", "system.md"),
     path.join(workspaceRoot, ".specs", "prompts", "shared", "style.md"),
     path.join(workspaceRoot, ".specs", "prompts", "shared", "output-rules.md"),

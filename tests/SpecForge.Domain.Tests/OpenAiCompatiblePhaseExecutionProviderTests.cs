@@ -153,6 +153,40 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Contains("Which role publishes the article?", ReadUserPrompt(handler.LastBody));
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WhenSystemPromptHashDiffers_ReturnsExecutionWarningAndUsesModifiedPrompt()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var paths = new PromptFilePaths(workspaceRoot);
+        await File.WriteAllTextAsync(
+            paths.RefinementExecuteSystemPromptPath,
+            """
+            This refinement system prompt was modified outside the engine.
+            """
+        );
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            CreateOptions(
+                model: "llama3.1",
+                apiKey: "ollama-local"));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Refinement,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        var result = await provider.ExecuteAsync(context);
+
+        Assert.NotNull(result.Execution);
+        Assert.NotNull(result.Execution!.Warnings);
+        Assert.Contains(result.Execution.Warnings!, warning => warning.Contains("refinement.execute.system.md", StringComparison.Ordinal));
+        Assert.Contains("modified outside the engine", result.Execution.Warnings!.First());
+        Assert.Contains("This refinement system prompt was modified outside the engine.", ReadSystemPrompt(handler.LastBody));
+    }
+
     [Theory]
     [InlineData("strict", 0.0d, "Be demanding. Surface weaker evidence, thinner validation, and smaller deviations as findings whenever they could undermine confidence in release readiness.")]
     [InlineData("balanced", 0.2d, "Use balanced judgment. Prioritize meaningful risks and missing evidence without inflating cosmetic or low-impact issues.")]
