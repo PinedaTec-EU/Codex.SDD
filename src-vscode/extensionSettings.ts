@@ -171,10 +171,10 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
   const defaultProfileName = settings.phaseModelAssignments.defaultProfile
     ?? (settings.modelProfiles.length === 1 ? settings.modelProfiles[0]?.name ?? null : null);
 
-  if (!defaultProfileName) {
+  if (!defaultProfileName && !hasExplicitProfilesForAllModelDrivenPhases(settings.phaseModelAssignments)) {
     return {
       executionConfigured: false,
-      message: "SpecForge.AI needs a default phase model assignment when model profiles are configured.",
+      message: "SpecForge.AI needs either a default phase model assignment or explicit profiles for clarification, refinement, technical design, implementation, and review.",
       diagnostics
     };
   }
@@ -206,6 +206,16 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
     message: null,
     diagnostics
   };
+}
+
+function hasExplicitProfilesForAllModelDrivenPhases(assignments: SpecForgePhaseModelAssignments): boolean {
+  return [
+    assignments.clarificationProfile,
+    assignments.refinementProfile,
+    assignments.technicalDesignProfile,
+    assignments.implementationProfile,
+    assignments.reviewProfile
+  ].every((value) => Boolean(value));
 }
 
 function buildSettingsDiagnostics(settings: SpecForgeSettings): string {

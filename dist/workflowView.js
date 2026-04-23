@@ -532,19 +532,6 @@ function buildArtifactPreviewSection(artifactPath, artifactPreviewHtml, artifact
 function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
     const isClarificationDetail = selectedPhase.phaseId === "clarification" && workflow.clarification !== null;
-    const settingsWarning = !state.settingsConfigured && state.settingsMessage
-        ? `
-      <section class="settings-warning panel">
-        <div class="settings-warning__icon" aria-hidden="true">⚠</div>
-        <div class="settings-warning__content">
-          <p class="eyebrow warning">Configuration Required</p>
-          <h2>SpecForge.AI settings are incomplete</h2>
-          <p class="panel-copy warning-copy">${escapeHtml(state.settingsMessage)}</p>
-        </div>
-        <button class="workflow-action-button workflow-action-button--progress" data-command="openSettings">Configure Settings</button>
-      </section>
-    `
-        : "";
     const executionBlockBanner = !workflow.controls.canContinue && workflow.controls.blockingReason
         ? `
       <section class="settings-warning panel">
@@ -2837,7 +2824,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     </div>
   </div>
   <div class="shell" data-workflow-shell>
-    ${settingsWarning}
     ${executionBlockBanner}
     <section class="panel hero">
       <div class="hero-head">

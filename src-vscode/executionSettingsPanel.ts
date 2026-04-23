@@ -506,14 +506,22 @@ async function saveExecutionSettingsAsync(
   phaseModelAssignments: Partial<SpecForgePhaseModelAssignments>
 ): Promise<void> {
   const configuration = vscode.workspace.getConfiguration("specForge");
-  const normalizedProfiles = modelProfiles.map((profile) => ({
-    name: typeof profile.name === "string" ? profile.name : "",
-    provider: typeof profile.provider === "string" ? profile.provider : "openai-compatible",
-    baseUrl: typeof profile.baseUrl === "string" ? profile.baseUrl : "",
-    apiKey: typeof profile.apiKey === "string" ? profile.apiKey : "",
-    model: typeof profile.model === "string" ? profile.model : "",
-    repositoryAccess: typeof profile.repositoryAccess === "string" ? profile.repositoryAccess : "none"
-  }));
+  const normalizedProfiles = modelProfiles
+    .map((profile) => ({
+      name: typeof profile.name === "string" ? profile.name.trim() : "",
+      provider: typeof profile.provider === "string" ? profile.provider.trim() : "openai-compatible",
+      baseUrl: typeof profile.baseUrl === "string" ? profile.baseUrl.trim() : "",
+      apiKey: typeof profile.apiKey === "string" ? profile.apiKey.trim() : "",
+      model: typeof profile.model === "string" ? profile.model.trim() : "",
+      repositoryAccess: typeof profile.repositoryAccess === "string" ? profile.repositoryAccess.trim() : "none"
+    }))
+    .filter((profile) =>
+      profile.name.length > 0
+      || profile.baseUrl.length > 0
+      || profile.apiKey.length > 0
+      || profile.model.length > 0
+      || profile.provider !== "openai-compatible"
+      || profile.repositoryAccess !== "none");
 
   const normalizedAssignments: SpecForgePhaseModelAssignments = {
     defaultProfile: normalizeOptionalAssignment(phaseModelAssignments.defaultProfile),

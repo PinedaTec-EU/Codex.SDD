@@ -754,7 +754,7 @@ test("buildWorkflowHtml shows the debug reset action only in debug mode", () => 
   assert.match(html, /data-command="debugResetToCapture"/);
 });
 
-test("buildWorkflowHtml shows configuration warning and disables execution controls when settings are incomplete", () => {
+test("buildWorkflowHtml disables execution controls when settings are incomplete without duplicating the sidebar warning", () => {
   const html = buildWorkflowHtml({
     usId: "US-0001",
     title: "Workflow view",
@@ -799,9 +799,8 @@ test("buildWorkflowHtml shows configuration warning and disables execution contr
     settingsMessage: "SpecForge.AI is not configured for the current provider. Missing base URL, API key, model."
   }, "idle");
 
-  assert.match(html, /SpecForge\.AI settings are incomplete/);
-  assert.match(html, /Configure Settings/);
-  assert.match(html, /workflow-action-button--progress" data-command="openSettings"/);
+  assert.doesNotMatch(html, /SpecForge\.AI settings are incomplete/);
+  assert.doesNotMatch(html, /Configuration Required/);
   assert.match(html, /data-command="play"[^>]*disabled/);
   assert.match(html, /data-command="continue"[^>]*disabled/);
 });
@@ -1485,7 +1484,7 @@ test("buildWorkflowHtml reuses sidebar status colors in graph nodes and hero tok
   assert.match(html, /phase-node capture phase-tone-completed/);
 });
 
-test("buildWorkflowHtml warns when the workflow is open without an SLM or LLM provider", () => {
+test("buildWorkflowHtml keeps execution disabled when the workflow is open without an SLM or LLM provider", () => {
   const html = buildWorkflowHtml({
     usId: "US-0002",
     title: "Workflow view",
@@ -1530,7 +1529,7 @@ test("buildWorkflowHtml warns when the workflow is open without an SLM or LLM pr
     settingsMessage: "SpecForge.AI needs at least one configured model profile before workflow stages can run."
   }, "idle");
 
-  assert.match(html, /configured model profile/);
+  assert.doesNotMatch(html, /configured model profile/);
   assert.match(html, /data-command="play"[^>]*disabled/);
   assert.match(html, /data-command="continue"[^>]*disabled/);
 });

@@ -483,6 +483,54 @@ test("getSpecForgeSettingsStatus validates named profile assignments", () => {
   assert.match(status.diagnostics, /phaseModels\.default=missing/);
 });
 
+test("getSpecForgeSettingsStatus allows multiple profiles without default when all model-driven phases are assigned", () => {
+  const status = getSpecForgeSettingsStatus({
+    modelProfiles: [
+      {
+        name: "planner",
+        provider: "openai-compatible",
+        baseUrl: "https://api.example.test/v1",
+        apiKey: "secret",
+        model: "gpt-5.4",
+        repositoryAccess: "read"
+      },
+      {
+        name: "implementer",
+        provider: "codex",
+        baseUrl: "",
+        apiKey: null,
+        model: "",
+        repositoryAccess: "read-write"
+      }
+    ],
+    phaseModelAssignments: assignments({
+      clarificationProfile: "planner",
+      refinementProfile: "planner",
+      technicalDesignProfile: "planner",
+      implementationProfile: "implementer",
+      reviewProfile: "planner"
+    }),
+    effectivePhaseModelAssignments: effective({
+      clarificationProfileName: "planner",
+      refinementProfileName: "planner",
+      technicalDesignProfileName: "planner",
+      implementationProfileName: "implementer",
+      reviewProfileName: "planner"
+    }),
+    clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true,
+    contextSuggestionsEnabled: true,
+    requireExplicitApprovalBranchAcceptance: false,
+    autoPlayEnabled: false,
+    destructiveRewindEnabled: false
+  });
+
+  assert.equal(status.executionConfigured, true);
+  assert.equal(status.message, null);
+});
+
 test("readSpecForgeSettings falls back to balanced clarification tolerance for unsupported values", () => {
   const settings = readSpecForgeSettings({
     get<T>(section: string, defaultValue?: T): T {

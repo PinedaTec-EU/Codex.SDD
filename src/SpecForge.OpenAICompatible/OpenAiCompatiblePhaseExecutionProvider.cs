@@ -672,9 +672,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
 
         var defaultProfileName = assignments?.DefaultProfile;
-        if (string.IsNullOrWhiteSpace(defaultProfileName) && modelProfiles.Count > 1)
+        if (string.IsNullOrWhiteSpace(defaultProfileName) &&
+            modelProfiles.Count > 1 &&
+            !HasExplicitProfilesForAllModelDrivenPhases(assignments))
         {
-            throw new ArgumentException("DefaultProfile is required when multiple model profiles are configured.", nameof(assignments));
+            throw new ArgumentException(
+                "DefaultProfile is required when multiple model profiles are configured unless clarification, refinement, technical design, implementation, and review each declare an explicit profile.",
+                nameof(assignments));
         }
 
         foreach (var profileName in new[]
@@ -706,6 +710,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         return content;
     }
+
+    private static bool HasExplicitProfilesForAllModelDrivenPhases(OpenAiCompatiblePhaseModelAssignments? assignments) =>
+        !string.IsNullOrWhiteSpace(assignments?.ClarificationProfile)
+        && !string.IsNullOrWhiteSpace(assignments?.RefinementProfile)
+        && !string.IsNullOrWhiteSpace(assignments?.TechnicalDesignProfile)
+        && !string.IsNullOrWhiteSpace(assignments?.ImplementationProfile)
+        && !string.IsNullOrWhiteSpace(assignments?.ReviewProfile);
 
     private static bool RequiresApiKey(string baseUrl) => !LocalEndpointHelper.IsLocal(baseUrl);
 
