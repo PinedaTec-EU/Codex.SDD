@@ -147,6 +147,15 @@ export interface ClarificationSessionDetails {
   readonly items: readonly ClarificationQuestionAnswerDetails[];
 }
 
+export interface ApprovalQuestionDetails {
+  readonly index: number;
+  readonly question: string;
+  readonly status: string;
+  readonly answer: string | null;
+  readonly answeredBy: string | null;
+  readonly answeredAtUtc: string | null;
+}
+
 export interface CurrentPhaseControls {
   readonly canContinue: boolean;
   readonly canApprove: boolean;
@@ -189,6 +198,7 @@ export interface UserStoryWorkflowDetails {
   readonly phases: readonly WorkflowPhaseDetails[];
   readonly controls: CurrentPhaseControls;
   readonly clarification: ClarificationSessionDetails | null;
+  readonly approvalQuestions?: readonly ApprovalQuestionDetails[];
   readonly events: readonly TimelineEventDetails[];
   readonly contextFilesDirectoryPath?: string;
   readonly contextFiles?: readonly UserStoryFileDetails[];

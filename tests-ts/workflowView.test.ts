@@ -314,6 +314,74 @@ test("buildWorkflowHtml keeps disabled approve visible for refinement when appro
   assert.match(html, /Approve stays disabled until all human approval questions are resolved below\./);
 });
 
+test("buildWorkflowHtml prefers backend-normalized approval questions over markdown parsing", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0100",
+    title: "Backend approval normalization",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0100",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/01-spec.md",
+        executePromptPath: "/tmp/refinement.execute.md",
+        approvePromptPath: "/tmp/refinement.approve.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "refinement_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: [],
+      rewindTargets: []
+    },
+    clarification: null,
+    approvalQuestions: [
+      {
+        index: 1,
+        question: "Does runtime inherit persisted state?",
+        status: "resolved",
+        answer: "Yes.",
+        answeredBy: "Analyst",
+        answeredAtUtc: "2024-05-21T10:00:00Z"
+      }
+    ],
+    events: [],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "refinement",
+    selectedArtifactContent: `
+## Human Approval Questions
+- [ ] Does runtime inherit persisted state?
+  - Answer: Yes.
+`,
+    selectedOperationContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /approval-question-item__status">Resolved<\/span>/);
+  assert.doesNotMatch(html, /approval-question-item__status">Pending<\/span>/);
+});
+
 test("buildWorkflowHtml hides reject when current phase has no regression targets and enables continue after approved non-destructive rewind", () => {
   const html = buildWorkflowHtml({
     usId: "US-0099",

@@ -666,8 +666,18 @@ export function buildWorkflowHtml(
     ? renderMarkdownToHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")
     : null;
   const artifactQuestionBlock = extractArtifactQuestionBlock(state.selectedArtifactContent);
+  const backendApprovalQuestions = workflow.approvalQuestions ?? [];
   const refinementApprovalQuestions = selectedPhase.phaseId === "refinement"
-    ? extractMarkdownApprovalItems(state.selectedArtifactContent)
+    ? (backendApprovalQuestions.length > 0
+      ? backendApprovalQuestions.map((item) => ({
+        index: item.index,
+        question: item.question,
+        answer: item.answer,
+        resolved: item.status.trim().toLowerCase() === "resolved",
+        answeredBy: item.answeredBy,
+        answeredAtUtc: item.answeredAtUtc
+      }))
+      : extractMarkdownApprovalItems(state.selectedArtifactContent))
     : [];
   const unresolvedApprovalQuestionCount = refinementApprovalQuestions.filter((item) => !item.resolved).length;
   const phaseIterations = buildPhaseIterations(workflow, selectedPhase.phaseId);

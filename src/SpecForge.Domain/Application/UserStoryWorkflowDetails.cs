@@ -15,6 +15,7 @@ public sealed record UserStoryWorkflowDetails(
     IReadOnlyCollection<WorkflowPhaseDetails> Phases,
     CurrentPhaseControls Controls,
     ClarificationSessionDetails? Clarification,
+    IReadOnlyCollection<ApprovalQuestionDetails> ApprovalQuestions,
     IReadOnlyCollection<TimelineEventDetails> Events,
     string ContextFilesDirectoryPath,
     IReadOnlyCollection<UserStoryFileDetails> ContextFiles,
@@ -64,6 +65,14 @@ public sealed record ClarificationQuestionAnswerDetails(
     int Index,
     string Question,
     string? Answer);
+
+public sealed record ApprovalQuestionDetails(
+    int Index,
+    string Question,
+    string Status,
+    string? Answer,
+    string? AnsweredBy,
+    string? AnsweredAtUtc);
 
 public sealed record UserStoryFileDetails(
     string Name,

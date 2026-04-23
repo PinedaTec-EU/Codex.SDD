@@ -114,6 +114,7 @@ public sealed class SpecForgeApplicationService
             ? await File.ReadAllTextAsync(paths.TimelineFilePath, cancellationToken)
             : string.Empty;
         var clarification = await ReadClarificationSessionAsync(paths, cancellationToken);
+        var approvalQuestions = await ReadApprovalQuestionsAsync(paths, cancellationToken);
         var currentPhase = await GetCurrentPhaseAsync(workspaceRoot, usId, cancellationToken);
 
         return new UserStoryWorkflowDetails(
@@ -144,6 +145,7 @@ public sealed class SpecForgeApplicationService
                     clarification.Tolerance,
                     clarification.Reason,
                     clarification.Items.Select(item => new ClarificationQuestionAnswerDetails(item.Index, item.Question, item.Answer)).ToArray()),
+            approvalQuestions,
             TimelineMarkdownParser.ParseEvents(rawTimeline),
             paths.ContextDirectoryPath,
             BuildFileDetails(paths.ContextDirectoryPath),
@@ -693,6 +695,28 @@ public sealed class SpecForgeApplicationService
         var markdownPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Refinement)
             ?? throw new WorkflowDomainException("The refinement artifact does not exist yet.");
         return RefinementSpecMarkdownImporter.Import(await File.ReadAllTextAsync(markdownPath, cancellationToken));
+    }
+
+    private static async Task<IReadOnlyCollection<ApprovalQuestionDetails>> ReadApprovalQuestionsAsync(
+        UserStoryFilePaths paths,
+        CancellationToken cancellationToken)
+    {
+        var refinementPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Refinement);
+        if (string.IsNullOrWhiteSpace(refinementPath))
+        {
+            return [];
+        }
+
+        var refinementDocument = await LoadCurrentRefinementDocumentAsync(paths, cancellationToken);
+        return refinementDocument.HumanApprovalQuestions
+            .Select((item, index) => new ApprovalQuestionDetails(
+                index + 1,
+                item.Question,
+                item.Status,
+                item.Answer,
+                item.AnsweredBy,
+                item.AnsweredAtUtc))
+            .ToArray();
     }
 
     private static string ToRuntimeStatusSlug(RuntimeStatus status) => status switch
