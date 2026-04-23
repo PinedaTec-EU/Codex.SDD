@@ -188,6 +188,23 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCurrentPhaseAsync_WithUnresolvedRefinementApprovalQuestions_CannotApprove()
+    {
+        var runner = new WorkflowRunner();
+        var applicationService = new SpecForgeApplicationService();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var currentPhase = await applicationService.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal("refinement", currentPhase.CurrentPhase);
+        Assert.False(currentPhase.CanAdvance);
+        Assert.False(currentPhase.CanApprove);
+        Assert.True(currentPhase.RequiresApproval);
+        Assert.Equal("refinement_pending_user_approval", currentPhase.BlockingReason);
+    }
+
+    [Fact]
     public async Task AddUserStoryFilesAsync_CopiesFilesIntoRequestedKind()
     {
         var runner = new WorkflowRunner();

@@ -410,16 +410,6 @@ public sealed class WorkflowRunner
                 clarificationResult.Execution);
         }
 
-        if (workflowRun.CurrentPhase == PhaseId.Refinement)
-        {
-            var validationResult = await ValidateApprovedRefinementAsync(workspaceRoot, paths, workflowRun, normalizedActor, cancellationToken);
-            if (validationResult is not null)
-            {
-                await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
-                return validationResult;
-            }
-        }
-
         workflowRun.GenerateNextPhase();
 
         string? artifactPath = null;
@@ -1090,70 +1080,14 @@ public sealed class WorkflowRunner
 
         var markdown = await File.ReadAllTextAsync(artifactPath, cancellationToken);
         SpecBaselineSchemaValidator.EnsureValid(markdown);
-    }
 
-    private async Task<ContinuePhaseResult?> ValidateApprovedRefinementAsync(
-        string workspaceRoot,
-        UserStoryFilePaths paths,
-        WorkflowRun workflowRun,
-        string actor,
-        CancellationToken cancellationToken)
-    {
-        if (!workflowRun.IsPhaseApproved(PhaseId.Refinement))
+        var refinementDocument = await LoadCurrentRefinementDocumentAsync(paths, cancellationToken);
+        var unresolvedQuestions = RefinementSpecJson.GetUnresolvedQuestions(refinementDocument);
+        if (unresolvedQuestions.Count > 0)
         {
-            return null;
+            throw new WorkflowDomainException(
+                $"The spec baseline cannot be approved because unresolved human approval questions remain: {string.Join(" | ", unresolvedQuestions)}.");
         }
-
-        var sourceArtifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Refinement)
-            ?? throw new WorkflowDomainException("The approved refinement artifact does not exist.");
-        var validationPrompt = BuildRefinementApprovalValidationPrompt();
-        var generation = await MaterializePhaseArtifactAsync(
-            workspaceRoot,
-            paths,
-            workflowRun,
-            sourceArtifactPath,
-            validationPrompt,
-            cancellationToken);
-
-        var generatedDocument = await LoadRefinementDocumentForArtifactAsync(paths, generation.ArtifactPath, cancellationToken);
-        var unresolvedQuestions = RefinementSpecJson.GetUnresolvedQuestions(generatedDocument);
-
-        if (unresolvedQuestions.Count == 0)
-        {
-            await AppendTimelineEventAsync(
-                paths.TimelineFilePath,
-                "refinement_validated",
-                actor,
-                workflowRun.CurrentPhase,
-                "Validated the approved refinement baseline before advancing to technical design.",
-                cancellationToken,
-                generation.ArtifactPath,
-                generation.Usage,
-                generation.DurationMs,
-                generation.Execution);
-            return null;
-        }
-
-        workflowRun.ReopenCurrentPhaseApproval();
-        await AppendTimelineEventAsync(
-            paths.TimelineFilePath,
-            "approval_questions_requested",
-            actor,
-            workflowRun.CurrentPhase,
-            $"Refinement validation requested additional human approval input. Remaining questions: {string.Join(" | ", unresolvedQuestions)}.",
-            cancellationToken,
-            generation.ArtifactPath,
-            generation.Usage,
-            generation.DurationMs,
-            generation.Execution);
-
-        return new ContinuePhaseResult(
-            workflowRun.UsId,
-            workflowRun.CurrentPhase,
-            workflowRun.Status,
-            generation.ArtifactPath,
-            generation.Usage,
-            generation.Execution);
     }
 
     private sealed record ArtifactGenerationResult(string ArtifactPath, TokenUsage? Usage, long DurationMs, PhaseExecutionMetadata? Execution);

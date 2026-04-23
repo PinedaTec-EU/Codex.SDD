@@ -281,6 +281,19 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ApproveCurrentPhaseAsync_WhenApprovalQuestionsRemain_ThrowsValidationError()
+    {
+        var runner = new WorkflowRunner();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
+            runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main"));
+
+        Assert.NotEmpty(error.Message);
+    }
+
+    [Fact]
     public async Task ApproveCurrentPhaseAsync_WhenTitleRepeatsKindAndUsId_DeduplicatesWorkBranchProposal()
     {
         var runner = new WorkflowRunner();

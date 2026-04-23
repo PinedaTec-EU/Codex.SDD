@@ -206,6 +206,11 @@ public sealed class SpecForgeApplicationService
             {
                 var refinementMarkdown = await File.ReadAllTextAsync(refinementPath, cancellationToken);
                 canApprove = SpecBaselineSchemaValidator.Validate(refinementMarkdown).IsValid;
+                if (canApprove)
+                {
+                    var refinementDocument = await LoadCurrentRefinementDocumentAsync(paths, cancellationToken);
+                    canApprove = RefinementSpecJson.GetUnresolvedQuestions(refinementDocument).Count == 0;
+                }
             }
         }
 
@@ -673,6 +678,21 @@ public sealed class SpecForgeApplicationService
 
         var userStoryMarkdown = await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken);
         return UserStoryClarificationMarkdown.Parse(userStoryMarkdown);
+    }
+
+    private static async Task<RefinementSpecDocument> LoadCurrentRefinementDocumentAsync(
+        UserStoryFilePaths paths,
+        CancellationToken cancellationToken)
+    {
+        var jsonPath = paths.GetLatestExistingPhaseArtifactJsonPath(Workflow.PhaseId.Refinement);
+        if (!string.IsNullOrWhiteSpace(jsonPath) && File.Exists(jsonPath))
+        {
+            return RefinementSpecJson.Parse(await File.ReadAllTextAsync(jsonPath, cancellationToken));
+        }
+
+        var markdownPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Refinement)
+            ?? throw new WorkflowDomainException("The refinement artifact does not exist yet.");
+        return RefinementSpecMarkdownImporter.Import(await File.ReadAllTextAsync(markdownPath, cancellationToken));
     }
 
     private static string ToRuntimeStatusSlug(RuntimeStatus status) => status switch
