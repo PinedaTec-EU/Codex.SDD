@@ -11,6 +11,7 @@ internal static class RuntimeYamlSerializer
             $"currentPhase: {document.CurrentPhase}",
             $"lastOutcome: {document.LastOutcome ?? "null"}",
             $"activeOperation: {document.ActiveOperation ?? "null"}",
+            $"ownerProcessId: {document.OwnerProcessId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null"}",
             $"startedAtUtc: {Format(document.StartedAtUtc)}",
             $"lastHeartbeatUtc: {Format(document.LastHeartbeatUtc)}",
             $"lastCompletedAtUtc: {Format(document.LastCompletedAtUtc)}",
@@ -29,6 +30,7 @@ internal static class RuntimeYamlSerializer
             YamlMapParser.GetRequired(values, "currentPhase"),
             GetOptional(values, "lastOutcome"),
             GetOptional(values, "activeOperation"),
+            ParseInt32(GetOptional(values, "ownerProcessId")),
             ParseDateTimeOffset(GetOptional(values, "startedAtUtc")),
             ParseDateTimeOffset(GetOptional(values, "lastHeartbeatUtc")),
             ParseDateTimeOffset(GetOptional(values, "lastCompletedAtUtc")),
@@ -56,6 +58,16 @@ internal static class RuntimeYamlSerializer
         return DateTimeOffset.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
     }
 
+    private static int? ParseInt32(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return int.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
     private static string Format(DateTimeOffset? value) => value?.UtcDateTime.ToString("O") ?? "null";
 
     private static string Escape(string? value)
@@ -80,6 +92,7 @@ internal sealed record RuntimeStatusDocument(
     string CurrentPhase,
     string? LastOutcome,
     string? ActiveOperation,
+    int? OwnerProcessId,
     DateTimeOffset? StartedAtUtc,
     DateTimeOffset? LastHeartbeatUtc,
     DateTimeOffset? LastCompletedAtUtc,

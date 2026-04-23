@@ -180,6 +180,24 @@ public sealed class SpecForgeApplicationService
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        var runtime = await runtimeStatusStore.GetAsync(
+            paths.RootDirectory,
+            usId,
+            WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
+            cancellationToken);
+
+        if (runtime.Status == RuntimeStatus.Running && !runtime.IsStale)
+        {
+            return new CurrentPhaseSummary(
+                workflowRun.UsId,
+                WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
+                WorkflowPresentation.ToStatusSlug(workflowRun.Status),
+                false,
+                false,
+                workflowRun.Definition.RequiresApproval(workflowRun.CurrentPhase),
+                "phase_execution_in_progress");
+        }
+
         if (workflowRun.CurrentPhase == Workflow.PhaseId.Clarification)
         {
             var clarification = await ReadClarificationSessionAsync(paths, cancellationToken);

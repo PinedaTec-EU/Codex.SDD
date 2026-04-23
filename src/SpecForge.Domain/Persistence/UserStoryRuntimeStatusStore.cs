@@ -1,4 +1,5 @@
 using System.Text;
+using System.Diagnostics;
 
 namespace SpecForge.Domain.Persistence;
 
@@ -6,6 +7,12 @@ public sealed class UserStoryRuntimeStatusStore
 {
     private static readonly TimeSpan StaleThreshold = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(2);
+    private readonly int currentProcessId;
+
+    public UserStoryRuntimeStatusStore(int? currentProcessId = null)
+    {
+        this.currentProcessId = currentProcessId ?? Environment.ProcessId;
+    }
 
     public async Task<UserStoryRuntimeStatusSnapshot> GetAsync(
         string rootDirectory,
@@ -45,6 +52,7 @@ public sealed class UserStoryRuntimeStatusStore
             currentPhase,
             "running",
             operation,
+            currentProcessId,
             now,
             now,
             existing.LastCompletedAtUtc,
@@ -68,6 +76,7 @@ public sealed class UserStoryRuntimeStatusStore
             currentPhase,
             "running",
             operation,
+            currentProcessId,
             startedAtUtc,
             DateTimeOffset.UtcNow,
             null,
@@ -91,6 +100,7 @@ public sealed class UserStoryRuntimeStatusStore
                 "succeeded",
                 null,
                 null,
+                null,
                 DateTimeOffset.UtcNow,
                 DateTimeOffset.UtcNow,
                 $"Completed '{operation}'."),
@@ -112,6 +122,7 @@ public sealed class UserStoryRuntimeStatusStore
                 "failed",
                 null,
                 null,
+                null,
                 DateTimeOffset.UtcNow,
                 DateTimeOffset.UtcNow,
                 string.IsNullOrWhiteSpace(message) ? $"Failed '{operation}'." : message.Trim()),
@@ -128,8 +139,12 @@ public sealed class UserStoryRuntimeStatusStore
         var currentPhase = string.IsNullOrWhiteSpace(document.CurrentPhase) ? fallbackPhase : document.CurrentPhase;
         var lastHeartbeatUtc = document.LastHeartbeatUtc;
         var isStale = document.Status == "running"
-            && lastHeartbeatUtc is not null
-            && DateTimeOffset.UtcNow - lastHeartbeatUtc.Value > StaleThreshold;
+            && (
+                document.OwnerProcessId is null
+                || !IsProcessAlive(document.OwnerProcessId.Value)
+                || lastHeartbeatUtc is null
+                || DateTimeOffset.UtcNow - lastHeartbeatUtc.Value > StaleThreshold
+            );
 
         return new UserStoryRuntimeStatusSnapshot(
             document.UsId,
@@ -153,6 +168,23 @@ public sealed class UserStoryRuntimeStatusStore
         "failed" => RuntimeStatus.Failed,
         _ => RuntimeStatus.Idle
     };
+
+    private static bool IsProcessAlive(int processId)
+    {
+        try
+        {
+            var process = Process.GetProcessById(processId);
+            return !process.HasExited;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
 
     public sealed class RuntimeOperationHandle : IAsyncDisposable
     {

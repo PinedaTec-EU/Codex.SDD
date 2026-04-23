@@ -278,9 +278,14 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         Assert.NotNull(runtimeWhileRunning.StartedAtUtc);
         Assert.NotNull(runtimeWhileRunning.LastHeartbeatUtc);
 
-        var duplicateException = await Assert.ThrowsAsync<InvalidOperationException>(
+        var currentPhaseWhileRunning = await applicationService.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
+        Assert.False(currentPhaseWhileRunning.CanAdvance);
+        Assert.False(currentPhaseWhileRunning.CanApprove);
+        Assert.Equal("phase_execution_in_progress", currentPhaseWhileRunning.BlockingReason);
+
+        var duplicateException = await Assert.ThrowsAsync<WorkflowDomainException>(
             () => applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001"));
-        Assert.Contains("already running", duplicateException.Message);
+        Assert.Contains("phase_execution_in_progress", duplicateException.Message);
 
         provider.Release();
         var result = await runningTask;
@@ -291,6 +296,42 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         Assert.Null(runtimeAfterCompletion.ActiveOperation);
         Assert.Equal("succeeded", runtimeAfterCompletion.LastOutcome);
         Assert.NotNull(runtimeAfterCompletion.LastCompletedAtUtc);
+    }
+
+    [Fact]
+    public async Task GenerateNextPhaseAsync_IgnoresRuntimeLockFromDeadOwnerProcess()
+    {
+        var runner = new WorkflowRunner(new DeterministicPhaseExecutionProvider());
+        var deadOwnerStore = new UserStoryRuntimeStatusStore(currentProcessId: int.MaxValue);
+        var applicationService = new SpecForgeApplicationService(
+            new UserStoryFileStore(),
+            runner,
+            new RepositoryPromptInitializer(),
+            new RepositoryCategoryCatalog(),
+            deadOwnerStore);
+
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        await using (var ignored = await deadOwnerStore.StartOperationAsync(
+            paths.RootDirectory,
+            "US-0001",
+            "capture",
+            "generate-next-phase"))
+        {
+        }
+
+        var runtimeBeforeRecovery = await applicationService.GetUserStoryRuntimeStatusAsync(workspaceRoot, "US-0001");
+        Assert.Equal("running", runtimeBeforeRecovery.Status);
+        Assert.True(runtimeBeforeRecovery.IsStale);
+
+        var currentPhaseBeforeRecovery = await applicationService.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
+        Assert.True(currentPhaseBeforeRecovery.CanAdvance);
+        Assert.Null(currentPhaseBeforeRecovery.BlockingReason);
+
+        var result = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal("refinement", result.CurrentPhase);
     }
 
     [Fact]
