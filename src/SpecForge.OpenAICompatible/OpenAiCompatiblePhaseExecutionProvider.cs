@@ -632,6 +632,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var sandboxMode = context.PhaseId == PhaseId.Implementation
             ? "workspace-write"
             : "read-only";
+        var baselineWorkspaceChanges = context.PhaseId == PhaseId.Implementation
+            ? await TryCaptureGitStatusSnapshotAsync(context.WorkspaceRoot, cancellationToken)
+            : null;
         var responseJson = await ExecuteStructuredCodexAsync(
             context.WorkspaceRoot,
             BuildCodexPrompt(context, prompt),
@@ -639,6 +642,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             contract.JsonSchema.GetRawText(),
             sandboxMode,
             cancellationToken);
+        if (context.PhaseId == PhaseId.Implementation)
+        {
+            await EnsureImplementationTouchedWorkspaceAsync(
+                context.WorkspaceRoot,
+                context.UserStoryPath,
+                baselineWorkspaceChanges,
+                cancellationToken);
+        }
+
         var normalizedContent = NormalizePhaseContent(context, responseJson.Trim());
 
         return new PhaseExecutionResult(
@@ -747,6 +759,123 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine(prompt.UserPrompt.Trim());
 
         return builder.ToString().Trim();
+    }
+
+    private static async Task EnsureImplementationTouchedWorkspaceAsync(
+        string workspaceRoot,
+        string userStoryPath,
+        IReadOnlyCollection<string>? baselineWorkspaceChanges,
+        CancellationToken cancellationToken)
+    {
+        if (baselineWorkspaceChanges is null)
+        {
+            return;
+        }
+
+        var currentWorkspaceChanges = await TryCaptureGitStatusSnapshotAsync(workspaceRoot, cancellationToken);
+        if (currentWorkspaceChanges is null)
+        {
+            return;
+        }
+
+        var userStoryRoot = Path.GetDirectoryName(userStoryPath);
+        if (string.IsNullOrWhiteSpace(userStoryRoot))
+        {
+            return;
+        }
+
+        var relativeUserStoryRoot = Path.GetRelativePath(workspaceRoot, userStoryRoot)
+            .Replace('\\', '/')
+            .TrimEnd('/');
+
+        var meaningfulChanges = currentWorkspaceChanges
+            .Except(baselineWorkspaceChanges, StringComparer.Ordinal)
+            .Where(change => !IsIgnoredWorkflowChange(change, relativeUserStoryRoot))
+            .ToArray();
+
+        if (meaningfulChanges.Length > 0)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            "Codex implementation finished without modifying workspace files outside the user story workflow metadata. " +
+            "Do not advance the workflow when implementation produced only planning artifacts.");
+    }
+
+    private static bool IsIgnoredWorkflowChange(string gitStatusLine, string relativeUserStoryRoot)
+    {
+        if (string.IsNullOrWhiteSpace(gitStatusLine))
+        {
+            return true;
+        }
+
+        var normalized = gitStatusLine.Trim();
+        if (normalized.Length <= 3)
+        {
+            return false;
+        }
+
+        var pathPortion = normalized[3..].Trim();
+        if (string.IsNullOrWhiteSpace(pathPortion))
+        {
+            return false;
+        }
+
+        var candidatePaths = pathPortion
+            .Split(" -> ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(static path => path.Replace('\\', '/'));
+
+        foreach (var candidatePath in candidatePaths)
+        {
+            if (!candidatePath.StartsWith(relativeUserStoryRoot, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static async Task<IReadOnlyCollection<string>?> TryCaptureGitStatusSnapshotAsync(
+        string workspaceRoot,
+        CancellationToken cancellationToken)
+    {
+        var gitDirectory = Path.Combine(workspaceRoot, ".git");
+        if (!Directory.Exists(gitDirectory) && !File.Exists(gitDirectory))
+        {
+            return null;
+        }
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "git",
+            WorkingDirectory = workspaceRoot,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        startInfo.ArgumentList.Add("status");
+        startInfo.ArgumentList.Add("--short");
+        startInfo.ArgumentList.Add("--untracked-files=all");
+
+        using var process = new Process { StartInfo = startInfo };
+        process.Start();
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        await process.WaitForExitAsync(cancellationToken);
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"Unable to capture git status before or after Codex implementation execution. stderr: {stderr.Trim()} stdout: {stdout.Trim()}");
+        }
+
+        return stdout
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToArray();
     }
 
     private ResolvedModelSelection ResolveModelSelection(PhaseId phaseId)

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using SpecForge.Domain.Application;
@@ -444,7 +445,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_CodexProvider_UsesNativeCodexRunnerForImplementation()
     {
         await PrepareInitializedWorkspaceAsync();
-        var fakeRunner = new FakeCodexCliRunner(isAvailable: true, responseJson: BuildMinimalImplementationJson());
+        await InitializeGitWorkspaceAsync();
+        var fakeRunner = new FakeCodexCliRunner(
+            isAvailable: true,
+            responseJson: BuildMinimalImplementationJson(),
+            onExecute: invocation =>
+            {
+                File.WriteAllText(Path.Combine(invocation.WorkspaceRoot, "README.md"), "# changed by codex");
+            });
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(new ThrowingHttpMessageHandler()),
             CreateOptions(
@@ -474,6 +482,35 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Contains("SpecForge Native Codex Execution", fakeRunner.LastInvocation.Prompt);
         Assert.Contains("Make the required repository changes", fakeRunner.LastInvocation.Prompt);
         Assert.Contains("# Implementation · US-0001 · v01", result.Content);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CodexProviderImplementationWithoutWorkspaceChanges_Throws()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        await InitializeGitWorkspaceAsync();
+        var fakeRunner = new FakeCodexCliRunner(isAvailable: true, responseJson: BuildMinimalImplementationJson());
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new ThrowingHttpMessageHandler()),
+            CreateOptions(
+                model: string.Empty,
+                providerKind: "codex",
+                baseUrl: string.Empty,
+                apiKey: string.Empty,
+                repositoryAccess: "read-write"),
+            new RepositoryPromptCatalog(),
+            fakeRunner);
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Implementation,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ExecuteAsync(context));
+
+        Assert.Contains("without modifying workspace files outside the user story workflow metadata", error.Message);
     }
 
     [Fact]
@@ -656,6 +693,42 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         await File.WriteAllTextAsync(paths.MainArtifactPath, "# US-0001\n\n## Objective\nInitial text");
     }
 
+    private async Task InitializeGitWorkspaceAsync()
+    {
+        await RunGitAsync("init");
+    }
+
+    private async Task RunGitAsync(params string[] arguments)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "git",
+            WorkingDirectory = workspaceRoot,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+
+        foreach (var argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = new Process { StartInfo = startInfo };
+        process.Start();
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"git {string.Join(' ', arguments)} failed with exit code {process.ExitCode}. stderr: {stderr.Trim()} stdout: {stdout.Trim()}");
+        }
+    }
+
     private static double ReadTemperature(string requestBody)
     {
         using var document = JsonDocument.Parse(requestBody);
@@ -816,11 +889,16 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     private sealed class FakeCodexCliRunner : OpenAiCompatiblePhaseExecutionProvider.ICodexCliRunner
     {
         private readonly string responseJson;
+        private readonly Action<OpenAiCompatiblePhaseExecutionProvider.CodexCliInvocation>? onExecute;
 
-        public FakeCodexCliRunner(bool isAvailable, string responseJson = "{}")
+        public FakeCodexCliRunner(
+            bool isAvailable,
+            string responseJson = "{}",
+            Action<OpenAiCompatiblePhaseExecutionProvider.CodexCliInvocation>? onExecute = null)
         {
             IsAvailable = isAvailable;
             this.responseJson = responseJson;
+            this.onExecute = onExecute;
         }
 
         public bool IsAvailable { get; }
@@ -830,6 +908,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         public Task<string> ExecuteAsync(OpenAiCompatiblePhaseExecutionProvider.CodexCliInvocation invocation, CancellationToken cancellationToken)
         {
             LastInvocation = invocation;
+            onExecute?.Invoke(invocation);
             return Task.FromResult(responseJson);
         }
     }
