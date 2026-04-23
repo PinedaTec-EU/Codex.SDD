@@ -21,15 +21,22 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.True(File.Exists(paths.ConfigFilePath));
         Assert.True(File.Exists(paths.PromptManifestPath));
         Assert.True(File.Exists(paths.SharedSystemPromptPath));
-        Assert.True(File.Exists(paths.PhaseExecutionSystemPromptPath));
+        Assert.True(File.Exists(paths.ClarificationExecuteSystemPromptPath));
+        Assert.True(File.Exists(paths.RefinementExecuteSystemPromptPath));
+        Assert.True(File.Exists(paths.RefinementApproveSystemPromptPath));
+        Assert.True(File.Exists(paths.TechnicalDesignExecuteSystemPromptPath));
+        Assert.True(File.Exists(paths.ImplementationExecuteSystemPromptPath));
+        Assert.True(File.Exists(paths.ReviewExecuteSystemPromptPath));
+        Assert.True(File.Exists(paths.ReleaseApprovalApproveSystemPromptPath));
         Assert.True(File.Exists(paths.AutoClarificationAnswersSystemPromptPath));
         Assert.True(File.Exists(paths.ReviewExecutePromptPath));
         var configContent = await File.ReadAllTextAsync(paths.ConfigFilePath);
         var manifestContent = await File.ReadAllTextAsync(paths.PromptManifestPath);
         Assert.Contains("categories:", configContent);
         Assert.Contains("- workflow", configContent);
-        Assert.Contains("systemCalls:", manifestContent);
-        Assert.Contains(".specs/prompts/system/phase-execution.md", manifestContent);
+        Assert.Contains("clarification.execute.system.md", manifestContent);
+        Assert.Contains("release-approval.approve.system.md", manifestContent);
+        Assert.Contains("internalCalls:", manifestContent);
     }
 
     [Fact]

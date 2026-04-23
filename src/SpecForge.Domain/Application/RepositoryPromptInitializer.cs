@@ -18,7 +18,6 @@ public sealed class RepositoryPromptInitializer
         Directory.CreateDirectory(paths.SpecsDirectoryPath);
         Directory.CreateDirectory(paths.PromptsDirectoryPath);
         Directory.CreateDirectory(paths.SharedPromptsDirectoryPath);
-        Directory.CreateDirectory(paths.SystemPromptsDirectoryPath);
         Directory.CreateDirectory(paths.PhasePromptsDirectoryPath);
 
         var createdFiles = new List<string>();
@@ -30,15 +29,21 @@ public sealed class RepositoryPromptInitializer
             [paths.SharedSystemPromptPath] = BuildSharedSystemPrompt(),
             [paths.SharedStylePromptPath] = BuildSharedStylePrompt(),
             [paths.SharedOutputRulesPromptPath] = BuildSharedOutputRulesPrompt(),
-            [paths.PhaseExecutionSystemPromptPath] = BuildPhaseExecutionSystemPrompt(),
-            [paths.AutoClarificationAnswersSystemPromptPath] = BuildAutoClarificationAnswersSystemPrompt(),
+            [paths.ClarificationExecuteSystemPromptPath] = BuildClarificationExecuteSystemPrompt(),
             [paths.ClarificationExecutePromptPath] = BuildClarificationExecutePrompt(),
+            [paths.RefinementExecuteSystemPromptPath] = BuildRefinementExecuteSystemPrompt(),
             [paths.RefinementExecutePromptPath] = BuildRefinementExecutePrompt(),
+            [paths.RefinementApproveSystemPromptPath] = BuildRefinementApproveSystemPrompt(),
             [paths.RefinementApprovePromptPath] = BuildRefinementApprovePrompt(),
+            [paths.TechnicalDesignExecuteSystemPromptPath] = BuildTechnicalDesignExecuteSystemPrompt(),
             [paths.TechnicalDesignExecutePromptPath] = BuildTechnicalDesignExecutePrompt(),
+            [paths.ImplementationExecuteSystemPromptPath] = BuildImplementationExecuteSystemPrompt(),
             [paths.ImplementationExecutePromptPath] = BuildImplementationExecutePrompt(),
+            [paths.ReviewExecuteSystemPromptPath] = BuildReviewExecuteSystemPrompt(),
             [paths.ReviewExecutePromptPath] = BuildReviewExecutePrompt(),
-            [paths.ReleaseApprovalApprovePromptPath] = BuildReleaseApprovalApprovePrompt()
+            [paths.ReleaseApprovalApproveSystemPromptPath] = BuildReleaseApprovalApproveSystemPrompt(),
+            [paths.ReleaseApprovalApprovePromptPath] = BuildReleaseApprovalApprovePrompt(),
+            [paths.AutoClarificationAnswersSystemPromptPath] = BuildAutoClarificationAnswersSystemPrompt()
         };
 
         foreach (var file in files)
@@ -85,23 +90,37 @@ public sealed class RepositoryPromptInitializer
           system: .specs/prompts/shared/system.md
           style: .specs/prompts/shared/style.md
           outputRules: .specs/prompts/shared/output-rules.md
-        systemCalls:
-          phaseExecution: .specs/prompts/system/phase-execution.md
-          autoClarificationAnswers: .specs/prompts/system/auto-clarification-answers.md
         phases:
           clarification:
-            execute: .specs/prompts/phases/clarification.execute.md
+            execute:
+              system: .specs/prompts/phases/clarification.execute.system.md
+              user: .specs/prompts/phases/clarification.execute.md
           refinement:
-            execute: .specs/prompts/phases/refinement.execute.md
-            approve: .specs/prompts/phases/refinement.approve.md
+            execute:
+              system: .specs/prompts/phases/refinement.execute.system.md
+              user: .specs/prompts/phases/refinement.execute.md
+            approve:
+              system: .specs/prompts/phases/refinement.approve.system.md
+              user: .specs/prompts/phases/refinement.approve.md
           technical_design:
-            execute: .specs/prompts/phases/technical-design.execute.md
+            execute:
+              system: .specs/prompts/phases/technical-design.execute.system.md
+              user: .specs/prompts/phases/technical-design.execute.md
           implementation:
-            execute: .specs/prompts/phases/implementation.execute.md
+            execute:
+              system: .specs/prompts/phases/implementation.execute.system.md
+              user: .specs/prompts/phases/implementation.execute.md
           review:
-            execute: .specs/prompts/phases/review.execute.md
+            execute:
+              system: .specs/prompts/phases/review.execute.system.md
+              user: .specs/prompts/phases/review.execute.md
           release_approval:
-            approve: .specs/prompts/phases/release-approval.approve.md
+            approve:
+              system: .specs/prompts/phases/release-approval.approve.system.md
+              user: .specs/prompts/phases/release-approval.approve.md
+        internalCalls:
+          autoClarificationAnswers:
+            system: .specs/prompts/phases/clarification.auto-answer.system.md
         """;
 
     private static string BuildSharedSystemPrompt() =>
@@ -113,18 +132,65 @@ public sealed class RepositoryPromptInitializer
         Do not invent missing repository facts.
         """;
 
-    private static string BuildPhaseExecutionSystemPrompt() =>
+    private static string BuildClarificationExecuteSystemPrompt() =>
         """
-        This is a model-backed phase execution call.
+        This is the system prompt for the clarification execute template.
 
-        Treat repository prompt templates and runtime artifacts as the authoritative contract for the current run.
-        Apply the current phase instructions exactly as provided in the user message.
-        Never omit schema-critical sections or silently downgrade the requested phase contract.
+        Diagnose readiness for refinement conservatively and keep every unresolved gap explicit.
+        Ask only concrete blocking questions, and never invent answers that were not provided by the repository context.
+        """;
+
+    private static string BuildRefinementExecuteSystemPrompt() =>
+        """
+        This is the system prompt for the refinement execute template.
+
+        Convert the story into an auditable, implementation-ready specification.
+        Keep section completeness and schema fidelity above narrative style, and do not hide missing business facts.
+        """;
+
+    private static string BuildRefinementApproveSystemPrompt() =>
+        """
+        This is the system prompt for the refinement approve template.
+
+        Evaluate readiness for technical design strictly against ambiguity, hidden scope, and unanswered approval questions.
+        Preserve blocking issues explicitly rather than softening them.
+        """;
+
+    private static string BuildTechnicalDesignExecuteSystemPrompt() =>
+        """
+        This is the system prompt for the technical design execute template.
+
+        Produce a repository-grounded design that is implementable in the current codebase.
+        Prefer concrete component impact, validation strategy, and delivery sequencing over generic architecture prose.
+        """;
+
+    private static string BuildImplementationExecuteSystemPrompt() =>
+        """
+        This is the system prompt for the implementation execute template.
+
+        Focus on repository-realistic implementation work, preserving traceability back to the approved design and spec.
+        Do not substitute planning text for actual implementation intent.
+        """;
+
+    private static string BuildReviewExecuteSystemPrompt() =>
+        """
+        This is the system prompt for the review execute template.
+
+        Review against the approved artifacts and repository evidence.
+        Surface material findings, missing validation, and release risks without inventing work that was not inspected.
+        """;
+
+    private static string BuildReleaseApprovalApproveSystemPrompt() =>
+        """
+        This is the system prompt for the release approval approve template.
+
+        Judge release readiness from evidence, operational risk, and unresolved findings.
+        Do not approve when the evidence is incomplete or materially contradictory.
         """;
 
     private static string BuildAutoClarificationAnswersSystemPrompt() =>
         """
-        This is a model-backed auto clarification resolution call.
+        This is the system prompt for the internal auto clarification answer task.
 
         Resolve pending clarification questions only from grounded repository evidence.
         Return resolvable answers only when the provided context supports them directly enough to retry clarification without user input.

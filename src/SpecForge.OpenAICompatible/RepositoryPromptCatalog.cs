@@ -15,14 +15,20 @@ internal sealed class RepositoryPromptCatalog
             paths.SharedSystemPromptPath,
             paths.SharedStylePromptPath,
             paths.SharedOutputRulesPromptPath,
-            paths.PhaseExecutionSystemPromptPath,
-            paths.AutoClarificationAnswersSystemPromptPath,
+            paths.ClarificationExecuteSystemPromptPath,
             paths.ClarificationExecutePromptPath,
+            paths.RefinementExecuteSystemPromptPath,
             paths.RefinementExecutePromptPath,
+            paths.RefinementApproveSystemPromptPath,
             paths.RefinementApprovePromptPath,
+            paths.TechnicalDesignExecuteSystemPromptPath,
             paths.TechnicalDesignExecutePromptPath,
+            paths.ImplementationExecuteSystemPromptPath,
             paths.ImplementationExecutePromptPath,
+            paths.ReviewExecuteSystemPromptPath,
             paths.ReviewExecutePromptPath,
+            paths.ReleaseApprovalApproveSystemPromptPath,
+            paths.AutoClarificationAnswersSystemPromptPath,
             paths.ReleaseApprovalApprovePromptPath
         };
 
@@ -51,6 +57,21 @@ internal sealed class RepositoryPromptCatalog
         };
     }
 
+    public string GetExecuteSystemPromptPath(string workspaceRoot, PhaseId phaseId)
+    {
+        var paths = new PromptFilePaths(workspaceRoot);
+
+        return phaseId switch
+        {
+            PhaseId.Clarification => paths.ClarificationExecuteSystemPromptPath,
+            PhaseId.Refinement => paths.RefinementExecuteSystemPromptPath,
+            PhaseId.TechnicalDesign => paths.TechnicalDesignExecuteSystemPromptPath,
+            PhaseId.Implementation => paths.ImplementationExecuteSystemPromptPath,
+            PhaseId.Review => paths.ReviewExecuteSystemPromptPath,
+            _ => throw new InvalidOperationException($"Phase '{phaseId}' does not have an execute system prompt.")
+        };
+    }
+
     public string GetApprovePromptPath(string workspaceRoot, PhaseId phaseId)
     {
         var paths = new PromptFilePaths(workspaceRoot);
@@ -60,6 +81,18 @@ internal sealed class RepositoryPromptCatalog
             PhaseId.Refinement => paths.RefinementApprovePromptPath,
             PhaseId.ReleaseApproval => paths.ReleaseApprovalApprovePromptPath,
             _ => throw new InvalidOperationException($"Phase '{phaseId}' does not have an approve prompt.")
+        };
+    }
+
+    public string GetApproveSystemPromptPath(string workspaceRoot, PhaseId phaseId)
+    {
+        var paths = new PromptFilePaths(workspaceRoot);
+
+        return phaseId switch
+        {
+            PhaseId.Refinement => paths.RefinementApproveSystemPromptPath,
+            PhaseId.ReleaseApproval => paths.ReleaseApprovalApproveSystemPromptPath,
+            _ => throw new InvalidOperationException($"Phase '{phaseId}' does not have an approve system prompt.")
         };
     }
 }
