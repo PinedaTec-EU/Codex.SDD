@@ -281,13 +281,15 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
                         Provider: "openai-compatible",
                         BaseUrl: $"{modelStub.BaseUrl}/v1",
                         ApiKey: string.Empty,
-                        Model: "stub-default"),
+                        Model: "stub-default",
+                        RepositoryAccess: "read-write"),
                     new OpenAiCompatibleModelProfile(
                         Name: "resolver",
                         Provider: "openai-compatible",
                         BaseUrl: $"{modelStub.BaseUrl}/v1",
                         ApiKey: string.Empty,
-                        Model: "stub-resolver")
+                        Model: "stub-resolver",
+                        RepositoryAccess: "read")
                 ],
                 PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
                     DefaultProfile: "default")));
@@ -329,6 +331,259 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Contains("\"model\":\"stub-resolver\"", modelStub.Requests[1].Body);
     }
 
+    [Fact]
+    public async Task GenerateNextPhaseAsync_FullWorkflow_InvokesModelForEveryModelBackedPhaseAndStopsAtReleaseApproval()
+    {
+        await new RepositoryPromptInitializer().InitializeAsync(workspaceRoot);
+
+        using var modelStub = new OpenAiCompatibleModelStubServer(
+        [
+            """
+            {
+              "state": "pending_user_input",
+              "decision": "needs_clarification",
+              "reason": "The story does not identify who configures suite agent sampling or where limits are enforced.",
+              "questions": [
+                "Which role configures the sampling controls?"
+              ]
+            }
+            """,
+            """
+            {
+              "canResolve": true,
+              "reason": "The story context points to the suite administrator as the owner of these settings.",
+              "answers": [
+                "The suite administrator configures the sampling controls."
+              ]
+            }
+            """,
+            """
+            {
+              "state": "ready",
+              "decision": "ready_for_refinement",
+              "reason": "The story and inferred clarification answer are concrete enough to proceed.",
+              "questions": []
+            }
+            """,
+            """
+            {
+              "title": "Control suite agent sampling",
+              "historyLog": [
+                "`2026-04-23T12:00:00Z` · Initial refinement baseline generated."
+              ],
+              "state": "pending_approval",
+              "basedOn": "clarification.md",
+              "specSummary": "Allow a suite administrator to configure bounded agent sampling defaults and validation rules.",
+              "inputs": [
+                "Suite administrator updates sampling settings."
+              ],
+              "outputs": [
+                "Persisted sampling defaults become available to downstream execution flows."
+              ],
+              "businessRules": [
+                "Sampling values must remain inside approved bounds."
+              ],
+              "edgeCases": [
+                "Out-of-range values are rejected before persistence."
+              ],
+              "errorsAndFailureModes": [
+                "Invalid settings never become the active configuration."
+              ],
+              "constraints": [
+                "Keep the first pass inside the current repository."
+              ],
+              "detectedAmbiguities": [
+                "Historical migration of legacy values remains out of scope."
+              ],
+              "redTeam": [
+                "A lax validation rule could allow invalid runtime states."
+              ],
+              "blueTeam": [
+                "Keep the scope bounded to validation, persistence, and runtime propagation."
+              ],
+              "acceptanceCriteria": [
+                "Sampling settings can be updated through the supported API boundary.",
+                "Persisted values are validated before saving.",
+                "Runtime consumers receive the validated sampling defaults."
+              ],
+              "humanApprovalQuestions": [
+                {
+                  "question": "Is the implementation scope bounded enough for technical design?",
+                  "status": "pending"
+                }
+              ]
+            }
+            """,
+            """
+            {
+              "state": "generated",
+              "basedOn": "01-spec.md",
+              "technicalSummary": "Translate the approved sampling-control spec into repository changes.",
+              "technicalObjective": "Enforce validated sampling settings through API, persistence, and runtime layers.",
+              "affectedComponents": [
+                "Sampling settings API",
+                "Configuration persistence",
+                "Runtime settings resolver"
+              ],
+              "architecture": [
+                "Keep validation rules centralized so persistence and runtime share the same contract."
+              ],
+              "primaryFlow": [
+                "Receive sampling settings update.",
+                "Validate bounded values.",
+                "Persist normalized settings.",
+                "Expose the persisted values to runtime consumers."
+              ],
+              "constraintsAndGuardrails": [
+                "Do not expand scope into unrelated orchestration behavior."
+              ],
+              "alternativesConsidered": [
+                "Validate only at the UI layer."
+              ],
+              "technicalRisks": [
+                "Divergent validation paths could allow inconsistent saved state."
+              ],
+              "expectedImpact": [
+                "Sampling defaults become safely configurable."
+              ],
+              "implementationStrategy": [
+                "Add request validation at the API boundary.",
+                "Persist normalized settings in the existing configuration store.",
+                "Update runtime settings resolution to read the persisted defaults."
+              ],
+              "validationStrategy": [
+                "Cover valid and invalid values in domain and API tests."
+              ],
+              "openDecisions": []
+            }
+            """,
+            """
+            {
+              "state": "generated",
+              "basedOn": "02-technical-design.md",
+              "implementedObjective": "Apply the planned sampling-control changes to the repository.",
+              "plannedOrExecutedChanges": [
+                "Update the API validation path for sampling settings.",
+                "Persist normalized sampling values.",
+                "Propagate persisted settings into runtime resolution."
+              ],
+              "plannedVerification": [
+                "Run focused tests that cover valid and invalid sampling settings.",
+                "Verify runtime consumers read the persisted values."
+              ]
+            }
+            """,
+            """
+            {
+              "result": "pass",
+              "checksPerformed": [
+                "Spec artifact present: true",
+                "Technical design artifact present: true",
+                "Implementation artifact present: true"
+              ],
+              "findings": [
+                "No material deviations were detected in the simulated workflow artifacts."
+              ],
+              "primaryReason": "All model-backed workflow phases produced the required evidence in order.",
+              "recommendation": [
+                "Advance to `release_approval`."
+              ]
+            }
+            """
+        ]);
+
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(),
+            new OpenAiCompatibleProviderOptions(
+                ClarificationTolerance: "balanced",
+                AutoClarificationAnswersEnabled: true,
+                AutoClarificationAnswersProfile: "resolver",
+                ModelProfiles:
+                [
+                    new OpenAiCompatibleModelProfile(
+                        Name: "default",
+                        Provider: "openai-compatible",
+                        BaseUrl: $"{modelStub.BaseUrl}/v1",
+                        ApiKey: string.Empty,
+                        Model: "stub-default",
+                        RepositoryAccess: "read-write"),
+                    new OpenAiCompatibleModelProfile(
+                        Name: "resolver",
+                        Provider: "openai-compatible",
+                        BaseUrl: $"{modelStub.BaseUrl}/v1",
+                        ApiKey: string.Empty,
+                        Model: "stub-resolver",
+                        RepositoryAccess: "read")
+                ],
+                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
+                    DefaultProfile: "default")));
+        var applicationService = new SpecForgeApplicationService(
+            new UserStoryFileStore(),
+            new WorkflowRunner(provider),
+            new RepositoryPromptInitializer(),
+            new RepositoryCategoryCatalog(),
+            new UserStoryRuntimeStatusStore());
+
+        await applicationService.CreateUserStoryAsync(
+            workspaceRoot,
+            "US-0001",
+            "Suite agent sampling controls",
+            "feature",
+            "workflow",
+            "Como administrador quiero configurar controles de sampling para los agentes de una suite y asegurar que solo se persistan valores validos.");
+
+        var refinementResult = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
+        Assert.Equal("refinement", refinementResult.CurrentPhase);
+        Assert.Equal("waiting-user", refinementResult.Status);
+
+        await ResolvePendingApprovalQuestionsAsync(applicationService, "US-0001");
+        await applicationService.ApprovePhaseAsync(workspaceRoot, "US-0001", "main");
+
+        var technicalDesignResult = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
+        Assert.Equal("technical-design", technicalDesignResult.CurrentPhase);
+        Assert.Equal("active", technicalDesignResult.Status);
+
+        var implementationResult = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
+        Assert.Equal("implementation", implementationResult.CurrentPhase);
+        Assert.Equal("active", implementationResult.Status);
+
+        var reviewResult = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
+        Assert.Equal("review", reviewResult.CurrentPhase);
+        Assert.Equal("active", reviewResult.Status);
+
+        var releaseApprovalResult = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
+        Assert.Equal("release-approval", releaseApprovalResult.CurrentPhase);
+        Assert.Equal("waiting-user", releaseApprovalResult.Status);
+
+        var workflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
+        Assert.Equal("release-approval", workflow.CurrentPhase);
+        Assert.Equal("waiting-user", workflow.Status);
+        Assert.Contains(workflow.Events, eventItem =>
+            eventItem.Code == "clarification_auto_answered"
+            && eventItem.Execution is not null
+            && eventItem.Execution.ProfileName == "resolver");
+        Assert.Contains(workflow.Events, eventItem => eventItem.Code == "phase_completed" && eventItem.Phase == "technical-design");
+        Assert.Contains(workflow.Events, eventItem => eventItem.Code == "phase_completed" && eventItem.Phase == "implementation");
+        Assert.Contains(workflow.Events, eventItem => eventItem.Code == "phase_completed" && eventItem.Phase == "review");
+
+        Assert.Equal(7, modelStub.Requests.Count);
+        Assert.Equal(
+            [
+                "clarification_artifact",
+                "auto_clarification_answers",
+                "clarification_artifact",
+                "refinement_artifact",
+                "technical_design_artifact",
+                "implementation_artifact",
+                "review_artifact"
+            ],
+            modelStub.Requests.Select(request => ExtractResponseSchemaName(request.Body)).ToArray());
+        Assert.Equal("stub-resolver", ExtractModel(modelStub.Requests[1].Body));
+        Assert.All(
+            modelStub.Requests.Where((_, index) => index != 1),
+            request => Assert.Equal("stub-default", ExtractModel(request.Body)));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(workspaceRoot))
@@ -364,6 +619,26 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
     {
         using var document = JsonDocument.Parse(requestBody);
         return document.RootElement.GetProperty("response_format").GetProperty("json_schema").GetProperty("name").GetString() ?? string.Empty;
+    }
+
+    private static string ExtractModel(string requestBody)
+    {
+        using var document = JsonDocument.Parse(requestBody);
+        return document.RootElement.GetProperty("model").GetString() ?? string.Empty;
+    }
+
+    private async Task ResolvePendingApprovalQuestionsAsync(SpecForgeApplicationService applicationService, string usId)
+    {
+        var workflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, usId);
+        foreach (var question in workflow.ApprovalQuestions.Where(static item => !item.IsResolved))
+        {
+            await applicationService.SubmitApprovalAnswerAsync(
+                workspaceRoot,
+                usId,
+                question.Question,
+                $"Resolved in integration test for: {question.Question}",
+                "integration-test");
+        }
     }
 
     private sealed class OpenAiCompatibleModelStubServer : IDisposable
