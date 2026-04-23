@@ -2,12 +2,14 @@ export interface SpecForgeSettings {
   readonly modelProfiles: readonly SpecForgeModelProfile[];
   readonly phaseModelAssignments: SpecForgePhaseModelAssignments;
   readonly effectivePhaseModelAssignments: EffectiveSpecForgePhaseModelAssignments;
+  readonly autoClarificationAnswersProfile: string | null;
   readonly clarificationTolerance: string;
   readonly reviewTolerance: string;
   readonly watcherEnabled: boolean;
   readonly attentionNotificationsEnabled: boolean;
   readonly contextSuggestionsEnabled: boolean;
   readonly requireExplicitApprovalBranchAcceptance: boolean;
+  readonly autoClarificationAnswersEnabled: boolean;
   readonly autoPlayEnabled: boolean;
   readonly destructiveRewindEnabled: boolean;
 }
@@ -59,6 +61,8 @@ export function getSpecForgeSettings(): SpecForgeSettings {
 export function readSpecForgeSettings(configuration: ConfigurationReader): SpecForgeSettings {
   const modelProfiles = normalizeModelProfiles(configuration.get<unknown[]>("execution.modelProfiles", []));
   const phaseModelAssignments = normalizePhaseModelAssignments(configuration.get<unknown>("execution.phaseModels"));
+  const autoClarificationAnswersProfile = normalizeUnknownOptional(
+    configuration.get<unknown>("execution.autoClarificationAnswersProfile"));
 
   return {
     modelProfiles,
@@ -67,12 +71,14 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
       modelProfiles,
       phaseModelAssignments
     ),
+    autoClarificationAnswersProfile,
     clarificationTolerance: normalizeTolerance(configuration.get<string>("execution.clarificationTolerance", "balanced")),
     reviewTolerance: normalizeTolerance(configuration.get<string>("execution.reviewTolerance", "balanced")),
     watcherEnabled: configuration.get<boolean>("ui.enableWatcher", true),
     attentionNotificationsEnabled: configuration.get<boolean>("ui.notifyOnAttention", true),
     contextSuggestionsEnabled: configuration.get<boolean>("features.enableContextSuggestions", true),
     requireExplicitApprovalBranchAcceptance: configuration.get<boolean>("features.requireApprovalBranchAcceptance", false),
+    autoClarificationAnswersEnabled: configuration.get<boolean>("features.autoClarificationAnswersEnabled", false),
     autoPlayEnabled: configuration.get<boolean>("features.autoPlayEnabled", false),
     destructiveRewindEnabled: configuration.get<boolean>("features.destructiveRewindEnabled", false)
   };
@@ -88,6 +94,11 @@ export function buildBackendEnvironment(settings: SpecForgeSettings): NodeJS.Pro
 
   env.SPECFORGE_CAPTURE_TOLERANCE = settings.clarificationTolerance;
   env.SPECFORGE_REVIEW_TOLERANCE = settings.reviewTolerance;
+  env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED = settings.autoClarificationAnswersEnabled ? "true" : "false";
+
+  if (settings.autoClarificationAnswersProfile) {
+    env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE = settings.autoClarificationAnswersProfile;
+  }
 
   return env;
 }
@@ -201,6 +212,22 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
     }
   }
 
+  if (settings.autoClarificationAnswersEnabled && !settings.autoClarificationAnswersProfile) {
+    return {
+      executionConfigured: false,
+      message: "SpecForge.AI needs an auto-clarification answers profile when model-driven clarification answers are enabled.",
+      diagnostics
+    };
+  }
+
+  if (settings.autoClarificationAnswersProfile && !profilesByName.has(settings.autoClarificationAnswersProfile)) {
+    return {
+      executionConfigured: false,
+      message: `SpecForge.AI auto-clarification answers profile references unknown profile '${settings.autoClarificationAnswersProfile}'.`,
+      diagnostics
+    };
+  }
+
   return {
     executionConfigured: true,
     message: null,
@@ -234,6 +261,8 @@ function buildSettingsDiagnostics(settings: SpecForgeSettings): string {
     `phaseModels.review=${settings.phaseModelAssignments.reviewProfile ?? "<unset>"}`,
     `phaseModels.releaseApproval=${settings.phaseModelAssignments.releaseApprovalProfile ?? "<unset>"}`,
     `phaseModels.prPreparation=${settings.phaseModelAssignments.prPreparationProfile ?? "<unset>"}`,
+    `autoClarificationAnswers.enabled=${settings.autoClarificationAnswersEnabled}`,
+    `autoClarificationAnswers.profile=${settings.autoClarificationAnswersProfile ?? "<unset>"}`,
     `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
     `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,
     `effective.clarification=${settings.effectivePhaseModelAssignments.clarificationProfileName ?? "<unset>"}`,

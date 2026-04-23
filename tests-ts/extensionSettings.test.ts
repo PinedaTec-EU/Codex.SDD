@@ -121,12 +121,14 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
       releaseApprovalProfileName: "light",
       prPreparationProfileName: "light"
     }),
+    autoClarificationAnswersProfile: null,
     clarificationTolerance: "inferential",
     reviewTolerance: "strict",
     watcherEnabled: false,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: true,
+    autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
   });
@@ -183,12 +185,14 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
       implementationProfileName: "top",
       reviewProfileName: "light"
     }),
+    autoClarificationAnswersProfile: null,
     clarificationTolerance: "strict",
     reviewTolerance: "inferential",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
+    autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
   }), {
@@ -216,7 +220,8 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
       reviewProfile: "light"
     })),
     SPECFORGE_CAPTURE_TOLERANCE: "strict",
-    SPECFORGE_REVIEW_TOLERANCE: "inferential"
+    SPECFORGE_REVIEW_TOLERANCE: "inferential",
+    SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED: "false"
   });
 });
 
@@ -225,12 +230,14 @@ test("getSpecForgeSettingsStatus requires at least one model profile", () => {
     modelProfiles: [],
     phaseModelAssignments: assignments(),
     effectivePhaseModelAssignments: effective(),
+    autoClarificationAnswersProfile: null,
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
+    autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
   });
@@ -258,12 +265,14 @@ test("getSpecForgeSettingsStatus allows a single valid local profile without api
       implementationProfileName: "light",
       reviewProfileName: "light"
     }),
+    autoClarificationAnswersProfile: null,
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
+    autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
   });
@@ -291,12 +300,14 @@ test("getSpecForgeSettingsStatus still requires an api key for remote profiles",
       implementationProfileName: "light",
       reviewProfileName: "light"
     }),
+    autoClarificationAnswersProfile: null,
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
+    autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
   });
@@ -320,12 +331,14 @@ test("getSpecForgeSettingsStatus accepts profiles using the default provider", (
     ],
     phaseModelAssignments: assignments(),
     effectivePhaseModelAssignments: effective(),
+    autoClarificationAnswersProfile: null,
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
+    autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
   });
@@ -373,12 +386,14 @@ test("getSpecForgeSettingsStatus accepts codex, copilot, and claude providers", 
       implementationProfileName: "implementer",
       reviewProfileName: "reviewer"
     }),
+    autoClarificationAnswersProfile: null,
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
+    autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
   });
@@ -408,12 +423,14 @@ test("getSpecForgeSettingsStatus allows codex without baseUrl apiKey or model", 
       implementationProfileName: "codex-main",
       reviewProfileName: "codex-main"
     }),
+    autoClarificationAnswersProfile: null,
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
+    autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
   });
@@ -437,12 +454,14 @@ test("getSpecForgeSettingsStatus rejects unsupported providers", () => {
     ],
     phaseModelAssignments: assignments(),
     effectivePhaseModelAssignments: effective(),
+    autoClarificationAnswersProfile: null,
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
+    autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
   });
@@ -468,12 +487,14 @@ test("getSpecForgeSettingsStatus validates named profile assignments", () => {
       defaultProfile: "missing"
     }),
     effectivePhaseModelAssignments: effective(),
+    autoClarificationAnswersProfile: null,
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
+    autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
   });
@@ -517,18 +538,86 @@ test("getSpecForgeSettingsStatus allows multiple profiles without default when a
       implementationProfileName: "implementer",
       reviewProfileName: "planner"
     }),
+    autoClarificationAnswersProfile: null,
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
+    autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
   });
 
   assert.equal(status.executionConfigured, true);
   assert.equal(status.message, null);
+});
+
+test("getSpecForgeSettingsStatus requires an explicit auto-clarification profile when enabled", () => {
+  const status = getSpecForgeSettingsStatus({
+    modelProfiles: [
+      {
+        name: "planner",
+        provider: "openai-compatible",
+        baseUrl: "https://api.example.test/v1",
+        apiKey: "secret",
+        model: "gpt-5.4",
+        repositoryAccess: "read"
+      }
+    ],
+    phaseModelAssignments: assignments(),
+    effectivePhaseModelAssignments: effective({
+      defaultProfileName: "planner"
+    }),
+    autoClarificationAnswersProfile: null,
+    clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true,
+    contextSuggestionsEnabled: true,
+    requireExplicitApprovalBranchAcceptance: false,
+    autoClarificationAnswersEnabled: true,
+    autoPlayEnabled: false,
+    destructiveRewindEnabled: false
+  });
+
+  assert.equal(status.executionConfigured, false);
+  assert.equal(status.message, "SpecForge.AI needs an auto-clarification answers profile when model-driven clarification answers are enabled.");
+});
+
+test("buildBackendEnvironment serializes auto-clarification settings", () => {
+  const env = buildBackendEnvironment({
+    modelProfiles: [
+      {
+        name: "planner",
+        provider: "openai-compatible",
+        baseUrl: "https://api.example.test/v1",
+        apiKey: "secret",
+        model: "gpt-5.4",
+        repositoryAccess: "read"
+      }
+    ],
+    phaseModelAssignments: assignments({
+      defaultProfile: "planner"
+    }),
+    effectivePhaseModelAssignments: effective({
+      defaultProfileName: "planner"
+    }),
+    autoClarificationAnswersProfile: "planner",
+    clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true,
+    contextSuggestionsEnabled: true,
+    requireExplicitApprovalBranchAcceptance: false,
+    autoClarificationAnswersEnabled: true,
+    autoPlayEnabled: false,
+    destructiveRewindEnabled: false
+  });
+
+  assert.equal(env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED, "true");
+  assert.equal(env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE, "planner");
 });
 
 test("readSpecForgeSettings falls back to balanced clarification tolerance for unsupported values", () => {
@@ -545,5 +634,7 @@ test("readSpecForgeSettings falls back to balanced clarification tolerance for u
   assert.equal(settings.clarificationTolerance, "balanced");
   assert.equal(settings.reviewTolerance, "balanced");
   assert.equal(settings.requireExplicitApprovalBranchAcceptance, false);
+  assert.equal(settings.autoClarificationAnswersEnabled, false);
+  assert.equal(settings.autoClarificationAnswersProfile, null);
   assert.deepEqual(settings.phaseModelAssignments, assignments());
 });

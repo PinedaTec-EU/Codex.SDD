@@ -89,6 +89,66 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Contains(expectedGuidance, userPrompt);
     }
 
+    [Fact]
+    public async Task TryAutoAnswerClarificationAsync_UsesConfiguredProfileAndStructuredPrompt()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var handler = new CapturingFakeHttpMessageHandler(BuildAutoClarificationAnswersJson());
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            new OpenAiCompatibleProviderOptions(
+                ClarificationTolerance: "inferential",
+                AutoClarificationAnswersEnabled: true,
+                AutoClarificationAnswersProfile: "resolver",
+                ModelProfiles:
+                [
+                    new OpenAiCompatibleModelProfile(
+                        Name: "default",
+                        Provider: "openai-compatible",
+                        BaseUrl: "http://localhost:11434/v1",
+                        ApiKey: string.Empty,
+                        Model: "llama-light",
+                        RepositoryAccess: "read"),
+                    new OpenAiCompatibleModelProfile(
+                        Name: "resolver",
+                        Provider: "openai-compatible",
+                        BaseUrl: "http://localhost:22434/v1",
+                        ApiKey: string.Empty,
+                        Model: "llama-resolver",
+                        RepositoryAccess: "read")
+                ],
+                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
+                    DefaultProfile: "default",
+                    ClarificationProfile: "default")));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Clarification,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        var result = await provider.TryAutoAnswerClarificationAsync(
+            context,
+            new ClarificationSession(
+                "needs_clarification",
+                "inferential",
+                "Missing business details.",
+                [new ClarificationItem(1, "Which role publishes the article?", null)]));
+
+        Assert.NotNull(result);
+        Assert.Equal("The available context is enough to answer the pending clarification.", result!.Reason);
+        Assert.Equal("Marketing editor", result.Answers[0]);
+        Assert.NotNull(result.Execution);
+        Assert.Equal("resolver", result.Execution!.ProfileName);
+        Assert.Equal("llama-resolver", result.Execution.Model);
+        Assert.Equal("http://localhost:22434/v1/chat/completions", handler.LastRequest!.RequestUri!.ToString());
+        Assert.Equal("auto_clarification_answers", ReadResponseSchemaName(handler.LastBody));
+        Assert.Contains("\"model\":\"llama-resolver\"", handler.LastBody);
+        Assert.Contains("## Auto Clarification Answer Task", ReadUserPrompt(handler.LastBody));
+        Assert.Contains("Which role publishes the article?", ReadUserPrompt(handler.LastBody));
+    }
+
     [Theory]
     [InlineData("strict", 0.0d, "Be demanding. Surface weaker evidence, thinner validation, and smaller deviations as findings whenever they could undermine confidence in release readiness.")]
     [InlineData("balanced", 0.2d, "Use balanced judgment. Prioritize meaningful risks and missing evidence without inflating cosmetic or low-impact issues.")]
@@ -633,11 +693,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         string clarificationTolerance = "balanced",
         string reviewTolerance = "balanced",
         string repositoryAccess = "read-write",
-        string providerKind = "openai-compatible")
+        string providerKind = "openai-compatible",
+        bool autoClarificationAnswersEnabled = false,
+        string? autoClarificationAnswersProfile = null)
     {
         return new OpenAiCompatibleProviderOptions(
             ClarificationTolerance: clarificationTolerance,
             ReviewTolerance: reviewTolerance,
+            AutoClarificationAnswersEnabled: autoClarificationAnswersEnabled,
+            AutoClarificationAnswersProfile: autoClarificationAnswersProfile,
             ModelProfiles:
             [
                 new OpenAiCompatibleModelProfile(
@@ -801,6 +865,17 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
           "decision": "ready_for_refinement",
           "reason": "The user story is concrete enough to proceed to refinement.",
           "questions": []
+        }
+        """;
+
+    private static string BuildAutoClarificationAnswersJson() =>
+        """
+        {
+          "canResolve": true,
+          "reason": "The available context is enough to answer the pending clarification.",
+          "answers": [
+            "Marketing editor"
+          ]
         }
         """;
 

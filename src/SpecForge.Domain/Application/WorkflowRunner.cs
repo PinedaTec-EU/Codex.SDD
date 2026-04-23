@@ -601,6 +601,17 @@ public sealed class WorkflowRunner
 
         if (!clarification.IsReady)
         {
+            var autoAnswerAttempt = await TryAutoAnswerClarificationAsync(
+                workspaceRoot,
+                paths,
+                workflowRun,
+                actor,
+                cancellationToken);
+            if (autoAnswerAttempt is not null)
+            {
+                return autoAnswerAttempt;
+            }
+
             workflowRun.RestoreState(PhaseId.Clarification, UserStoryStatus.WaitingUser);
             return new CaptureTransitionResult(
                 clarificationGeneration.ArtifactPath,
@@ -617,6 +628,142 @@ public sealed class WorkflowRunner
             actor,
             workflowRun.CurrentPhase,
             $"Generated artifact for phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}` after clarification.",
+            cancellationToken,
+            refinementGeneration.ArtifactPath,
+            refinementGeneration.Usage,
+            refinementGeneration.DurationMs,
+            refinementGeneration.Execution);
+
+        return new CaptureTransitionResult(
+            refinementGeneration.ArtifactPath,
+            refinementGeneration.Usage,
+            refinementGeneration.DurationMs,
+            refinementGeneration.Execution);
+    }
+
+    private async Task<CaptureTransitionResult?> TryAutoAnswerClarificationAsync(
+        string workspaceRoot,
+        UserStoryFilePaths paths,
+        WorkflowRun workflowRun,
+        string actor,
+        CancellationToken cancellationToken)
+    {
+        var session = await ReadClarificationSessionAsync(paths, cancellationToken);
+        if (session is null || session.Items.Count == 0)
+        {
+            return null;
+        }
+
+        var executionContext = new PhaseExecutionContext(
+            workspaceRoot,
+            workflowRun.UsId,
+            PhaseId.Clarification,
+            paths.MainArtifactPath,
+            BuildPreviousArtifactMap(paths, PhaseId.Clarification),
+            BuildContextFilePaths(paths),
+            paths.ClarificationFilePath,
+            null);
+
+        AutoClarificationAnswersResult? autoAnswers;
+        try
+        {
+            autoAnswers = await phaseExecutionProvider.TryAutoAnswerClarificationAsync(
+                executionContext,
+                session,
+                cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            await AppendTimelineEventAsync(
+                paths.TimelineFilePath,
+                "clarification_auto_answer_failed",
+                "system",
+                PhaseId.Clarification,
+                $"Automatic clarification answering failed and the workflow remains with the user. Reason: {exception.Message}",
+                cancellationToken);
+            return null;
+        }
+
+        if (autoAnswers is null)
+        {
+            return null;
+        }
+
+        var normalizedAnswers = session.Items
+            .OrderBy(static item => item.Index)
+            .Select((item, index) => index < autoAnswers.Answers.Count ? autoAnswers.Answers[index] : null)
+            .ToArray();
+        var resolvedAnswers = normalizedAnswers
+            .Count(static answer => !string.IsNullOrWhiteSpace(answer));
+
+        if (!autoAnswers.CanResolve || resolvedAnswers == 0)
+        {
+            await AppendTimelineEventAsync(
+                paths.TimelineFilePath,
+                "clarification_auto_answer_skipped",
+                "system",
+                PhaseId.Clarification,
+                string.IsNullOrWhiteSpace(autoAnswers.Reason)
+                    ? "Automatic clarification answering could not resolve any pending question."
+                    : $"Automatic clarification answering left the phase with the user. Reason: {autoAnswers.Reason}",
+                cancellationToken,
+                paths.ClarificationFilePath,
+                autoAnswers.Usage,
+                durationMs: null,
+                autoAnswers.Execution);
+            return null;
+        }
+
+        var autoAnsweredSession = UserStoryClarificationMarkdown.WithAnswers(session, normalizedAnswers);
+        await PersistClarificationSessionAsync(paths, autoAnsweredSession, cancellationToken);
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "clarification_auto_answered",
+            "system",
+            PhaseId.Clarification,
+            $"Automatic clarification answering recorded {resolvedAnswers} answer(s) before retrying refinement readiness.",
+            cancellationToken,
+            paths.ClarificationFilePath,
+            autoAnswers.Usage,
+            durationMs: null,
+            autoAnswers.Execution);
+
+        workflowRun.RestoreState(PhaseId.Clarification, UserStoryStatus.Active);
+        var retryGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
+        var retryClarification = ParseClarificationArtifact(await File.ReadAllTextAsync(retryGeneration.ArtifactPath, cancellationToken));
+        await UpdateClarificationLogAsync(paths, retryClarification, this.captureTolerance, cancellationToken);
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            retryClarification.IsReady ? "clarification_passed" : "clarification_requested",
+            actor,
+            workflowRun.CurrentPhase,
+            retryClarification.IsReady
+                ? $"{retryClarification.Summary} Resolved through automatic clarification answers."
+                : $"{retryClarification.Summary} Automatic clarification answers were insufficient; user intervention is still required.",
+            cancellationToken,
+            retryGeneration.ArtifactPath,
+            retryGeneration.Usage,
+            retryGeneration.DurationMs,
+            retryGeneration.Execution);
+
+        if (!retryClarification.IsReady)
+        {
+            workflowRun.RestoreState(PhaseId.Clarification, UserStoryStatus.WaitingUser);
+            return new CaptureTransitionResult(
+                retryGeneration.ArtifactPath,
+                retryGeneration.Usage,
+                retryGeneration.DurationMs,
+                retryGeneration.Execution);
+        }
+
+        workflowRun.GenerateNextPhase();
+        var refinementGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "phase_completed",
+            actor,
+            workflowRun.CurrentPhase,
+            $"Generated artifact for phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}` after automatic clarification answers.",
             cancellationToken,
             refinementGeneration.ArtifactPath,
             refinementGeneration.Usage,

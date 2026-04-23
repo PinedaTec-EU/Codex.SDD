@@ -191,7 +191,7 @@ public static class UserStoryClarificationMarkdown
         return builder.Length == 0 ? string.Empty : builder.ToString().TrimEnd() + Environment.NewLine;
     }
 
-    public static ClarificationSession WithAnswers(ClarificationSession session, IReadOnlyList<string> answers)
+    public static ClarificationSession WithAnswers(ClarificationSession session, IReadOnlyList<string?> answers)
     {
         var items = session.Items
             .Select(item => item with

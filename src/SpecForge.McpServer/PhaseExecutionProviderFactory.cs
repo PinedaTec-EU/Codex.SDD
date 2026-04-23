@@ -18,6 +18,8 @@ internal static class PhaseExecutionProviderFactory
     private const string PhaseModelAssignmentsJsonEnvVar = "SPECFORGE_OPENAI_PHASE_MODEL_ASSIGNMENTS_JSON";
     private const string ClarificationToleranceEnvVar = "SPECFORGE_CAPTURE_TOLERANCE";
     private const string ReviewToleranceEnvVar = "SPECFORGE_REVIEW_TOLERANCE";
+    private const string AutoClarificationAnswersEnabledEnvVar = "SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED";
+    private const string AutoClarificationAnswersProfileEnvVar = "SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE";
     private const string SystemPromptEnvVar = "SPECFORGE_OPENAI_SYSTEM_PROMPT";
     private const string TimeoutSecondsEnvVar = "SPECFORGE_OPENAI_TIMEOUT_SECONDS";
     private static readonly TimeSpan DefaultOpenAiTimeout = TimeSpan.FromMinutes(10);
@@ -54,6 +56,11 @@ internal static class PhaseExecutionProviderFactory
         var assignments = ReadPhaseModelAssignmentsFromEnvironment();
         var clarificationTolerance = Environment.GetEnvironmentVariable(ClarificationToleranceEnvVar) ?? "balanced";
         var reviewTolerance = Environment.GetEnvironmentVariable(ReviewToleranceEnvVar) ?? "balanced";
+        var autoClarificationAnswersEnabled = string.Equals(
+            Environment.GetEnvironmentVariable(AutoClarificationAnswersEnabledEnvVar),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+        var autoClarificationAnswersProfile = Environment.GetEnvironmentVariable(AutoClarificationAnswersProfileEnvVar);
         var systemPrompt = Environment.GetEnvironmentVariable(SystemPromptEnvVar) ??
                            "You generate markdown artifacts for SpecForge workflow phases. Return only markdown.";
         var httpClient = new HttpClient
@@ -64,6 +71,8 @@ internal static class PhaseExecutionProviderFactory
             SystemPrompt: systemPrompt,
             ClarificationTolerance: clarificationTolerance,
             ReviewTolerance: reviewTolerance,
+            AutoClarificationAnswersEnabled: autoClarificationAnswersEnabled,
+            AutoClarificationAnswersProfile: string.IsNullOrWhiteSpace(autoClarificationAnswersProfile) ? null : autoClarificationAnswersProfile.Trim(),
             ModelProfiles: modelProfiles,
             PhaseModelAssignments: assignments);
         return new OpenAiCompatiblePhaseExecutionProvider(httpClient, options);

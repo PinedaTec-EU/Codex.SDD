@@ -23,5 +23,7 @@ public sealed record OpenAiCompatibleProviderOptions(
     string? SystemPrompt = null,
     string ClarificationTolerance = "balanced",
     string ReviewTolerance = "balanced",
+    bool AutoClarificationAnswersEnabled = false,
+    string? AutoClarificationAnswersProfile = null,
     IReadOnlyList<OpenAiCompatibleModelProfile>? ModelProfiles = null,
     OpenAiCompatiblePhaseModelAssignments? PhaseModelAssignments = null);

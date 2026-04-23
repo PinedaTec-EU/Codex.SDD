@@ -237,6 +237,11 @@
           ],
           "description": "How demanding the review phase should be when assessing findings and pass/fail readiness. This also adjusts the temperature sent for the review phase."
         },
+        "specForge.execution.autoClarificationAnswersProfile": {
+          "type": "string",
+          "default": "",
+          "description": "Named profile used to auto-answer clarification questions before handing refinement/spec back to the user."
+        },
         "specForge.ui.enableWatcher": {
           "type": "boolean",
           "default": true,
@@ -256,6 +261,11 @@
           "type": "boolean",
           "default": false,
           "description": "Require explicit acceptance of the proposed base branch in the workflow detail before approving refinement."
+        },
+        "specForge.features.autoClarificationAnswersEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "When clarification blocks refinement/spec, let the selected model try to answer the pending questions once with the full workflow context before handing the phase to the user."
         },
         "specForge.features.autoPlayEnabled": {
           "type": "boolean",

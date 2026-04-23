@@ -113,6 +113,26 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ContinuePhaseAsync_WithAutoClarificationAnswers_ContinuesToRefinementWithoutUserInput()
+    {
+        var runner = new WorkflowRunner(new AutoAnsweringPhaseExecutionProvider());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "sample US");
+
+        var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal(PhaseId.Refinement, result.CurrentPhase);
+        Assert.Equal(UserStoryStatus.WaitingUser, result.Status);
+        Assert.NotNull(result.GeneratedArtifactPath);
+
+        var timeline = await File.ReadAllTextAsync(UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath);
+        Assert.Contains("`clarification_auto_answered`", timeline);
+        Assert.Contains("after automatic clarification answers", timeline);
+
+        var clarification = await File.ReadAllTextAsync(UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").ClarificationFilePath);
+        Assert.Contains("- Status: `ready_for_refinement`", clarification);
+    }
+
+    [Fact]
     public async Task OperateCurrentPhaseArtifactAsync_PersistsOperationSequenceAndRegeneratesSpec()
     {
         var runner = new WorkflowRunner();
@@ -623,6 +643,12 @@ public sealed class WorkflowRunnerTests : IDisposable
         public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
             new(phaseId, CanExecute: true);
 
+        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+            PhaseExecutionContext context,
+            ClarificationSession session,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<AutoClarificationAnswersResult?>(null);
+
         public Task<PhaseExecutionResult> ExecuteAsync(
             PhaseExecutionContext context,
             CancellationToken cancellationToken = default) =>
@@ -648,6 +674,40 @@ public sealed class WorkflowRunnerTests : IDisposable
             readinessByPhase.TryGetValue(phaseId, out var readiness)
                 ? readiness
                 : inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+            PhaseExecutionContext context,
+            ClarificationSession session,
+            CancellationToken cancellationToken = default) =>
+            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+
+        public Task<PhaseExecutionResult> ExecuteAsync(
+            PhaseExecutionContext context,
+            CancellationToken cancellationToken = default) =>
+            inner.ExecuteAsync(context, cancellationToken);
+    }
+
+    private sealed class AutoAnsweringPhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        private readonly DeterministicPhaseExecutionProvider inner = new();
+
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+            inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+            PhaseExecutionContext context,
+            ClarificationSession session,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<AutoClarificationAnswersResult?>(
+                new AutoClarificationAnswersResult(
+                    true,
+                    session.Items
+                        .OrderBy(static item => item.Index)
+                        .Select(item => $"Auto answer for: {item.Question}")
+                        .Cast<string?>()
+                        .ToArray(),
+                    "The model answered the clarification questions from the available context.",
+                    Execution: new PhaseExecutionMetadata("test-double", "auto-answer-model", "auto-answer-profile", "http://stub.test/v1")));
 
         public Task<PhaseExecutionResult> ExecuteAsync(
             PhaseExecutionContext context,

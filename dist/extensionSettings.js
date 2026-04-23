@@ -11,16 +11,19 @@ function getSpecForgeSettings() {
 function readSpecForgeSettings(configuration) {
     const modelProfiles = normalizeModelProfiles(configuration.get("execution.modelProfiles", []));
     const phaseModelAssignments = normalizePhaseModelAssignments(configuration.get("execution.phaseModels"));
+    const autoClarificationAnswersProfile = normalizeUnknownOptional(configuration.get("execution.autoClarificationAnswersProfile"));
     return {
         modelProfiles,
         phaseModelAssignments,
         effectivePhaseModelAssignments: resolveEffectivePhaseModelAssignments(modelProfiles, phaseModelAssignments),
+        autoClarificationAnswersProfile,
         clarificationTolerance: normalizeTolerance(configuration.get("execution.clarificationTolerance", "balanced")),
         reviewTolerance: normalizeTolerance(configuration.get("execution.reviewTolerance", "balanced")),
         watcherEnabled: configuration.get("ui.enableWatcher", true),
         attentionNotificationsEnabled: configuration.get("ui.notifyOnAttention", true),
         contextSuggestionsEnabled: configuration.get("features.enableContextSuggestions", true),
         requireExplicitApprovalBranchAcceptance: configuration.get("features.requireApprovalBranchAcceptance", false),
+        autoClarificationAnswersEnabled: configuration.get("features.autoClarificationAnswersEnabled", false),
         autoPlayEnabled: configuration.get("features.autoPlayEnabled", false),
         destructiveRewindEnabled: configuration.get("features.destructiveRewindEnabled", false)
     };
@@ -33,6 +36,10 @@ function buildBackendEnvironment(settings) {
     }
     env.SPECFORGE_CAPTURE_TOLERANCE = settings.clarificationTolerance;
     env.SPECFORGE_REVIEW_TOLERANCE = settings.reviewTolerance;
+    env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED = settings.autoClarificationAnswersEnabled ? "true" : "false";
+    if (settings.autoClarificationAnswersProfile) {
+        env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE = settings.autoClarificationAnswersProfile;
+    }
     return env;
 }
 function getSpecForgeSettingsStatus(settings) {
@@ -125,6 +132,20 @@ function getModelProfileSettingsStatus(settings) {
             };
         }
     }
+    if (settings.autoClarificationAnswersEnabled && !settings.autoClarificationAnswersProfile) {
+        return {
+            executionConfigured: false,
+            message: "SpecForge.AI needs an auto-clarification answers profile when model-driven clarification answers are enabled.",
+            diagnostics
+        };
+    }
+    if (settings.autoClarificationAnswersProfile && !profilesByName.has(settings.autoClarificationAnswersProfile)) {
+        return {
+            executionConfigured: false,
+            message: `SpecForge.AI auto-clarification answers profile references unknown profile '${settings.autoClarificationAnswersProfile}'.`,
+            diagnostics
+        };
+    }
     return {
         executionConfigured: true,
         message: null,
@@ -154,6 +175,8 @@ function buildSettingsDiagnostics(settings) {
         `phaseModels.review=${settings.phaseModelAssignments.reviewProfile ?? "<unset>"}`,
         `phaseModels.releaseApproval=${settings.phaseModelAssignments.releaseApprovalProfile ?? "<unset>"}`,
         `phaseModels.prPreparation=${settings.phaseModelAssignments.prPreparationProfile ?? "<unset>"}`,
+        `autoClarificationAnswers.enabled=${settings.autoClarificationAnswersEnabled}`,
+        `autoClarificationAnswers.profile=${settings.autoClarificationAnswersProfile ?? "<unset>"}`,
         `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
         `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,
         `effective.clarification=${settings.effectivePhaseModelAssignments.clarificationProfileName ?? "<unset>"}`,

@@ -73,7 +73,7 @@ class ExecutionSettingsPanelController {
                     await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
                     return;
                 case "saveExecutionSettings":
-                    await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {});
+                    await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.autoClarificationAnswersEnabled ?? false, message.autoClarificationAnswersProfile);
                     await this.onDidSave();
                     await this.refreshAsync();
                     return;
@@ -87,7 +87,9 @@ class ExecutionSettingsPanelController {
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
         this.panel.webview.html = buildExecutionSettingsHtml({
             modelProfiles: settings.modelProfiles,
-            phaseModelAssignments: settings.phaseModelAssignments
+            phaseModelAssignments: settings.phaseModelAssignments,
+            autoClarificationAnswersEnabled: settings.autoClarificationAnswersEnabled,
+            autoClarificationAnswersProfile: settings.autoClarificationAnswersProfile
         });
     }
 }
@@ -333,6 +335,26 @@ function buildExecutionSettingsHtml(model) {
           </label>
         `).join("")}
       </div>
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Clarification Automation</p>
+          <h2>Model-assisted answers</h2>
+          <p class="copy">When clarification blocks refinement, let a selected model try to answer the pending questions once before handing the phase back to the user.</p>
+        </div>
+      </div>
+      <div class="phase-grid">
+        <label class="phase-field">
+          <span>Enable auto answers</span>
+          <select data-auto-clarification-enabled>
+            <option value="false"${model.autoClarificationAnswersEnabled ? "" : " selected"}>Disabled</option>
+            <option value="true"${model.autoClarificationAnswersEnabled ? " selected" : ""}>Enabled</option>
+          </select>
+        </label>
+        <label class="phase-field" data-auto-clarification-profile-wrapper>
+          <span>Auto-answer profile</span>
+          <select data-auto-clarification-profile></select>
+        </label>
+      </div>
       <div class="actions">
         <button class="primary-action" type="submit">Save Execution Settings</button>
       </div>
@@ -343,7 +365,9 @@ function buildExecutionSettingsHtml(model) {
     const executionPhases = ${JSON.stringify(executionPhases)};
     let state = {
       modelProfiles: ${JSON.stringify(model.modelProfiles)},
-      phaseModelAssignments: ${JSON.stringify(model.phaseModelAssignments)}
+      phaseModelAssignments: ${JSON.stringify(model.phaseModelAssignments)},
+      autoClarificationAnswersEnabled: ${JSON.stringify(model.autoClarificationAnswersEnabled)},
+      autoClarificationAnswersProfile: ${JSON.stringify(model.autoClarificationAnswersProfile)}
     };
 
     function escapeHtml(value) {
@@ -375,15 +399,30 @@ function buildExecutionSettingsHtml(model) {
       return options.join("");
     }
 
+    function autoClarificationProfileOptions(selectedValue) {
+      const options = ['<option value="">Select a profile</option>'];
+      for (const profile of state.modelProfiles) {
+        options.push('<option value="' + escapeHtml(profile.name || "") + '"' + ((profile.name || "") === selectedValue ? " selected" : "") + '>' + escapeHtml(profile.name || "") + '</option>');
+      }
+      return options.join("");
+    }
+
     function hasFallbackProblem() {
       const nonEmptyProfiles = state.modelProfiles.filter((profile) => String(profile.name || "").trim().length > 0);
       return nonEmptyProfiles.length > 1 && !String(state.phaseModelAssignments.defaultProfile || "").trim();
+    }
+
+    function hasAutoClarificationProblem() {
+      return state.autoClarificationAnswersEnabled && !String(state.autoClarificationAnswersProfile || "").trim();
     }
 
     function render() {
       const profilesHost = document.querySelector("[data-profiles]");
       const phaseGrid = document.querySelector("[data-phase-grid]");
       const warning = document.querySelector("[data-default-warning]");
+      const autoClarificationProfile = document.querySelector("[data-auto-clarification-profile]");
+      const autoClarificationWrapper = document.querySelector("[data-auto-clarification-profile-wrapper]");
+      const autoClarificationEnabled = document.querySelector("[data-auto-clarification-enabled]");
       const saveButton = document.querySelector('button[type="submit"]');
       if (!(profilesHost instanceof HTMLElement) || !(phaseGrid instanceof HTMLElement)) {
         return;
@@ -423,7 +462,24 @@ function buildExecutionSettingsHtml(model) {
         });
       }
 
+      if (autoClarificationProfile instanceof HTMLSelectElement) {
+        autoClarificationProfile.innerHTML = autoClarificationProfileOptions(state.autoClarificationAnswersProfile || "");
+        autoClarificationProfile.value = state.autoClarificationAnswersProfile || "";
+        autoClarificationProfile.addEventListener("change", () => {
+          state.autoClarificationAnswersProfile = autoClarificationProfile.value;
+        });
+      }
+
+      if (autoClarificationEnabled instanceof HTMLSelectElement) {
+        autoClarificationEnabled.value = state.autoClarificationAnswersEnabled ? "true" : "false";
+        autoClarificationEnabled.addEventListener("change", () => {
+          state.autoClarificationAnswersEnabled = autoClarificationEnabled.value === "true";
+          render();
+        });
+      }
+
       const fallbackProblem = hasFallbackProblem();
+      const autoClarificationProblem = hasAutoClarificationProblem();
       if (warning instanceof HTMLElement) {
         warning.classList.toggle("warning-banner--visible", fallbackProblem);
       }
@@ -431,11 +487,16 @@ function buildExecutionSettingsHtml(model) {
       if (defaultWrapper instanceof HTMLElement) {
         defaultWrapper.classList.toggle("phase-field--invalid", fallbackProblem);
       }
+      if (autoClarificationWrapper instanceof HTMLElement) {
+        autoClarificationWrapper.classList.toggle("phase-field--invalid", autoClarificationProblem);
+      }
       if (saveButton instanceof HTMLButtonElement) {
-        saveButton.disabled = fallbackProblem;
+        saveButton.disabled = fallbackProblem || autoClarificationProblem;
         saveButton.title = fallbackProblem
           ? "Define the default fallback profile before saving."
-          : "";
+          : autoClarificationProblem
+            ? "Select the profile that should answer clarification questions."
+            : "";
       }
 
       for (const button of profilesHost.querySelectorAll("[data-remove-profile]")) {
@@ -509,6 +570,9 @@ function buildExecutionSettingsHtml(model) {
           state.phaseModelAssignments[phase.key] = "";
         }
       }
+      if (state.autoClarificationAnswersProfile && !names.has(state.autoClarificationAnswersProfile)) {
+        state.autoClarificationAnswersProfile = "";
+      }
     }
 
     function readProfileField(card, field) {
@@ -543,7 +607,9 @@ function buildExecutionSettingsHtml(model) {
       vscode.postMessage({
         command: "saveExecutionSettings",
         modelProfiles: state.modelProfiles,
-        phaseModelAssignments: state.phaseModelAssignments
+        phaseModelAssignments: state.phaseModelAssignments,
+        autoClarificationAnswersEnabled: state.autoClarificationAnswersEnabled,
+        autoClarificationAnswersProfile: state.autoClarificationAnswersProfile
       });
     });
 
@@ -563,7 +629,7 @@ function escapeHtmlAttr(value) {
         .replaceAll("\"", "&quot;")
         .replaceAll("'", "&#39;");
 }
-async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments) {
+async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, autoClarificationAnswersEnabled = false, autoClarificationAnswersProfile) {
     const configuration = vscode.workspace.getConfiguration("specForge");
     const normalizedProfiles = modelProfiles
         .map((profile) => ({
@@ -593,6 +659,8 @@ async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments) 
     };
     await configuration.update("execution.modelProfiles", normalizedProfiles, vscode.ConfigurationTarget.Workspace);
     await configuration.update("execution.phaseModels", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("features.autoClarificationAnswersEnabled", autoClarificationAnswersEnabled, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("execution.autoClarificationAnswersProfile", normalizeOptionalAssignment(autoClarificationAnswersProfile), vscode.ConfigurationTarget.Workspace);
 }
 function normalizeOptionalAssignment(value) {
     const trimmed = value?.trim();

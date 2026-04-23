@@ -50,6 +50,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
 
         ValidateModelProfiles(options.ModelProfiles, options.PhaseModelAssignments);
+        ValidateAutoClarificationAnswers(
+            options.ModelProfiles.Select(static profile => profile.Name).ToArray(),
+            options);
 
         if (!IsSupportedTolerance(options.ClarificationTolerance))
         {
@@ -100,6 +103,63 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                     : PhaseExecutionBlockingReasons.ReviewRequiresRepositoryReadAccess);
     }
 
+    public async Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        PhaseExecutionContext context,
+        ClarificationSession session,
+        CancellationToken cancellationToken = default)
+    {
+        if (!options.AutoClarificationAnswersEnabled || session.Items.Count == 0)
+        {
+            return null;
+        }
+
+        var modelSelection = ResolveAutoClarificationAnswersModelSelection();
+        var prompt = await BuildAutoClarificationAnswersPromptAsync(context, session, cancellationToken);
+        if (string.Equals(modelSelection.ProviderKind, CodexProviderKind, StringComparison.Ordinal))
+        {
+            var responseJson = await ExecuteStructuredCodexAsync(
+                context.WorkspaceRoot,
+                BuildStandaloneCodexPrompt("SpecForge Native Clarification Auto Answers", prompt),
+                modelSelection,
+                BuildAutoClarificationAnswersSchema().GetRawText(),
+                sandboxMode: "read-only",
+                cancellationToken);
+            var document = ParseAutoClarificationAnswersDocument(responseJson);
+            return new AutoClarificationAnswersResult(
+                document.CanResolve,
+                document.Answers,
+                document.Reason,
+                Execution: new PhaseExecutionMetadata(
+                    ProviderKind: CodexProviderKind,
+                    Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
+                    ProfileName: modelSelection.ProfileName));
+        }
+
+        var (content, usage) = await ExecuteStructuredHttpAsync(
+            modelSelection,
+            prompt.SystemPrompt,
+            prompt.UserPrompt,
+            temperature: ResolveToleranceTemperature(options.ClarificationTolerance),
+            new StructuredOutputResponseFormat(
+                Type: "json_schema",
+                JsonSchema: new StructuredOutputJsonSchema(
+                    Name: "auto_clarification_answers",
+                    Schema: BuildAutoClarificationAnswersSchema(),
+                    Strict: true)),
+            cancellationToken);
+        var parsed = ParseAutoClarificationAnswersDocument(content);
+        return new AutoClarificationAnswersResult(
+            parsed.CanResolve,
+            parsed.Answers,
+            parsed.Reason,
+            usage,
+            new PhaseExecutionMetadata(
+                ProviderKind: modelSelection.ProviderKind,
+                Model: modelSelection.Model,
+                ProfileName: modelSelection.ProfileName,
+                BaseUrl: modelSelection.BaseUrl));
+    }
+
     public async Task<PhaseExecutionResult> ExecuteAsync(
         PhaseExecutionContext context,
         CancellationToken cancellationToken = default)
@@ -113,23 +173,21 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             return await ExecuteViaCodexCliAsync(context, prompt, modelSelection, cancellationToken);
         }
 
-        var request = BuildRequest(context.PhaseId, modelSelection, prompt.SystemPrompt, prompt.UserPrompt);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new InvalidOperationException(
-                $"OpenAI-compatible provider call failed with status {(int)response.StatusCode}: {payload}");
-        }
-
-        using var document = JsonDocument.Parse(payload);
-        var content = document.RootElement
-            .GetProperty("choices")[0]
-            .GetProperty("message")
-            .GetProperty("content")
-            .GetString();
-        var usage = TryReadUsage(document.RootElement);
+        var contract = StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var phaseContract)
+            ? phaseContract
+            : throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract.");
+        var (content, usage) = await ExecuteStructuredHttpAsync(
+            modelSelection,
+            prompt.SystemPrompt,
+            prompt.UserPrompt,
+            ResolveTemperature(context.PhaseId),
+            new StructuredOutputResponseFormat(
+                Type: "json_schema",
+                JsonSchema: new StructuredOutputJsonSchema(
+                    Name: contract.SchemaName,
+                    Schema: contract.JsonSchema,
+                    Strict: true)),
+            cancellationToken);
 
         if (string.IsNullOrWhiteSpace(content))
         {
@@ -148,7 +206,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 BaseUrl: modelSelection.BaseUrl));
     }
 
-    private HttpRequestMessage BuildRequest(PhaseId phaseId, ResolvedModelSelection modelSelection, string systemPrompt, string userPrompt)
+    private HttpRequestMessage BuildRequest(
+        ResolvedModelSelection modelSelection,
+        string systemPrompt,
+        string userPrompt,
+        double temperature,
+        StructuredOutputResponseFormat? responseFormat)
     {
         var endpoint = $"{modelSelection.BaseUrl.TrimEnd('/')}/chat/completions";
         var messages = new List<object>();
@@ -168,22 +231,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             content = userPrompt
         });
 
-        StructuredOutputResponseFormat? responseFormat = null;
-        if (StructuredPhaseArtifactContracts.TryGet(phaseId, out var contract))
-        {
-            responseFormat = new StructuredOutputResponseFormat(
-                Type: "json_schema",
-                JsonSchema: new StructuredOutputJsonSchema(
-                    Name: contract.SchemaName,
-                    Schema: contract.JsonSchema,
-                    Strict: true));
-        }
-
         var requestBody = JsonSerializer.Serialize(new
         {
             model = modelSelection.Model,
             messages,
-            temperature = ResolveTemperature(phaseId),
+            temperature,
             response_format = responseFormat
         });
 
@@ -198,6 +250,33 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
 
         return request;
+    }
+
+    private async Task<(string Content, TokenUsage? Usage)> ExecuteStructuredHttpAsync(
+        ResolvedModelSelection modelSelection,
+        string systemPrompt,
+        string userPrompt,
+        double temperature,
+        StructuredOutputResponseFormat? responseFormat,
+        CancellationToken cancellationToken)
+    {
+        var request = BuildRequest(modelSelection, systemPrompt, userPrompt, temperature, responseFormat);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(
+                $"OpenAI-compatible provider call failed with status {(int)response.StatusCode}: {payload}");
+        }
+
+        using var document = JsonDocument.Parse(payload);
+        var content = document.RootElement
+            .GetProperty("choices")[0]
+            .GetProperty("message")
+            .GetProperty("content")
+            .GetString();
+        return (content ?? string.Empty, TryReadUsage(document.RootElement));
     }
 
     private async Task<EffectivePrompt> BuildEffectivePromptAsync(
@@ -391,6 +470,155 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return new EffectivePrompt(systemPrompt, builder.ToString().Trim());
     }
 
+    private async Task<EffectivePrompt> BuildAutoClarificationAnswersPromptAsync(
+        PhaseExecutionContext context,
+        ClarificationSession session,
+        CancellationToken cancellationToken)
+    {
+        var paths = new PromptFilePaths(context.WorkspaceRoot);
+        var sharedSystemPrompt = await File.ReadAllTextAsync(paths.SharedSystemPromptPath, cancellationToken);
+        var sharedStylePrompt = await File.ReadAllTextAsync(paths.SharedStylePromptPath, cancellationToken);
+        var sharedOutputRulesPrompt = await File.ReadAllTextAsync(paths.SharedOutputRulesPromptPath, cancellationToken);
+        var phasePrompt = await File.ReadAllTextAsync(paths.ClarificationExecutePromptPath, cancellationToken);
+        var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
+        var clarificationLogPath = Path.Combine(Path.GetDirectoryName(context.UserStoryPath)!, "clarification.md");
+        var clarificationLog = File.Exists(clarificationLogPath)
+            ? await File.ReadAllTextAsync(clarificationLogPath, cancellationToken)
+            : string.Empty;
+        var systemPrompt = string.Join(
+            $"{Environment.NewLine}{Environment.NewLine}",
+            new[]
+            {
+                options.SystemPrompt,
+                sharedSystemPrompt.Trim(),
+                sharedStylePrompt.Trim(),
+                sharedOutputRulesPrompt.Trim()
+            }.Where(static part => !string.IsNullOrWhiteSpace(part)));
+
+        var builder = new StringBuilder()
+            .AppendLine(phasePrompt.Trim())
+            .AppendLine()
+            .AppendLine("## Auto Clarification Answer Task")
+            .AppendLine()
+            .AppendLine("You are helping SpecForge answer pending clarification questions before refinement/spec continues.")
+            .AppendLine("Use only evidence from the user story, recorded clarification log, repository context files, and current workflow artifacts.")
+            .AppendLine("Set `canResolve` to true only if every pending question can be answered credibly enough to retry clarification without user input.")
+            .AppendLine("If any question still needs human confirmation, set `canResolve` to false and return `null` for the uncertain answers.")
+            .AppendLine()
+            .AppendLine("## Runtime Context")
+            .AppendLine()
+            .AppendLine($"- Workspace root: `{context.WorkspaceRoot}`")
+            .AppendLine($"- US ID: `{context.UsId}`")
+            .AppendLine($"- Phase: `Clarification`")
+            .AppendLine($"- Auto-answer profile: `{ResolveAutoClarificationAnswersModelSelection().ProfileName ?? "default"}`")
+            .AppendLine()
+            .AppendLine("## Pending Questions")
+            .AppendLine();
+
+        foreach (var item in session.Items.OrderBy(static item => item.Index))
+        {
+            builder.AppendLine($"{item.Index}. {item.Question}");
+        }
+
+        builder
+            .AppendLine()
+            .AppendLine("## User Story")
+            .AppendLine()
+            .AppendLine(userStory.Trim())
+            .AppendLine();
+
+        if (!string.IsNullOrWhiteSpace(clarificationLog))
+        {
+            builder
+                .AppendLine("## Clarification Log")
+                .AppendLine()
+                .AppendLine($"Path: `{clarificationLogPath}`")
+                .AppendLine()
+                .AppendLine(clarificationLog.Trim())
+                .AppendLine();
+        }
+
+        if (context.PreviousArtifactPaths.Count > 0)
+        {
+            builder.AppendLine("## Previous Artifacts");
+            builder.AppendLine();
+
+            foreach (var previousArtifact in context.PreviousArtifactPaths.OrderBy(static item => item.Key))
+            {
+                var artifactContent = await File.ReadAllTextAsync(previousArtifact.Value, cancellationToken);
+                builder
+                    .AppendLine($"### {previousArtifact.Key}")
+                    .AppendLine()
+                    .AppendLine($"Path: `{previousArtifact.Value}`")
+                    .AppendLine()
+                    .AppendLine(artifactContent.Trim())
+                    .AppendLine();
+            }
+        }
+
+        if (context.ContextFilePaths.Count > 0)
+        {
+            builder.AppendLine("## Context Files");
+            builder.AppendLine();
+
+            foreach (var attachmentPath in context.ContextFilePaths.OrderBy(static path => path, StringComparer.Ordinal))
+            {
+                var attachmentContent = await File.ReadAllTextAsync(attachmentPath, cancellationToken);
+                builder
+                    .AppendLine($"### {Path.GetFileName(attachmentPath)}")
+                    .AppendLine()
+                    .AppendLine($"Path: `{attachmentPath}`")
+                    .AppendLine()
+                    .AppendLine(attachmentContent.Trim())
+                    .AppendLine();
+            }
+        }
+
+        builder
+            .AppendLine("## Output Rules")
+            .AppendLine()
+            .AppendLine("- Return only structured data that conforms to the response schema.")
+            .AppendLine("- Keep the answers in the same order as the pending questions.")
+            .AppendLine("- Do not invent facts that are not grounded in the provided context.");
+
+        return new EffectivePrompt(systemPrompt, builder.ToString().Trim());
+    }
+
+    private static JsonElement BuildAutoClarificationAnswersSchema()
+    {
+        using var document = JsonDocument.Parse(
+            """
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "canResolve": { "type": "boolean" },
+                "reason": { "type": "string" },
+                "answers": {
+                  "type": "array",
+                  "items": { "type": ["string", "null"] }
+                }
+              },
+              "required": ["canResolve", "reason", "answers"]
+            }
+            """);
+        return document.RootElement.Clone();
+    }
+
+    private static AutoClarificationAnswersDocument ParseAutoClarificationAnswersDocument(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        var answers = root.TryGetProperty("answers", out var answersElement) && answersElement.ValueKind == JsonValueKind.Array
+            ? answersElement.EnumerateArray().Select(static item =>
+                item.ValueKind == JsonValueKind.Null ? null : item.GetString()?.Trim()).ToArray()
+            : [];
+        return new AutoClarificationAnswersDocument(
+            root.GetProperty("canResolve").GetBoolean(),
+            root.GetProperty("reason").GetString()?.Trim() ?? string.Empty,
+            answers);
+    }
+
     private async Task<PhaseExecutionResult> ExecuteViaCodexCliAsync(
         PhaseExecutionContext context,
         EffectivePrompt prompt,
@@ -401,23 +629,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         {
             throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract for Codex execution.");
         }
-
-        if (!codexCliRunner.IsAvailable)
-        {
-            throw new InvalidOperationException("Codex CLI is not available for native provider execution.");
-        }
-
         var sandboxMode = context.PhaseId == PhaseId.Implementation
             ? "workspace-write"
             : "read-only";
-        var codexPrompt = BuildCodexPrompt(context, prompt);
-        var responseJson = await codexCliRunner.ExecuteAsync(
-            new CodexCliInvocation(
-                context.WorkspaceRoot,
-                codexPrompt,
-                string.IsNullOrWhiteSpace(modelSelection.Model) ? null : modelSelection.Model,
-                contract.JsonSchema.GetRawText(),
-                sandboxMode),
+        var responseJson = await ExecuteStructuredCodexAsync(
+            context.WorkspaceRoot,
+            BuildCodexPrompt(context, prompt),
+            modelSelection,
+            contract.JsonSchema.GetRawText(),
+            sandboxMode,
             cancellationToken);
         var normalizedContent = NormalizePhaseContent(context, responseJson.Trim());
 
@@ -429,6 +649,29 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 ProviderKind: CodexProviderKind,
                 Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
                 ProfileName: modelSelection.ProfileName));
+    }
+
+    private async Task<string> ExecuteStructuredCodexAsync(
+        string workspaceRoot,
+        string prompt,
+        ResolvedModelSelection modelSelection,
+        string outputSchemaJson,
+        string sandboxMode,
+        CancellationToken cancellationToken)
+    {
+        if (!codexCliRunner.IsAvailable)
+        {
+            throw new InvalidOperationException("Codex CLI is not available for native provider execution.");
+        }
+
+        return await codexCliRunner.ExecuteAsync(
+            new CodexCliInvocation(
+                workspaceRoot,
+                prompt,
+                string.IsNullOrWhiteSpace(modelSelection.Model) ? null : modelSelection.Model,
+                outputSchemaJson,
+                sandboxMode),
+            cancellationToken);
     }
 
     private static string BuildCodexPrompt(PhaseExecutionContext context, EffectivePrompt prompt)
@@ -480,6 +723,32 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return builder.ToString().Trim();
     }
 
+    private static string BuildStandaloneCodexPrompt(string title, EffectivePrompt prompt)
+    {
+        var builder = new StringBuilder()
+            .AppendLine($"# {title}")
+            .AppendLine()
+            .AppendLine("You are Codex assisting the SpecForge workflow inside the live repository.")
+            .AppendLine("Return only JSON matching the provided schema in your final response.")
+            .AppendLine();
+
+        if (!string.IsNullOrWhiteSpace(prompt.SystemPrompt))
+        {
+            builder
+                .AppendLine("## System Instructions")
+                .AppendLine()
+                .AppendLine(prompt.SystemPrompt.Trim())
+                .AppendLine();
+        }
+
+        builder
+            .AppendLine("## Task")
+            .AppendLine()
+            .AppendLine(prompt.UserPrompt.Trim());
+
+        return builder.ToString().Trim();
+    }
+
     private ResolvedModelSelection ResolveModelSelection(PhaseId phaseId)
     {
         var profileName = ResolveProfileNameForPhase(phaseId);
@@ -489,6 +758,29 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         if (profile is null)
         {
             throw new InvalidOperationException($"Model profile '{profileName}' was not found for phase '{phaseId}'.");
+        }
+
+        return new ResolvedModelSelection(
+            NormalizeProviderKind(profile.Provider),
+            profile.BaseUrl,
+            profile.ApiKey,
+            profile.Model,
+            profile.Name,
+            profile.RepositoryAccess);
+    }
+
+    private ResolvedModelSelection ResolveAutoClarificationAnswersModelSelection()
+    {
+        var profileName = string.IsNullOrWhiteSpace(options.AutoClarificationAnswersProfile)
+            ? ResolveProfileNameForPhase(PhaseId.Clarification)
+            : options.AutoClarificationAnswersProfile.Trim();
+        var profile = options.ModelProfiles!.FirstOrDefault(candidate =>
+            string.Equals(candidate.Name, profileName, StringComparison.Ordinal));
+
+        if (profile is null)
+        {
+            throw new InvalidOperationException(
+                $"Model profile '{profileName}' was not found for auto clarification answers.");
         }
 
         return new ResolvedModelSelection(
@@ -701,6 +993,30 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
     }
 
+    private static void ValidateAutoClarificationAnswers(
+        IReadOnlyCollection<string> names,
+        OpenAiCompatibleProviderOptions options)
+    {
+        if (!options.AutoClarificationAnswersEnabled)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(options.AutoClarificationAnswersProfile))
+        {
+            throw new ArgumentException(
+                "AutoClarificationAnswersProfile is required when AutoClarificationAnswersEnabled is true.",
+                nameof(options));
+        }
+
+        if (!names.Contains(options.AutoClarificationAnswersProfile))
+        {
+            throw new ArgumentException(
+                $"Auto clarification answers profile '{options.AutoClarificationAnswersProfile}' was not configured.",
+                nameof(options));
+        }
+    }
+
     private static string NormalizePhaseContent(PhaseExecutionContext context, string content)
     {
         if (StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var contract))
@@ -761,6 +1077,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     }
 
     private sealed record EffectivePrompt(string SystemPrompt, string UserPrompt);
+
+    private sealed record AutoClarificationAnswersDocument(
+        bool CanResolve,
+        string Reason,
+        IReadOnlyList<string?> Answers);
 
     private sealed record ResolvedModelSelection(
         string ProviderKind,

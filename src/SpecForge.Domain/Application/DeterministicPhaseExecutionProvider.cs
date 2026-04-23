@@ -7,6 +7,39 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
     public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
         new(phaseId, CanExecute: true);
 
+    public async Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        PhaseExecutionContext context,
+        ClarificationSession session,
+        CancellationToken cancellationToken = default)
+    {
+        if (session.Items.Count == 0)
+        {
+            return null;
+        }
+
+        var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
+        var objective = MarkdownHelper.ReadSection(userStory, "## Objective", "## Objetivo");
+        if (objective.Contains("sample", StringComparison.OrdinalIgnoreCase)
+            || objective.Contains("...", StringComparison.Ordinal)
+            || objective.Contains("todo", StringComparison.OrdinalIgnoreCase)
+            || objective.Contains("tbd", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var answers = session.Items
+            .OrderBy(static item => item.Index)
+            .Select(item => BuildDeterministicClarificationAnswer(item.Question, objective))
+            .Cast<string?>()
+            .ToArray();
+
+        return new AutoClarificationAnswersResult(
+            true,
+            answers,
+            "Deterministic provider inferred clarification answers from the current user story objective.",
+            Execution: new PhaseExecutionMetadata("deterministic", "deterministic"));
+    }
+
     public async Task<PhaseExecutionResult> ExecuteAsync(
         PhaseExecutionContext context,
         CancellationToken cancellationToken = default)
@@ -71,6 +104,24 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                        questions.Length == 0 ? "1. No clarification questions remain." : string.Join(Environment.NewLine, questions.Select((question, index) => $"{index + 1}. {question}"))
                    }) +
                Environment.NewLine;
+    }
+
+    private static string BuildDeterministicClarificationAnswer(string question, string objective)
+    {
+        if (question.Contains("actor", StringComparison.OrdinalIgnoreCase)
+            || question.Contains("role", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"The actor should be treated as the role implied by the current objective: {objective}";
+        }
+
+        if (question.Contains("input", StringComparison.OrdinalIgnoreCase)
+            || question.Contains("output", StringComparison.OrdinalIgnoreCase)
+            || question.Contains("result", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"The observable behavior should stay bounded to this objective and its direct outcome: {objective}";
+        }
+
+        return $"Use the current objective as the governing clarification answer unless the repository later proves otherwise: {objective}";
     }
 
     private static async Task<string> ComposeRefinementAsync(

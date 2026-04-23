@@ -370,6 +370,12 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
             return await inner.ExecuteAsync(context, cancellationToken);
         }
 
+        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+            PhaseExecutionContext context,
+            ClarificationSession session,
+            CancellationToken cancellationToken = default) =>
+            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+
         public Task WaitUntilStartedAsync() => started.Task;
 
         public void Release() => release.TrySetResult(true);
@@ -389,6 +395,12 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
             readinessByPhase.TryGetValue(phaseId, out var readiness)
                 ? readiness
                 : inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+            PhaseExecutionContext context,
+            ClarificationSession session,
+            CancellationToken cancellationToken = default) =>
+            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
 
         public Task<PhaseExecutionResult> ExecuteAsync(PhaseExecutionContext context, CancellationToken cancellationToken = default) =>
             inner.ExecuteAsync(context, cancellationToken);

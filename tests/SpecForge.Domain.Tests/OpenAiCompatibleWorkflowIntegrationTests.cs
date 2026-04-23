@@ -183,6 +183,152 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Contains("El editor de marketing publica el articulo.", ExtractUserPrompt(modelStub.Requests[1].Body));
     }
 
+    [Fact]
+    public async Task GenerateNextPhaseAsync_AutoClarificationAnswers_ContinuesToRefinementWithSelectedProfile()
+    {
+        await new RepositoryPromptInitializer().InitializeAsync(workspaceRoot);
+
+        using var modelStub = new OpenAiCompatibleModelStubServer(
+        [
+            """
+            {
+              "state": "pending_user_input",
+              "decision": "needs_clarification",
+              "reason": "The story does not identify who publishes the article.",
+              "questions": [
+                "Which role publishes the article?"
+              ]
+            }
+            """,
+            """
+            {
+              "canResolve": true,
+              "reason": "The story mentions the marketing editor in the available context.",
+              "answers": [
+                "Marketing editor"
+              ]
+            }
+            """,
+            """
+            {
+              "state": "ready",
+              "decision": "ready_for_refinement",
+              "reason": "The current user story and clarification answers are concrete enough to proceed to refinement.",
+              "questions": []
+            }
+            """,
+            """
+            {
+              "title": "Persist LinkedIn bilingual article rendering",
+              "historyLog": [
+                "`2026-04-22T12:09:02Z` · Initial refinement baseline generated."
+              ],
+              "state": "pending_approval",
+              "basedOn": "clarification.md",
+              "specSummary": "Persist LinkedIn article content in `articles.json` and render both Spanish and English variants.",
+              "inputs": [
+                "Marketing editors publish bilingual article content."
+              ],
+              "outputs": [
+                "Landing page renders the article in the requested locale."
+              ],
+              "businessRules": [
+                "Locale selects the Spanish or English article variant."
+              ],
+              "edgeCases": [
+                "Missing locale falls back to the default supported language."
+              ],
+              "errorsAndFailureModes": [
+                "Unknown article slug returns a not-found response."
+              ],
+              "constraints": [
+                "Keep the first pass bounded to the current repository."
+              ],
+              "detectedAmbiguities": [
+                "Analytics tracking remains out of scope unless explicitly approved."
+              ],
+              "redTeam": [
+                "The request could overreach into content authoring workflows."
+              ],
+              "blueTeam": [
+                "Keep scope bounded to persisted article rendering."
+              ],
+              "acceptanceCriteria": [
+                "Articles can be loaded from `articles.json`.",
+                "The page renders Spanish and English versions of the article content.",
+                "The article can be selected by slug and locale."
+              ],
+              "humanApprovalQuestions": [
+                {
+                  "question": "Is the bilingual scope bounded enough for technical design?",
+                  "status": "pending"
+                }
+              ]
+            }
+            """
+        ]);
+
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(),
+            new OpenAiCompatibleProviderOptions(
+                ClarificationTolerance: "balanced",
+                AutoClarificationAnswersEnabled: true,
+                AutoClarificationAnswersProfile: "resolver",
+                ModelProfiles:
+                [
+                    new OpenAiCompatibleModelProfile(
+                        Name: "default",
+                        Provider: "openai-compatible",
+                        BaseUrl: $"{modelStub.BaseUrl}/v1",
+                        ApiKey: string.Empty,
+                        Model: "stub-default"),
+                    new OpenAiCompatibleModelProfile(
+                        Name: "resolver",
+                        Provider: "openai-compatible",
+                        BaseUrl: $"{modelStub.BaseUrl}/v1",
+                        ApiKey: string.Empty,
+                        Model: "stub-resolver")
+                ],
+                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
+                    DefaultProfile: "default")));
+        var applicationService = new SpecForgeApplicationService(
+            new UserStoryFileStore(),
+            new WorkflowRunner(provider),
+            new RepositoryPromptInitializer(),
+            new RepositoryCategoryCatalog(),
+            new UserStoryRuntimeStatusStore());
+
+        await applicationService.CreateUserStoryAsync(
+            workspaceRoot,
+            "US-0001",
+            "Incorporar articulo bilingue",
+            "feature",
+            "workflow",
+            "Como editor quiero publicar un articulo bilingue en LinkedIn para mostrarlo en la landing.");
+
+        var result = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("waiting-user", result.Status);
+        Assert.NotNull(result.GeneratedArtifactPath);
+
+        var workflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
+        Assert.Equal("refinement", workflow.CurrentPhase);
+        Assert.Contains(workflow.Events, eventItem => eventItem.Code == "clarification_auto_answered");
+        Assert.Contains(workflow.Events, eventItem =>
+            eventItem.Code == "clarification_auto_answered"
+            && eventItem.Execution is not null
+            && eventItem.Execution.ProfileName == "resolver"
+            && eventItem.Execution.Model == "stub-resolver");
+
+        Assert.Equal(4, modelStub.Requests.Count);
+        Assert.Equal("clarification_artifact", ExtractResponseSchemaName(modelStub.Requests[0].Body));
+        Assert.Equal("auto_clarification_answers", ExtractResponseSchemaName(modelStub.Requests[1].Body));
+        Assert.Equal("clarification_artifact", ExtractResponseSchemaName(modelStub.Requests[2].Body));
+        Assert.Equal("refinement_artifact", ExtractResponseSchemaName(modelStub.Requests[3].Body));
+        Assert.Contains("\"model\":\"stub-resolver\"", modelStub.Requests[1].Body);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(workspaceRoot))
