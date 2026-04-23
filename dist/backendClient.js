@@ -77,7 +77,7 @@ class StdioMcpBackendClient {
                 return;
             }
             (0, outputChannel_1.appendSpecForgeLog)(`MCP stderr: ${message}`);
-            this.rejectPendingRequests(message);
+            (0, outputChannel_1.appendSpecForgeDebugLog)("MCP stderr was logged without rejecting pending requests.");
         });
         this.process.on("exit", (code, signal) => {
             (0, outputChannel_1.appendSpecForgeLog)(`MCP backend exited with code ${code ?? "null"} and signal ${signal ?? "null"}.`);

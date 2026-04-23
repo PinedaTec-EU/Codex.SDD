@@ -283,7 +283,7 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
       }
 
       appendSpecForgeLog(`MCP stderr: ${message}`);
-      this.rejectPendingRequests(message);
+      appendSpecForgeDebugLog("MCP stderr was logged without rejecting pending requests.");
     });
 
     this.process.on("exit", (code, signal) => {
