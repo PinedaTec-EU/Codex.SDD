@@ -876,7 +876,10 @@ test("buildWorkflowHtml animates the current execution phase while autoplay is r
   assert.match(html, /restoreExecutionOverlayState/);
   assert.match(html, /persistExecutionOverlayState/);
   assert.match(html, /sessionStorage/);
-  assert.match(html, /if \(overlayTone === "playing"\) \{\s*clearExecutionOverlayDismissed\(dismissKey\);\s*\} else if \(dismissible && isExecutionOverlayDismissed\(dismissKey\)\)/);
+  assert.match(
+    html,
+    /if \(overlayTone === "playing"\) \{\s*clearExecutionOverlayDismissed\(dismissKey\);\s*\}\s*if \(overlayTone !== "playing" && dismissible && isExecutionOverlayDismissed\(dismissKey\)\)/
+  );
   assert.match(html, /if \(messageElement && shuffledMessages\.length > 0\)/);
   assert.match(html, /if \(overlayTone !== "playing" && graphStage\)/);
 });
@@ -1253,6 +1256,10 @@ test("buildWorkflowHtml embeds a broad rotating execution message catalog for lo
   assert.match(html, /Untangling edge cases before they untangle the plan\./);
   assert.match(html, /Math\.random/);
   assert.match(html, /graph-stage--overlay-active/);
+  assert.match(
+    html,
+    /if \(overlayTone === "playing"\) {\s+clearExecutionOverlayDismissed\(dismissKey\);\s+}\s+if \(overlayTone !== "playing" && dismissible && isExecutionOverlayDismissed\(dismissKey\)\)/
+  );
 });
 
 test("buildWorkflowHtml shows paused execution overlay above the graph", () => {

@@ -3364,7 +3364,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       const dismissible = executionOverlay.dataset.dismissible === "true";
       if (overlayTone === "playing") {
         clearExecutionOverlayDismissed(dismissKey);
-      } else if (dismissible && isExecutionOverlayDismissed(dismissKey)) {
+      }
+
+      if (overlayTone !== "playing" && dismissible && isExecutionOverlayDismissed(dismissKey)) {
         executionOverlay.remove();
         if (graphStage) {
           graphStage.classList.remove("graph-stage--overlay-active");
