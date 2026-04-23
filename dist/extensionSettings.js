@@ -44,6 +44,7 @@ function getSpecForgeSettingsStatus(settings) {
     }
     return getModelProfileSettingsStatus(settings);
 }
+const defaultModelProvider = "openai-compatible";
 function getModelProfileSettingsStatus(settings) {
     const profilesByName = new Map();
     for (const profile of settings.modelProfiles) {
@@ -53,12 +54,6 @@ function getModelProfileSettingsStatus(settings) {
             return {
                 executionConfigured: false,
                 message: "SpecForge.AI found a model profile without a name."
-            };
-        }
-        if (!profile.provider) {
-            return {
-                executionConfigured: false,
-                message: `SpecForge.AI model profile '${profile.name}' is missing provider.`
             };
         }
         if (profile.provider !== "openai-compatible") {
@@ -145,7 +140,7 @@ function normalizeModelProfile(value) {
     }
     return {
         name: name ?? "",
-        provider: provider ?? "",
+        provider: provider ?? defaultModelProvider,
         baseUrl: baseUrl ?? "",
         apiKey,
         model: model ?? ""

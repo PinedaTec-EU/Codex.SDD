@@ -93,6 +93,8 @@ interface ConfigurationReader {
   get<T>(section: string, defaultValue?: T): T;
 }
 
+const defaultModelProvider = "openai-compatible";
+
 function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSettingsStatus {
   const profilesByName = new Map<string, SpecForgeModelProfile>();
 
@@ -104,13 +106,6 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
       return {
         executionConfigured: false,
         message: "SpecForge.AI found a model profile without a name."
-      };
-    }
-
-    if (!profile.provider) {
-      return {
-        executionConfigured: false,
-        message: `SpecForge.AI model profile '${profile.name}' is missing provider.`
       };
     }
 
@@ -214,7 +209,7 @@ function normalizeModelProfile(value: unknown): SpecForgeModelProfile | null {
 
   return {
     name: name ?? "",
-    provider: provider ?? "",
+    provider: provider ?? defaultModelProvider,
     baseUrl: baseUrl ?? "",
     apiKey,
     model: model ?? ""

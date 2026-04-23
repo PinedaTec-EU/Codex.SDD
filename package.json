@@ -117,7 +117,6 @@
             "type": "object",
             "required": [
               "name",
-              "provider",
               "baseUrl",
               "model"
             ],
@@ -128,10 +127,11 @@
               },
               "provider": {
                 "type": "string",
+                "default": "openai-compatible",
                 "enum": [
                   "openai-compatible"
                 ],
-                "description": "Provider kind used by this profile."
+                "description": "Provider kind used by this profile. Defaults to openai-compatible."
               },
               "baseUrl": {
                 "type": "string",

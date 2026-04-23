@@ -9,6 +9,7 @@ namespace SpecForge.OpenAICompatible;
 
 public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProvider
 {
+    private const string OpenAiCompatibleProviderKind = "openai-compatible";
     private const string StrictTolerance = "strict";
     private const string BalancedTolerance = "balanced";
     private const string InferentialTolerance = "inferential";
@@ -353,7 +354,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             throw new InvalidOperationException($"Model profile '{profileName}' was not found for phase '{phaseId}'.");
         }
 
-        return new ResolvedModelSelection(profile.Provider, profile.BaseUrl, profile.ApiKey, profile.Model, profile.Name);
+        return new ResolvedModelSelection(NormalizeProviderKind(profile.Provider), profile.BaseUrl, profile.ApiKey, profile.Model, profile.Name);
     }
 
     private string ResolveProfileNameForPhase(PhaseId phaseId)
@@ -432,6 +433,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             ? BalancedTolerance
             : tolerance.Trim().ToLowerInvariant();
 
+    private static string NormalizeProviderKind(string? providerKind) =>
+        string.IsNullOrWhiteSpace(providerKind)
+            ? OpenAiCompatibleProviderKind
+            : providerKind.Trim();
+
     private static void ValidateModelProfiles(
         IReadOnlyList<OpenAiCompatibleModelProfile> modelProfiles,
         OpenAiCompatiblePhaseModelAssignments? assignments)
@@ -445,12 +451,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 throw new ArgumentException("Model profile Name is required.", nameof(modelProfiles));
             }
 
-            if (string.IsNullOrWhiteSpace(profile.Provider))
-            {
-                throw new ArgumentException($"Provider is required for model profile '{profile.Name}'.", nameof(modelProfiles));
-            }
-
-            if (!string.Equals(profile.Provider, "openai-compatible", StringComparison.Ordinal))
+            var providerKind = NormalizeProviderKind(profile.Provider);
+            if (!string.Equals(providerKind, OpenAiCompatibleProviderKind, StringComparison.Ordinal))
             {
                 throw new ArgumentException($"Unsupported provider '{profile.Provider}' for model profile '{profile.Name}'.", nameof(modelProfiles));
             }

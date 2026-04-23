@@ -143,7 +143,7 @@ By default, phase execution uses a deterministic local engine.
 
 To enable model-backed phase execution, configure at least one model profile.
 
-Important: `provider` is not a global setting anymore. It lives inside each item in `specForge.execution.modelProfiles`, next to that profile's `baseUrl`, `apiKey`, and `model`.
+Important: `provider` is not a global setting anymore. It lives inside each item in `specForge.execution.modelProfiles`, next to that profile's `baseUrl`, `apiKey`, and `model`. If you omit it, SpecForge.AI defaults it to `openai-compatible`.
 
 Minimal shape of one profile:
 
@@ -151,6 +151,17 @@ Minimal shape of one profile:
 {
   "name": "light",
   "provider": "openai-compatible",
+  "baseUrl": "http://localhost:11434/v1",
+  "apiKey": "",
+  "model": "llama3.1"
+}
+```
+
+Equivalent shorthand without an explicit `provider` field:
+
+```json
+{
+  "name": "light",
   "baseUrl": "http://localhost:11434/v1",
   "apiKey": "",
   "model": "llama3.1"
@@ -171,14 +182,12 @@ Full example with routing:
     },
     {
       "name": "top",
-      "provider": "openai-compatible",
       "baseUrl": "https://api.openai.com/v1",
       "apiKey": "<your-api-key>",
       "model": "gpt-4.1"
     },
     {
       "name": "review",
-      "provider": "openai-compatible",
       "baseUrl": "https://api.openai.com/v1",
       "apiKey": "<your-api-key>",
       "model": "gpt-4.1-mini"

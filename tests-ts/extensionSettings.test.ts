@@ -77,6 +77,27 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
   });
 });
 
+test("readSpecForgeSettings defaults missing profile provider to openai-compatible", () => {
+  const values = new Map<string, unknown>([
+    ["execution.modelProfiles", [
+      {
+        name: "light",
+        baseUrl: " https://light.example.test/v1 ",
+        apiKey: " light-secret ",
+        model: " gpt-light "
+      }
+    ]]
+  ]);
+
+  const settings = readSpecForgeSettings({
+    get<T>(section: string, defaultValue?: T): T {
+      return (values.get(section) as T | undefined) ?? (defaultValue as T);
+    }
+  });
+
+  assert.equal(settings.modelProfiles[0]?.provider, "openai-compatible");
+});
+
 test("buildBackendEnvironment only serializes model profiles and assignments", () => {
   assert.deepEqual(buildBackendEnvironment({
     modelProfiles: [
@@ -237,12 +258,12 @@ test("getSpecForgeSettingsStatus still requires an api key for remote profiles",
   });
 });
 
-test("getSpecForgeSettingsStatus rejects profiles without provider", () => {
+test("getSpecForgeSettingsStatus accepts profiles using the default provider", () => {
   assert.deepEqual(getSpecForgeSettingsStatus({
     modelProfiles: [
       {
         name: "light",
-        provider: "",
+        provider: "openai-compatible",
         baseUrl: "https://api.example.test/v1",
         apiKey: "secret",
         model: "gpt-test"
@@ -267,8 +288,8 @@ test("getSpecForgeSettingsStatus rejects profiles without provider", () => {
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
   }), {
-    executionConfigured: false,
-    message: "SpecForge.AI model profile 'light' is missing provider."
+    executionConfigured: true,
+    message: null
   });
 });
 

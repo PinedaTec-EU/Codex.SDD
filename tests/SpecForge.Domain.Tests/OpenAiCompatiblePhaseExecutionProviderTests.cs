@@ -226,6 +226,39 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_EmptyProfileProvider_DefaultsToOpenAiCompatible()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            new OpenAiCompatibleProviderOptions(
+                ModelProfiles:
+                [
+                    new OpenAiCompatibleModelProfile(
+                        Name: "light",
+                        Provider: string.Empty,
+                        BaseUrl: "http://localhost:11434/v1",
+                        ApiKey: string.Empty,
+                        Model: "llama-light")
+                ],
+                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
+                    DefaultProfile: "light")));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Refinement,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        var result = await provider.ExecuteAsync(context);
+
+        Assert.NotNull(result.Execution);
+        Assert.Equal("openai-compatible", result.Execution!.ProviderKind);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_ClarificationOk_NormalizesToCanonicalReadyArtifact()
     {
         await PrepareInitializedWorkspaceAsync();

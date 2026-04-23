@@ -24,8 +24,7 @@ internal static class PhaseExecutionProviderFactory
         }
 
         var providerKinds = modelProfiles
-            .Select(static profile => profile.Provider)
-            .Where(static provider => !string.IsNullOrWhiteSpace(provider))
+            .Select(static profile => NormalizeProviderKind(profile.Provider))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
@@ -70,9 +69,12 @@ internal static class PhaseExecutionProviderFactory
             return [];
         }
 
-        return JsonSerializer.Deserialize<List<OpenAiCompatibleModelProfile>>(payload)
+        var deserialized = JsonSerializer.Deserialize<List<OpenAiCompatibleModelProfile>>(payload)
                ?? throw new InvalidOperationException(
                    $"Environment variable '{ModelProfilesJsonEnvVar}' could not be parsed as model profile JSON.");
+        return deserialized
+            .Select(static profile => profile with { Provider = NormalizeProviderKind(profile.Provider) })
+            .ToList();
     }
 
     private static OpenAiCompatiblePhaseModelAssignments? ReadPhaseModelAssignmentsFromEnvironment()
@@ -103,4 +105,9 @@ internal static class PhaseExecutionProviderFactory
         throw new InvalidOperationException(
             $"Environment variable '{TimeoutSecondsEnvVar}' must be a positive integer number of seconds.");
     }
+
+    private static string NormalizeProviderKind(string? providerKind) =>
+        string.IsNullOrWhiteSpace(providerKind)
+            ? OpenAiCompatibleKind
+            : providerKind.Trim();
 }
