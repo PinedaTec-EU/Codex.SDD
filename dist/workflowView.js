@@ -840,16 +840,21 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .shell {
       display: grid;
-      gap: 18px;
+      grid-template-rows: auto minmax(0, 1fr);
       height: 100vh;
-      overflow-y: auto;
       padding: 18px;
-      align-content: start;
-      overscroll-behavior: contain;
+      gap: 18px;
+      overflow: hidden;
     }
     .shell.shell--interaction-locked {
       pointer-events: none;
       user-select: none;
+    }
+    .shell-body {
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding-bottom: 6px;
     }
     .panel {
       border: 1px solid rgba(114, 241, 184, 0.16);
@@ -862,8 +867,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .hero {
       padding: 22px 24px;
-      position: sticky;
-      top: 18px;
+      position: relative;
       z-index: 30;
       overflow: hidden;
     }
@@ -2720,11 +2724,11 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       .shell {
         padding: 12px;
       }
+      .shell-body {
+        padding-bottom: 2px;
+      }
       .hero, .graph-panel, .detail-panel {
         padding: 16px;
-      }
-      .hero {
-        top: 12px;
       }
       .detail-metrics {
         grid-template-columns: 1fr;
@@ -2831,47 +2835,49 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         </div>
       </div>
     </section>
-    <section class="layout">
-      <aside class="panel graph-panel">
-        <h2 class="panel-title">Workflow Constellation</h2>
-        <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and audit context.</p>
-        <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}">
-          ${executionOverlay}
-          ${phaseGraph}
-        </div>
-      </aside>
-      <main class="panel detail-panel">
-        <div class="detail-card-shell">
-          ${detailActions}
-          <section class="detail-card detail-card--phase-overview">
-          <h2>${escapeHtml(selectedPhase.title)}</h2>
-          <div class="detail-meta">
-            <span class="token">${escapeHtml(phaseSecondaryLabel(selectedPhase))}</span>
-            <span class="token${selectedPhaseStateClass}">${escapeHtml(selectedPhase.state)}</span>
-            ${selectedPhase.requiresApproval ? `<span class="token token--attention">approval required</span>` : ""}
-            ${selectedPhase.isApproved ? `<span class="token token--success">approved</span>` : ""}
+    <div class="shell-body">
+      <section class="layout">
+        <aside class="panel graph-panel">
+          <h2 class="panel-title">Workflow Constellation</h2>
+          <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and audit context.</p>
+          <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}">
+            ${executionOverlay}
+            ${phaseGraph}
           </div>
-          ${selectedPhaseMetrics ? `<div class="detail-metrics">${selectedPhaseMetrics}</div>` : ""}
+        </aside>
+        <main class="panel detail-panel">
+          <div class="detail-card-shell">
+            ${detailActions}
+            <section class="detail-card detail-card--phase-overview">
+            <h2>${escapeHtml(selectedPhase.title)}</h2>
+            <div class="detail-meta">
+              <span class="token">${escapeHtml(phaseSecondaryLabel(selectedPhase))}</span>
+              <span class="token${selectedPhaseStateClass}">${escapeHtml(selectedPhase.state)}</span>
+              ${selectedPhase.requiresApproval ? `<span class="token token--attention">approval required</span>` : ""}
+              ${selectedPhase.isApproved ? `<span class="token token--success">approved</span>` : ""}
+            </div>
+            ${selectedPhaseMetrics ? `<div class="detail-metrics">${selectedPhaseMetrics}</div>` : ""}
+            </section>
+          </div>
+          ${phaseSpecificSections.beforeArtifact.join("")}
+          ${iterationRail}
+          ${iterationDetailSection}
+          <section class="detail-card">
+            <h3>Artifact</h3>
+            ${artifactSection}
           </section>
-        </div>
-        ${phaseSpecificSections.beforeArtifact.join("")}
-        ${iterationRail}
-        ${iterationDetailSection}
-        <section class="detail-card">
-          <h3>Artifact</h3>
-          ${artifactSection}
-        </section>
-        ${phaseSpecificSections.afterArtifact.join("")}
-        <section class="detail-card">
-          <h3>Phase Prompts</h3>
-          ${promptSection}
-        </section>
-        <section class="detail-card">
-          <h3>Audit Stream</h3>
-          <div class="audit-stream">${auditRows}</div>
-        </section>
-      </main>
-    </section>
+          ${phaseSpecificSections.afterArtifact.join("")}
+          <section class="detail-card">
+            <h3>Phase Prompts</h3>
+            ${promptSection}
+          </section>
+          <section class="detail-card">
+            <h3>Audit Stream</h3>
+            <div class="audit-stream">${auditRows}</div>
+          </section>
+        </main>
+      </section>
+    </div>
   </div>
   <script>
     const vscode = acquireVsCodeApi();

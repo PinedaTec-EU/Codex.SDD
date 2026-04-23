@@ -2154,7 +2154,7 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
   assert.match(html, /viewBox="0 0 \d+ \d+"/);
 });
 
-test("buildWorkflowHtml keeps the hero header sticky while the workflow content scrolls underneath", () => {
+test("buildWorkflowHtml keeps the hero header above a dedicated scrolling body", () => {
   const html = buildWorkflowHtml({
     usId: "US-0002",
     title: "Workflow layout",
@@ -2200,6 +2200,8 @@ test("buildWorkflowHtml keeps the hero header sticky while the workflow content 
   }, "idle");
 
   assert.match(html, /body \{[\s\S]*height: 100vh;[\s\S]*overflow: hidden;/);
-  assert.match(html, /\.shell \{[\s\S]*overflow-y: auto;[\s\S]*padding: 18px;/);
-  assert.match(html, /\.hero \{[\s\S]*position: sticky;[\s\S]*top: 18px;[\s\S]*z-index: 30;/);
+  assert.match(html, /\.shell \{[\s\S]*grid-template-rows: auto minmax\(0, 1fr\);[\s\S]*overflow: hidden;/);
+  assert.match(html, /\.shell-body \{[\s\S]*overflow-y: auto;[\s\S]*overscroll-behavior: contain;/);
+  assert.match(html, /<div class="shell-body">[\s\S]*<section class="layout">/);
+  assert.match(html, /\.hero \{[\s\S]*position: relative;[\s\S]*z-index: 30;/);
 });
