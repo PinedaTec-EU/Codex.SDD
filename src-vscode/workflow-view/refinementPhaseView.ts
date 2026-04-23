@@ -37,7 +37,7 @@ export function buildRefinementPhaseSections(args: RefinementPhaseViewArgs): Pha
 
   const approvalBranchEditorVisible = selectedPhase.phaseId === "refinement"
     && selectedPhase.isCurrent
-    && workflow.controls.canApprove;
+    && workflow.controls.requiresApproval;
   const approvalBaseBranchProposal = state.approvalBaseBranchProposal?.trim() || "main";
   const approvalWorkBranchProposal = state.approvalWorkBranchProposal?.trim() || workflow.workBranch?.trim() || "";
   const requiresExplicitApprovalBranchAcceptance = Boolean(state.requireExplicitApprovalBranchAcceptance);
@@ -65,7 +65,9 @@ export function buildRefinementPhaseSections(args: RefinementPhaseViewArgs): Pha
             <span class="approval-branch__accepted" data-approval-branch-accepted hidden>Accepted ✓</span>
           </div>
           <p class="approval-branch__hint" data-approval-branch-hint>
-            ${requiresExplicitApprovalBranchAcceptance
+            ${unresolvedApprovalQuestionCount > 0
+              ? "Approve stays disabled until all human approval questions are resolved below."
+              : requiresExplicitApprovalBranchAcceptance
               ? "Approve stays disabled until you accept this branch value explicitly."
               : "You can approve directly, and the current branch value will be sent with the action."}
           </p>

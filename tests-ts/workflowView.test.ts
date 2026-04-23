@@ -244,6 +244,76 @@ test("buildWorkflowHtml requires explicit base-branch acceptance before approve 
   assert.match(html, /Approve stays disabled until you accept this branch value explicitly\./);
 });
 
+test("buildWorkflowHtml keeps disabled approve visible for refinement when approval is still pending", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0099",
+    title: "Pending approval questions",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0099",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/01-spec.md",
+        executePromptPath: "/tmp/refinement.execute.md",
+        approvePromptPath: "/tmp/refinement.approve.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: true,
+      blockingReason: "refinement_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: [],
+      rewindTargets: []
+    },
+    clarification: null,
+    events: [],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "refinement",
+    selectedArtifactContent: `
+## Human Approval Questions
+- [ ] Is the scope precise enough?
+`,
+    selectedOperationContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /data-command="approve"[^>]*disabled[^>]*>Approve</);
+  assert.match(html, /<h3>Approval Branch<\/h3>/);
+  assert.match(html, /Approve stays disabled until all human approval questions are resolved below\./);
+});
+
 test("buildWorkflowHtml hides reject when current phase has no regression targets and enables continue after approved non-destructive rewind", () => {
   const html = buildWorkflowHtml({
     usId: "US-0099",

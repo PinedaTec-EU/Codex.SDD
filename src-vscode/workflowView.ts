@@ -596,7 +596,7 @@ function shouldRenderApprovalBranchEditor(
 ): boolean {
   return selectedPhase.phaseId === "refinement"
     && selectedPhase.isCurrent
-    && workflow.controls.canApprove;
+    && workflow.controls.requiresApproval;
 }
 
 function buildArtifactPreviewSection(
@@ -703,18 +703,22 @@ export function buildWorkflowHtml(
   const selectedPhaseStateClass = heroTokenClass(selectedPhase.state);
   const continueActionLabel = selectedPhase.isCurrent ? "Continue" : "Continue Current Phase";
   const approveActionLabel = selectedPhase.isCurrent ? "Approve" : "Approve Current Phase";
-  const detailActions = (selectedPhase.isCurrent && (workflow.controls.canApprove || detailRejectCommand))
+  const shouldRenderApproveAction = selectedPhase.isCurrent
+    && selectedPhase.requiresApproval
+    && selectedPhase.phaseId === "refinement";
+  const detailActions = (selectedPhase.isCurrent && (workflow.controls.canApprove || shouldRenderApproveAction || detailRejectCommand))
     || canRewindSelectedPhase
     || workflow.controls.canContinue
     || workflow.controls.canApprove
+    || shouldRenderApproveAction
     ? `
       <div class="detail-actions detail-actions--phase-header">
         ${workflow.controls.canContinue
-          ? `<button class="workflow-action-button workflow-action-button--progress" data-command="continue"${playDisabled ? " disabled" : ""}>${continueActionLabel}</button>`
-          : ""}
-        ${workflow.controls.canApprove
-          ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${shouldRenderApprovalBranchEditor(workflow, selectedPhase) && Boolean(state.requireExplicitApprovalBranchAcceptance) || unresolvedApprovalQuestionCount > 0 ? " disabled" : ""}>${approveActionLabel}</button>`
-          : ""}
+            ? `<button class="workflow-action-button workflow-action-button--progress" data-command="continue"${playDisabled ? " disabled" : ""}>${continueActionLabel}</button>`
+            : ""}
+        ${shouldRenderApproveAction
+            ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${!workflow.controls.canApprove || shouldRenderApprovalBranchEditor(workflow, selectedPhase) && Boolean(state.requireExplicitApprovalBranchAcceptance) || unresolvedApprovalQuestionCount > 0 ? " disabled" : ""}>${approveActionLabel}</button>`
+            : ""}
         ${detailRejectCommand ? `<button class="workflow-action-button workflow-action-button--danger" data-command="${detailRejectCommand.command}"${detailRejectCommand.phaseId ? ` data-phase-id="${escapeHtmlAttribute(detailRejectCommand.phaseId)}"` : ""}>Reject</button>` : ""}
         ${canRewindSelectedPhase ? `<button class="workflow-action-button workflow-action-button--document" data-command="rewind" data-phase-id="${escapeHtmlAttribute(selectedPhase.phaseId)}">Rewind Here</button>` : ""}
       </div>
