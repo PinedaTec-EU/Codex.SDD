@@ -137,11 +137,27 @@ dotnet test SpecForge.AI.slnx
 npm run test:ts
 ```
 
-## Provider Configuration
+## Model Configuration
 
-By default, phase execution uses a deterministic local provider.
+By default, phase execution uses a deterministic local engine.
 
-To enable an OpenAI-compatible provider, configure at least one model profile. Each profile carries its own provider, endpoint, credentials, and model:
+To enable model-backed phase execution, configure at least one model profile.
+
+Important: `provider` is not a global setting anymore. It lives inside each item in `specForge.execution.modelProfiles`, next to that profile's `baseUrl`, `apiKey`, and `model`.
+
+Minimal shape of one profile:
+
+```json
+{
+  "name": "light",
+  "provider": "openai-compatible",
+  "baseUrl": "http://localhost:11434/v1",
+  "apiKey": "",
+  "model": "llama3.1"
+}
+```
+
+Full example with routing:
 
 ```json
 {
@@ -176,7 +192,7 @@ To enable an OpenAI-compatible provider, configure at least one model profile. E
 }
 ```
 
-With that setup, capture, clarification, refinement, technical design, release approval, and PR preparation use `defaultProfile`; implementation can be routed to the strongest model; review can stay on the same model or use a separate middle tier. If no model profiles are configured, SpecForge.AI stays on the deterministic local provider and the UI warns that model-backed execution is incomplete.
+With that setup, capture, clarification, refinement, technical design, release approval, and PR preparation use `defaultProfile`; implementation can be routed to the strongest model; review can stay on the same model or use a separate middle tier. If no model profiles are configured, SpecForge.AI stays on the deterministic local engine and the UI warns that model-backed execution is incomplete.
 
 For local testing with Ollama, use a single profile that points at the local endpoint:
 
@@ -201,7 +217,7 @@ export SPECFORGE_CAPTURE_TOLERANCE=balanced
 export SPECFORGE_REVIEW_TOLERANCE=balanced
 ```
 
-The provider targets the OpenAI-compatible chat completions shape, so OpenAI and Ollama can share the same backend integration path.
+The current supported `provider` value is `openai-compatible`. It targets the OpenAI-compatible chat completions shape, so OpenAI and Ollama can share the same backend integration path.
 For clarification, the backend supports three tolerance levels: `strict`, `balanced`, and `inferential`.
 This value is sent as `SPECFORGE_CAPTURE_TOLERANCE`, adds explicit guidance to the clarification prompt, and maps clarification-only `temperature` as follows:
 
@@ -215,9 +231,9 @@ For review, the backend supports the same three levels through `SPECFORGE_REVIEW
 - `balanced` -> `0.2`
 - `inferential` -> `0.4`
 
-`temperature` is not exposed as an independent extension setting. The supported knobs are `clarificationTolerance` and `reviewTolerance`, and the provider derives `temperature` from them for the corresponding phases only.
+`temperature` is not exposed as an independent extension setting. The supported knobs are `clarificationTolerance` and `reviewTolerance`, and the backend derives `temperature` from them for the corresponding phases only.
 
-Before executing real provider-backed phases, initialize the repository prompt set through the MCP backend. This materializes `.specs/config.yaml` and `.specs/prompts/`, and the engine will fail fast if the required prompt files are missing.
+Before executing real model-backed phases, initialize the repository prompt set through the MCP backend. This materializes `.specs/config.yaml` and `.specs/prompts/`, and the engine will fail fast if the required prompt files are missing.
 
 ## Usage
 
@@ -233,7 +249,7 @@ The .NET core already supports:
 - creating the work branch metadata when the refinement/spec phase is approved using `<kind>/us-xxxx-short-slug`
 - generating minimal phase artifacts and timeline entries
 - initializing versioned repo prompts under `.specs/prompts/`
-- requiring prompt initialization for real provider-backed phase execution
+- requiring prompt initialization for real model-backed phase execution
 - composing effective phase prompts from repo templates and runtime artifacts
 
 ### VS Code extension
@@ -252,7 +268,7 @@ The extension currently provides:
 - per-phase detail inside the workflow view with artifact preview
 - per-phase prompt access inside the workflow view when the selected phase exposes `execute` or `approve` templates
 - user-story file management inside the workflow view, split between `context files` and `user story info`
-- only `context files` are injected into provider-backed runtime context; `user story info` remains attached to the workflow without entering the model prompt by default
+- only `context files` are injected into model-backed runtime context; `user story info` remains attached to the workflow without entering the model prompt by default
 - MCP tools to list, add, and reclassify workflow files so models can attach repo context without going through the VS Code UI
 - clarification guidance inside the workflow view inviting the user to add more repo context when the model gets blocked
 - local context-file suggestions during clarification using two default-enabled strategies: keyword heuristics and repo-neighborhood discovery
@@ -324,7 +340,7 @@ The exact required schema for that artifact lives in [doc/spec-schema-fase-1.md]
 
 The workflow view intentionally distinguishes between:
 
-- automatic phases that the system can execute when the provider and prompts are ready
+- automatic phases that the system can execute when model configuration and prompts are ready
 - user-driven checkpoints that require explicit approval before the next transition
 
 Today the canonical checkpoints are `refinement` as the spec baseline and `release_approval` as the final human release gate. The graph and phase detail make this visible so the operator can see where the workflow will stop and wait for attention.
@@ -401,7 +417,7 @@ This preference file currently stores the starred user story that should reopen 
 - [x] add approval and user-story detail actions to the extension
 - [x] add an OpenAI-compatible provider layer usable with OpenAI or Ollama
 - [x] export versioned prompts per phase into `.specs/prompts/`
-- [x] require repo prompt initialization before executing real providers
+- [x] require repo prompt initialization before executing real model-backed phases
 - [x] compose effective per-phase prompts from repo templates plus runtime context
 - [x] expose explicit phase regression through domain, MCP, and VS Code
 - [x] implement safe restart from source and archive superseded derived state
@@ -432,7 +448,7 @@ The current target is an MVP, not a feature-complete product.
 - [x] persist workflow state and artifacts under `.specs/`
 - [x] advance the canonical phase workflow with approvals
 - [x] expose the workflow through a local MCP backend
-- [x] support repo-initialized prompts and an OpenAI-compatible provider path
+- [x] support repo-initialized prompts and OpenAI-compatible model profiles
 - [x] support explicit regression to an earlier valid phase
 - [x] support safe restart from the original source
 - [x] support per-user starred user stories with automatic reopening
