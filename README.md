@@ -271,8 +271,8 @@ The extension currently provides:
 - explicit `feature` / `bug` / `hotfix` selection when creating or importing a US
 - explicit category selection from the repo category catalog when creating or importing a US
 - user-story intake guidance that distinguishes minimum information from recommended extra detail
-- extension settings for provider, connection, API key, model, watcher, and attention notifications
-- visible configuration warnings with a direct link to extension settings when the active provider is not fully configured
+- extension settings for per-profile model routing, watcher behavior, and attention notifications
+- visible configuration warnings with a direct link to extension settings when model profiles or phase assignments are incomplete
 - auto-refresh watcher over `.specs/us/**` when enabled
 - lightweight TypeScript tests for explorer grouping, detail rendering, MCP client payload/parsing, and extension command wiring
 
@@ -281,7 +281,7 @@ Current limitation:
 - `stop` is best-effort: it cancels the local MCP backend process for the workspace, but it is not yet a durable job-control protocol
 - the extension still does not provide a richer prompt editor, diffing, or effective prompt inspection UX
 - the sidebar does not yet expose completed user stories through a visibility switch or search; for the MVP it stays focused on active work
-- workflow execution controls such as `Play` and `Continue` remain disabled until the active provider configuration is complete
+- workflow execution controls such as `Play` and `Continue` remain disabled until the configured model profile catalog is complete
 
 ### User-story intake guidance
 
@@ -409,7 +409,7 @@ This preference file currently stores the starred user story that should reopen 
 - [x] validate explicit US categories against a repo-configured catalog
 - [x] group the VS Code explorer by user-story category
 - [x] open user stories into a workflow view with phase detail and timeline audit
-- [x] add extension settings for provider connection and watcher behavior
+- [x] add extension settings for model profiles, phase routing, and watcher behavior
 - [x] add watcher-driven refresh, attention notifications, and playback controls with best-effort stop
 - [x] keep the default navigation focused on active user stories and workflows for the MVP
 - [x] persist a per-user starred user story on disk and autoopen it when reopening the workspace
