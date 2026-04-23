@@ -51,6 +51,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("ollama-local", handler.LastRequest.Headers.Authorization?.Parameter);
         Assert.Contains("\"model\":\"llama3.1\"", handler.LastBody);
         Assert.Equal(0.2d, ReadTemperature(handler.LastBody));
+        Assert.Equal("json_schema", ReadResponseFormatType(handler.LastBody));
+        Assert.Equal("refinement_artifact", ReadResponseSchemaName(handler.LastBody));
         Assert.Contains("Role: refinement analyst.", handler.LastBody);
         Assert.Contains("Initial text", handler.LastBody);
     }
@@ -65,7 +67,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         string expectedGuidance)
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler("ok");
+        var handler = new CapturingFakeHttpMessageHandler(BuildReadyClarificationJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(
@@ -97,7 +99,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         string expectedGuidance)
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler("# review markdown");
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalReviewJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(
@@ -174,9 +176,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_UsesAssignedModelProfilePerPhase()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler("# review markdown");
-        var provider = new OpenAiCompatiblePhaseExecutionProvider(
-            new HttpClient(handler),
+        var implementationHandler = new CapturingFakeHttpMessageHandler(BuildMinimalImplementationJson());
+        var implementationProvider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(implementationHandler),
             new OpenAiCompatibleProviderOptions(
                 ModelProfiles:
                 [
@@ -206,20 +208,45 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
 
-        await provider.ExecuteAsync(implementationContext);
+        await implementationProvider.ExecuteAsync(implementationContext);
 
-        Assert.Equal("http://localhost:22434/v1/chat/completions", handler.LastRequest!.RequestUri!.ToString());
-        Assert.Contains("\"model\":\"llama-top\"", handler.LastBody);
+        Assert.Equal("http://localhost:22434/v1/chat/completions", implementationHandler.LastRequest!.RequestUri!.ToString());
+        Assert.Contains("\"model\":\"llama-top\"", implementationHandler.LastBody);
+        Assert.Equal("implementation_artifact", ReadResponseSchemaName(implementationHandler.LastBody));
 
+        var reviewHandler = new CapturingFakeHttpMessageHandler(BuildMinimalReviewJson());
+        var reviewProvider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(reviewHandler),
+            new OpenAiCompatibleProviderOptions(
+                ModelProfiles:
+                [
+                    new OpenAiCompatibleModelProfile(
+                        Name: "light",
+                        Provider: "openai-compatible",
+                        BaseUrl: "http://localhost:11434/v1",
+                        ApiKey: string.Empty,
+                        Model: "llama-light"),
+                    new OpenAiCompatibleModelProfile(
+                        Name: "top",
+                        Provider: "openai-compatible",
+                        BaseUrl: "http://localhost:22434/v1",
+                        ApiKey: string.Empty,
+                        Model: "llama-top")
+                ],
+                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
+                    DefaultProfile: "light",
+                    ImplementationProfile: "top",
+                    ReviewProfile: "light")));
         var reviewContext = implementationContext with
         {
             PhaseId = PhaseId.Review
         };
 
-        var reviewResult = await provider.ExecuteAsync(reviewContext);
+        var reviewResult = await reviewProvider.ExecuteAsync(reviewContext);
 
-        Assert.Equal("http://localhost:11434/v1/chat/completions", handler.LastRequest!.RequestUri!.ToString());
-        Assert.Contains("\"model\":\"llama-light\"", handler.LastBody);
+        Assert.Equal("http://localhost:11434/v1/chat/completions", reviewHandler.LastRequest!.RequestUri!.ToString());
+        Assert.Contains("\"model\":\"llama-light\"", reviewHandler.LastBody);
+        Assert.Equal("review_artifact", ReadResponseSchemaName(reviewHandler.LastBody));
         Assert.NotNull(reviewResult.Execution);
         Assert.Equal("light", reviewResult.Execution!.ProfileName);
         Assert.Equal("llama-light", reviewResult.Execution.Model);
@@ -262,7 +289,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_ClarificationOk_NormalizesToCanonicalReadyArtifact()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler("ok");
+        var handler = new CapturingFakeHttpMessageHandler(BuildReadyClarificationJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(model: "llama3.1"));
@@ -282,26 +309,19 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteAsync_ClarificationNeedsClarification_StripsMachineHeaderAndKeepsMarkdownBody()
+    public async Task ExecuteAsync_ClarificationNeedsClarification_RendersMarkdownArtifactFromStructuredResponse()
     {
         await PrepareInitializedWorkspaceAsync();
         var handler = new CapturingFakeHttpMessageHandler(
             """
-            needs_clarification
-
-            # Clarification · US-0001 · v01
-
-            ## State
-            - State: `pending_user_input`
-
-            ## Decision
-            needs_clarification
-
-            ## Reason
-            Missing actor and acceptance details.
-
-            ## Questions
-            1. Who performs the action?
+            {
+              "state": "pending_user_input",
+              "decision": "needs_clarification",
+              "reason": "Missing actor and acceptance details.",
+              "questions": [
+                "Who performs the action?"
+              ]
+            }
             """
         );
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
@@ -317,8 +337,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         var result = await provider.ExecuteAsync(context);
 
-        Assert.DoesNotContain("needs_clarification\n\n# Clarification", result.Content);
         Assert.StartsWith("# Clarification · US-0001 · v01", result.Content);
+        Assert.Contains("needs_clarification", result.Content);
         Assert.Contains("## Questions", result.Content);
     }
 
@@ -402,6 +422,18 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     {
         using var document = JsonDocument.Parse(requestBody);
         return document.RootElement.GetProperty("temperature").GetDouble();
+    }
+
+    private static string ReadResponseFormatType(string requestBody)
+    {
+        using var document = JsonDocument.Parse(requestBody);
+        return document.RootElement.GetProperty("response_format").GetProperty("type").GetString() ?? string.Empty;
+    }
+
+    private static string ReadResponseSchemaName(string requestBody)
+    {
+        using var document = JsonDocument.Parse(requestBody);
+        return document.RootElement.GetProperty("response_format").GetProperty("json_schema").GetProperty("name").GetString() ?? string.Empty;
     }
 
     private static string ReadUserPrompt(string requestBody)
@@ -504,6 +536,53 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
           "acceptanceCriteria": ["The spec is concrete enough for technical design."],
           "humanApprovalQuestions": [
             { "question": "Is the scope bounded enough for design?", "status": "pending" }
+          ]
+        }
+        """;
+
+    private static string BuildReadyClarificationJson() =>
+        """
+        {
+          "state": "ready",
+          "decision": "ready_for_refinement",
+          "reason": "The user story is concrete enough to proceed to refinement.",
+          "questions": []
+        }
+        """;
+
+    private static string BuildMinimalReviewJson() =>
+        """
+        {
+          "result": "pass",
+          "checksPerformed": [
+            "Spec artifact present: true",
+            "Technical design artifact present: true",
+            "Implementation artifact present: true"
+          ],
+          "findings": [
+            "No material deviations were detected in the current artifact set."
+          ],
+          "primaryReason": "All required workflow artifacts are present and coherent.",
+          "recommendation": [
+            "Advance to `release_approval`."
+          ]
+        }
+        """;
+
+    private static string BuildMinimalImplementationJson() =>
+        """
+        {
+          "state": "generated",
+          "basedOn": "02-technical-design.md",
+          "implementedObjective": "Persist the implementation plan derived from the technical design.",
+          "plannedOrExecutedChanges": [
+            "Update workflow orchestration logic.",
+            "Persist resulting state and derived artifacts.",
+            "Expose the action through the selected backend boundary."
+          ],
+          "plannedVerification": [
+            "Domain tests must cover the transition and persistence path.",
+            "Extension feedback must reflect the generated artifact and new phase."
           ]
         }
         """;

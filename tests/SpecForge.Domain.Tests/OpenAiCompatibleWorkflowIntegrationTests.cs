@@ -22,24 +22,24 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         using var modelStub = new OpenAiCompatibleModelStubServer(
         [
             """
-            needs_clarification
-
-            # Clarification · US-0001 · v01
-
-            ## State
-            - State: `pending_user_input`
-
-            ## Decision
-            needs_clarification
-
-            ## Reason
-            The story does not identify who publishes the article or how bilingual content is selected.
-
-            ## Questions
-            1. Which role publishes the article?
-            2. How is the language selected for the rendered article?
+            {
+              "state": "pending_user_input",
+              "decision": "needs_clarification",
+              "reason": "The story does not identify who publishes the article or how bilingual content is selected.",
+              "questions": [
+                "Which role publishes the article?",
+                "How is the language selected for the rendered article?"
+              ]
+            }
             """,
-            "ok",
+            """
+            {
+              "state": "ready",
+              "decision": "ready_for_refinement",
+              "reason": "The current user story and clarification answers are concrete enough to proceed to refinement.",
+              "questions": []
+            }
+            """,
             """
             {
               "title": "Persist LinkedIn bilingual article rendering",
@@ -169,6 +169,9 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Equal(0.4d, ExtractTemperature(modelStub.Requests[0].Body));
         Assert.Equal(0.4d, ExtractTemperature(modelStub.Requests[1].Body));
         Assert.Equal(0.2d, ExtractTemperature(modelStub.Requests[2].Body));
+        Assert.Equal("json_schema", ExtractResponseFormatType(modelStub.Requests[0].Body));
+        Assert.Equal("clarification_artifact", ExtractResponseSchemaName(modelStub.Requests[0].Body));
+        Assert.Equal("refinement_artifact", ExtractResponseSchemaName(modelStub.Requests[2].Body));
         Assert.Contains("Role: clarification analyst.", ExtractUserPrompt(modelStub.Requests[0].Body));
         Assert.Contains("- Phase: `Clarification`", ExtractUserPrompt(modelStub.Requests[0].Body));
         Assert.Contains("Active tolerance: `inferential`", ExtractUserPrompt(modelStub.Requests[0].Body));
@@ -203,6 +206,18 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
     {
         using var document = JsonDocument.Parse(requestBody);
         return document.RootElement.GetProperty("temperature").GetDouble();
+    }
+
+    private static string ExtractResponseFormatType(string requestBody)
+    {
+        using var document = JsonDocument.Parse(requestBody);
+        return document.RootElement.GetProperty("response_format").GetProperty("type").GetString() ?? string.Empty;
+    }
+
+    private static string ExtractResponseSchemaName(string requestBody)
+    {
+        using var document = JsonDocument.Parse(requestBody);
+        return document.RootElement.GetProperty("response_format").GetProperty("json_schema").GetProperty("name").GetString() ?? string.Empty;
     }
 
     private sealed class OpenAiCompatibleModelStubServer : IDisposable

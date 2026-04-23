@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using SpecForge.Domain.Application;
 using SpecForge.Domain.Persistence;
 using SpecForge.Domain.Workflow;
@@ -118,11 +119,23 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             content = userPrompt
         });
 
+        StructuredOutputResponseFormat? responseFormat = null;
+        if (StructuredPhaseArtifactContracts.TryGet(phaseId, out var contract))
+        {
+            responseFormat = new StructuredOutputResponseFormat(
+                Type: "json_schema",
+                JsonSchema: new StructuredOutputJsonSchema(
+                    Name: contract.SchemaName,
+                    Schema: contract.JsonSchema,
+                    Strict: true));
+        }
+
         var requestBody = JsonSerializer.Serialize(new
         {
             model = modelSelection.Model,
             messages,
-            temperature = ResolveTemperature(phaseId)
+            temperature = ResolveTemperature(phaseId),
+            response_format = responseFormat
         });
 
         var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
@@ -287,13 +300,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine()
                 .AppendLine("## Internal Clarification Contract")
                 .AppendLine()
-                .AppendLine("The first non-empty line of your response is machine-validated and must be exactly one of:")
-                .AppendLine("- `ok`")
-                .AppendLine("- `needs_clarification`")
-                .AppendLine()
-                .AppendLine("If the story is ready for refinement, return exactly `ok` and nothing else.")
-                .AppendLine("If the story still needs clarification, the first line must be `needs_clarification`, followed by a blank line and then the complete markdown artifact.")
-                .AppendLine("Do not replace these tokens with synonyms, labels, prose, or code fences.");
+                .AppendLine("Return only structured data that conforms to the response schema.")
+                .AppendLine("If the story is ready for refinement, set `decision` to `ready_for_refinement` and return an empty `questions` array.")
+                .AppendLine("If the story still needs clarification, set `decision` to `needs_clarification` and include the exact pending questions.");
         }
 
         if (context.PhaseId == PhaseId.Refinement)
@@ -302,34 +311,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine()
                 .AppendLine("## Refinement JSON Contract")
                 .AppendLine()
-                .AppendLine("Return a single JSON object with exactly these top-level fields:")
-                .AppendLine("- `title`")
-                .AppendLine("- `historyLog`")
-                .AppendLine("- `state`")
-                .AppendLine("- `basedOn`")
-                .AppendLine("- `specSummary`")
-                .AppendLine("- `inputs`")
-                .AppendLine("- `outputs`")
-                .AppendLine("- `businessRules`")
-                .AppendLine("- `edgeCases`")
-                .AppendLine("- `errorsAndFailureModes`")
-                .AppendLine("- `constraints`")
-                .AppendLine("- `detectedAmbiguities`")
-                .AppendLine("- `redTeam`")
-                .AppendLine("- `blueTeam`")
-                .AppendLine("- `acceptanceCriteria`")
-                .AppendLine("- `humanApprovalQuestions`")
+                .AppendLine("Return only structured data that conforms to the response schema.")
+                .AppendLine("`historyLog` must be an array of concise audit strings.")
                 .AppendLine()
-                .AppendLine("`humanApprovalQuestions` must be an array of objects with:")
-                .AppendLine("- `question`")
-                .AppendLine("- `status` (`pending` or `resolved`)")
-                .AppendLine("- `answer`")
-                .AppendLine("- `answeredBy`")
-                .AppendLine("- `answeredAtUtc`")
-                .AppendLine()
-                .AppendLine("`historyLog` must be an array of strings. Each entry must be a single concise audit line, not an object.")
-                .AppendLine()
-                .AppendLine("Do not wrap the JSON in markdown fences. Do not return prose outside the JSON object.");
+                .AppendLine("Do not wrap the JSON in markdown fences. Do not return prose outside the structured payload.");
         }
 
         if (context.PhaseId == PhaseId.Review)
@@ -339,7 +324,18 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine("## Review Tolerance")
                 .AppendLine()
                 .AppendLine($"- Active tolerance: `{options.ReviewTolerance}`")
-                .AppendLine($"- Guidance: {ResolveReviewGuidance(options.ReviewTolerance)}");
+                .AppendLine($"- Guidance: {ResolveReviewGuidance(options.ReviewTolerance)}")
+                .AppendLine()
+                .AppendLine("Return only structured data that conforms to the response schema.");
+        }
+
+        if (context.PhaseId is PhaseId.TechnicalDesign or PhaseId.Implementation)
+        {
+            builder
+                .AppendLine()
+                .AppendLine("## Structured Output")
+                .AppendLine()
+                .AppendLine("Return only structured data that conforms to the response schema.");
         }
 
         return new EffectivePrompt(systemPrompt, builder.ToString().Trim());
@@ -502,94 +498,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private static string NormalizePhaseContent(PhaseExecutionContext context, string content)
     {
-        if (context.PhaseId == PhaseId.Refinement)
+        if (StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var contract))
         {
-            return RefinementSpecJson.Serialize(RefinementSpecJson.ParseCanonicalJson(content));
+            return contract.NormalizeContent(context, content);
         }
 
-        if (context.PhaseId != PhaseId.Clarification)
-        {
-            return content;
-        }
-
-        var firstLine = GetFirstNonEmptyLine(content);
-        if (string.Equals(firstLine, "ok", StringComparison.OrdinalIgnoreCase))
-        {
-            return BuildReadyForRefinementArtifact(context);
-        }
-
-        if (string.Equals(firstLine, "needs_clarification", StringComparison.OrdinalIgnoreCase))
-        {
-            var markdownBody = RemoveLeadingDecisionLine(content);
-            if (string.IsNullOrWhiteSpace(markdownBody))
-            {
-                throw new InvalidOperationException(
-                    "Clarification response declared 'needs_clarification' but did not include a markdown artifact body.");
-            }
-
-            return markdownBody;
-        }
-
-        if (content.Contains("## Decision", StringComparison.Ordinal))
-        {
-            return content;
-        }
-
-        throw new InvalidOperationException(
-            "Clarification response did not start with 'ok' or 'needs_clarification', and no fallback markdown decision section was found.");
-    }
-
-    private static string BuildReadyForRefinementArtifact(PhaseExecutionContext context) =>
-        string.Join(
-            Environment.NewLine,
-            new[]
-            {
-                $"# Clarification · {context.UsId} · v01",
-                string.Empty,
-                "## State",
-                "- State: `ready`",
-                string.Empty,
-                "## Decision",
-                "ready_for_refinement",
-                string.Empty,
-                "## Reason",
-                "The current user story is concrete enough to proceed to refinement.",
-                string.Empty,
-                "## Questions",
-                "1. No clarification questions remain."
-            }) + Environment.NewLine;
-
-    private static string GetFirstNonEmptyLine(string content) =>
-        content
-            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-            .Select(static line => line.Trim())
-            .FirstOrDefault(static line => line.Length > 0)
-        ?? string.Empty;
-
-    private static string RemoveLeadingDecisionLine(string content)
-    {
-        using var reader = new StringReader(content);
-        var builder = new StringBuilder();
-        var skippedDecisionLine = false;
-        string? line;
-
-        while ((line = reader.ReadLine()) is not null)
-        {
-            if (!skippedDecisionLine)
-            {
-                if (string.IsNullOrWhiteSpace(line))
-                {
-                    continue;
-                }
-
-                skippedDecisionLine = true;
-                continue;
-            }
-
-            builder.AppendLine(line);
-        }
-
-        return builder.ToString().Trim();
+        return content;
     }
 
     private static bool RequiresApiKey(string baseUrl) => !LocalEndpointHelper.IsLocal(baseUrl);
@@ -637,4 +551,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     private sealed record EffectivePrompt(string SystemPrompt, string UserPrompt);
 
     private sealed record ResolvedModelSelection(string ProviderKind, string BaseUrl, string ApiKey, string Model, string? ProfileName);
+
+    private sealed record StructuredOutputResponseFormat(
+        [property: JsonPropertyName("type")] string Type,
+        [property: JsonPropertyName("json_schema")] StructuredOutputJsonSchema JsonSchema);
+
+    private sealed record StructuredOutputJsonSchema(
+        [property: JsonPropertyName("name")] string Name,
+        [property: JsonPropertyName("schema")] JsonElement Schema,
+        [property: JsonPropertyName("strict")] bool Strict);
 }
