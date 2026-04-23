@@ -13,6 +13,10 @@ internal static class PhaseExecutionProviderFactory
     private const string SystemPromptEnvVar = "SPECFORGE_OPENAI_SYSTEM_PROMPT";
     private const string TimeoutSecondsEnvVar = "SPECFORGE_OPENAI_TIMEOUT_SECONDS";
     private static readonly TimeSpan DefaultOpenAiTimeout = TimeSpan.FromMinutes(10);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNameCaseInsensitive = true
+    };
     private const string OpenAiCompatibleKind = "openai-compatible";
 
     public static IPhaseExecutionProvider Create()
@@ -69,7 +73,7 @@ internal static class PhaseExecutionProviderFactory
             return [];
         }
 
-        var deserialized = JsonSerializer.Deserialize<List<OpenAiCompatibleModelProfile>>(payload)
+        var deserialized = JsonSerializer.Deserialize<List<OpenAiCompatibleModelProfile>>(payload, JsonOptions)
                ?? throw new InvalidOperationException(
                    $"Environment variable '{ModelProfilesJsonEnvVar}' could not be parsed as model profile JSON.");
         return deserialized
@@ -85,7 +89,7 @@ internal static class PhaseExecutionProviderFactory
             return null;
         }
 
-        return JsonSerializer.Deserialize<OpenAiCompatiblePhaseModelAssignments>(payload)
+        return JsonSerializer.Deserialize<OpenAiCompatiblePhaseModelAssignments>(payload, JsonOptions)
                ?? throw new InvalidOperationException(
                    $"Environment variable '{PhaseModelAssignmentsJsonEnvVar}' could not be parsed as phase assignment JSON.");
     }
