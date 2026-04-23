@@ -32,27 +32,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         this.options = options ?? throw new ArgumentNullException(nameof(options));
         this.promptCatalog = promptCatalog ?? throw new ArgumentNullException(nameof(promptCatalog));
 
-        if ((options.ModelProfiles is null or { Count: 0 })
-            && string.IsNullOrWhiteSpace(options.BaseUrl))
+        if (options.ModelProfiles is not { Count: > 0 })
         {
-            throw new ArgumentException("BaseUrl is required.", nameof(options));
+            throw new ArgumentException("At least one model profile is required.", nameof(options));
         }
 
-        if ((options.ModelProfiles is null or { Count: 0 })
-            && RequiresApiKey(options.BaseUrl ?? string.Empty)
-            && string.IsNullOrWhiteSpace(options.ApiKey))
-        {
-            throw new ArgumentException("ApiKey is required.", nameof(options));
-        }
-
-        if (options.ModelProfiles is { Count: > 0 })
-        {
-            ValidateModelProfiles(options.ModelProfiles, options.PhaseModelAssignments);
-        }
-        else if (string.IsNullOrWhiteSpace(options.Model))
-        {
-            throw new ArgumentException("Model is required.", nameof(options));
-        }
+        ValidateModelProfiles(options.ModelProfiles, options.PhaseModelAssignments);
 
         if (!IsSupportedTolerance(options.ClarificationTolerance))
         {
@@ -106,7 +91,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             ExecutionKind: "openai-compatible",
             usage,
             new PhaseExecutionMetadata(
-                ProviderKind: "openai-compatible",
+                ProviderKind: modelSelection.ProviderKind,
                 Model: modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
                 BaseUrl: modelSelection.BaseUrl));
@@ -359,31 +344,16 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private ResolvedModelSelection ResolveModelSelection(PhaseId phaseId)
     {
-        if (options.ModelProfiles is { Count: > 0 })
+        var profileName = ResolveProfileNameForPhase(phaseId);
+        var profile = options.ModelProfiles!.FirstOrDefault(candidate =>
+            string.Equals(candidate.Name, profileName, StringComparison.Ordinal));
+
+        if (profile is null)
         {
-            var profileName = ResolveProfileNameForPhase(phaseId);
-            var profile = options.ModelProfiles.FirstOrDefault(candidate =>
-                string.Equals(candidate.Name, profileName, StringComparison.Ordinal));
-
-            if (profile is null)
-            {
-                throw new InvalidOperationException($"Model profile '{profileName}' was not found for phase '{phaseId}'.");
-            }
-
-            return new ResolvedModelSelection(profile.BaseUrl, profile.ApiKey, profile.Model, profile.Name);
+            throw new InvalidOperationException($"Model profile '{profileName}' was not found for phase '{phaseId}'.");
         }
 
-        if (string.IsNullOrWhiteSpace(options.BaseUrl))
-        {
-            throw new InvalidOperationException("BaseUrl is required.");
-        }
-
-        if (string.IsNullOrWhiteSpace(options.Model))
-        {
-            throw new InvalidOperationException("Model is required.");
-        }
-
-        return new ResolvedModelSelection(options.BaseUrl, options.ApiKey ?? string.Empty, options.Model, null);
+        return new ResolvedModelSelection(profile.Provider, profile.BaseUrl, profile.ApiKey, profile.Model, profile.Name);
     }
 
     private string ResolveProfileNameForPhase(PhaseId phaseId)
@@ -473,6 +443,16 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             if (string.IsNullOrWhiteSpace(profile.Name))
             {
                 throw new ArgumentException("Model profile Name is required.", nameof(modelProfiles));
+            }
+
+            if (string.IsNullOrWhiteSpace(profile.Provider))
+            {
+                throw new ArgumentException($"Provider is required for model profile '{profile.Name}'.", nameof(modelProfiles));
+            }
+
+            if (!string.Equals(profile.Provider, "openai-compatible", StringComparison.Ordinal))
+            {
+                throw new ArgumentException($"Unsupported provider '{profile.Provider}' for model profile '{profile.Name}'.", nameof(modelProfiles));
             }
 
             if (!names.Add(profile.Name))
@@ -652,5 +632,5 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private sealed record EffectivePrompt(string SystemPrompt, string UserPrompt);
 
-    private sealed record ResolvedModelSelection(string BaseUrl, string ApiKey, string Model, string? ProfileName);
+    private sealed record ResolvedModelSelection(string ProviderKind, string BaseUrl, string ApiKey, string Model, string? ProfileName);
 }

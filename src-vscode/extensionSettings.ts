@@ -1,8 +1,4 @@
 export interface SpecForgeSettings {
-  readonly provider: string;
-  readonly baseUrl: string | null;
-  readonly apiKey: string | null;
-  readonly model: string | null;
   readonly modelProfiles: readonly SpecForgeModelProfile[];
   readonly phaseModelAssignments: SpecForgePhaseModelAssignments;
   readonly effectivePhaseModelAssignments: EffectiveSpecForgePhaseModelAssignments;
@@ -23,6 +19,7 @@ export interface SpecForgeSettingsStatus {
 
 export interface SpecForgeModelProfile {
   readonly name: string;
+  readonly provider: string;
   readonly baseUrl: string;
   readonly apiKey: string | null;
   readonly model: string;
@@ -50,16 +47,11 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
   const phaseModelAssignments = normalizePhaseModelAssignments(configuration.get<unknown>("execution.phaseModels"));
 
   return {
-    provider: configuration.get<string>("execution.provider", "deterministic"),
-    baseUrl: normalizeOptional(configuration.get<string>("execution.baseUrl")),
-    apiKey: normalizeOptional(configuration.get<string>("execution.apiKey")),
-    model: normalizeOptional(configuration.get<string>("execution.model")),
     modelProfiles,
     phaseModelAssignments,
     effectivePhaseModelAssignments: resolveEffectivePhaseModelAssignments(
       modelProfiles,
-      phaseModelAssignments,
-      normalizeOptional(configuration.get<string>("execution.model"))
+      phaseModelAssignments
     ),
     clarificationTolerance: normalizeTolerance(configuration.get<string>("execution.clarificationTolerance", "balanced")),
     reviewTolerance: normalizeTolerance(configuration.get<string>("execution.reviewTolerance", "balanced")),
@@ -73,25 +65,11 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
 }
 
 export function buildBackendEnvironment(settings: SpecForgeSettings): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {
-    SPECFORGE_PHASE_PROVIDER: settings.provider
-  };
+  const env: NodeJS.ProcessEnv = {};
 
   if (settings.modelProfiles.length > 0) {
     env.SPECFORGE_OPENAI_MODEL_PROFILES_JSON = JSON.stringify(settings.modelProfiles);
     env.SPECFORGE_OPENAI_PHASE_MODEL_ASSIGNMENTS_JSON = JSON.stringify(settings.phaseModelAssignments);
-  } else {
-    if (settings.baseUrl) {
-      env.SPECFORGE_OPENAI_BASE_URL = settings.baseUrl;
-    }
-
-    if (settings.apiKey) {
-      env.SPECFORGE_OPENAI_API_KEY = settings.apiKey;
-    }
-
-    if (settings.model) {
-      env.SPECFORGE_OPENAI_MODEL = settings.model;
-    }
   }
 
   env.SPECFORGE_CAPTURE_TOLERANCE = settings.clarificationTolerance;
@@ -101,35 +79,14 @@ export function buildBackendEnvironment(settings: SpecForgeSettings): NodeJS.Pro
 }
 
 export function getSpecForgeSettingsStatus(settings: SpecForgeSettings): SpecForgeSettingsStatus {
-  if (settings.provider === "deterministic") {
+  if (settings.modelProfiles.length === 0) {
     return {
       executionConfigured: false,
-      message: "SpecForge.AI needs an SLM/LLM execution provider before workflow stages can run. Select an OpenAI-compatible provider and configure either base URL, API key, and model or a model profile catalog."
+      message: "SpecForge.AI needs at least one configured model profile before workflow stages can run."
     };
   }
 
-  if (settings.modelProfiles.length > 0) {
-    return getModelProfileSettingsStatus(settings);
-  }
-
-  const requiresApiKey = !isLocalOpenAiCompatibleEndpoint(settings.baseUrl);
-  const missingFields = [
-    settings.baseUrl ? null : "base URL",
-    requiresApiKey && !settings.apiKey ? "API key" : null,
-    settings.model ? null : "model"
-  ].filter((value): value is string => value !== null);
-
-  if (settings.provider === "openai-compatible" && missingFields.length === 0) {
-    return {
-      executionConfigured: true,
-      message: null
-    };
-  }
-
-  return {
-    executionConfigured: false,
-    message: `SpecForge.AI is not configured for the current provider. Missing ${missingFields.join(", ")}.`
-  };
+  return getModelProfileSettingsStatus(settings);
 }
 
 interface ConfigurationReader {
@@ -147,6 +104,20 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
       return {
         executionConfigured: false,
         message: "SpecForge.AI found a model profile without a name."
+      };
+    }
+
+    if (!profile.provider) {
+      return {
+        executionConfigured: false,
+        message: `SpecForge.AI model profile '${profile.name}' is missing provider.`
+      };
+    }
+
+    if (profile.provider !== "openai-compatible") {
+      return {
+        executionConfigured: false,
+        message: `SpecForge.AI model profile '${profile.name}' uses unsupported provider '${profile.provider}'.`
       };
     }
 
@@ -231,17 +202,19 @@ function normalizeModelProfile(value: unknown): SpecForgeModelProfile | null {
   }
 
   const candidate = value as Record<string, unknown>;
+  const provider = normalizeUnknownOptional(candidate.provider);
   const name = normalizeUnknownOptional(candidate.name);
   const baseUrl = normalizeUnknownOptional(candidate.baseUrl);
   const apiKey = normalizeUnknownOptional(candidate.apiKey);
   const model = normalizeUnknownOptional(candidate.model);
 
-  if (!name && !baseUrl && !apiKey && !model) {
+  if (!provider && !name && !baseUrl && !apiKey && !model) {
     return null;
   }
 
   return {
     name: name ?? "",
+    provider: provider ?? "",
     baseUrl: baseUrl ?? "",
     apiKey,
     model: model ?? ""
@@ -267,11 +240,10 @@ function normalizePhaseModelAssignments(value: unknown): SpecForgePhaseModelAssi
 
 function resolveEffectivePhaseModelAssignments(
   modelProfiles: readonly SpecForgeModelProfile[],
-  assignments: SpecForgePhaseModelAssignments,
-  legacyModel: string | null
+  assignments: SpecForgePhaseModelAssignments
 ): EffectiveSpecForgePhaseModelAssignments {
   const defaultProfile = resolveDefaultModelProfile(modelProfiles, assignments);
-  const defaultProfileName = defaultProfile?.name ?? legacyModel;
+  const defaultProfileName = defaultProfile?.name ?? null;
   const implementationProfileName = resolveAssignedModelProfile(modelProfiles, assignments.implementationProfile)?.name ?? defaultProfileName;
   const reviewProfileName = resolveAssignedModelProfile(modelProfiles, assignments.reviewProfile)?.name ?? defaultProfileName;
 

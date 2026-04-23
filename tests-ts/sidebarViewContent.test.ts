@@ -225,7 +225,7 @@ test("buildSidebarHtml surfaces the model warning when the deterministic fallbac
   const html = buildSidebarHtml(model({
     promptsInitialized: false,
     settingsConfigured: false,
-    settingsMessage: "SpecForge.AI needs an SLM/LLM execution provider before workflow stages can run. Select an OpenAI-compatible provider and configure base URL, API key, and model.",
+    settingsMessage: "SpecForge.AI needs at least one configured model profile before workflow stages can run.",
     categories: [],
     userStories: [{
       usId: "US-0001",
@@ -239,7 +239,7 @@ test("buildSidebarHtml surfaces the model warning when the deterministic fallbac
     }]
   }));
 
-  assert.match(html, /SLM\/LLM execution provider/);
+  assert.match(html, /configured model profile/);
   assert.match(html, /Configure Settings/);
 });
 

@@ -1334,10 +1334,10 @@ test("buildWorkflowHtml warns when the workflow is open without an SLM or LLM pr
     selectedArtifactContent: null,
     contextSuggestions: [],
     settingsConfigured: false,
-    settingsMessage: "SpecForge.AI needs an SLM/LLM execution provider before workflow stages can run. Select an OpenAI-compatible provider and configure base URL, API key, and model."
+    settingsMessage: "SpecForge.AI needs at least one configured model profile before workflow stages can run."
   }, "idle");
 
-  assert.match(html, /SLM\/LLM execution provider/);
+  assert.match(html, /configured model profile/);
   assert.match(html, /data-command="play"[^>]*disabled/);
   assert.match(html, /data-command="continue"[^>]*disabled/);
 });

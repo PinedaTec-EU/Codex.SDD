@@ -109,38 +109,15 @@
     "configuration": {
       "title": "SpecForge.AI",
       "properties": {
-        "specForge.execution.provider": {
-          "type": "string",
-          "default": "deterministic",
-          "enum": [
-            "deterministic",
-            "openai-compatible"
-          ],
-          "description": "Phase execution provider used by the local MCP backend."
-        },
-        "specForge.execution.baseUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Base URL for the OpenAI-compatible provider."
-        },
-        "specForge.execution.apiKey": {
-          "type": "string",
-          "default": "",
-          "description": "API key passed to the OpenAI-compatible provider."
-        },
-        "specForge.execution.model": {
-          "type": "string",
-          "default": "",
-          "description": "Legacy fallback model name used by the OpenAI-compatible provider when no named model profiles are configured."
-        },
         "specForge.execution.modelProfiles": {
           "type": "array",
           "default": [],
-          "description": "Named OpenAI-compatible model profiles. Each profile can point to a different base URL, API key, and model so the workflow can route lighter and heavier phases differently.",
+          "description": "Named model profiles. Each profile declares its own provider, endpoint, credentials, and concrete model so the workflow can route phases explicitly.",
           "items": {
             "type": "object",
             "required": [
               "name",
+              "provider",
               "baseUrl",
               "model"
             ],
@@ -149,18 +126,25 @@
                 "type": "string",
                 "description": "Stable profile name used by phase assignments."
               },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "openai-compatible"
+                ],
+                "description": "Provider kind used by this profile."
+              },
               "baseUrl": {
                 "type": "string",
-                "description": "Base URL for the OpenAI-compatible endpoint."
+                "description": "Base URL for this profile's endpoint."
               },
               "apiKey": {
                 "type": "string",
                 "default": "",
-                "description": "API key for the endpoint. Leave empty only for trusted local endpoints such as Ollama."
+                "description": "API key for this profile's endpoint. Leave empty only for trusted local endpoints such as Ollama."
               },
               "model": {
                 "type": "string",
-                "description": "Concrete model identifier exposed by that endpoint."
+                "description": "Concrete model identifier exposed by this profile's endpoint."
               }
             }
           }

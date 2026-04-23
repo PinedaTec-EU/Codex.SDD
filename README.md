@@ -141,36 +141,28 @@ npm run test:ts
 
 By default, phase execution uses a deterministic local provider.
 
-To enable an OpenAI-compatible provider:
-
-```bash
-export SPECFORGE_PHASE_PROVIDER=openai-compatible
-export SPECFORGE_OPENAI_BASE_URL=https://api.openai.com/v1
-export SPECFORGE_OPENAI_API_KEY=<your-api-key>
-export SPECFORGE_OPENAI_MODEL=gpt-4.1-mini
-export SPECFORGE_CAPTURE_TOLERANCE=balanced
-export SPECFORGE_REVIEW_TOLERANCE=balanced
-```
-
-For named routing across workflow phases, the extension can also send a profile catalog plus phase assignments:
+To enable an OpenAI-compatible provider, configure at least one model profile. Each profile carries its own provider, endpoint, credentials, and model:
 
 ```json
 {
   "specForge.execution.modelProfiles": [
     {
       "name": "light",
+      "provider": "openai-compatible",
       "baseUrl": "http://localhost:11434/v1",
       "apiKey": "",
       "model": "llama3.1"
     },
     {
       "name": "top",
+      "provider": "openai-compatible",
       "baseUrl": "https://api.openai.com/v1",
       "apiKey": "<your-api-key>",
       "model": "gpt-4.1"
     },
     {
       "name": "review",
+      "provider": "openai-compatible",
       "baseUrl": "https://api.openai.com/v1",
       "apiKey": "<your-api-key>",
       "model": "gpt-4.1-mini"
@@ -184,15 +176,27 @@ For named routing across workflow phases, the extension can also send a profile 
 }
 ```
 
-With that setup, capture, clarification, refinement, technical design, release approval, and PR preparation use `defaultProfile`; implementation can be routed to the strongest model; review can stay on the same model or use a separate middle tier. If no named profiles are configured, SpecForge.AI keeps using the legacy single `baseUrl/apiKey/model` path.
+With that setup, capture, clarification, refinement, technical design, release approval, and PR preparation use `defaultProfile`; implementation can be routed to the strongest model; review can stay on the same model or use a separate middle tier. If no model profiles are configured, SpecForge.AI stays on the deterministic local provider and the UI warns that model-backed execution is incomplete.
 
-For local testing with Ollama:
+For local testing with Ollama, use a single profile that points at the local endpoint:
+
+```json
+{
+  "specForge.execution.modelProfiles": [
+    {
+      "name": "local",
+      "provider": "openai-compatible",
+      "baseUrl": "http://localhost:11434/v1",
+      "apiKey": "ollama-local",
+      "model": "llama3.1"
+    }
+  ]
+}
+```
+
+Tolerance can still be controlled through environment variables when launching the backend manually:
 
 ```bash
-export SPECFORGE_PHASE_PROVIDER=openai-compatible
-export SPECFORGE_OPENAI_BASE_URL=http://localhost:11434/v1
-export SPECFORGE_OPENAI_API_KEY=ollama-local
-export SPECFORGE_OPENAI_MODEL=llama3.1
 export SPECFORGE_CAPTURE_TOLERANCE=balanced
 export SPECFORGE_REVIEW_TOLERANCE=balanced
 ```
@@ -336,10 +340,6 @@ Today the canonical checkpoints are `refinement` as the spec baseline and `relea
 
 The extension contributes these settings:
 
-- `specForge.execution.provider`
-- `specForge.execution.baseUrl`
-- `specForge.execution.apiKey`
-- `specForge.execution.model`
 - `specForge.execution.modelProfiles`
 - `specForge.execution.phaseModels`
 - `specForge.execution.clarificationTolerance`

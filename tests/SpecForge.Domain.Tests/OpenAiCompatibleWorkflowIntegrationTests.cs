@@ -94,10 +94,18 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(),
             new OpenAiCompatibleProviderOptions(
-                BaseUrl: $"{modelStub.BaseUrl}/v1",
-                ApiKey: string.Empty,
-                Model: "stub-model",
-                ClarificationTolerance: "inferential"));
+                ClarificationTolerance: "inferential",
+                ModelProfiles:
+                [
+                    new OpenAiCompatibleModelProfile(
+                        Name: "default",
+                        Provider: "openai-compatible",
+                        BaseUrl: $"{modelStub.BaseUrl}/v1",
+                        ApiKey: string.Empty,
+                        Model: "stub-model")
+                ],
+                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
+                    DefaultProfile: "default")));
         var workflowRunner = new WorkflowRunner(provider);
         var applicationService = new SpecForgeApplicationService(
             new UserStoryFileStore(),

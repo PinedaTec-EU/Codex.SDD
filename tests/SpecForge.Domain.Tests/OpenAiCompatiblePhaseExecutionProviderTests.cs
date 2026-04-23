@@ -21,10 +21,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var httpClient = new HttpClient(handler);
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             httpClient,
-            new OpenAiCompatibleProviderOptions(
-                BaseUrl: "http://localhost:11434/v1",
-                ApiKey: "ollama-local",
-                Model: "llama3.1"));
+            CreateOptions(
+                model: "llama3.1",
+                apiKey: "ollama-local"));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -44,7 +43,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.NotNull(result.Execution);
         Assert.Equal("openai-compatible", result.Execution!.ProviderKind);
         Assert.Equal("llama3.1", result.Execution.Model);
-        Assert.Null(result.Execution.ProfileName);
+        Assert.Equal("default", result.Execution.ProfileName);
         Assert.NotNull(handler.LastRequest);
         Assert.Equal(HttpMethod.Post, handler.LastRequest!.Method);
         Assert.Equal("http://localhost:11434/v1/chat/completions", handler.LastRequest.RequestUri!.ToString());
@@ -69,11 +68,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var handler = new CapturingFakeHttpMessageHandler("ok");
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
-            new OpenAiCompatibleProviderOptions(
-                BaseUrl: "http://localhost:11434/v1",
-                ApiKey: string.Empty,
-                Model: "llama3.1",
-                ClarificationTolerance: clarificationTolerance));
+            CreateOptions(
+                model: "llama3.1",
+                clarificationTolerance: clarificationTolerance));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -103,11 +100,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var handler = new CapturingFakeHttpMessageHandler("# review markdown");
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
-            new OpenAiCompatibleProviderOptions(
-                BaseUrl: "http://localhost:11434/v1",
-                ApiKey: string.Empty,
-                Model: "llama3.1",
-                ReviewTolerance: reviewTolerance));
+            CreateOptions(
+                model: "llama3.1",
+                reviewTolerance: reviewTolerance));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -135,10 +130,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
-            new OpenAiCompatibleProviderOptions(
-                BaseUrl: "http://localhost:11434/v1",
-                ApiKey: "ollama-local",
-                Model: "llama3.1"));
+            CreateOptions(
+                model: "llama3.1",
+                apiKey: "ollama-local"));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -161,10 +155,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
-            new OpenAiCompatibleProviderOptions(
-                BaseUrl: "http://localhost:11434/v1",
-                ApiKey: string.Empty,
-                Model: "llama3.1"));
+            CreateOptions(model: "llama3.1"));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -187,18 +178,17 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             new OpenAiCompatibleProviderOptions(
-                BaseUrl: null,
-                ApiKey: null,
-                Model: null,
                 ModelProfiles:
                 [
                     new OpenAiCompatibleModelProfile(
                         Name: "light",
+                        Provider: "openai-compatible",
                         BaseUrl: "http://localhost:11434/v1",
                         ApiKey: string.Empty,
                         Model: "llama-light"),
                     new OpenAiCompatibleModelProfile(
                         Name: "top",
+                        Provider: "openai-compatible",
                         BaseUrl: "http://localhost:22434/v1",
                         ApiKey: string.Empty,
                         Model: "llama-top")
@@ -242,10 +232,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var handler = new CapturingFakeHttpMessageHandler("ok");
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
-            new OpenAiCompatibleProviderOptions(
-                BaseUrl: "http://localhost:11434/v1",
-                ApiKey: string.Empty,
-                Model: "llama3.1"));
+            CreateOptions(model: "llama3.1"));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -286,10 +273,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         );
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
-            new OpenAiCompatibleProviderOptions(
-                BaseUrl: "http://localhost:11434/v1",
-                ApiKey: string.Empty,
-                Model: "llama3.1"));
+            CreateOptions(model: "llama3.1"));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -312,10 +296,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var handler = new CapturingFakeHttpMessageHandler("# generated markdown");
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
-            new OpenAiCompatibleProviderOptions(
-                BaseUrl: "http://localhost:11434/v1",
-                ApiKey: string.Empty,
-                Model: "llama3.1"));
+            CreateOptions(model: "llama3.1"));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -334,10 +315,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         var error = Assert.Throws<ArgumentException>(() => new OpenAiCompatiblePhaseExecutionProvider(
             httpClient,
-            new OpenAiCompatibleProviderOptions(
-                BaseUrl: "https://api.example.test/v1",
-                ApiKey: string.Empty,
-                Model: "gpt-test")));
+            CreateOptions(
+                baseUrl: "https://api.example.test/v1",
+                model: "gpt-test")));
 
         Assert.Contains("ApiKey is required", error.Message);
     }
@@ -351,10 +331,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             "# US-0001");
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(new CapturingFakeHttpMessageHandler()),
-            new OpenAiCompatibleProviderOptions(
-                BaseUrl: "http://localhost:11434/v1",
-                ApiKey: "ollama-local",
-                Model: "llama3.1"));
+            CreateOptions(
+                model: "llama3.1",
+                apiKey: "ollama-local"));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -401,6 +380,30 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             .First(message => string.Equals(message.GetProperty("role").GetString(), "user", StringComparison.Ordinal))
             .GetProperty("content")
             .GetString() ?? string.Empty;
+    }
+
+    private static OpenAiCompatibleProviderOptions CreateOptions(
+        string model,
+        string profileName = "default",
+        string baseUrl = "http://localhost:11434/v1",
+        string apiKey = "",
+        string clarificationTolerance = "balanced",
+        string reviewTolerance = "balanced")
+    {
+        return new OpenAiCompatibleProviderOptions(
+            ClarificationTolerance: clarificationTolerance,
+            ReviewTolerance: reviewTolerance,
+            ModelProfiles:
+            [
+                new OpenAiCompatibleModelProfile(
+                    Name: profileName,
+                    Provider: "openai-compatible",
+                    BaseUrl: baseUrl,
+                    ApiKey: apiKey,
+                    Model: model)
+            ],
+            PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
+                DefaultProfile: profileName));
     }
 
     private sealed class CapturingFakeHttpMessageHandler : HttpMessageHandler

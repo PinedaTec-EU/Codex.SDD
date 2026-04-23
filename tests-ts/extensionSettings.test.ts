@@ -2,21 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildBackendEnvironment, getSpecForgeSettingsStatus, readSpecForgeSettings } from "../src-vscode/extensionSettings";
 
-test("readSpecForgeSettings normalizes optional strings and preserves toggles", () => {
+test("readSpecForgeSettings normalizes model profiles and preserves toggles", () => {
   const values = new Map<string, unknown>([
-    ["execution.provider", "openai-compatible"],
-    ["execution.baseUrl", " https://api.example.test/v1 "],
-    ["execution.apiKey", " secret "],
-    ["execution.model", " gpt-test "],
     ["execution.modelProfiles", [
       {
         name: "light",
+        provider: " openai-compatible ",
         baseUrl: " https://light.example.test/v1 ",
         apiKey: " light-secret ",
         model: " gpt-light "
       },
       {
         name: "top",
+        provider: " openai-compatible ",
         baseUrl: " http://localhost:11434/v1 ",
         apiKey: " ",
         model: " llama-top "
@@ -42,19 +40,17 @@ test("readSpecForgeSettings normalizes optional strings and preserves toggles", 
   });
 
   assert.deepEqual(settings, {
-    provider: "openai-compatible",
-    baseUrl: "https://api.example.test/v1",
-    apiKey: "secret",
-    model: "gpt-test",
     modelProfiles: [
       {
         name: "light",
+        provider: "openai-compatible",
         baseUrl: "https://light.example.test/v1",
         apiKey: "light-secret",
         model: "gpt-light"
       },
       {
         name: "top",
+        provider: "openai-compatible",
         baseUrl: "http://localhost:11434/v1",
         apiKey: null,
         model: "llama-top"
@@ -81,180 +77,19 @@ test("readSpecForgeSettings normalizes optional strings and preserves toggles", 
   });
 });
 
-test("buildBackendEnvironment maps extension settings to provider environment variables", () => {
+test("buildBackendEnvironment only serializes model profiles and assignments", () => {
   assert.deepEqual(buildBackendEnvironment({
-    provider: "openai-compatible",
-    baseUrl: "https://api.example.test/v1",
-    apiKey: "secret",
-    model: "gpt-test",
-    modelProfiles: [],
-    phaseModelAssignments: {
-      defaultProfile: null,
-      implementationProfile: null,
-      reviewProfile: null
-    },
-    effectivePhaseModelAssignments: {
-      defaultProfileName: "gpt-test",
-      implementationProfileName: "gpt-test",
-      reviewProfileName: "gpt-test"
-    },
-    clarificationTolerance: "strict",
-    reviewTolerance: "inferential",
-    watcherEnabled: true,
-    attentionNotificationsEnabled: true,
-    contextSuggestionsEnabled: true,
-    requireExplicitApprovalBranchAcceptance: false,
-    autoPlayEnabled: false,
-    destructiveRewindEnabled: false
-  }), {
-    SPECFORGE_PHASE_PROVIDER: "openai-compatible",
-    SPECFORGE_OPENAI_BASE_URL: "https://api.example.test/v1",
-    SPECFORGE_OPENAI_API_KEY: "secret",
-    SPECFORGE_OPENAI_MODEL: "gpt-test",
-    SPECFORGE_CAPTURE_TOLERANCE: "strict",
-    SPECFORGE_REVIEW_TOLERANCE: "inferential"
-  });
-});
-
-test("getSpecForgeSettingsStatus requires connection fields for openai-compatible providers", () => {
-  assert.deepEqual(getSpecForgeSettingsStatus({
-    provider: "openai-compatible",
-    baseUrl: null,
-    apiKey: "secret",
-    model: null,
-    modelProfiles: [],
-    phaseModelAssignments: {
-      defaultProfile: null,
-      implementationProfile: null,
-      reviewProfile: null
-    },
-    effectivePhaseModelAssignments: {
-      defaultProfileName: null,
-      implementationProfileName: null,
-      reviewProfileName: null
-    },
-    clarificationTolerance: "balanced",
-    reviewTolerance: "balanced",
-    watcherEnabled: true,
-    attentionNotificationsEnabled: true,
-    contextSuggestionsEnabled: true,
-    requireExplicitApprovalBranchAcceptance: false,
-    autoPlayEnabled: false,
-    destructiveRewindEnabled: false
-  }), {
-    executionConfigured: false,
-    message: "SpecForge.AI is not configured for the current provider. Missing base URL, model."
-  });
-});
-
-test("getSpecForgeSettingsStatus allows local openai-compatible endpoints without an api key", () => {
-  assert.deepEqual(getSpecForgeSettingsStatus({
-    provider: "openai-compatible",
-    baseUrl: "http://localhost:11434/v1",
-    apiKey: null,
-    model: "llama3.1",
-    modelProfiles: [],
-    phaseModelAssignments: {
-      defaultProfile: null,
-      implementationProfile: null,
-      reviewProfile: null
-    },
-    effectivePhaseModelAssignments: {
-      defaultProfileName: "llama3.1",
-      implementationProfileName: "llama3.1",
-      reviewProfileName: "llama3.1"
-    },
-    clarificationTolerance: "balanced",
-    reviewTolerance: "balanced",
-    watcherEnabled: true,
-    attentionNotificationsEnabled: true,
-    contextSuggestionsEnabled: true,
-    requireExplicitApprovalBranchAcceptance: false,
-    autoPlayEnabled: false,
-    destructiveRewindEnabled: false
-  }), {
-    executionConfigured: true,
-    message: null
-  });
-});
-
-test("getSpecForgeSettingsStatus still requires an api key for remote openai-compatible endpoints", () => {
-  assert.deepEqual(getSpecForgeSettingsStatus({
-    provider: "openai-compatible",
-    baseUrl: "https://api.example.test/v1",
-    apiKey: null,
-    model: "gpt-test",
-    modelProfiles: [],
-    phaseModelAssignments: {
-      defaultProfile: null,
-      implementationProfile: null,
-      reviewProfile: null
-    },
-    effectivePhaseModelAssignments: {
-      defaultProfileName: "gpt-test",
-      implementationProfileName: "gpt-test",
-      reviewProfileName: "gpt-test"
-    },
-    clarificationTolerance: "balanced",
-    reviewTolerance: "balanced",
-    watcherEnabled: true,
-    attentionNotificationsEnabled: true,
-    contextSuggestionsEnabled: true,
-    requireExplicitApprovalBranchAcceptance: false,
-    autoPlayEnabled: false,
-    destructiveRewindEnabled: false
-  }), {
-    executionConfigured: false,
-    message: "SpecForge.AI is not configured for the current provider. Missing API key."
-  });
-});
-
-test("getSpecForgeSettingsStatus requires a real model-backed provider instead of the deterministic fallback", () => {
-  assert.deepEqual(getSpecForgeSettingsStatus({
-    provider: "deterministic",
-    baseUrl: null,
-    apiKey: null,
-    model: null,
-    modelProfiles: [],
-    phaseModelAssignments: {
-      defaultProfile: null,
-      implementationProfile: null,
-      reviewProfile: null
-    },
-    effectivePhaseModelAssignments: {
-      defaultProfileName: null,
-      implementationProfileName: null,
-      reviewProfileName: null
-    },
-    clarificationTolerance: "balanced",
-    reviewTolerance: "balanced",
-    watcherEnabled: true,
-    attentionNotificationsEnabled: true,
-    contextSuggestionsEnabled: true,
-    requireExplicitApprovalBranchAcceptance: false,
-    autoPlayEnabled: false,
-    destructiveRewindEnabled: false
-  }), {
-    executionConfigured: false,
-    message: "SpecForge.AI needs an SLM/LLM execution provider before workflow stages can run. Select an OpenAI-compatible provider and configure either base URL, API key, and model or a model profile catalog."
-  });
-});
-
-test("buildBackendEnvironment serializes named model profiles and phase assignments", () => {
-  assert.deepEqual(buildBackendEnvironment({
-    provider: "openai-compatible",
-    baseUrl: null,
-    apiKey: null,
-    model: null,
     modelProfiles: [
       {
         name: "light",
+        provider: "openai-compatible",
         baseUrl: "https://light.example.test/v1",
         apiKey: "light-secret",
         model: "gpt-light"
       },
       {
         name: "top",
+        provider: "openai-compatible",
         baseUrl: "http://localhost:11434/v1",
         apiKey: null,
         model: "llama-top"
@@ -270,8 +105,8 @@ test("buildBackendEnvironment serializes named model profiles and phase assignme
       implementationProfileName: "top",
       reviewProfileName: "light"
     },
-    clarificationTolerance: "balanced",
-    reviewTolerance: "strict",
+    clarificationTolerance: "strict",
+    reviewTolerance: "inferential",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
@@ -279,16 +114,17 @@ test("buildBackendEnvironment serializes named model profiles and phase assignme
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
   }), {
-    SPECFORGE_PHASE_PROVIDER: "openai-compatible",
     SPECFORGE_OPENAI_MODEL_PROFILES_JSON: JSON.stringify([
       {
         name: "light",
+        provider: "openai-compatible",
         baseUrl: "https://light.example.test/v1",
         apiKey: "light-secret",
         model: "gpt-light"
       },
       {
         name: "top",
+        provider: "openai-compatible",
         baseUrl: "http://localhost:11434/v1",
         apiKey: null,
         model: "llama-top"
@@ -299,27 +135,51 @@ test("buildBackendEnvironment serializes named model profiles and phase assignme
       implementationProfile: "top",
       reviewProfile: "light"
     }),
-    SPECFORGE_CAPTURE_TOLERANCE: "balanced",
-    SPECFORGE_REVIEW_TOLERANCE: "strict"
+    SPECFORGE_CAPTURE_TOLERANCE: "strict",
+    SPECFORGE_REVIEW_TOLERANCE: "inferential"
   });
 });
 
-test("buildBackendEnvironment ignores legacy connection fields when model profiles are configured", () => {
-  const env = buildBackendEnvironment({
-    provider: "openai-compatible",
-    baseUrl: "https://legacy.example.test/v1",
-    apiKey: "legacy-secret",
-    model: "legacy-model",
+test("getSpecForgeSettingsStatus requires at least one model profile", () => {
+  assert.deepEqual(getSpecForgeSettingsStatus({
+    modelProfiles: [],
+    phaseModelAssignments: {
+      defaultProfile: null,
+      implementationProfile: null,
+      reviewProfile: null
+    },
+    effectivePhaseModelAssignments: {
+      defaultProfileName: null,
+      implementationProfileName: null,
+      reviewProfileName: null
+    },
+    clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true,
+    contextSuggestionsEnabled: true,
+    requireExplicitApprovalBranchAcceptance: false,
+    autoPlayEnabled: false,
+    destructiveRewindEnabled: false
+  }), {
+    executionConfigured: false,
+    message: "SpecForge.AI needs at least one configured model profile before workflow stages can run."
+  });
+});
+
+test("getSpecForgeSettingsStatus allows a single valid local profile without api key", () => {
+  assert.deepEqual(getSpecForgeSettingsStatus({
     modelProfiles: [
       {
         name: "light",
-        baseUrl: "https://light.example.test/v1",
-        apiKey: "light-secret",
-        model: "gpt-light"
+        provider: "openai-compatible",
+        baseUrl: "http://localhost:11434/v1",
+        apiKey: null,
+        model: "llama3.1"
       }
     ],
     phaseModelAssignments: {
-      defaultProfile: "light",
+      defaultProfile: null,
       implementationProfile: null,
       reviewProfile: null
     },
@@ -336,23 +196,123 @@ test("buildBackendEnvironment ignores legacy connection fields when model profil
     requireExplicitApprovalBranchAcceptance: false,
     autoPlayEnabled: false,
     destructiveRewindEnabled: false
+  }), {
+    executionConfigured: true,
+    message: null
   });
+});
 
-  assert.equal(env.SPECFORGE_OPENAI_BASE_URL, undefined);
-  assert.equal(env.SPECFORGE_OPENAI_API_KEY, undefined);
-  assert.equal(env.SPECFORGE_OPENAI_MODEL, undefined);
-  assert.match(env.SPECFORGE_OPENAI_MODEL_PROFILES_JSON ?? "", /gpt-light/);
+test("getSpecForgeSettingsStatus still requires an api key for remote profiles", () => {
+  assert.deepEqual(getSpecForgeSettingsStatus({
+    modelProfiles: [
+      {
+        name: "light",
+        provider: "openai-compatible",
+        baseUrl: "https://api.example.test/v1",
+        apiKey: null,
+        model: "gpt-test"
+      }
+    ],
+    phaseModelAssignments: {
+      defaultProfile: null,
+      implementationProfile: null,
+      reviewProfile: null
+    },
+    effectivePhaseModelAssignments: {
+      defaultProfileName: "light",
+      implementationProfileName: "light",
+      reviewProfileName: "light"
+    },
+    clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true,
+    contextSuggestionsEnabled: true,
+    requireExplicitApprovalBranchAcceptance: false,
+    autoPlayEnabled: false,
+    destructiveRewindEnabled: false
+  }), {
+    executionConfigured: false,
+    message: "SpecForge.AI model profile 'light' needs an API key for a remote base URL."
+  });
+});
+
+test("getSpecForgeSettingsStatus rejects profiles without provider", () => {
+  assert.deepEqual(getSpecForgeSettingsStatus({
+    modelProfiles: [
+      {
+        name: "light",
+        provider: "",
+        baseUrl: "https://api.example.test/v1",
+        apiKey: "secret",
+        model: "gpt-test"
+      }
+    ],
+    phaseModelAssignments: {
+      defaultProfile: null,
+      implementationProfile: null,
+      reviewProfile: null
+    },
+    effectivePhaseModelAssignments: {
+      defaultProfileName: null,
+      implementationProfileName: null,
+      reviewProfileName: null
+    },
+    clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true,
+    contextSuggestionsEnabled: true,
+    requireExplicitApprovalBranchAcceptance: false,
+    autoPlayEnabled: false,
+    destructiveRewindEnabled: false
+  }), {
+    executionConfigured: false,
+    message: "SpecForge.AI model profile 'light' is missing provider."
+  });
+});
+
+test("getSpecForgeSettingsStatus rejects unsupported providers", () => {
+  assert.deepEqual(getSpecForgeSettingsStatus({
+    modelProfiles: [
+      {
+        name: "light",
+        provider: "anthropic",
+        baseUrl: "https://api.example.test/v1",
+        apiKey: "secret",
+        model: "claude"
+      }
+    ],
+    phaseModelAssignments: {
+      defaultProfile: null,
+      implementationProfile: null,
+      reviewProfile: null
+    },
+    effectivePhaseModelAssignments: {
+      defaultProfileName: null,
+      implementationProfileName: null,
+      reviewProfileName: null
+    },
+    clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true,
+    contextSuggestionsEnabled: true,
+    requireExplicitApprovalBranchAcceptance: false,
+    autoPlayEnabled: false,
+    destructiveRewindEnabled: false
+  }), {
+    executionConfigured: false,
+    message: "SpecForge.AI model profile 'light' uses unsupported provider 'anthropic'."
+  });
 });
 
 test("getSpecForgeSettingsStatus validates named profile assignments", () => {
   assert.deepEqual(getSpecForgeSettingsStatus({
-    provider: "openai-compatible",
-    baseUrl: null,
-    apiKey: null,
-    model: null,
     modelProfiles: [
       {
         name: "light",
+        provider: "openai-compatible",
         baseUrl: "https://light.example.test/v1",
         apiKey: "light-secret",
         model: "gpt-light"
