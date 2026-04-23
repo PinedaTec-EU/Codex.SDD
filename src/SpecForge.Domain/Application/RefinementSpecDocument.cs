@@ -55,9 +55,23 @@ public static class RefinementSpecJson
     public static RefinementSpecDocument ParseCanonicalJson(string json)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(json);
-        var document = JsonSerializer.Deserialize<RefinementSpecDocument>(json, JsonOptions)
-            ?? throw new WorkflowDomainException("The refinement JSON artifact could not be deserialized.");
-        return Normalize(document);
+        JsonDocument parsed;
+        try
+        {
+            parsed = JsonDocument.Parse(json);
+        }
+        catch (JsonException exception)
+        {
+            throw new JsonException(exception.Message, exception);
+        }
+
+        using (parsed)
+        {
+            var normalizedJson = NormalizeCanonicalJson(parsed.RootElement);
+            var document = JsonSerializer.Deserialize<RefinementSpecDocument>(normalizedJson, JsonOptions)
+                ?? throw new WorkflowDomainException("The refinement JSON artifact could not be deserialized.");
+            return Normalize(document);
+        }
     }
 
     public static string Serialize(RefinementSpecDocument document) =>
@@ -207,6 +221,146 @@ public static class RefinementSpecJson
             .Select(NormalizeScalar)
             .Where(static item => !string.IsNullOrWhiteSpace(item))
             .ToArray();
+
+    private static string NormalizeCanonicalJson(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            throw new WorkflowDomainException("The refinement JSON artifact must be a JSON object.");
+        }
+
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+
+            foreach (var property in root.EnumerateObject())
+            {
+                if (string.Equals(property.Name, "historyLog", StringComparison.Ordinal))
+                {
+                    writer.WritePropertyName(property.Name);
+                    writer.WriteStartArray();
+
+                    if (property.Value.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in property.Value.EnumerateArray())
+                        {
+                            var normalizedItem = NormalizeHistoryLogItem(item);
+                            if (!string.IsNullOrWhiteSpace(normalizedItem))
+                            {
+                                writer.WriteStringValue(normalizedItem);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var normalizedItem = NormalizeHistoryLogItem(property.Value);
+                        if (!string.IsNullOrWhiteSpace(normalizedItem))
+                        {
+                            writer.WriteStringValue(normalizedItem);
+                        }
+                    }
+
+                    writer.WriteEndArray();
+                    continue;
+                }
+
+                property.WriteTo(writer);
+            }
+
+            writer.WriteEndObject();
+        }
+
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    private static string NormalizeHistoryLogItem(JsonElement item)
+    {
+        return item.ValueKind switch
+        {
+            JsonValueKind.String => NormalizeScalar(item.GetString()),
+            JsonValueKind.Object => NormalizeHistoryLogObject(item),
+            JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False => item.ToString(),
+            JsonValueKind.Array => JsonSerializer.Serialize(item),
+            _ => string.Empty
+        };
+    }
+
+    private static string NormalizeHistoryLogObject(JsonElement item)
+    {
+        var timestamp = ReadFirstString(item,
+        [
+            "timestamp",
+            "timestampUtc",
+            "at",
+            "atUtc",
+            "recordedAtUtc",
+            "createdAtUtc",
+            "answeredAtUtc",
+            "dateUtc",
+            "date"
+        ]);
+        var actor = ReadFirstString(item, ["actor", "user", "author", "answeredBy"]);
+        var message = ReadFirstString(item,
+        [
+            "message",
+            "entry",
+            "text",
+            "summary",
+            "description",
+            "detail",
+            "details",
+            "action",
+            "note",
+            "event"
+        ]);
+
+        var actorAndMessage = string.Join(" ",
+            new[] { NormalizeScalar(actor), NormalizeScalar(message) }
+                .Where(static part => !string.IsNullOrWhiteSpace(part)));
+
+        if (!string.IsNullOrWhiteSpace(timestamp) && !string.IsNullOrWhiteSpace(actorAndMessage))
+        {
+            return $"`{timestamp.Trim()}` · {actorAndMessage}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(actorAndMessage))
+        {
+            return actorAndMessage;
+        }
+
+        return JsonSerializer.Serialize(item);
+    }
+
+    private static string? ReadFirstString(JsonElement item, params string[] candidates)
+    {
+        foreach (var candidate in candidates)
+        {
+            if (!item.TryGetProperty(candidate, out var property))
+            {
+                continue;
+            }
+
+            if (property.ValueKind == JsonValueKind.String)
+            {
+                var value = NormalizeScalar(property.GetString());
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return value;
+                }
+            }
+            else if (property.ValueKind is JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False)
+            {
+                var value = NormalizeScalar(property.ToString());
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return value;
+                }
+            }
+        }
+
+        return null;
+    }
 
     private static string NormalizeScalar(string? value) =>
         string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();

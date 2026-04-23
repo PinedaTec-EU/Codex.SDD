@@ -327,6 +327,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine("- `answeredBy`")
                 .AppendLine("- `answeredAtUtc`")
                 .AppendLine()
+                .AppendLine("`historyLog` must be an array of strings. Each entry must be a single concise audit line, not an object.")
+                .AppendLine()
                 .AppendLine("Do not wrap the JSON in markdown fences. Do not return prose outside the JSON object.");
         }
 
