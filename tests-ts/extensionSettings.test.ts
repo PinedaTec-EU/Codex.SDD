@@ -10,14 +10,16 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
         provider: " openai-compatible ",
         baseUrl: " https://light.example.test/v1 ",
         apiKey: " light-secret ",
-        model: " gpt-light "
+        model: " gpt-light ",
+        repositoryAccess: " read "
       },
       {
         name: "top",
         provider: " openai-compatible ",
         baseUrl: " http://localhost:11434/v1 ",
         apiKey: " ",
-        model: " llama-top "
+        model: " llama-top ",
+        repositoryAccess: " read-write "
       }
     ]],
     ["execution.phaseModels", {
@@ -46,14 +48,16 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
         provider: "openai-compatible",
         baseUrl: "https://light.example.test/v1",
         apiKey: "light-secret",
-        model: "gpt-light"
+        model: "gpt-light",
+        repositoryAccess: "read"
       },
       {
         name: "top",
         provider: "openai-compatible",
         baseUrl: "http://localhost:11434/v1",
         apiKey: null,
-        model: "llama-top"
+        model: "llama-top",
+        repositoryAccess: "read-write"
       }
     ],
     phaseModelAssignments: {
@@ -106,14 +110,16 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
         provider: "openai-compatible",
         baseUrl: "https://light.example.test/v1",
         apiKey: "light-secret",
-        model: "gpt-light"
+        model: "gpt-light",
+        repositoryAccess: "none"
       },
       {
         name: "top",
         provider: "openai-compatible",
         baseUrl: "http://localhost:11434/v1",
         apiKey: null,
-        model: "llama-top"
+        model: "llama-top",
+        repositoryAccess: "read-write"
       }
     ],
     phaseModelAssignments: {
@@ -141,14 +147,16 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
         provider: "openai-compatible",
         baseUrl: "https://light.example.test/v1",
         apiKey: "light-secret",
-        model: "gpt-light"
+        model: "gpt-light",
+        repositoryAccess: "none"
       },
       {
         name: "top",
         provider: "openai-compatible",
         baseUrl: "http://localhost:11434/v1",
         apiKey: null,
-        model: "llama-top"
+        model: "llama-top",
+        repositoryAccess: "read-write"
       }
     ]),
     SPECFORGE_OPENAI_PHASE_MODEL_ASSIGNMENTS_JSON: JSON.stringify({
@@ -197,7 +205,8 @@ test("getSpecForgeSettingsStatus allows a single valid local profile without api
         provider: "openai-compatible",
         baseUrl: "http://localhost:11434/v1",
         apiKey: null,
-        model: "llama3.1"
+        model: "llama3.1",
+        repositoryAccess: "none"
       }
     ],
     phaseModelAssignments: {
@@ -222,7 +231,7 @@ test("getSpecForgeSettingsStatus allows a single valid local profile without api
 
   assert.equal(status.executionConfigured, true);
   assert.equal(status.message, null);
-  assert.match(status.diagnostics, /catalog=\[light\{provider=openai-compatible,baseUrl=http:\/\/localhost:11434\/v1,model=llama3\.1,apiKey=empty\}\]/);
+  assert.match(status.diagnostics, /catalog=\[light\{provider=openai-compatible,baseUrl=http:\/\/localhost:11434\/v1,model=llama3\.1,apiKey=empty,repositoryAccess=none\}\]/);
 });
 
 test("getSpecForgeSettingsStatus still requires an api key for remote profiles", () => {
@@ -233,7 +242,8 @@ test("getSpecForgeSettingsStatus still requires an api key for remote profiles",
         provider: "openai-compatible",
         baseUrl: "https://api.example.test/v1",
         apiKey: null,
-        model: "gpt-test"
+        model: "gpt-test",
+        repositoryAccess: "none"
       }
     ],
     phaseModelAssignments: {
@@ -269,7 +279,8 @@ test("getSpecForgeSettingsStatus accepts profiles using the default provider", (
         provider: "openai-compatible",
         baseUrl: "https://api.example.test/v1",
         apiKey: "secret",
-        model: "gpt-test"
+        model: "gpt-test",
+        repositoryAccess: "none"
       }
     ],
     phaseModelAssignments: {
@@ -305,7 +316,8 @@ test("getSpecForgeSettingsStatus rejects unsupported providers", () => {
         provider: "anthropic",
         baseUrl: "https://api.example.test/v1",
         apiKey: "secret",
-        model: "claude"
+        model: "claude",
+        repositoryAccess: "none"
       }
     ],
     phaseModelAssignments: {
@@ -341,7 +353,8 @@ test("getSpecForgeSettingsStatus validates named profile assignments", () => {
         provider: "openai-compatible",
         baseUrl: "https://light.example.test/v1",
         apiKey: "light-secret",
-        model: "gpt-light"
+        model: "gpt-light",
+        repositoryAccess: "none"
       }
     ],
     phaseModelAssignments: {

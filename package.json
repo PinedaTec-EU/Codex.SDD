@@ -145,6 +145,16 @@
               "model": {
                 "type": "string",
                 "description": "Concrete model identifier exposed by this profile's endpoint."
+              },
+              "repositoryAccess": {
+                "type": "string",
+                "default": "none",
+                "enum": [
+                  "none",
+                  "read",
+                  "read-write"
+                ],
+                "description": "Repository access granted to this profile. Implementation requires read-write. Review requires at least read."
               }
             }
           }

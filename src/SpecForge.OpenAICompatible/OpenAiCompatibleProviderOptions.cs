@@ -5,7 +5,8 @@ public sealed record OpenAiCompatibleModelProfile(
     string Provider,
     string BaseUrl,
     string ApiKey,
-    string Model);
+    string Model,
+    string RepositoryAccess = "none");
 
 public sealed record OpenAiCompatiblePhaseModelAssignments(
     string? DefaultProfile = null,

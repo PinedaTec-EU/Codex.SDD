@@ -24,6 +24,7 @@ export interface SpecForgeModelProfile {
   readonly baseUrl: string;
   readonly apiKey: string | null;
   readonly model: string;
+  readonly repositoryAccess: string;
 }
 
 export interface SpecForgePhaseModelAssignments {
@@ -190,7 +191,7 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
 
 function buildSettingsDiagnostics(settings: SpecForgeSettings): string {
   const profiles = settings.modelProfiles.map((profile) =>
-    `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"},apiKey=${profile.apiKey ? "set" : "empty"}}`);
+    `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"},apiKey=${profile.apiKey ? "set" : "empty"},repositoryAccess=${profile.repositoryAccess || "<missing>"}}`);
 
   return [
     `profiles=${settings.modelProfiles.length}`,
@@ -207,6 +208,17 @@ function buildSettingsDiagnostics(settings: SpecForgeSettings): string {
 function normalizeOptional(value: string | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function normalizeRepositoryAccess(value: unknown): string | null {
+  const normalized = normalizeUnknownOptional(value)?.toLowerCase();
+  return normalized === "read-write" || normalized === "readwrite" || normalized === "write"
+    ? "read-write"
+    : normalized === "read"
+      ? "read"
+      : normalized === "none"
+        ? "none"
+        : null;
 }
 
 function normalizeModelProfiles(value: unknown): readonly SpecForgeModelProfile[] {
@@ -230,8 +242,9 @@ function normalizeModelProfile(value: unknown): SpecForgeModelProfile | null {
   const baseUrl = normalizeUnknownOptional(candidate.baseUrl);
   const apiKey = normalizeUnknownOptional(candidate.apiKey);
   const model = normalizeUnknownOptional(candidate.model);
+  const repositoryAccess = normalizeRepositoryAccess(candidate.repositoryAccess);
 
-  if (!provider && !name && !baseUrl && !apiKey && !model) {
+  if (!provider && !name && !baseUrl && !apiKey && !model && !repositoryAccess) {
     return null;
   }
 
@@ -240,7 +253,8 @@ function normalizeModelProfile(value: unknown): SpecForgeModelProfile | null {
     provider: provider ?? defaultModelProvider,
     baseUrl: baseUrl ?? "",
     apiKey,
-    model: model ?? ""
+    model: model ?? "",
+    repositoryAccess: repositoryAccess ?? "none"
   };
 }
 
