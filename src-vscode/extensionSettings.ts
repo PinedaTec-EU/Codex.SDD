@@ -29,14 +29,26 @@ export interface SpecForgeModelProfile {
 
 export interface SpecForgePhaseModelAssignments {
   readonly defaultProfile: string | null;
+  readonly captureProfile: string | null;
+  readonly clarificationProfile: string | null;
+  readonly refinementProfile: string | null;
+  readonly technicalDesignProfile: string | null;
   readonly implementationProfile: string | null;
   readonly reviewProfile: string | null;
+  readonly releaseApprovalProfile: string | null;
+  readonly prPreparationProfile: string | null;
 }
 
 export interface EffectiveSpecForgePhaseModelAssignments {
   readonly defaultProfileName: string | null;
+  readonly captureProfileName: string | null;
+  readonly clarificationProfileName: string | null;
+  readonly refinementProfileName: string | null;
+  readonly technicalDesignProfileName: string | null;
   readonly implementationProfileName: string | null;
   readonly reviewProfileName: string | null;
+  readonly releaseApprovalProfileName: string | null;
+  readonly prPreparationProfileName: string | null;
 }
 
 export function getSpecForgeSettings(): SpecForgeSettings {
@@ -169,8 +181,14 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
 
   const namedAssignments: Array<[string, string | null]> = [
     ["default", defaultProfileName],
+    ["capture", settings.phaseModelAssignments.captureProfile],
+    ["clarification", settings.phaseModelAssignments.clarificationProfile],
+    ["refinement", settings.phaseModelAssignments.refinementProfile],
+    ["technicalDesign", settings.phaseModelAssignments.technicalDesignProfile],
     ["implementation", settings.phaseModelAssignments.implementationProfile],
-    ["review", settings.phaseModelAssignments.reviewProfile]
+    ["review", settings.phaseModelAssignments.reviewProfile],
+    ["releaseApproval", settings.phaseModelAssignments.releaseApprovalProfile],
+    ["prPreparation", settings.phaseModelAssignments.prPreparationProfile]
   ];
 
   for (const [assignmentName, profileName] of namedAssignments) {
@@ -198,11 +216,23 @@ function buildSettingsDiagnostics(settings: SpecForgeSettings): string {
     `profiles=${settings.modelProfiles.length}`,
     `catalog=[${profiles.join(", ")}]`,
     `phaseModels.default=${settings.phaseModelAssignments.defaultProfile ?? "<unset>"}`,
+    `phaseModels.capture=${settings.phaseModelAssignments.captureProfile ?? "<unset>"}`,
+    `phaseModels.clarification=${settings.phaseModelAssignments.clarificationProfile ?? "<unset>"}`,
+    `phaseModels.refinement=${settings.phaseModelAssignments.refinementProfile ?? "<unset>"}`,
+    `phaseModels.technicalDesign=${settings.phaseModelAssignments.technicalDesignProfile ?? "<unset>"}`,
     `phaseModels.implementation=${settings.phaseModelAssignments.implementationProfile ?? "<unset>"}`,
     `phaseModels.review=${settings.phaseModelAssignments.reviewProfile ?? "<unset>"}`,
+    `phaseModels.releaseApproval=${settings.phaseModelAssignments.releaseApprovalProfile ?? "<unset>"}`,
+    `phaseModels.prPreparation=${settings.phaseModelAssignments.prPreparationProfile ?? "<unset>"}`,
     `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
+    `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,
+    `effective.clarification=${settings.effectivePhaseModelAssignments.clarificationProfileName ?? "<unset>"}`,
+    `effective.refinement=${settings.effectivePhaseModelAssignments.refinementProfileName ?? "<unset>"}`,
+    `effective.technicalDesign=${settings.effectivePhaseModelAssignments.technicalDesignProfileName ?? "<unset>"}`,
     `effective.implementation=${settings.effectivePhaseModelAssignments.implementationProfileName ?? "<unset>"}`,
-    `effective.review=${settings.effectivePhaseModelAssignments.reviewProfileName ?? "<unset>"}`
+    `effective.review=${settings.effectivePhaseModelAssignments.reviewProfileName ?? "<unset>"}`,
+    `effective.releaseApproval=${settings.effectivePhaseModelAssignments.releaseApprovalProfileName ?? "<unset>"}`,
+    `effective.prPreparation=${settings.effectivePhaseModelAssignments.prPreparationProfileName ?? "<unset>"}`
   ].join("; ");
 }
 
@@ -263,16 +293,28 @@ function normalizePhaseModelAssignments(value: unknown): SpecForgePhaseModelAssi
   if (!value || typeof value !== "object") {
     return {
       defaultProfile: null,
+      captureProfile: null,
+      clarificationProfile: null,
+      refinementProfile: null,
+      technicalDesignProfile: null,
       implementationProfile: null,
-      reviewProfile: null
+      reviewProfile: null,
+      releaseApprovalProfile: null,
+      prPreparationProfile: null
     };
   }
 
   const candidate = value as Record<string, unknown>;
   return {
     defaultProfile: normalizeUnknownOptional(candidate.defaultProfile),
+    captureProfile: normalizeUnknownOptional(candidate.captureProfile),
+    clarificationProfile: normalizeUnknownOptional(candidate.clarificationProfile),
+    refinementProfile: normalizeUnknownOptional(candidate.refinementProfile),
+    technicalDesignProfile: normalizeUnknownOptional(candidate.technicalDesignProfile),
     implementationProfile: normalizeUnknownOptional(candidate.implementationProfile),
-    reviewProfile: normalizeUnknownOptional(candidate.reviewProfile)
+    reviewProfile: normalizeUnknownOptional(candidate.reviewProfile),
+    releaseApprovalProfile: normalizeUnknownOptional(candidate.releaseApprovalProfile),
+    prPreparationProfile: normalizeUnknownOptional(candidate.prPreparationProfile)
   };
 }
 
@@ -282,13 +324,25 @@ function resolveEffectivePhaseModelAssignments(
 ): EffectiveSpecForgePhaseModelAssignments {
   const defaultProfile = resolveDefaultModelProfile(modelProfiles, assignments);
   const defaultProfileName = defaultProfile?.name ?? null;
+  const captureProfileName = resolveAssignedModelProfile(modelProfiles, assignments.captureProfile)?.name ?? defaultProfileName;
+  const clarificationProfileName = resolveAssignedModelProfile(modelProfiles, assignments.clarificationProfile)?.name ?? defaultProfileName;
+  const refinementProfileName = resolveAssignedModelProfile(modelProfiles, assignments.refinementProfile)?.name ?? defaultProfileName;
+  const technicalDesignProfileName = resolveAssignedModelProfile(modelProfiles, assignments.technicalDesignProfile)?.name ?? defaultProfileName;
   const implementationProfileName = resolveAssignedModelProfile(modelProfiles, assignments.implementationProfile)?.name ?? defaultProfileName;
   const reviewProfileName = resolveAssignedModelProfile(modelProfiles, assignments.reviewProfile)?.name ?? defaultProfileName;
+  const releaseApprovalProfileName = resolveAssignedModelProfile(modelProfiles, assignments.releaseApprovalProfile)?.name ?? defaultProfileName;
+  const prPreparationProfileName = resolveAssignedModelProfile(modelProfiles, assignments.prPreparationProfile)?.name ?? defaultProfileName;
 
   return {
     defaultProfileName,
+    captureProfileName,
+    clarificationProfileName,
+    refinementProfileName,
+    technicalDesignProfileName,
     implementationProfileName,
-    reviewProfileName
+    reviewProfileName,
+    releaseApprovalProfileName,
+    prPreparationProfileName
   };
 }
 

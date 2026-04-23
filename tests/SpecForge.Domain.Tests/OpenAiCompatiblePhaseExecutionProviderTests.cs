@@ -176,7 +176,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_UsesAssignedModelProfilePerPhase()
     {
         await PrepareInitializedWorkspaceAsync();
-        var implementationHandler = new CapturingFakeHttpMessageHandler(BuildMinimalImplementationJson());
+        var implementationHandler = new PhaseAwareFakeHttpMessageHandler(
+            ("technical_design_artifact", BuildMinimalTechnicalDesignJson()),
+            ("implementation_artifact", BuildMinimalImplementationJson()));
         var implementationProvider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(implementationHandler),
             new OpenAiCompatibleProviderOptions(
@@ -199,8 +201,22 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                 ],
                 PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
                     DefaultProfile: "light",
+                    TechnicalDesignProfile: "top",
                     ImplementationProfile: "top",
                     ReviewProfile: "light")));
+
+        var technicalDesignContext = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.TechnicalDesign,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        await implementationProvider.ExecuteAsync(technicalDesignContext);
+
+        Assert.Equal("http://localhost:22434/v1/chat/completions", implementationHandler.LastRequest!.RequestUri!.ToString());
+        Assert.Contains("\"model\":\"llama-top\"", implementationHandler.LastBody);
 
         var implementationContext = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
@@ -654,6 +670,52 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             throw new InvalidOperationException("HTTP transport should not be used for native Codex execution.");
     }
 
+    private sealed class PhaseAwareFakeHttpMessageHandler(params (string SchemaName, string ResponseJson)[] responses)
+        : HttpMessageHandler
+    {
+        private readonly Dictionary<string, string> responsesBySchema = responses.ToDictionary(item => item.SchemaName, item => item.ResponseJson, StringComparer.Ordinal);
+
+        public HttpRequestMessage? LastRequest { get; private set; }
+
+        public string LastBody { get; private set; } = string.Empty;
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            LastRequest = request;
+            LastBody = await request.Content!.ReadAsStringAsync(cancellationToken);
+
+            var schemaName = ReadResponseSchemaName(LastBody);
+            var responseContent = responsesBySchema.TryGetValue(schemaName, out var response)
+                ? response
+                : responsesBySchema.Values.Last();
+
+            var payload = JsonSerializer.Serialize(new
+            {
+                usage = new
+                {
+                    prompt_tokens = 120,
+                    completion_tokens = 48,
+                    total_tokens = 168
+                },
+                choices = new[]
+                {
+                    new
+                    {
+                        message = new
+                        {
+                            content = responseContent
+                        }
+                    }
+                }
+            });
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            };
+        }
+    }
+
     private sealed class FakeCodexCliRunner : OpenAiCompatiblePhaseExecutionProvider.ICodexCliRunner
     {
         private readonly string responseJson;
@@ -743,6 +805,48 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             "Domain tests must cover the transition and persistence path.",
             "Extension feedback must reflect the generated artifact and new phase."
           ]
+        }
+        """;
+
+    private static string BuildMinimalTechnicalDesignJson() =>
+        """
+        {
+          "state": "generated",
+          "basedOn": "01-spec.md",
+          "technicalSummary": "A valid technical design baseline.",
+          "technicalObjective": "Translate the approved spec into an executable design.",
+          "affectedComponents": [
+            "Workflow runner",
+            "Sidebar extension"
+          ],
+          "architecture": [
+            "Keep the current workflow boundaries intact."
+          ],
+          "primaryFlow": [
+            "Resolve configured phase profile.",
+            "Generate design artifact.",
+            "Persist result."
+          ],
+          "constraintsAndGuardrails": [
+            "Do not skip repository capability checks."
+          ],
+          "alternativesConsidered": [
+            "Keep phase routing hardcoded in settings only."
+          ],
+          "technicalRisks": [
+            "Configuration drift between UI and backend."
+          ],
+          "expectedImpact": [
+            "Developers can route technical design explicitly."
+          ],
+          "implementationStrategy": [
+            "Persist routing in shared settings.",
+            "Read those settings in the provider."
+          ],
+          "validationStrategy": [
+            "Cover assignment resolution in tests."
+          ],
+          "openDecisions": []
         }
         """;
 }

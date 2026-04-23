@@ -358,7 +358,8 @@ The extension currently provides:
 - explicit category selection from the repo category catalog when creating or importing a US
 - user-story intake guidance that distinguishes minimum information from recommended extra detail
 - extension settings for per-profile model routing, watcher behavior, and attention notifications
-- visible configuration warnings with a direct link to extension settings when model profiles or phase assignments are incomplete
+- visible configuration warnings with a direct action to open the sidebar execution form when model profiles or phase assignments are incomplete
+- a sidebar execution-settings form to manage provider profiles and per-phase routing without editing raw VS Code JSON settings
 - auto-refresh watcher over `.specs/us/**` when enabled
 - lightweight TypeScript tests for explorer grouping, detail rendering, MCP client payload/parsing, and extension command wiring
 
@@ -433,6 +434,47 @@ The extension contributes these settings:
 - `specForge.ui.enableWatcher`
 - `specForge.ui.notifyOnAttention`
 - `specForge.features.enableContextSuggestions`
+
+### Execution settings form
+
+The left sidebar now exposes a dedicated execution-settings form from the new header gear icon.
+
+Use it to:
+
+- create or edit named provider profiles for `codex`, `copilot`, `claude`, or `openai-compatible`
+- enter endpoint details for bridge-based providers
+- assign a configured profile to each workflow phase
+- read and write the same persisted values stored under `specForge.execution.modelProfiles` and `specForge.execution.phaseModels`
+
+Example persisted shape:
+
+```json
+{
+  "specForge.execution.modelProfiles": [
+    {
+      "name": "codex-main",
+      "provider": "codex",
+      "repositoryAccess": "read-write"
+    },
+    {
+      "name": "compat-review",
+      "provider": "openai-compatible",
+      "baseUrl": "https://api.example.test/v1",
+      "apiKey": "secret",
+      "model": "gpt-5.4",
+      "repositoryAccess": "read"
+    }
+  ],
+  "specForge.execution.phaseModels": {
+    "defaultProfile": "compat-review",
+    "clarificationProfile": "compat-review",
+    "refinementProfile": "compat-review",
+    "technicalDesignProfile": "compat-review",
+    "implementationProfile": "codex-main",
+    "reviewProfile": "compat-review"
+  }
+}
+```
 
 ## Persistence Model
 

@@ -10,8 +10,14 @@ public sealed record OpenAiCompatibleModelProfile(
 
 public sealed record OpenAiCompatiblePhaseModelAssignments(
     string? DefaultProfile = null,
+    string? CaptureProfile = null,
+    string? ClarificationProfile = null,
+    string? RefinementProfile = null,
+    string? TechnicalDesignProfile = null,
     string? ImplementationProfile = null,
-    string? ReviewProfile = null);
+    string? ReviewProfile = null,
+    string? ReleaseApprovalProfile = null,
+    string? PrPreparationProfile = null);
 
 public sealed record OpenAiCompatibleProviderOptions(
     string? SystemPrompt = null,

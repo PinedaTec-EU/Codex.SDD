@@ -163,12 +163,32 @@
         "specForge.execution.phaseModels": {
           "type": "object",
           "default": {},
-          "description": "Assign named model profiles to workflow roles. Unassigned implementation or review phases fall back to the default profile.",
+          "description": "Assign named model profiles to workflow phases. Any unassigned phase falls back to the default profile.",
           "properties": {
             "defaultProfile": {
               "type": "string",
               "default": "",
-              "description": "Profile used by capture, clarification, refinement, technical design, release approval, and PR preparation."
+              "description": "Fallback profile used when a specific phase does not declare its own profile."
+            },
+            "captureProfile": {
+              "type": "string",
+              "default": "",
+              "description": "Optional profile override for capture."
+            },
+            "clarificationProfile": {
+              "type": "string",
+              "default": "",
+              "description": "Optional profile override for clarification."
+            },
+            "refinementProfile": {
+              "type": "string",
+              "default": "",
+              "description": "Optional profile override for refinement."
+            },
+            "technicalDesignProfile": {
+              "type": "string",
+              "default": "",
+              "description": "Optional profile override for technical design."
             },
             "implementationProfile": {
               "type": "string",
@@ -179,6 +199,16 @@
               "type": "string",
               "default": "",
               "description": "Optional profile override for review. Falls back to the default profile when unset."
+            },
+            "releaseApprovalProfile": {
+              "type": "string",
+              "default": "",
+              "description": "Optional profile override for release approval."
+            },
+            "prPreparationProfile": {
+              "type": "string",
+              "default": "",
+              "description": "Optional profile override for PR preparation."
             }
           }
         },

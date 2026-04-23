@@ -477,6 +477,24 @@ function phaseModelProfileLabel(phase, state) {
             return assignments.defaultProfileName;
     }
 }
+function formatBlockingReason(reason) {
+    switch (reason) {
+        case "clarification_pending_answers":
+            return "Clarification is still waiting for required answers.";
+        case "refinement_pending_user_approval":
+            return "Refinement still needs explicit approval before the workflow can continue.";
+        case "release-approval_pending_user_approval":
+            return "Release approval still needs a human decision before the workflow can continue.";
+        case "implementation_requires_repository_write_access":
+            return "Implementation is blocked because the assigned executor does not have repository write access.";
+        case "review_requires_repository_read_access":
+            return "Review is blocked because the assigned reviewer cannot inspect repository artifacts.";
+        case "codex_cli_not_found":
+            return "Execution is blocked because the local Codex CLI could not be found on this machine.";
+        default:
+            return reason ? `Workflow blocked: ${reason}` : null;
+    }
+}
 function buildWorkflowHeroTitle(workflow) {
     const normalizedTitle = workflow.title.trim();
     if (normalizedTitle.startsWith(`${workflow.usId} ·`) || normalizedTitle === workflow.usId) {
@@ -522,6 +540,19 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           <p class="eyebrow warning">Configuration Required</p>
           <h2>SpecForge.AI settings are incomplete</h2>
           <p class="panel-copy warning-copy">${escapeHtml(state.settingsMessage)}</p>
+        </div>
+        <button class="workflow-action-button workflow-action-button--progress" data-command="openSettings">Configure Settings</button>
+      </section>
+    `
+        : "";
+    const executionBlockBanner = !workflow.controls.canContinue && workflow.controls.blockingReason
+        ? `
+      <section class="settings-warning panel">
+        <div class="settings-warning__icon" aria-hidden="true">⚠</div>
+        <div class="settings-warning__content">
+          <p class="eyebrow warning">Workflow Blocked</p>
+          <h2>Execution cannot continue yet</h2>
+          <p class="panel-copy warning-copy">${escapeHtml(formatBlockingReason(workflow.controls.blockingReason) ?? workflow.controls.blockingReason)}</p>
         </div>
         <button class="workflow-action-button workflow-action-button--progress" data-command="openSettings">Configure Settings</button>
       </section>
@@ -2807,6 +2838,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
   </div>
   <div class="shell" data-workflow-shell>
     ${settingsWarning}
+    ${executionBlockBanner}
     <section class="panel hero">
       <div class="hero-head">
         <div>

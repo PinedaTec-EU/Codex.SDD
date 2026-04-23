@@ -2,6 +2,51 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildBackendEnvironment, getSpecForgeSettingsStatus, readSpecForgeSettings } from "../src-vscode/extensionSettings";
 
+type AssignmentShape = ReturnType<typeof emptyAssignments>;
+type EffectiveAssignmentShape = ReturnType<typeof emptyEffectiveAssignments>;
+
+function assignments(overrides: Partial<Record<keyof AssignmentShape, string | null>> = {}) {
+  return {
+    ...emptyAssignments(),
+    ...overrides
+  };
+}
+
+function effective(overrides: Partial<Record<keyof EffectiveAssignmentShape, string | null>> = {}) {
+  return {
+    ...emptyEffectiveAssignments(),
+    ...overrides
+  };
+}
+
+function emptyAssignments() {
+  return {
+    defaultProfile: null,
+    captureProfile: null,
+    clarificationProfile: null,
+    refinementProfile: null,
+    technicalDesignProfile: null,
+    implementationProfile: null,
+    reviewProfile: null,
+    releaseApprovalProfile: null,
+    prPreparationProfile: null
+  };
+}
+
+function emptyEffectiveAssignments() {
+  return {
+    defaultProfileName: null,
+    captureProfileName: null,
+    clarificationProfileName: null,
+    refinementProfileName: null,
+    technicalDesignProfileName: null,
+    implementationProfileName: null,
+    reviewProfileName: null,
+    releaseApprovalProfileName: null,
+    prPreparationProfileName: null
+  };
+}
+
 test("readSpecForgeSettings normalizes model profiles and preserves toggles", () => {
   const values = new Map<string, unknown>([
     ["execution.modelProfiles", [
@@ -60,16 +105,22 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
         repositoryAccess: "read-write"
       }
     ],
-    phaseModelAssignments: {
+    phaseModelAssignments: assignments({
       defaultProfile: "light",
       implementationProfile: "top",
       reviewProfile: "light"
-    },
-    effectivePhaseModelAssignments: {
+    }),
+    effectivePhaseModelAssignments: effective({
       defaultProfileName: "light",
+      captureProfileName: "light",
+      clarificationProfileName: "light",
+      refinementProfileName: "light",
+      technicalDesignProfileName: "light",
       implementationProfileName: "top",
-      reviewProfileName: "light"
-    },
+      reviewProfileName: "light",
+      releaseApprovalProfileName: "light",
+      prPreparationProfileName: "light"
+    }),
     clarificationTolerance: "inferential",
     reviewTolerance: "strict",
     watcherEnabled: false,
@@ -122,16 +173,16 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
         repositoryAccess: "read-write"
       }
     ],
-    phaseModelAssignments: {
+    phaseModelAssignments: assignments({
       defaultProfile: "light",
       implementationProfile: "top",
       reviewProfile: "light"
-    },
-    effectivePhaseModelAssignments: {
+    }),
+    effectivePhaseModelAssignments: effective({
       defaultProfileName: "light",
       implementationProfileName: "top",
       reviewProfileName: "light"
-    },
+    }),
     clarificationTolerance: "strict",
     reviewTolerance: "inferential",
     watcherEnabled: true,
@@ -159,11 +210,11 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
         repositoryAccess: "read-write"
       }
     ]),
-    SPECFORGE_OPENAI_PHASE_MODEL_ASSIGNMENTS_JSON: JSON.stringify({
+    SPECFORGE_OPENAI_PHASE_MODEL_ASSIGNMENTS_JSON: JSON.stringify(assignments({
       defaultProfile: "light",
       implementationProfile: "top",
       reviewProfile: "light"
-    }),
+    })),
     SPECFORGE_CAPTURE_TOLERANCE: "strict",
     SPECFORGE_REVIEW_TOLERANCE: "inferential"
   });
@@ -172,16 +223,8 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
 test("getSpecForgeSettingsStatus requires at least one model profile", () => {
   const status = getSpecForgeSettingsStatus({
     modelProfiles: [],
-    phaseModelAssignments: {
-      defaultProfile: null,
-      implementationProfile: null,
-      reviewProfile: null
-    },
-    effectivePhaseModelAssignments: {
-      defaultProfileName: null,
-      implementationProfileName: null,
-      reviewProfileName: null
-    },
+    phaseModelAssignments: assignments(),
+    effectivePhaseModelAssignments: effective(),
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
@@ -209,16 +252,12 @@ test("getSpecForgeSettingsStatus allows a single valid local profile without api
         repositoryAccess: "none"
       }
     ],
-    phaseModelAssignments: {
-      defaultProfile: null,
-      implementationProfile: null,
-      reviewProfile: null
-    },
-    effectivePhaseModelAssignments: {
+    phaseModelAssignments: assignments(),
+    effectivePhaseModelAssignments: effective({
       defaultProfileName: "light",
       implementationProfileName: "light",
       reviewProfileName: "light"
-    },
+    }),
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
@@ -246,16 +285,12 @@ test("getSpecForgeSettingsStatus still requires an api key for remote profiles",
         repositoryAccess: "none"
       }
     ],
-    phaseModelAssignments: {
-      defaultProfile: null,
-      implementationProfile: null,
-      reviewProfile: null
-    },
-    effectivePhaseModelAssignments: {
+    phaseModelAssignments: assignments(),
+    effectivePhaseModelAssignments: effective({
       defaultProfileName: "light",
       implementationProfileName: "light",
       reviewProfileName: "light"
-    },
+    }),
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
@@ -283,16 +318,8 @@ test("getSpecForgeSettingsStatus accepts profiles using the default provider", (
         repositoryAccess: "none"
       }
     ],
-    phaseModelAssignments: {
-      defaultProfile: null,
-      implementationProfile: null,
-      reviewProfile: null
-    },
-    effectivePhaseModelAssignments: {
-      defaultProfileName: null,
-      implementationProfileName: null,
-      reviewProfileName: null
-    },
+    phaseModelAssignments: assignments(),
+    effectivePhaseModelAssignments: effective(),
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
@@ -336,16 +363,16 @@ test("getSpecForgeSettingsStatus accepts codex, copilot, and claude providers", 
         repositoryAccess: "none"
       }
     ],
-    phaseModelAssignments: {
+    phaseModelAssignments: assignments({
       defaultProfile: "fallback",
       implementationProfile: "implementer",
       reviewProfile: "reviewer"
-    },
-    effectivePhaseModelAssignments: {
+    }),
+    effectivePhaseModelAssignments: effective({
       defaultProfileName: "fallback",
       implementationProfileName: "implementer",
       reviewProfileName: "reviewer"
-    },
+    }),
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
@@ -375,16 +402,12 @@ test("getSpecForgeSettingsStatus allows codex without baseUrl apiKey or model", 
         repositoryAccess: "read-write"
       }
     ],
-    phaseModelAssignments: {
-      defaultProfile: null,
-      implementationProfile: null,
-      reviewProfile: null
-    },
-    effectivePhaseModelAssignments: {
+    phaseModelAssignments: assignments(),
+    effectivePhaseModelAssignments: effective({
       defaultProfileName: "codex-main",
       implementationProfileName: "codex-main",
       reviewProfileName: "codex-main"
-    },
+    }),
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
@@ -412,16 +435,8 @@ test("getSpecForgeSettingsStatus rejects unsupported providers", () => {
         repositoryAccess: "none"
       }
     ],
-    phaseModelAssignments: {
-      defaultProfile: null,
-      implementationProfile: null,
-      reviewProfile: null
-    },
-    effectivePhaseModelAssignments: {
-      defaultProfileName: null,
-      implementationProfileName: null,
-      reviewProfileName: null
-    },
+    phaseModelAssignments: assignments(),
+    effectivePhaseModelAssignments: effective(),
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
@@ -449,16 +464,10 @@ test("getSpecForgeSettingsStatus validates named profile assignments", () => {
         repositoryAccess: "none"
       }
     ],
-    phaseModelAssignments: {
-      defaultProfile: "missing",
-      implementationProfile: null,
-      reviewProfile: null
-    },
-    effectivePhaseModelAssignments: {
-      defaultProfileName: null,
-      implementationProfileName: null,
-      reviewProfileName: null
-    },
+    phaseModelAssignments: assignments({
+      defaultProfile: "missing"
+    }),
+    effectivePhaseModelAssignments: effective(),
     clarificationTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
@@ -488,9 +497,5 @@ test("readSpecForgeSettings falls back to balanced clarification tolerance for u
   assert.equal(settings.clarificationTolerance, "balanced");
   assert.equal(settings.reviewTolerance, "balanced");
   assert.equal(settings.requireExplicitApprovalBranchAcceptance, false);
-  assert.deepEqual(settings.phaseModelAssignments, {
-    defaultProfile: null,
-    implementationProfile: null,
-    reviewProfile: null
-  });
+  assert.deepEqual(settings.phaseModelAssignments, assignments());
 });

@@ -46,6 +46,7 @@ function getSpecForgeSettingsStatus(settings) {
     return getModelProfileSettingsStatus(settings);
 }
 const defaultModelProvider = "openai-compatible";
+const supportedModelProviders = new Set(["openai-compatible", "codex", "copilot", "claude"]);
 function getModelProfileSettingsStatus(settings) {
     const profilesByName = new Map();
     const diagnostics = buildSettingsDiagnostics(settings);
@@ -59,7 +60,7 @@ function getModelProfileSettingsStatus(settings) {
                 diagnostics
             };
         }
-        if (profile.provider !== "openai-compatible") {
+        if (!supportedModelProviders.has(profile.provider)) {
             return {
                 executionConfigured: false,
                 message: `SpecForge.AI model profile '${profile.name}' uses unsupported provider '${profile.provider}'.`,
@@ -73,21 +74,21 @@ function getModelProfileSettingsStatus(settings) {
                 diagnostics
             };
         }
-        if (!profile.baseUrl) {
+        if (profile.provider !== "codex" && !profile.baseUrl) {
             return {
                 executionConfigured: false,
                 message: `SpecForge.AI model profile '${profile.name}' is missing base URL.`,
                 diagnostics
             };
         }
-        if (!profile.model) {
+        if (profile.provider !== "codex" && !profile.model) {
             return {
                 executionConfigured: false,
                 message: `SpecForge.AI model profile '${profile.name}' is missing model.`,
                 diagnostics
             };
         }
-        if (!profile.apiKey && !isLocalOpenAiCompatibleEndpoint(profile.baseUrl)) {
+        if (profile.provider !== "codex" && !profile.apiKey && !isLocalOpenAiCompatibleEndpoint(profile.baseUrl)) {
             return {
                 executionConfigured: false,
                 message: `SpecForge.AI model profile '${profile.name}' needs an API key for a remote base URL.`,
@@ -106,8 +107,14 @@ function getModelProfileSettingsStatus(settings) {
     }
     const namedAssignments = [
         ["default", defaultProfileName],
+        ["capture", settings.phaseModelAssignments.captureProfile],
+        ["clarification", settings.phaseModelAssignments.clarificationProfile],
+        ["refinement", settings.phaseModelAssignments.refinementProfile],
+        ["technicalDesign", settings.phaseModelAssignments.technicalDesignProfile],
         ["implementation", settings.phaseModelAssignments.implementationProfile],
-        ["review", settings.phaseModelAssignments.reviewProfile]
+        ["review", settings.phaseModelAssignments.reviewProfile],
+        ["releaseApproval", settings.phaseModelAssignments.releaseApprovalProfile],
+        ["prPreparation", settings.phaseModelAssignments.prPreparationProfile]
     ];
     for (const [assignmentName, profileName] of namedAssignments) {
         if (profileName && !profilesByName.has(profileName)) {
@@ -125,21 +132,43 @@ function getModelProfileSettingsStatus(settings) {
     };
 }
 function buildSettingsDiagnostics(settings) {
-    const profiles = settings.modelProfiles.map((profile) => `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"},apiKey=${profile.apiKey ? "set" : "empty"}}`);
+    const profiles = settings.modelProfiles.map((profile) => `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"},apiKey=${profile.apiKey ? "set" : "empty"},repositoryAccess=${profile.repositoryAccess || "<missing>"}}`);
     return [
         `profiles=${settings.modelProfiles.length}`,
         `catalog=[${profiles.join(", ")}]`,
         `phaseModels.default=${settings.phaseModelAssignments.defaultProfile ?? "<unset>"}`,
+        `phaseModels.capture=${settings.phaseModelAssignments.captureProfile ?? "<unset>"}`,
+        `phaseModels.clarification=${settings.phaseModelAssignments.clarificationProfile ?? "<unset>"}`,
+        `phaseModels.refinement=${settings.phaseModelAssignments.refinementProfile ?? "<unset>"}`,
+        `phaseModels.technicalDesign=${settings.phaseModelAssignments.technicalDesignProfile ?? "<unset>"}`,
         `phaseModels.implementation=${settings.phaseModelAssignments.implementationProfile ?? "<unset>"}`,
         `phaseModels.review=${settings.phaseModelAssignments.reviewProfile ?? "<unset>"}`,
+        `phaseModels.releaseApproval=${settings.phaseModelAssignments.releaseApprovalProfile ?? "<unset>"}`,
+        `phaseModels.prPreparation=${settings.phaseModelAssignments.prPreparationProfile ?? "<unset>"}`,
         `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
+        `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,
+        `effective.clarification=${settings.effectivePhaseModelAssignments.clarificationProfileName ?? "<unset>"}`,
+        `effective.refinement=${settings.effectivePhaseModelAssignments.refinementProfileName ?? "<unset>"}`,
+        `effective.technicalDesign=${settings.effectivePhaseModelAssignments.technicalDesignProfileName ?? "<unset>"}`,
         `effective.implementation=${settings.effectivePhaseModelAssignments.implementationProfileName ?? "<unset>"}`,
-        `effective.review=${settings.effectivePhaseModelAssignments.reviewProfileName ?? "<unset>"}`
+        `effective.review=${settings.effectivePhaseModelAssignments.reviewProfileName ?? "<unset>"}`,
+        `effective.releaseApproval=${settings.effectivePhaseModelAssignments.releaseApprovalProfileName ?? "<unset>"}`,
+        `effective.prPreparation=${settings.effectivePhaseModelAssignments.prPreparationProfileName ?? "<unset>"}`
     ].join("; ");
 }
 function normalizeOptional(value) {
     const trimmed = value?.trim();
     return trimmed ? trimmed : null;
+}
+function normalizeRepositoryAccess(value) {
+    const normalized = normalizeUnknownOptional(value)?.toLowerCase();
+    return normalized === "read-write" || normalized === "readwrite" || normalized === "write"
+        ? "read-write"
+        : normalized === "read"
+            ? "read"
+            : normalized === "none"
+                ? "none"
+                : null;
 }
 function normalizeModelProfiles(value) {
     if (!Array.isArray(value)) {
@@ -154,12 +183,13 @@ function normalizeModelProfile(value) {
         return null;
     }
     const candidate = value;
-    const provider = normalizeUnknownOptional(candidate.provider);
+    const provider = normalizeUnknownOptional(candidate.provider)?.toLowerCase() ?? null;
     const name = normalizeUnknownOptional(candidate.name);
     const baseUrl = normalizeUnknownOptional(candidate.baseUrl);
     const apiKey = normalizeUnknownOptional(candidate.apiKey);
     const model = normalizeUnknownOptional(candidate.model);
-    if (!provider && !name && !baseUrl && !apiKey && !model) {
+    const repositoryAccess = normalizeRepositoryAccess(candidate.repositoryAccess);
+    if (!provider && !name && !baseUrl && !apiKey && !model && !repositoryAccess) {
         return null;
     }
     return {
@@ -167,33 +197,58 @@ function normalizeModelProfile(value) {
         provider: provider ?? defaultModelProvider,
         baseUrl: baseUrl ?? "",
         apiKey,
-        model: model ?? ""
+        model: model ?? "",
+        repositoryAccess: repositoryAccess ?? "none"
     };
 }
 function normalizePhaseModelAssignments(value) {
     if (!value || typeof value !== "object") {
         return {
             defaultProfile: null,
+            captureProfile: null,
+            clarificationProfile: null,
+            refinementProfile: null,
+            technicalDesignProfile: null,
             implementationProfile: null,
-            reviewProfile: null
+            reviewProfile: null,
+            releaseApprovalProfile: null,
+            prPreparationProfile: null
         };
     }
     const candidate = value;
     return {
         defaultProfile: normalizeUnknownOptional(candidate.defaultProfile),
+        captureProfile: normalizeUnknownOptional(candidate.captureProfile),
+        clarificationProfile: normalizeUnknownOptional(candidate.clarificationProfile),
+        refinementProfile: normalizeUnknownOptional(candidate.refinementProfile),
+        technicalDesignProfile: normalizeUnknownOptional(candidate.technicalDesignProfile),
         implementationProfile: normalizeUnknownOptional(candidate.implementationProfile),
-        reviewProfile: normalizeUnknownOptional(candidate.reviewProfile)
+        reviewProfile: normalizeUnknownOptional(candidate.reviewProfile),
+        releaseApprovalProfile: normalizeUnknownOptional(candidate.releaseApprovalProfile),
+        prPreparationProfile: normalizeUnknownOptional(candidate.prPreparationProfile)
     };
 }
 function resolveEffectivePhaseModelAssignments(modelProfiles, assignments) {
     const defaultProfile = resolveDefaultModelProfile(modelProfiles, assignments);
     const defaultProfileName = defaultProfile?.name ?? null;
+    const captureProfileName = resolveAssignedModelProfile(modelProfiles, assignments.captureProfile)?.name ?? defaultProfileName;
+    const clarificationProfileName = resolveAssignedModelProfile(modelProfiles, assignments.clarificationProfile)?.name ?? defaultProfileName;
+    const refinementProfileName = resolveAssignedModelProfile(modelProfiles, assignments.refinementProfile)?.name ?? defaultProfileName;
+    const technicalDesignProfileName = resolveAssignedModelProfile(modelProfiles, assignments.technicalDesignProfile)?.name ?? defaultProfileName;
     const implementationProfileName = resolveAssignedModelProfile(modelProfiles, assignments.implementationProfile)?.name ?? defaultProfileName;
     const reviewProfileName = resolveAssignedModelProfile(modelProfiles, assignments.reviewProfile)?.name ?? defaultProfileName;
+    const releaseApprovalProfileName = resolveAssignedModelProfile(modelProfiles, assignments.releaseApprovalProfile)?.name ?? defaultProfileName;
+    const prPreparationProfileName = resolveAssignedModelProfile(modelProfiles, assignments.prPreparationProfile)?.name ?? defaultProfileName;
     return {
         defaultProfileName,
+        captureProfileName,
+        clarificationProfileName,
+        refinementProfileName,
+        technicalDesignProfileName,
         implementationProfileName,
-        reviewProfileName
+        reviewProfileName,
+        releaseApprovalProfileName,
+        prPreparationProfileName
     };
 }
 function resolveDefaultModelProfile(modelProfiles, assignments) {

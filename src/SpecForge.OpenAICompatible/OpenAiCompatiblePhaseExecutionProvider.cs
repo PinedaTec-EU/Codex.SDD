@@ -505,8 +505,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var assignments = options.PhaseModelAssignments;
         var explicitName = phaseId switch
         {
+            PhaseId.Capture => assignments?.CaptureProfile,
+            PhaseId.Clarification => assignments?.ClarificationProfile,
+            PhaseId.Refinement => assignments?.RefinementProfile,
+            PhaseId.TechnicalDesign => assignments?.TechnicalDesignProfile,
             PhaseId.Implementation => assignments?.ImplementationProfile,
             PhaseId.Review => assignments?.ReviewProfile,
+            PhaseId.ReleaseApproval => assignments?.ReleaseApprovalProfile,
+            PhaseId.PrPreparation => assignments?.PrPreparationProfile,
             _ => assignments?.DefaultProfile
         };
 
@@ -674,8 +680,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         foreach (var profileName in new[]
                  {
                      defaultProfileName,
+                     assignments?.CaptureProfile,
+                     assignments?.ClarificationProfile,
+                     assignments?.RefinementProfile,
+                     assignments?.TechnicalDesignProfile,
                      assignments?.ImplementationProfile,
-                     assignments?.ReviewProfile
+                     assignments?.ReviewProfile,
+                     assignments?.ReleaseApprovalProfile,
+                     assignments?.PrPreparationProfile
                  })
         {
             if (!string.IsNullOrWhiteSpace(profileName) && !names.Contains(profileName))
