@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using SpecForge.Domain.Application;
 using SpecForge.Domain.Persistence;
 using SpecForge.Domain.Workflow;
@@ -614,6 +615,138 @@ public sealed class WorkflowRunnerTests : IDisposable
         {
             Directory.Delete(workspaceRoot, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task ApproveCurrentPhaseAsync_CreatesAndChecksOutWorkBranch_WhenBaseBranchMatchesUpstream()
+    {
+        await InitializeGitWorkspaceAsync(workspaceRoot);
+        await RunGitAsync(workspaceRoot, "checkout", "-b", "main");
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "README.md"), "seed");
+        await RunGitAsync(workspaceRoot, "add", "README.md");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "seed");
+
+        var remoteDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(remoteDirectory);
+        try
+        {
+            await RunGitAsync(remoteDirectory, "init", "--bare");
+            await RunGitAsync(workspaceRoot, "remote", "add", "origin", remoteDirectory);
+            await RunGitAsync(workspaceRoot, "push", "-u", "origin", "main");
+
+            var runner = new WorkflowRunner();
+            await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Branch creation", "feature", "workflow", "Initial source text");
+            await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+            await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+
+            await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+
+            var currentBranch = (await RunGitAsync(workspaceRoot, "branch", "--show-current")).Trim();
+            Assert.Equal("feature/us-0001-branch-creation", currentBranch);
+
+            var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+            var timeline = await File.ReadAllTextAsync(paths.TimelineFilePath);
+            Assert.Contains("`branch_created`", timeline);
+        }
+        finally
+        {
+            if (Directory.Exists(remoteDirectory))
+            {
+                Directory.Delete(remoteDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ApproveCurrentPhaseAsync_Throws_WhenBaseBranchIsBehindUpstream()
+    {
+        await InitializeGitWorkspaceAsync(workspaceRoot);
+        await RunGitAsync(workspaceRoot, "checkout", "-b", "main");
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "README.md"), "seed");
+        await RunGitAsync(workspaceRoot, "add", "README.md");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "seed");
+
+        var remoteDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var peerDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(remoteDirectory);
+        Directory.CreateDirectory(peerDirectory);
+        try
+        {
+            await RunGitAsync(remoteDirectory, "init", "--bare");
+            await RunGitAsync(workspaceRoot, "remote", "add", "origin", remoteDirectory);
+            await RunGitAsync(workspaceRoot, "push", "-u", "origin", "main");
+
+            await RunGitAsync(peerDirectory, "clone", remoteDirectory, ".");
+            await RunGitAsync(peerDirectory, "checkout", "main");
+            await File.WriteAllTextAsync(Path.Combine(peerDirectory, "CHANGELOG.md"), "remote");
+            await RunGitAsync(peerDirectory, "add", "CHANGELOG.md");
+            await RunGitAsync(peerDirectory, "commit", "-m", "remote update");
+            await RunGitAsync(peerDirectory, "push", "origin", "main");
+            await RunGitAsync(workspaceRoot, "fetch", "origin");
+
+            var runner = new WorkflowRunner();
+            await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Behind upstream", "feature", "workflow", "Initial source text");
+            await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+            await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+
+            var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
+                runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main"));
+
+            Assert.Contains("not up to date with upstream", error.Message);
+        }
+        finally
+        {
+            if (Directory.Exists(remoteDirectory))
+            {
+                Directory.Delete(remoteDirectory, recursive: true);
+            }
+
+            if (Directory.Exists(peerDirectory))
+            {
+                Directory.Delete(peerDirectory, recursive: true);
+            }
+        }
+    }
+
+    private static async Task InitializeGitWorkspaceAsync(string workingDirectory)
+    {
+        Directory.CreateDirectory(workingDirectory);
+        await RunGitAsync(workingDirectory, "init");
+        await RunGitAsync(workingDirectory, "config", "user.email", "specforge-tests@example.com");
+        await RunGitAsync(workingDirectory, "config", "user.name", "SpecForge Tests");
+    }
+
+    private static async Task<string> RunGitAsync(string workingDirectory, params string[] arguments)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "git",
+            WorkingDirectory = workingDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+
+        foreach (var argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = new Process { StartInfo = startInfo };
+        process.Start();
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"git {string.Join(' ', arguments)} failed with exit code {process.ExitCode}. stderr: {stderr.Trim()} stdout: {stdout.Trim()}");
+        }
+
+        return stdout;
     }
 
     private async Task ResolvePendingApprovalQuestionsAsync(WorkflowRunner runner, string usId)

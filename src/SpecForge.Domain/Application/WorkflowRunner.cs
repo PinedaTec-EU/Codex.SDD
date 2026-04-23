@@ -22,15 +22,16 @@ public sealed class WorkflowRunner
     private readonly UserStoryFileStore fileStore;
     private readonly IPhaseExecutionProvider phaseExecutionProvider;
     private readonly RepositoryCategoryCatalog repositoryCategoryCatalog;
+    private readonly IWorkBranchManager workBranchManager;
     private readonly string captureTolerance;
 
     public WorkflowRunner()
-        : this(new UserStoryFileStore(), new DeterministicPhaseExecutionProvider(), new RepositoryCategoryCatalog())
+        : this(new UserStoryFileStore(), new DeterministicPhaseExecutionProvider(), new RepositoryCategoryCatalog(), new GitWorkBranchManager())
     {
     }
 
     public WorkflowRunner(IPhaseExecutionProvider phaseExecutionProvider, string captureTolerance = "balanced")
-        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), captureTolerance)
+        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), captureTolerance)
     {
     }
 
@@ -38,11 +39,13 @@ public sealed class WorkflowRunner
         UserStoryFileStore fileStore,
         IPhaseExecutionProvider phaseExecutionProvider,
         RepositoryCategoryCatalog? repositoryCategoryCatalog = null,
+        IWorkBranchManager? workBranchManager = null,
         string captureTolerance = "balanced")
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
         this.phaseExecutionProvider = phaseExecutionProvider ?? throw new ArgumentNullException(nameof(phaseExecutionProvider));
         this.repositoryCategoryCatalog = repositoryCategoryCatalog ?? new RepositoryCategoryCatalog();
+        this.workBranchManager = workBranchManager ?? new GitWorkBranchManager();
         this.captureTolerance = captureTolerance is "strict" or "balanced" or "inferential" ? captureTolerance : "balanced";
     }
 
@@ -105,6 +108,21 @@ public sealed class WorkflowRunner
             metadata.Title,
             paths.MainArtifactPath,
             DateTimeOffset.UtcNow);
+
+        WorkBranchCreationResult? branchCreation = null;
+        if (branchWasMissing && workflowRun.Branch is not null && workflowRun.CurrentPhase == PhaseId.Refinement)
+        {
+            SpecForgeDiagnostics.Log(
+                $"[runner.approve_phase] usId={usId} validating base='{workflowRun.Branch.BaseBranch}' before creating work branch '{workflowRun.Branch.WorkBranchName}'.");
+            branchCreation = await workBranchManager.CreateBranchAsync(
+                workspaceRoot,
+                workflowRun.Branch.BaseBranch,
+                workflowRun.Branch.WorkBranchName,
+                cancellationToken);
+            SpecForgeDiagnostics.Log(
+                $"[runner.approve_phase] usId={usId} branch result gitWorkspace={branchCreation.IsGitWorkspace} created={branchCreation.BranchCreated} currentBranch='{branchCreation.CurrentBranch ?? "(none)"}' upstream='{branchCreation.UpstreamBranch ?? "(none)"}'.");
+        }
+
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
@@ -116,13 +134,26 @@ public sealed class WorkflowRunner
 
         if (branchWasMissing && workflowRun.Branch is not null && workflowRun.CurrentPhase == PhaseId.Refinement)
         {
-            await AppendTimelineEventAsync(
-                paths.TimelineFilePath,
-                "branch_created",
-                "system",
-                workflowRun.CurrentPhase,
-                $"Created branch `{workflowRun.Branch.WorkBranchName}` from `{workflowRun.Branch.BaseBranch}`.",
-                cancellationToken);
+            if (branchCreation?.BranchCreated == true)
+            {
+                await AppendTimelineEventAsync(
+                    paths.TimelineFilePath,
+                    "branch_created",
+                    "system",
+                    workflowRun.CurrentPhase,
+                    $"Created branch `{workflowRun.Branch.WorkBranchName}` from `{workflowRun.Branch.BaseBranch}`.",
+                    cancellationToken);
+            }
+            else if (branchCreation?.IsGitWorkspace == false)
+            {
+                await AppendTimelineEventAsync(
+                    paths.TimelineFilePath,
+                    "branch_recorded",
+                    "system",
+                    workflowRun.CurrentPhase,
+                    $"Recorded branch `{workflowRun.Branch.WorkBranchName}` from `{workflowRun.Branch.BaseBranch}` in workflow metadata because the workspace is not a Git repository.",
+                    cancellationToken);
+            }
         }
     }
 
