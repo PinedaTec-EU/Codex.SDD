@@ -1615,6 +1615,13 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       position: relative;
       z-index: 1;
     }
+    .phase-node-header-main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      min-width: 52px;
+    }
     .phase-current-rail {
       position: absolute;
       top: 22px;
@@ -1700,6 +1707,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       margin-top: 12px;
       position: relative;
       z-index: 1;
+    }
+    .phase-node-header .phase-priority-tags {
+      margin-top: 0;
+      justify-content: center;
     }
     .phase-slug {
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -3512,10 +3523,12 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
       ${phase.isCurrent ? `<span class="phase-current-rail"><span class="phase-current-rail__label">Current</span></span>` : ""}
       <div class="phase-node-content${phase.isCurrent ? " phase-node-content--current" : ""}">
         <div class="phase-node-header">
-          <span class="phase-index">${index + 1}</span>
+          <div class="phase-node-header-main">
+            <span class="phase-index">${index + 1}</span>
+            ${phase.requiresApproval ? `<div class="phase-priority-tags"><span class="phase-tag approval">approval</span></div>` : ""}
+          </div>
           <span class="phase-status-dot"></span>
         </div>
-        ${phase.requiresApproval ? `<div class="phase-priority-tags"><span class="phase-tag approval">approval</span></div>` : ""}
         <h3>${escapeHtml(phase.title)}</h3>
         <div class="phase-slug">${escapeHtml(phaseSecondaryLabel(phase))}</div>
         <div class="phase-tags">
