@@ -344,6 +344,7 @@ function buildExecutionOverlay(workflow, state, playbackState) {
       data-execution-overlay
       data-us-id="${escapeHtmlAttribute(overlay.usId)}"
       data-phase-id="${escapeHtmlAttribute(overlay.phaseId)}"
+      data-anchor-phase-id="${escapeHtmlAttribute(overlay.phaseId)}"
       data-tone="${escapeHtmlAttribute(overlay.tone)}"
       data-started-at-ms="${overlay.startedAtMs ?? ""}"
       data-dismissible="${overlay.tone === "playing" ? "false" : "true"}"
@@ -477,24 +478,6 @@ function phaseModelProfileLabel(phase, state) {
             return assignments.defaultProfileName;
     }
 }
-function formatBlockingReason(reason) {
-    switch (reason) {
-        case "clarification_pending_answers":
-            return "Clarification is still waiting for required answers.";
-        case "refinement_pending_user_approval":
-            return "Refinement still needs explicit approval before the workflow can continue.";
-        case "release-approval_pending_user_approval":
-            return "Release approval still needs a human decision before the workflow can continue.";
-        case "implementation_requires_repository_write_access":
-            return "Implementation is blocked because the assigned executor does not have repository write access.";
-        case "review_requires_repository_read_access":
-            return "Review is blocked because the assigned reviewer cannot inspect repository artifacts.";
-        case "codex_cli_not_found":
-            return "Execution is blocked because the local Codex CLI could not be found on this machine.";
-        default:
-            return reason ? `Workflow blocked: ${reason}` : null;
-    }
-}
 function buildWorkflowHeroTitle(workflow) {
     const normalizedTitle = workflow.title.trim();
     if (normalizedTitle.startsWith(`${workflow.usId} ·`) || normalizedTitle === workflow.usId) {
@@ -532,19 +515,6 @@ function buildArtifactPreviewSection(artifactPath, artifactPreviewHtml, artifact
 function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
     const isClarificationDetail = selectedPhase.phaseId === "clarification" && workflow.clarification !== null;
-    const executionBlockBanner = !workflow.controls.canContinue && workflow.controls.blockingReason
-        ? `
-      <section class="settings-warning panel">
-        <div class="settings-warning__icon" aria-hidden="true">⚠</div>
-        <div class="settings-warning__content">
-          <p class="eyebrow warning">Workflow Blocked</p>
-          <h2>Execution cannot continue yet</h2>
-          <p class="panel-copy warning-copy">${escapeHtml(formatBlockingReason(workflow.controls.blockingReason) ?? workflow.controls.blockingReason)}</p>
-        </div>
-        <button class="workflow-action-button workflow-action-button--progress" data-command="openSettings">Configure Settings</button>
-      </section>
-    `
-        : "";
     const effectiveExecutionPhaseId = resolveEffectiveExecutionPhaseId(workflow, state, playbackState);
     const phaseGraph = buildPhaseGraph(workflow, state, selectedPhase.phaseId, playbackState, effectiveExecutionPhaseId);
     const executionOverlay = buildExecutionOverlay(workflow, state, playbackState);
@@ -858,7 +828,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     body {
       margin: 0;
-      padding: 18px;
       color: var(--vscode-editor-foreground);
       background:
         radial-gradient(circle at 8% 10%, rgba(114, 241, 184, 0.16), transparent 20%),
@@ -866,10 +835,17 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         radial-gradient(circle at 50% 100%, rgba(255, 170, 84, 0.12), transparent 26%),
         linear-gradient(180deg, rgba(10, 20, 24, 0.96), rgba(10, 14, 20, 1));
       min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
     }
     .shell {
       display: grid;
       gap: 18px;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 18px;
+      align-content: start;
+      overscroll-behavior: contain;
     }
     .shell.shell--interaction-locked {
       pointer-events: none;
@@ -886,7 +862,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .hero {
       padding: 22px 24px;
-      position: relative;
+      position: sticky;
+      top: 18px;
+      z-index: 30;
       overflow: hidden;
     }
     .hero::after {
@@ -1374,7 +1352,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .execution-overlay {
       position: absolute;
       top: 18px;
-      right: 18px;
+      left: 18px;
       z-index: 12;
       display: flex;
       align-items: center;
@@ -1389,6 +1367,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         rgba(10, 14, 20, 0.96);
       box-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
       backdrop-filter: blur(16px);
+      transition: left 180ms ease, top 180ms ease, opacity 140ms ease;
     }
     .execution-overlay--paused {
       border-color: rgba(255, 205, 92, 0.34);
@@ -2738,11 +2717,14 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       }
     }
     @media (max-width: 760px) {
-      body {
+      .shell {
         padding: 12px;
       }
       .hero, .graph-panel, .detail-panel {
         padding: 16px;
+      }
+      .hero {
+        top: 12px;
       }
       .detail-metrics {
         grid-template-columns: 1fr;
@@ -2823,8 +2805,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       </div>
     </div>
   </div>
-  <div class="shell" data-workflow-shell>
-    ${executionBlockBanner}
+  <div class="shell" data-workflow-shell data-us-id="${escapeHtmlAttribute(workflow.usId)}">
     <section class="panel hero">
       <div class="hero-head">
         <div>
@@ -2895,6 +2876,34 @@ function buildWorkflowHtml(workflow, state, playbackState) {
   <script>
     const vscode = acquireVsCodeApi();
     const viewState = vscode.getState() ?? {};
+    const workflowShell = document.querySelector("[data-workflow-shell]");
+    const currentPhaseNode = document.querySelector(".phase-node.phase-node--current");
+    const currentPhaseId = currentPhaseNode instanceof HTMLElement
+      ? currentPhaseNode.dataset.phaseId ?? ""
+      : "";
+    const autoScrollStateKey = workflowShell instanceof HTMLElement
+      ? "specforge-ai:auto-scroll-phase:" + (workflowShell.dataset.usId ?? "")
+      : "";
+    if (currentPhaseNode instanceof HTMLElement && currentPhaseId && autoScrollStateKey) {
+      try {
+        const previousPhaseId = window.sessionStorage.getItem(autoScrollStateKey) ?? "";
+        const bounds = currentPhaseNode.getBoundingClientRect();
+        const outsideComfortZone = bounds.top < window.innerHeight * 0.14 || bounds.bottom > window.innerHeight * 0.82;
+        if (previousPhaseId !== currentPhaseId && outsideComfortZone) {
+          window.requestAnimationFrame(() => {
+            currentPhaseNode.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+              inline: "nearest"
+            });
+          });
+        }
+        window.sessionStorage.setItem(autoScrollStateKey, currentPhaseId);
+      } catch {
+        // Best effort only. The workflow view still works without persisted scroll state.
+      }
+    }
+
     function copyPlainText(text) {
       const textarea = document.createElement("textarea");
       textarea.value = text;
@@ -3144,7 +3153,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
 
     const workflowFilesOverlay = document.querySelector("[data-workflow-files-overlay]");
-    const workflowShell = document.querySelector("[data-workflow-shell]");
     const toggleWorkflowFiles = (open) => {
       if (!(workflowFilesOverlay instanceof HTMLElement)) {
         return;
@@ -3351,6 +3359,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       const elapsedElement = executionOverlay.querySelector("[data-execution-elapsed]");
       const dismissButton = executionOverlay.querySelector("[data-execution-overlay-dismiss]");
       const graphStage = document.querySelector(".graph-stage");
+      const anchorPhaseId = executionOverlay.dataset.anchorPhaseId ?? executionOverlay.dataset.phaseId ?? "";
       const messageCatalog = JSON.parse(executionOverlay.dataset.messages ?? "[]");
       const overlayKey = buildExecutionOverlayStateKey(
         executionOverlay.dataset.usId ?? "",
@@ -3362,6 +3371,48 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       const providedStartedAt = Number.parseInt(executionOverlay.dataset.startedAtMs ?? "", 10);
       const showElapsed = executionOverlay.dataset.showElapsed === "true";
       const dismissible = executionOverlay.dataset.dismissible === "true";
+      const positionExecutionOverlay = () => {
+        if (!(graphStage instanceof HTMLElement) || !(executionOverlay instanceof HTMLElement)) {
+          return;
+        }
+
+        let anchorNode = null;
+        if (anchorPhaseId) {
+          const escapedPhaseId = typeof CSS !== "undefined" && typeof CSS.escape === "function"
+            ? CSS.escape(anchorPhaseId)
+            : anchorPhaseId.replace(/"/g, '\\"');
+          anchorNode = graphStage.querySelector('.phase-node[data-phase-id="' + escapedPhaseId + '"]');
+        }
+
+        if (!(anchorNode instanceof HTMLElement)) {
+          anchorNode = graphStage.querySelector(".phase-node.phase-node--current");
+        }
+
+        if (!(anchorNode instanceof HTMLElement)) {
+          executionOverlay.style.left = "18px";
+          executionOverlay.style.top = "18px";
+          return;
+        }
+
+        const stageRect = graphStage.getBoundingClientRect();
+        const nodeRect = anchorNode.getBoundingClientRect();
+        const overlayRect = executionOverlay.getBoundingClientRect();
+        const padding = 12;
+        const gap = 18;
+        const preferredLeft = nodeRect.left - stageRect.left + ((nodeRect.width - overlayRect.width) / 2);
+        const maxLeft = Math.max(padding, graphStage.clientWidth - overlayRect.width - padding);
+        const nextLeft = Math.min(maxLeft, Math.max(padding, preferredLeft));
+        const topAbove = nodeRect.top - stageRect.top - overlayRect.height - gap;
+        const topBelow = nodeRect.bottom - stageRect.top + gap;
+        const maxTop = Math.max(padding, graphStage.clientHeight - overlayRect.height - padding);
+        const nextTop = topAbove >= padding
+          ? topAbove
+          : Math.min(maxTop, Math.max(padding, topBelow));
+
+        executionOverlay.style.left = nextLeft + "px";
+        executionOverlay.style.top = nextTop + "px";
+      };
+
       if (overlayTone === "playing") {
         clearExecutionOverlayDismissed(dismissKey);
       }
@@ -3372,6 +3423,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           graphStage.classList.remove("graph-stage--overlay-active");
         }
       } else {
+        positionExecutionOverlay();
+        window.addEventListener("resize", positionExecutionOverlay);
         const restoredState = restoreExecutionOverlayState(overlayKey, messageCatalog);
         const shuffledMessages = restoredState.messages;
         let messageIndex = restoredState.messageIndex;
@@ -3419,6 +3472,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           if (dismissible) {
             persistExecutionOverlayDismissed(dismissKey);
           }
+          window.removeEventListener("resize", positionExecutionOverlay);
           executionOverlay.remove();
           if (graphStage) {
             graphStage.classList.remove("graph-stage--overlay-active");

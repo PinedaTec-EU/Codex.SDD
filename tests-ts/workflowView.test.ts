@@ -102,6 +102,8 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /Workflow Constellation/);
   assert.match(html, /phase-graph/);
   assert.match(html, /phase-node refinement phase-tone-waiting-user selected phase-node--current/);
+  assert.doesNotMatch(html, /Execution cannot continue yet/);
+  assert.doesNotMatch(html, /Workflow Blocked/);
   assert.match(html, /--phase-pending: rgba\(255, 255, 255, 0\.04\);/);
   assert.match(html, /phase-current-rail/);
   assert.match(html, /phase-current-rail__label">Current</);
@@ -172,6 +174,8 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /approvalBaseBranchDraft/);
   assert.match(html, /approvalBaseBranchAccepted/);
   assert.match(html, /approvalWorkBranchDraft/);
+  assert.match(html, /specforge-ai:auto-scroll-phase:/);
+  assert.match(html, /scrollIntoView/);
 });
 
 test("buildWorkflowHtml requires explicit base-branch acceptance before approve when the flag is enabled", () => {
@@ -870,6 +874,7 @@ test("buildWorkflowHtml animates the current execution phase while autoplay is r
   assert.match(html, /graph-links path\.executing/);
   assert.match(html, /<path class="executing"/);
   assert.match(html, /data-execution-overlay/);
+  assert.match(html, /data-anchor-phase-id="refinement"/);
   assert.match(html, /Executing Refinement/);
   assert.match(html, /shuffleMessages/);
   assert.match(html, /formatOverlayElapsed/);
@@ -882,6 +887,11 @@ test("buildWorkflowHtml animates the current execution phase while autoplay is r
   );
   assert.match(html, /if \(messageElement && shuffledMessages\.length > 0\)/);
   assert.match(html, /if \(overlayTone !== "playing" && graphStage\)/);
+  assert.match(html, /const positionExecutionOverlay = \(\) =>/);
+  assert.match(html, /window\.addEventListener\("resize", positionExecutionOverlay\)/);
+  assert.match(html, /window\.removeEventListener\("resize", positionExecutionOverlay\)/);
+  assert.match(html, /executionOverlay\.style\.left = nextLeft \+ "px"/);
+  assert.match(html, /executionOverlay\.style\.top = nextTop \+ "px"/);
 });
 
 test("buildWorkflowHtml shows clarification as the active execution step from capture", () => {
@@ -1314,6 +1324,7 @@ test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
   assert.match(html, /Playback is paused at the phase boundary/);
   assert.doesNotMatch(html, /<span class="execution-overlay__elapsed"/);
   assert.match(html, /data-show-elapsed="false"/);
+  assert.match(html, /data-anchor-phase-id="review"/);
   assert.match(html, /\.graph-stage\.graph-stage--overlay-active \.phase-graph[\s\S]*pointer-events: none;/);
   assert.match(html, /graphStage\.classList\.remove\("graph-stage--overlay-active"\)/);
   assert.match(html, /document\.addEventListener\("pointerdown"/);
@@ -1364,7 +1375,7 @@ test("buildWorkflowHtml locks background interaction while the workflow files mo
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /<div class="shell" data-workflow-shell>/);
+  assert.match(html, /<div class="shell" data-workflow-shell data-us-id="US-0014">/);
   assert.match(html, /\.shell\.shell--interaction-locked[\s\S]*pointer-events: none;/);
   assert.match(html, /workflowShell\.classList\.toggle\("shell--interaction-locked", open\)/);
 });
@@ -2141,4 +2152,54 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
   assert.match(html, /phase-node review[\s\S]*?--phase-left-mobile: 16px; --phase-top-mobile: 886px;/);
   assert.match(html, /phase-node release-approval[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 1054px;/);
   assert.match(html, /viewBox="0 0 \d+ \d+"/);
+});
+
+test("buildWorkflowHtml keeps the hero header sticky while the workflow content scrolls underneath", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0002",
+    title: "Workflow layout",
+    category: "workflow",
+    status: "active",
+    currentPhase: "implementation",
+    directoryPath: "/tmp/us.US-0002",
+    workBranch: "feature/us-0002-layout",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [{
+      phaseId: "implementation",
+      title: "Implementation",
+      order: 4,
+      requiresApproval: false,
+      expectsHumanIntervention: false,
+      isApproved: false,
+      isCurrent: true,
+      state: "current",
+      artifactPath: null,
+      executePromptPath: null,
+      approvePromptPath: null
+    }],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "implementation",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /body \{[\s\S]*height: 100vh;[\s\S]*overflow: hidden;/);
+  assert.match(html, /\.shell \{[\s\S]*overflow-y: auto;[\s\S]*padding: 18px;/);
+  assert.match(html, /\.hero \{[\s\S]*position: sticky;[\s\S]*top: 18px;[\s\S]*z-index: 30;/);
 });
