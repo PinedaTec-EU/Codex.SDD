@@ -697,10 +697,11 @@ function buildWorkflowHeroTitle(workflow: UserStoryWorkflowDetails): string {
 
 function shouldRenderApprovalBranchEditor(
   workflow: UserStoryWorkflowDetails,
-  selectedPhase: WorkflowPhaseDetails
+  selectedPhase: WorkflowPhaseDetails,
+  selectedPhaseIsCurrent: boolean
 ): boolean {
   return selectedPhase.phaseId === "refinement"
-    && selectedPhase.isCurrent
+    && selectedPhaseIsCurrent
     && workflow.controls.requiresApproval;
 }
 
@@ -741,12 +742,27 @@ export function buildWorkflowHtml(
   state: WorkflowViewState,
   playbackState: "idle" | "playing" | "paused" | "stopping"
 ): string {
-  const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
-  const isClarificationDetail = selectedPhase.phaseId === "clarification" && workflow.clarification !== null;
   const effectiveExecutionPhaseId = resolveEffectiveExecutionPhaseId(workflow, state, playbackState);
   const pausedExecutionPhaseId = resolvePausedExecutionPhaseId(workflow, state, playbackState);
+  const displayedCurrentPhaseId = resolveDisplayedCurrentPhaseId(workflow, effectiveExecutionPhaseId, pausedExecutionPhaseId, playbackState);
+  const selectedPhaseId = playbackState === "idle"
+    ? state.selectedPhaseId
+    : displayedCurrentPhaseId ?? state.selectedPhaseId;
+  const selectedPhase = workflow.phases.find((phase) => phase.phaseId === selectedPhaseId) ?? workflow.phases[0];
+  const selectedPhaseIsCurrent = selectedPhase.phaseId === displayedCurrentPhaseId;
+  const isClarificationDetail = selectedPhase.phaseId === "clarification" && workflow.clarification !== null;
   const phaseGraph = buildPhaseGraph(workflow, state, selectedPhase.phaseId, playbackState, effectiveExecutionPhaseId);
   const executionOverlay = buildExecutionOverlay(workflow, state, playbackState);
+  const selectedPhaseVisualTone = resolvePhaseVisualTone(
+    workflow.status,
+    playbackState,
+    selectedPhase,
+    false,
+    playbackState === "playing" ? effectiveExecutionPhaseId : null,
+    pausedExecutionPhaseId,
+    new Set(state.completedPhaseIds ?? [])
+  );
+  const selectedPhaseDisplayState = phaseToneLabel(selectedPhaseVisualTone, selectedPhase.state);
   const displayedPhaseId = playbackState === "playing" && effectiveExecutionPhaseId
     ? effectiveExecutionPhaseId
     : playbackState === "paused" && pausedExecutionPhaseId
@@ -814,15 +830,15 @@ export function buildWorkflowHtml(
     refinementApprovalQuestions,
     unresolvedApprovalQuestionCount
   );
-  const rejectPlan = selectedPhase.isCurrent && selectedPhase.requiresApproval
+  const rejectPlan = selectedPhaseIsCurrent && selectedPhase.requiresApproval
     ? resolveWorkflowRejectPlan(selectedPhase.phaseId)
     : null;
-  const selectedPhaseStateClass = heroTokenClass(selectedPhase.state);
-  const continueActionLabel = selectedPhase.isCurrent ? "Continue" : "Continue Current Phase";
-  const approveActionLabel = selectedPhase.isCurrent ? "Approve" : "Approve Current Phase";
-  const shouldRenderApproveAction = selectedPhase.isCurrent
+  const selectedPhaseStateClass = heroTokenClass(selectedPhaseDisplayState);
+  const continueActionLabel = selectedPhaseIsCurrent ? "Continue" : "Continue Current Phase";
+  const approveActionLabel = selectedPhaseIsCurrent ? "Approve" : "Approve Current Phase";
+  const shouldRenderApproveAction = selectedPhaseIsCurrent
     && selectedPhase.requiresApproval;
-  const detailActions = (selectedPhase.isCurrent && (workflow.controls.canApprove || shouldRenderApproveAction || rejectPlan))
+  const detailActions = (selectedPhaseIsCurrent && (workflow.controls.canApprove || shouldRenderApproveAction || rejectPlan))
     || canRewindSelectedPhase
     || workflow.controls.canContinue
     || workflow.controls.canApprove
@@ -833,7 +849,7 @@ export function buildWorkflowHtml(
             ? `<button class="workflow-action-button workflow-action-button--progress" data-command="continue"${playDisabled ? " disabled" : ""}>${continueActionLabel}</button>`
             : ""}
         ${shouldRenderApproveAction
-            ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${!workflow.controls.canApprove || shouldRenderApprovalBranchEditor(workflow, selectedPhase) && Boolean(state.requireExplicitApprovalBranchAcceptance) ? " disabled" : ""}>${approveActionLabel}</button>`
+            ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${!workflow.controls.canApprove || shouldRenderApprovalBranchEditor(workflow, selectedPhase, selectedPhaseIsCurrent) && Boolean(state.requireExplicitApprovalBranchAcceptance) ? " disabled" : ""}>${approveActionLabel}</button>`
             : ""}
         ${rejectPlan ? `<button class="workflow-action-button workflow-action-button--danger" type="button" data-open-reject-modal data-reject-target-phase="${escapeHtmlAttribute(rejectPlan.targetPhaseId)}" data-reject-mode="${escapeHtmlAttribute(rejectPlan.mode)}" data-reject-title="${escapeHtmlAttribute(rejectPlan.modalTitle)}" data-reject-prompt="${escapeHtmlAttribute(rejectPlan.modalPrompt)}" data-reject-helper="${escapeHtmlAttribute(rejectPlan.helperText)}" data-reject-confirm-label="${escapeHtmlAttribute(rejectPlan.confirmLabel)}">Reject</button>` : ""}
         ${canRewindSelectedPhase ? `<button class="workflow-action-button workflow-action-button--document" data-command="rewind" data-phase-id="${escapeHtmlAttribute(selectedPhase.phaseId)}">Rewind Here</button>` : ""}
@@ -3234,7 +3250,7 @@ export function buildWorkflowHtml(
             <h2>${escapeHtml(selectedPhase.title)}</h2>
             <div class="detail-meta">
               <span class="token">${escapeHtml(phaseSecondaryLabel(selectedPhase))}</span>
-              <span class="token${selectedPhaseStateClass}">${escapeHtml(selectedPhase.state)}</span>
+              <span class="token${selectedPhaseStateClass}">${escapeHtml(selectedPhaseDisplayState)}</span>
               ${selectedPhase.requiresApproval ? `<span class="token token--attention">approval required</span>` : ""}
               ${selectedPhase.isApproved ? `<span class="token token--success">approved</span>` : ""}
             </div>
@@ -4148,9 +4164,12 @@ function buildPhaseGraph(
   playbackState: "idle" | "playing" | "paused" | "stopping",
   effectiveExecutionPhaseId: string | null
 ): string {
-  const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
   const executionPhaseId = playbackState === "playing" ? effectiveExecutionPhaseId : null;
   const pausedExecutionPhaseId = resolvePausedExecutionPhaseId(workflow, state, playbackState);
+  const displayedCurrentPhaseId = resolveDisplayedCurrentPhaseId(workflow, effectiveExecutionPhaseId, pausedExecutionPhaseId, playbackState);
+  const currentPhase = workflow.phases.find((phase) => phase.phaseId === displayedCurrentPhaseId)
+    ?? workflow.phases.find((phase) => phase.isCurrent)
+    ?? workflow.phases[0];
   const pausedPhaseIds = new Set(state.pausedPhaseIds ?? []);
   const completedPhaseIds = new Set(state.completedPhaseIds ?? []);
   const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);
@@ -4162,8 +4181,8 @@ function buildPhaseGraph(
   }));
   const desktopLayout = buildPhaseLayout(layoutPhases, desktopLayoutConfig, phaseNodeWidth);
   const mobileLayout = buildPhaseLayout(layoutPhases, mobileLayoutConfig, mobilePhaseNodeWidth);
-  const links = buildGraphLinks(visiblePhases, executionPhaseId, completedPhaseIds, desktopLayout.positions, phaseNodeWidth);
-  const mobileLinks = buildGraphLinks(visiblePhases, executionPhaseId, completedPhaseIds, mobileLayout.positions, mobilePhaseNodeWidth);
+  const links = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopLayout.positions, phaseNodeWidth);
+  const mobileLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileLayout.positions, mobilePhaseNodeWidth);
 
   const nodes = visiblePhases.map((phase, index) => {
     const disabled = false;
@@ -4181,19 +4200,20 @@ function buildPhaseGraph(
     const modelProfileLabel = phaseModelProfileLabel(phase, state);
     const canPausePhase = canPauseWorkflowExecutionPhase(phase.phaseId) && phase.state === "pending";
     const pauseArmed = pausedPhaseIds.has(phase.phaseId);
+    const phaseIsCurrent = phase.phaseId === displayedCurrentPhaseId;
     const pauseButtonLabel = pauseArmed
       ? `Remove pause before ${phase.title}`
       : `Pause before ${phase.title}`;
     return `
     <div
-      class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phase.phaseId === selectedPhaseId ? " selected" : ""}${phase.isCurrent ? " phase-node--current" : ""}"
+      class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phase.phaseId === selectedPhaseId ? " selected" : ""}${phaseIsCurrent ? " phase-node--current" : ""}"
       data-command="selectPhase"
       data-phase-id="${escapeHtmlAttribute(phase.phaseId)}"
       role="button"
       tabindex="0"
       style="--phase-left-desktop: ${desktopPosition.left}px; --phase-top-desktop: ${desktopPosition.top}px; --phase-left-mobile: ${mobilePosition.left}px; --phase-top-mobile: ${mobilePosition.top}px;">
-      ${phase.isCurrent ? `<span class="phase-current-rail"><span class="phase-current-rail__label">Current</span></span>` : ""}
-      <div class="phase-node-content${phase.isCurrent ? " phase-node-content--current" : ""}">
+      ${phaseIsCurrent ? `<span class="phase-current-rail"><span class="phase-current-rail__label">Current</span></span>` : ""}
+      <div class="phase-node-content${phaseIsCurrent ? " phase-node-content--current" : ""}">
         <div class="phase-node-header">
           <div class="phase-node-header-main">
             <span class="phase-index">${index + 1}</span>
@@ -4271,9 +4291,27 @@ function resolvePausedExecutionPhaseId(
   return workflow.currentPhase;
 }
 
+function resolveDisplayedCurrentPhaseId(
+  workflow: UserStoryWorkflowDetails,
+  effectiveExecutionPhaseId: string | null,
+  pausedExecutionPhaseId: string | null,
+  playbackState: "idle" | "playing" | "paused" | "stopping"
+): string {
+  if (playbackState === "playing" && effectiveExecutionPhaseId) {
+    return effectiveExecutionPhaseId;
+  }
+
+  if ((playbackState === "paused" || playbackState === "stopping") && pausedExecutionPhaseId) {
+    return pausedExecutionPhaseId;
+  }
+
+  return workflow.currentPhase;
+}
+
 function buildGraphLinks(
   visiblePhases: readonly WorkflowPhaseDetails[],
   executingTargetPhaseId: string | null,
+  currentPhaseId: string,
   completedPhaseIds: ReadonlySet<string>,
   positions: Record<string, PhasePosition>,
   nodeWidth: number
@@ -4286,7 +4324,7 @@ function buildGraphLinks(
     edges.push({
       fromPhaseId: fromPhase.phaseId,
       toPhaseId: toPhase.phaseId,
-      className: linkClass(toPhase, executingTargetPhaseId, completedPhaseIds)
+      className: linkClass(toPhase, executingTargetPhaseId, currentPhaseId, completedPhaseIds)
     });
   }
 
@@ -4305,13 +4343,14 @@ function shouldShowClarificationPhase(
 function linkClass(
   targetPhase: WorkflowPhaseDetails,
   executingTargetPhaseId: string | null,
+  currentPhaseId: string,
   completedPhaseIds: ReadonlySet<string>
 ): string {
   if (executingTargetPhaseId === targetPhase.phaseId) {
     return "executing";
   }
 
-  if (completedPhaseIds.has(targetPhase.phaseId) || targetPhase.isCurrent || targetPhase.state === "completed") {
+  if (completedPhaseIds.has(targetPhase.phaseId) || targetPhase.phaseId === currentPhaseId || targetPhase.state === "completed") {
     return "completed";
   }
 

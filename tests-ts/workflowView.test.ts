@@ -1620,7 +1620,11 @@ test("buildWorkflowHtml pauses before implementation when technical design is th
 
   assert.match(html, /Paused before Implementation/);
   assert.match(html, /data-anchor-phase-id="implementation"/);
-  assert.match(html, /phase-node implementation phase-tone-paused/);
+  assert.match(html, /phase-node implementation phase-tone-paused selected phase-node--current/);
+  assert.doesNotMatch(html, /phase-node technical-design[^"]*phase-node--current/);
+  assert.match(html, /phase-current-rail__label">Current</);
+  assert.match(html, /<h2>Implementation<\/h2>/);
+  assert.match(html, /data-command="continue"[^>]*>Continue</);
 });
 
 test("buildWorkflowHtml prefers configured overlay model label over stale historical execution labels", () => {
