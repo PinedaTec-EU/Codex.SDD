@@ -9,6 +9,7 @@ import { readRuntimeVersionAsync } from "./runtimeVersion";
 import { getCurrentActor } from "./userActor";
 import { normalizePlaybackStateAfterManualWorkflowChange } from "./workflowPlaybackState";
 import { buildWorkBranchProposal } from "./workflowBranchName";
+import { resolveWorkflowRejectPlan } from "./workflowRejectPlan";
 import { buildWorkflowHtml } from "./workflowView";
 import { asErrorMessage, getNextAttachmentPathAsync } from "./utils";
 
@@ -27,6 +28,7 @@ type WorkflowPanelCommand =
   | { readonly command: "approve"; readonly baseBranch?: string; readonly workBranch?: string }
   | { readonly command: "restart" }
   | { readonly command: "debugResetToCapture" }
+  | { readonly command: "reject"; readonly reason?: string }
   | { readonly command: "regress"; readonly phaseId?: string }
   | { readonly command: "rewind"; readonly phaseId?: string }
   | { readonly command: "submitClarificationAnswers"; readonly answers?: string[] }
@@ -270,6 +272,9 @@ class WorkflowPanelController {
         if (message.phaseId) {
           await this.requestRegressionAsync(message.phaseId);
         }
+        return;
+      case "reject":
+        await this.rejectCurrentApprovalAsync(message.reason);
         return;
       case "rewind":
         if (message.phaseId) {
@@ -586,6 +591,51 @@ class WorkflowPanelController {
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' requestRegressionAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
     await this.refreshAsync("requestRegressionAsync");
+  }
+
+  private async rejectCurrentApprovalAsync(reason?: string): Promise<void> {
+    const normalizedReason = reason?.trim() ?? "";
+    if (normalizedReason.length === 0) {
+      return;
+    }
+
+    const rejectPlan = resolveWorkflowRejectPlan(this.summary.currentPhase);
+    if (!rejectPlan) {
+      throw new Error(`Reject is not supported for phase '${this.summary.currentPhase}'.`);
+    }
+
+    const previousPhase = this.summary.currentPhase;
+    if (rejectPlan.mode === "rewind-and-operate") {
+      const rewindResult = await this.getBackendClient().rewindWorkflow(
+        this.summary.usId,
+        rejectPlan.targetPhaseId,
+        getCurrentActor(),
+        false
+      );
+      appendSpecForgeLog(
+        `Workflow '${this.summary.usId}' rejected approval, rewound to '${rewindResult.currentPhase}', and will apply the rejection note via model.`
+      );
+      this.summary = {
+        ...this.summary,
+        currentPhase: rewindResult.currentPhase,
+        status: rewindResult.status
+      };
+      this.selectedPhaseId = rewindResult.currentPhase;
+      this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, rewindResult.currentPhase, "reject");
+    }
+
+    const operationResult = await this.getBackendClient().operateCurrentPhaseArtifact(
+      this.summary.usId,
+      normalizedReason,
+      getCurrentActor()
+    );
+    appendSpecForgeLog(
+      `Workflow '${this.summary.usId}' applied reject feedback to '${operationResult.currentPhase}' and generated '${operationResult.generatedArtifactPath}'.`
+    );
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
+    await this.callbacks.refreshExplorer();
+    await this.refreshAsync("rejectCurrentApprovalAsync");
   }
 
   private async restartCurrentWorkflowAsync(): Promise<void> {

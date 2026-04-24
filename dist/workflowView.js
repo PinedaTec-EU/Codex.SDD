@@ -6,6 +6,7 @@ const capturePhaseView_1 = require("./workflow-view/capturePhaseView");
 const clarificationPhaseView_1 = require("./workflow-view/clarificationPhaseView");
 const implementationPhaseView_1 = require("./workflow-view/implementationPhaseView");
 const prPreparationPhaseView_1 = require("./workflow-view/prPreparationPhaseView");
+const workflowRejectPlan_1 = require("./workflowRejectPlan");
 const refinementPhaseView_1 = require("./workflow-view/refinementPhaseView");
 const releaseApprovalPhaseView_1 = require("./workflow-view/releaseApprovalPhaseView");
 const reviewPhaseView_1 = require("./workflow-view/reviewPhaseView");
@@ -617,15 +618,15 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
     const canRewindSelectedPhase = rewindablePhaseIds.has(selectedPhase.phaseId);
     const phaseSpecificSections = buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPreviewHtml, artifactQuestionBlock, refinementApprovalQuestions, unresolvedApprovalQuestionCount);
-    const detailRejectCommand = selectedPhase.isCurrent && workflow.controls.regressionTargets.length > 0
-        ? { command: "regress", phaseId: workflow.controls.regressionTargets[0] }
+    const rejectPlan = selectedPhase.isCurrent && selectedPhase.requiresApproval
+        ? (0, workflowRejectPlan_1.resolveWorkflowRejectPlan)(selectedPhase.phaseId)
         : null;
     const selectedPhaseStateClass = heroTokenClass(selectedPhase.state);
     const continueActionLabel = selectedPhase.isCurrent ? "Continue" : "Continue Current Phase";
     const approveActionLabel = selectedPhase.isCurrent ? "Approve" : "Approve Current Phase";
     const shouldRenderApproveAction = selectedPhase.isCurrent
         && selectedPhase.requiresApproval;
-    const detailActions = (selectedPhase.isCurrent && (workflow.controls.canApprove || shouldRenderApproveAction || detailRejectCommand))
+    const detailActions = (selectedPhase.isCurrent && (workflow.controls.canApprove || shouldRenderApproveAction || rejectPlan))
         || canRewindSelectedPhase
         || workflow.controls.canContinue
         || workflow.controls.canApprove
@@ -638,7 +639,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         ${shouldRenderApproveAction
             ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${!workflow.controls.canApprove || shouldRenderApprovalBranchEditor(workflow, selectedPhase) && Boolean(state.requireExplicitApprovalBranchAcceptance) ? " disabled" : ""}>${approveActionLabel}</button>`
             : ""}
-        ${detailRejectCommand ? `<button class="workflow-action-button workflow-action-button--danger" data-command="${detailRejectCommand.command}"${detailRejectCommand.phaseId ? ` data-phase-id="${escapeHtmlAttribute(detailRejectCommand.phaseId)}"` : ""}>Reject</button>` : ""}
+        ${rejectPlan ? `<button class="workflow-action-button workflow-action-button--danger" type="button" data-open-reject-modal data-reject-target-phase="${escapeHtmlAttribute(rejectPlan.targetPhaseId)}" data-reject-mode="${escapeHtmlAttribute(rejectPlan.mode)}" data-reject-title="${escapeHtmlAttribute(rejectPlan.modalTitle)}" data-reject-prompt="${escapeHtmlAttribute(rejectPlan.modalPrompt)}" data-reject-helper="${escapeHtmlAttribute(rejectPlan.helperText)}" data-reject-confirm-label="${escapeHtmlAttribute(rejectPlan.confirmLabel)}">Reject</button>` : ""}
         ${canRewindSelectedPhase ? `<button class="workflow-action-button workflow-action-button--document" data-command="rewind" data-phase-id="${escapeHtmlAttribute(selectedPhase.phaseId)}">Rewind Here</button>` : ""}
       </div>
     `
@@ -1335,6 +1336,16 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .workflow-files-dialog__close {
       flex: 0 0 auto;
       min-width: 88px;
+    }
+    .workflow-files-dialog--reject {
+      width: min(760px, 100%);
+    }
+    .workflow-files-shell--reject {
+      display: grid;
+      gap: 14px;
+    }
+    .phase-input-textarea--reject {
+      min-height: 220px;
     }
     .icon-button {
       width: 58px;
@@ -2923,6 +2934,32 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       </div>
     </div>
   </div>
+  <div class="workflow-files-overlay" data-reject-overlay hidden>
+    <div class="workflow-files-dialog workflow-files-dialog--reject panel" role="dialog" aria-modal="true" aria-labelledby="workflow-reject-title">
+      <div class="workflow-files-dialog__head">
+        <div>
+          <p class="eyebrow">Reject Approval</p>
+          <h2 id="workflow-reject-title">Reject Approval</h2>
+          <p data-reject-helper-copy>Describe what is wrong before sending the workflow back for correction.</p>
+        </div>
+        <button class="workflow-files-dialog__close" type="button" data-close-reject-modal aria-label="Close reject dialog">
+          Close
+        </button>
+      </div>
+      <div class="workflow-files-shell workflow-files-shell--reject">
+        <label class="phase-input-label" for="workflow-reject-textarea" data-reject-prompt-copy>Describe what is wrong</label>
+        <textarea
+          id="workflow-reject-textarea"
+          class="phase-input-textarea phase-input-textarea--reject"
+          rows="9"
+          placeholder="Describe what is wrong so the previous working phase can absorb this feedback and execute it."></textarea>
+        <div class="detail-actions detail-actions--phase-input">
+          <button class="workflow-action-button workflow-action-button--document" type="button" data-close-reject-modal>Cancel</button>
+          <button class="workflow-action-button workflow-action-button--danger" type="button" data-submit-reject disabled>Reject</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="shell" data-workflow-shell data-us-id="${escapeHtmlAttribute(workflow.usId)}">
     <section class="panel hero">
       <div class="hero-head">
@@ -3274,6 +3311,20 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
 
     const workflowFilesOverlay = document.querySelector("[data-workflow-files-overlay]");
+    const rejectOverlay = document.querySelector("[data-reject-overlay]");
+    const rejectTextarea = document.querySelector("#workflow-reject-textarea");
+    const rejectTitle = document.querySelector("#workflow-reject-title");
+    const rejectPromptCopy = document.querySelector("[data-reject-prompt-copy]");
+    const rejectHelperCopy = document.querySelector("[data-reject-helper-copy]");
+    const rejectSubmitButton = document.querySelector("[data-submit-reject]");
+    let rejectModalState = {
+      targetPhaseId: "",
+      mode: "",
+      title: "Reject Approval",
+      prompt: "Describe what is wrong",
+      helper: "Describe what is wrong before sending the workflow back for correction.",
+      confirmLabel: "Reject"
+    };
     const toggleWorkflowFiles = (open) => {
       if (!(workflowFilesOverlay instanceof HTMLElement)) {
         return;
@@ -3313,11 +3364,110 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
         toggleWorkflowFiles(false);
+        toggleRejectModal(false);
       }
     });
 
     if (viewState.workflowFilesOpen) {
       toggleWorkflowFiles(true);
+    }
+
+    const syncRejectUi = () => {
+      if (!(rejectSubmitButton instanceof HTMLButtonElement) || !(rejectTextarea instanceof HTMLTextAreaElement)) {
+        return;
+      }
+
+      rejectSubmitButton.disabled = rejectTextarea.value.trim().length === 0;
+      rejectSubmitButton.textContent = rejectModalState.confirmLabel;
+    };
+
+    const toggleRejectModal = (open, nextState) => {
+      if (!(rejectOverlay instanceof HTMLElement)) {
+        return;
+      }
+
+      if (nextState) {
+        rejectModalState = {
+          ...rejectModalState,
+          ...nextState
+        };
+      }
+
+      rejectOverlay.hidden = !open;
+      rejectOverlay.classList.toggle("is-open", open);
+      if (workflowShell instanceof HTMLElement) {
+        workflowShell.classList.toggle("shell--interaction-locked", open);
+      }
+      if (rejectTitle instanceof HTMLElement) {
+        rejectTitle.textContent = rejectModalState.title;
+      }
+      if (rejectPromptCopy instanceof HTMLElement) {
+        rejectPromptCopy.textContent = rejectModalState.prompt;
+      }
+      if (rejectHelperCopy instanceof HTMLElement) {
+        rejectHelperCopy.textContent = rejectModalState.helper;
+      }
+      if (rejectSubmitButton instanceof HTMLButtonElement) {
+        rejectSubmitButton.textContent = rejectModalState.confirmLabel;
+      }
+      if (open && rejectTextarea instanceof HTMLTextAreaElement) {
+        rejectTextarea.value = "";
+        syncRejectUi();
+        window.setTimeout(() => {
+          rejectTextarea.focus();
+        }, 0);
+      } else {
+        syncRejectUi();
+      }
+    };
+
+    for (const element of document.querySelectorAll("[data-open-reject-modal]")) {
+      element.addEventListener("click", () => {
+        toggleRejectModal(true, {
+          targetPhaseId: element.dataset.rejectTargetPhase ?? "",
+          mode: element.dataset.rejectMode ?? "",
+          title: element.dataset.rejectTitle ?? "Reject Approval",
+          prompt: element.dataset.rejectPrompt ?? "Describe what is wrong",
+          helper: element.dataset.rejectHelper ?? "Describe what is wrong before sending the workflow back for correction.",
+          confirmLabel: element.dataset.rejectConfirmLabel ?? "Reject"
+        });
+      });
+    }
+
+    for (const element of document.querySelectorAll("[data-close-reject-modal]")) {
+      element.addEventListener("click", () => {
+        toggleRejectModal(false);
+      });
+    }
+
+    if (rejectOverlay instanceof HTMLElement) {
+      rejectOverlay.addEventListener("click", (event) => {
+        if (event.target === rejectOverlay) {
+          toggleRejectModal(false);
+        }
+      });
+    }
+
+    if (rejectTextarea instanceof HTMLTextAreaElement) {
+      rejectTextarea.addEventListener("input", () => {
+        syncRejectUi();
+      });
+    }
+
+    if (rejectSubmitButton instanceof HTMLButtonElement && rejectTextarea instanceof HTMLTextAreaElement) {
+      rejectSubmitButton.addEventListener("click", () => {
+        const reason = rejectTextarea.value.trim();
+        if (!reason) {
+          syncRejectUi();
+          return;
+        }
+
+        toggleRejectModal(false);
+        vscode.postMessage({
+          command: "reject",
+          reason
+        });
+      });
     }
 
     let draggedFile = null;

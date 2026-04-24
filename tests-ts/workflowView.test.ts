@@ -124,6 +124,9 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /Open Approve Prompt/);
   assert.match(html, /Open Approve System Prompt/);
   assert.match(html, /detail-card-shell[^]*detail-actions--phase-header[^]*data-command="approve"[^>]*>Approve</);
+  assert.match(html, /data-open-reject-modal/);
+  assert.match(html, /data-reject-target-phase="refinement"/);
+  assert.match(html, /data-reject-mode="operate-current"/);
   assert.match(html, /<h3>Approval Branch<\/h3>/);
   assert.match(html, /data-approval-base-branch-input/);
   assert.match(html, /value="main"/);
@@ -182,8 +185,82 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /approvalBaseBranchDraft/);
   assert.match(html, /approvalBaseBranchAccepted/);
   assert.match(html, /approvalWorkBranchDraft/);
+  assert.match(html, /workflow-reject-textarea/);
+  assert.match(html, /data-submit-reject/);
   assert.match(html, /specforge-ai:auto-scroll-phase:/);
   assert.match(html, /scrollIntoView/);
+});
+
+test("buildWorkflowHtml wires release-approval reject modal to rewind into review", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0099",
+    title: "Release rejection flow",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "release-approval",
+    directoryPath: "/tmp/us.US-0099",
+    workBranch: "feature/us-0099-release-reject",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "review",
+        title: "Review",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: "/tmp/04-review.md",
+        executePromptPath: null,
+        approvePromptPath: null,
+        executeSystemPromptPath: null,
+        approveSystemPromptPath: null
+      },
+      {
+        phaseId: "release-approval",
+        title: "Release Approval",
+        order: 1,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: "/tmp/release-approval.approve.md",
+        executeSystemPromptPath: null,
+        approveSystemPromptPath: "/tmp/release-approval.approve.system.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "release-approval_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: ["implementation", "technical-design", "refinement"],
+      rewindTargets: ["review"]
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "release-approval",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /data-open-reject-modal/);
+  assert.match(html, /data-reject-target-phase="review"/);
+  assert.match(html, /data-reject-mode="rewind-and-operate"/);
+  assert.match(html, /Reject Release Approval/);
+  assert.match(html, /Reject, Rewind, and Apply/);
 });
 
 test("buildWorkflowHtml requires explicit base-branch acceptance before approve when the flag is enabled", () => {

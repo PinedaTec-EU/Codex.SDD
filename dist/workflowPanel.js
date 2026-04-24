@@ -48,6 +48,7 @@ const runtimeVersion_1 = require("./runtimeVersion");
 const userActor_1 = require("./userActor");
 const workflowPlaybackState_1 = require("./workflowPlaybackState");
 const workflowBranchName_1 = require("./workflowBranchName");
+const workflowRejectPlan_1 = require("./workflowRejectPlan");
 const workflowView_1 = require("./workflowView");
 const utils_1 = require("./utils");
 const panels = new Map();
@@ -239,6 +240,9 @@ class WorkflowPanelController {
                 if (message.phaseId) {
                     await this.requestRegressionAsync(message.phaseId);
                 }
+                return;
+            case "reject":
+                await this.rejectCurrentApprovalAsync(message.reason);
                 return;
             case "rewind":
                 if (message.phaseId) {
@@ -489,6 +493,34 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' requestRegressionAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("requestRegressionAsync");
+    }
+    async rejectCurrentApprovalAsync(reason) {
+        const normalizedReason = reason?.trim() ?? "";
+        if (normalizedReason.length === 0) {
+            return;
+        }
+        const rejectPlan = (0, workflowRejectPlan_1.resolveWorkflowRejectPlan)(this.summary.currentPhase);
+        if (!rejectPlan) {
+            throw new Error(`Reject is not supported for phase '${this.summary.currentPhase}'.`);
+        }
+        const previousPhase = this.summary.currentPhase;
+        if (rejectPlan.mode === "rewind-and-operate") {
+            const rewindResult = await this.getBackendClient().rewindWorkflow(this.summary.usId, rejectPlan.targetPhaseId, (0, userActor_1.getCurrentActor)(), false);
+            (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' rejected approval, rewound to '${rewindResult.currentPhase}', and will apply the rejection note via model.`);
+            this.summary = {
+                ...this.summary,
+                currentPhase: rewindResult.currentPhase,
+                status: rewindResult.status
+            };
+            this.selectedPhaseId = rewindResult.currentPhase;
+            this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, rewindResult.currentPhase, "reject");
+        }
+        const operationResult = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, normalizedReason, (0, userActor_1.getCurrentActor)());
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' applied reject feedback to '${operationResult.currentPhase}' and generated '${operationResult.generatedArtifactPath}'.`);
+        this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
+        this.clearTransientExecutionPhase();
+        await this.callbacks.refreshExplorer();
+        await this.refreshAsync("rejectCurrentApprovalAsync");
     }
     async restartCurrentWorkflowAsync() {
         const previousPhase = this.summary.currentPhase;
