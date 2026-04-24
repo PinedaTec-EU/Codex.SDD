@@ -41,6 +41,15 @@ internal sealed class GitWorkBranchManager : IWorkBranchManager
 
         var normalizedBaseBranch = baseBranch.Trim();
         var normalizedWorkBranch = workBranch.Trim();
+        var currentBranch = await GetCurrentBranchAsync(workspaceRoot, cancellationToken);
+        if (string.Equals(currentBranch, normalizedWorkBranch, StringComparison.Ordinal))
+        {
+            return new WorkBranchCreationResult(
+                IsGitWorkspace: true,
+                BranchCreated: false,
+                CurrentBranch: currentBranch,
+                UpstreamBranch: null);
+        }
 
         await EnsureLocalBranchExistsAsync(workspaceRoot, normalizedBaseBranch, cancellationToken);
         var upstreamBranch = await GetUpstreamBranchAsync(workspaceRoot, normalizedBaseBranch, cancellationToken);
@@ -55,16 +64,6 @@ internal sealed class GitWorkBranchManager : IWorkBranchManager
 
         if (await LocalBranchExistsAsync(workspaceRoot, normalizedWorkBranch, cancellationToken))
         {
-            var currentBranch = await GetCurrentBranchAsync(workspaceRoot, cancellationToken);
-            if (string.Equals(currentBranch, normalizedWorkBranch, StringComparison.Ordinal))
-            {
-                return new WorkBranchCreationResult(
-                    IsGitWorkspace: true,
-                    BranchCreated: false,
-                    CurrentBranch: currentBranch,
-                    UpstreamBranch: upstreamBranch);
-            }
-
             throw new WorkflowDomainException(
                 $"Work branch '{normalizedWorkBranch}' already exists locally. Switch to it or choose a different branch name.");
         }

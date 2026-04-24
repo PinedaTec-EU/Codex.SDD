@@ -721,6 +721,35 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ApproveCurrentPhaseAsync_DoesNotCreateWorkBranch_WhenAlreadyOnWorkBranch()
+    {
+        await InitializeGitWorkspaceAsync(workspaceRoot);
+        await RunGitAsync(workspaceRoot, "checkout", "-b", "feature/us-0001-branch-creation");
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "README.md"), "seed");
+        await RunGitAsync(workspaceRoot, "add", "README.md");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "seed");
+
+        var runner = new WorkflowRunner();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Branch creation", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+
+        var currentBranch = (await RunGitAsync(workspaceRoot, "branch", "--show-current")).Trim();
+        Assert.Equal("feature/us-0001-branch-creation", currentBranch);
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        var workflowRun = await new UserStoryFileStore().LoadAsync(paths.RootDirectory);
+        Assert.NotNull(workflowRun.Branch);
+        Assert.Equal("main", workflowRun.Branch!.BaseBranch);
+        Assert.Equal("feature/us-0001-branch-creation", workflowRun.Branch.WorkBranchName);
+
+        var timeline = await File.ReadAllTextAsync(paths.TimelineFilePath);
+        Assert.DoesNotContain("`branch_created`", timeline);
+    }
+
+    [Fact]
     public async Task ApproveCurrentPhaseAsync_Throws_WhenBaseBranchIsBehindUpstream()
     {
         await InitializeGitWorkspaceAsync(workspaceRoot);
