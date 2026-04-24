@@ -10,6 +10,7 @@ import {
 } from "./backendClientModel";
 import type { SpecForgeSettings } from "./extensionSettings";
 import { buildBackendEnvironment } from "./extensionSettings";
+import { summarizeMcpDiagnosticLine } from "./mcpDiagnostics";
 import { appendSpecForgeDebugLog, appendSpecForgeLog } from "./outputChannel";
 import { asErrorMessage } from "./utils";
 
@@ -275,6 +276,7 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
   private readonly bufferChunks: Buffer[] = [];
   private readonly workspaceRoot: string;
   private readonly hostRoot: string;
+  private stderrRemainder = "";
   private writeQueue: Promise<void> = Promise.resolve();
   private nextRequestId = 1;
   private initialized = false;
@@ -305,16 +307,11 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     });
 
     this.process.stderr.on("data", (chunk: Buffer) => {
-      const message = chunk.toString("utf8").trim();
-      if (!message) {
-        return;
-      }
-
-      appendSpecForgeLog(`MCP stderr: ${message}`);
-      appendSpecForgeDebugLog("MCP stderr was logged without rejecting pending requests.");
+      this.handleStderrChunk(chunk.toString("utf8"));
     });
 
     this.process.on("exit", (code, signal) => {
+      this.flushPendingStderr();
       appendSpecForgeLog(`MCP backend exited with code ${code ?? "null"} and signal ${signal ?? "null"}.`);
       if (!this.disposed) {
         this.rejectPendingRequests("SpecForge MCP backend exited while a request was in progress.");
@@ -470,6 +467,7 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     }
 
     this.disposed = true;
+    this.flushPendingStderr();
     appendSpecForgeLog("Disposing MCP backend client.");
     this.rejectPendingRequests("SpecForge MCP backend was stopped.");
     this.process.kill();
@@ -645,6 +643,48 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     }
 
     this.pending.clear();
+  }
+
+  private handleStderrChunk(chunk: string): void {
+    if (!chunk) {
+      return;
+    }
+
+    this.stderrRemainder += chunk;
+    const lines = this.stderrRemainder.split(/\r?\n/);
+    this.stderrRemainder = lines.pop() ?? "";
+
+    for (const line of lines) {
+      this.logStderrLine(line);
+    }
+  }
+
+  private flushPendingStderr(): void {
+    if (!this.stderrRemainder.trim()) {
+      this.stderrRemainder = "";
+      return;
+    }
+
+    this.logStderrLine(this.stderrRemainder);
+    this.stderrRemainder = "";
+  }
+
+  private logStderrLine(line: string): void {
+    const message = line.trim();
+    if (!message) {
+      return;
+    }
+
+    const summarized = summarizeMcpDiagnosticLine(message);
+    if (summarized) {
+      appendSpecForgeLog(summarized);
+      appendSpecForgeDebugLog(`MCP stderr: ${message}`);
+      appendSpecForgeDebugLog("MCP stderr was summarized without rejecting pending requests.");
+      return;
+    }
+
+    appendSpecForgeLog(`MCP stderr: ${message}`);
+    appendSpecForgeDebugLog("MCP stderr was logged without rejecting pending requests.");
   }
 }
 

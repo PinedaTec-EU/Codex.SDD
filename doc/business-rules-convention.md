@@ -53,12 +53,19 @@ The UI may still parse artifacts for preview-only rendering, but not to decide w
 - `play`, `continue`, `rerun`, direct phase replay, and future workflow execution triggers must pass through one execution entry point in `src-vscode/workflowPanel.ts`.
 - That entry point owns the shared execution side effects:
   - choosing between autoplay and replay of the current phase;
+  - focusing the graph/detail selection on the phase targeted by the action;
   - setting playback state and transient execution phase;
   - showing execution overlay and active graph state;
   - logging the execution request and blocked/no-op cases;
   - applying the same refresh path before and after execution.
 - Individual command handlers must not duplicate this decision tree inline.
 - If a new trigger needs different behavior, extend the centralized execution entry with explicit options instead of branching ad hoc in the caller.
+
+## Workflow Action Focus Convention
+
+- Phase and workflow actions must move the graph/detail focus to the phase they operate on before the operation runs.
+- This includes `play`, `continue`, `rerun`, `approve`, `reject`, `rewind`, `regress`, and reset-like actions.
+- Focus changes must go through shared helpers in `src-vscode/workflowPanel.ts`; command handlers must not manage `selectedPhaseId` ad hoc.
 
 ## Review Checklist
 

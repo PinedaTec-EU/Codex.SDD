@@ -38,6 +38,7 @@ const node_child_process_1 = require("node:child_process");
 const path = __importStar(require("node:path"));
 const backendClientModel_1 = require("./backendClientModel");
 const extensionSettings_1 = require("./extensionSettings");
+const mcpDiagnostics_1 = require("./mcpDiagnostics");
 const outputChannel_1 = require("./outputChannel");
 const utils_1 = require("./utils");
 function createMcpBackendClient(workspaceRoot, hostRoot, settings) {
@@ -49,6 +50,7 @@ class StdioMcpBackendClient {
     bufferChunks = [];
     workspaceRoot;
     hostRoot;
+    stderrRemainder = "";
     writeQueue = Promise.resolve();
     nextRequestId = 1;
     initialized = false;
@@ -72,14 +74,10 @@ class StdioMcpBackendClient {
             void this.drainMessagesAsync();
         });
         this.process.stderr.on("data", (chunk) => {
-            const message = chunk.toString("utf8").trim();
-            if (!message) {
-                return;
-            }
-            (0, outputChannel_1.appendSpecForgeLog)(`MCP stderr: ${message}`);
-            (0, outputChannel_1.appendSpecForgeDebugLog)("MCP stderr was logged without rejecting pending requests.");
+            this.handleStderrChunk(chunk.toString("utf8"));
         });
         this.process.on("exit", (code, signal) => {
+            this.flushPendingStderr();
             (0, outputChannel_1.appendSpecForgeLog)(`MCP backend exited with code ${code ?? "null"} and signal ${signal ?? "null"}.`);
             if (!this.disposed) {
                 this.rejectPendingRequests("SpecForge MCP backend exited while a request was in progress.");
@@ -201,6 +199,7 @@ class StdioMcpBackendClient {
             return;
         }
         this.disposed = true;
+        this.flushPendingStderr();
         (0, outputChannel_1.appendSpecForgeLog)("Disposing MCP backend client.");
         this.rejectPendingRequests("SpecForge MCP backend was stopped.");
         this.process.kill();
@@ -341,6 +340,40 @@ class StdioMcpBackendClient {
             request.reject(new Error(message));
         }
         this.pending.clear();
+    }
+    handleStderrChunk(chunk) {
+        if (!chunk) {
+            return;
+        }
+        this.stderrRemainder += chunk;
+        const lines = this.stderrRemainder.split(/\r?\n/);
+        this.stderrRemainder = lines.pop() ?? "";
+        for (const line of lines) {
+            this.logStderrLine(line);
+        }
+    }
+    flushPendingStderr() {
+        if (!this.stderrRemainder.trim()) {
+            this.stderrRemainder = "";
+            return;
+        }
+        this.logStderrLine(this.stderrRemainder);
+        this.stderrRemainder = "";
+    }
+    logStderrLine(line) {
+        const message = line.trim();
+        if (!message) {
+            return;
+        }
+        const summarized = (0, mcpDiagnostics_1.summarizeMcpDiagnosticLine)(message);
+        if (summarized) {
+            (0, outputChannel_1.appendSpecForgeLog)(summarized);
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`MCP stderr: ${message}`);
+            (0, outputChannel_1.appendSpecForgeDebugLog)("MCP stderr was summarized without rejecting pending requests.");
+            return;
+        }
+        (0, outputChannel_1.appendSpecForgeLog)(`MCP stderr: ${message}`);
+        (0, outputChannel_1.appendSpecForgeDebugLog)("MCP stderr was logged without rejecting pending requests.");
     }
 }
 async function writeAsync(stream, payload) {

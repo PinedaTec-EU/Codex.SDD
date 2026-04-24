@@ -332,6 +332,7 @@ class WorkflowPanelController {
         const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
         this.lastWorkflow = workflow;
         const request = this.resolveWorkflowExecutionRequest(workflow, sourceLabel, allowCurrentPhaseReplay);
+        await this.focusPhaseForAction(workflow.currentPhase, `${reason}:focus-current`);
         if (!request) {
             (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' did not execute from ${sourceLabel} because current phase '${workflow.currentPhase}' requires attention.`);
             if (notifyWhenBlocked) {
@@ -341,6 +342,7 @@ class WorkflowPanelController {
             return false;
         }
         (0, outputChannel_1.appendSpecForgeLog)(request.logMessage);
+        await this.focusPhaseForAction(request.phaseId, `${reason}:focus-target`);
         if (request.kind === "replay-current") {
             await this.replayCurrentPhaseDirectlyAsync(reason, request.phaseId);
             return true;
@@ -509,6 +511,7 @@ class WorkflowPanelController {
         void vscode.window.showInformationMessage(`Moved ${path.basename(sourcePath)} to ${targetKind === "context" ? "context" : "user story info"} in ${this.summary.usId}.`);
     }
     async approveCurrentPhaseAsync(baseBranch, workBranch) {
+        await this.focusPhaseForAction(this.summary.currentPhase, "approveCurrentPhaseAsync:focus");
         const normalizedBaseBranch = this.summary.currentPhase === "refinement"
             ? (baseBranch?.trim() || this.refinementApprovalBaseBranchProposal)
             : undefined;
@@ -536,6 +539,7 @@ class WorkflowPanelController {
         if (!reason) {
             return;
         }
+        await this.focusPhaseForAction(targetPhase, "requestRegressionAsync:focus");
         const result = await this.getBackendClient().requestRegression(this.summary.usId, targetPhase, reason, (0, userActor_1.getCurrentActor)(), destructiveRewindEnabled);
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regressed to '${result.currentPhase}' with status '${result.status}'${destructiveRewindEnabled ? " using destructive cleanup" : " without deleting later artifacts"}.`);
         this.summary = {
@@ -561,6 +565,7 @@ class WorkflowPanelController {
             throw new Error(`Reject is not supported for phase '${this.summary.currentPhase}'.`);
         }
         const previousPhase = this.summary.currentPhase;
+        await this.focusPhaseForAction(rejectPlan.mode === "rewind-and-operate" ? rejectPlan.targetPhaseId : this.summary.currentPhase, "rejectCurrentApprovalAsync:focus");
         if (rejectPlan.mode === "rewind-and-operate") {
             const rewindResult = await this.getBackendClient().rewindWorkflow(this.summary.usId, rejectPlan.targetPhaseId, (0, userActor_1.getCurrentActor)(), false);
             (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' rejected approval, rewound to '${rewindResult.currentPhase}', and will apply the rejection note via model.`);
@@ -589,6 +594,7 @@ class WorkflowPanelController {
         if (!reason) {
             return;
         }
+        await this.focusPhaseForAction(this.summary.currentPhase, "restartCurrentWorkflowAsync:focus");
         const result = await this.getBackendClient().restartUserStoryFromSource(this.summary.usId, reason, (0, userActor_1.getCurrentActor)());
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' restarted from source. Current phase '${result.currentPhase}', status '${result.status}'.`);
         this.summary = {
@@ -614,6 +620,7 @@ class WorkflowPanelController {
         if (confirmation !== "Rewind Workflow") {
             return;
         }
+        await this.focusPhaseForAction(targetPhase, "rewindWorkflowAsync:focus");
         const result = await this.getBackendClient().rewindWorkflow(this.summary.usId, targetPhase, (0, userActor_1.getCurrentActor)(), destructiveRewindEnabled);
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' was rewound to '${result.currentPhase}' with status '${result.status}'${destructiveRewindEnabled ? " using destructive cleanup" : " without deleting later artifacts"}.`);
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' rewind deleted paths: ${result.deletedPaths.length > 0 ? result.deletedPaths.join(", ") : "(none)"}.`);
@@ -641,6 +648,7 @@ class WorkflowPanelController {
         if (confirmation !== "Reset to Capture") {
             return;
         }
+        await this.focusPhaseForAction("capture", "debugResetToCaptureAsync:focus");
         const result = await this.getBackendClient().resetUserStoryToCapture(this.summary.usId);
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' was reset to '${result.currentPhase}' with status '${result.status}' from DEBUG UI.`);
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' reset deleted paths: ${result.deletedPaths.length > 0 ? result.deletedPaths.join(", ") : "(none)"}.`);
@@ -843,6 +851,14 @@ class WorkflowPanelController {
             return `feature/${this.summary.usId.toLowerCase()}-work`;
         }
         return (0, workflowBranchName_1.buildWorkBranchProposal)(workflow.usId, workflow.title, workflow.kind?.trim() || "feature");
+    }
+    async focusPhaseForAction(phaseId, reason) {
+        if (!phaseId || this.selectedPhaseId === phaseId) {
+            return;
+        }
+        this.selectedPhaseId = phaseId;
+        this.selectedIterationArtifactPath = null;
+        await this.renderCachedWorkflowAsync(reason);
     }
     async renderCachedWorkflowAsync(reason) {
         if (!this.lastWorkflow) {
