@@ -675,6 +675,45 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task OperateCurrentPhaseArtifactAsync_AfterReviewRegression_PassesReviewArtifactAndCorrectionPromptToImplementation()
+    {
+        await InitializeGitWorkspaceAsync(workspaceRoot);
+        await RunGitAsync(workspaceRoot, "checkout", "-b", "main");
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "README.md"), "seed");
+        await RunGitAsync(workspaceRoot, "add", "README.md");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "seed");
+
+        var provider = new ImplementationOperationCapturingPhaseExecutionProvider();
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            provider,
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Review correction context", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        var reviewArtifactPath = paths.GetPhaseArtifactPath(PhaseId.Review);
+        Assert.True(File.Exists(reviewArtifactPath));
+
+        await runner.RequestRegressionAsync(workspaceRoot, "US-0001", PhaseId.Implementation, "Review found missing correction coverage");
+        const string correctionPrompt = "Review found a missing validation fix. Update implementation without expanding scope.";
+        await runner.OperateCurrentPhaseArtifactAsync(workspaceRoot, "US-0001", correctionPrompt);
+
+        Assert.NotNull(provider.LastImplementationOperationContext);
+        Assert.Equal(PhaseId.Implementation, provider.LastImplementationOperationContext!.PhaseId);
+        Assert.Equal(correctionPrompt, provider.LastImplementationOperationContext.OperationPrompt);
+        Assert.Equal(paths.GetPhaseArtifactPath(PhaseId.Implementation), provider.LastImplementationOperationContext.CurrentArtifactPath);
+        Assert.True(provider.LastImplementationOperationContext.PreviousArtifactPaths.TryGetValue(PhaseId.Review, out var capturedReviewArtifactPath));
+        Assert.Equal(reviewArtifactPath, capturedReviewArtifactPath);
+    }
+
+    [Fact]
     public async Task ContinuePhaseAsync_Review_FailsClosedWhenReviewOmitsValidationStrategyChecklist()
     {
         await InitializeGitWorkspaceAsync(workspaceRoot);
@@ -1134,6 +1173,44 @@ public sealed class WorkflowRunnerTests : IDisposable
             PhaseExecutionContext context,
             CancellationToken cancellationToken = default) =>
             inner.ExecuteAsync(context, cancellationToken);
+    }
+
+    private sealed class ImplementationOperationCapturingPhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        private readonly DeterministicPhaseExecutionProvider inner = new();
+
+        public PhaseExecutionContext? LastImplementationOperationContext { get; private set; }
+
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+            inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+            PhaseExecutionContext context,
+            ClarificationSession session,
+            CancellationToken cancellationToken = default) =>
+            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+
+        public async Task<PhaseExecutionResult> ExecuteAsync(
+            PhaseExecutionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            if (context.PhaseId == PhaseId.Implementation)
+            {
+                var featurePath = Path.Combine(context.WorkspaceRoot, "src", "Feature.cs");
+                Directory.CreateDirectory(Path.GetDirectoryName(featurePath)!);
+                await File.WriteAllTextAsync(
+                    featurePath,
+                    "namespace SpecForge;\npublic static class Feature { public const int Enabled = 1; }\n",
+                    cancellationToken);
+
+                if (!string.IsNullOrWhiteSpace(context.OperationPrompt))
+                {
+                    LastImplementationOperationContext = context;
+                }
+            }
+
+            return await inner.ExecuteAsync(context, cancellationToken);
+        }
     }
 
     private sealed class MissingReviewChecklistPhaseExecutionProvider : IPhaseExecutionProvider
