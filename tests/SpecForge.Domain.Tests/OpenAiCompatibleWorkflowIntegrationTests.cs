@@ -643,7 +643,7 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
 
     private sealed class OpenAiCompatibleModelStubServer : IDisposable
     {
-        private readonly HttpListener listener;
+        private readonly TcpListener listener;
         private readonly CancellationTokenSource shutdown = new();
         private readonly Task serverLoop;
         private readonly ConcurrentQueue<string> queuedResponses;
@@ -652,11 +652,10 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         public OpenAiCompatibleModelStubServer(IEnumerable<string> responses)
         {
             queuedResponses = new ConcurrentQueue<string>(responses);
-            var port = GetAvailablePort();
-            BaseUrl = $"http://127.0.0.1:{port}";
-            listener = new HttpListener();
-            listener.Prefixes.Add($"{BaseUrl}/");
+            listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
+            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+            BaseUrl = $"http://127.0.0.1:{port}";
             serverLoop = Task.Run(() => RunAsync(shutdown.Token));
         }
 
@@ -667,18 +666,13 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         public void Dispose()
         {
             shutdown.Cancel();
-            if (listener.IsListening)
-            {
-                listener.Stop();
-            }
-
-            listener.Close();
+            listener.Stop();
 
             try
             {
                 serverLoop.GetAwaiter().GetResult();
             }
-            catch (HttpListenerException)
+            catch (SocketException)
             {
                 // Listener shutdown races are expected during disposal.
             }
@@ -692,12 +686,12 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                HttpListenerContext? context = null;
+                TcpClient client;
                 try
                 {
-                    context = await listener.GetContextAsync();
+                    client = await listener.AcceptTcpClientAsync(cancellationToken);
                 }
-                catch (HttpListenerException) when (cancellationToken.IsCancellationRequested || !listener.IsListening)
+                catch (SocketException) when (cancellationToken.IsCancellationRequested)
                 {
                     return;
                 }
@@ -706,24 +700,29 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
                     return;
                 }
 
-                await HandleAsync(context, cancellationToken);
+                _ = Task.Run(
+                    async () =>
+                    {
+                        using var _ = client;
+                        await HandleAsync(client, cancellationToken);
+                    },
+                    cancellationToken);
             }
         }
 
-        private async Task HandleAsync(HttpListenerContext context, CancellationToken cancellationToken)
+        private async Task HandleAsync(TcpClient client, CancellationToken cancellationToken)
         {
-            using var reader = new StreamReader(
-                context.Request.InputStream,
-                context.Request.ContentEncoding ?? Encoding.UTF8,
-                detectEncodingFromByteOrderMarks: true,
-                leaveOpen: false);
-            var body = await reader.ReadToEndAsync(cancellationToken);
-            capturedRequests.Enqueue(new CapturedRequest(context.Request.RawUrl ?? string.Empty, body));
+            await using var stream = client.GetStream();
+            var request = await ReadRequestAsync(stream, cancellationToken);
+            capturedRequests.Enqueue(request);
 
             if (!queuedResponses.TryDequeue(out var responseContent))
             {
-                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-                await WriteResponseAsync(context.Response, "{\"error\":\"No stubbed response available.\"}", cancellationToken);
+                await WriteResponseAsync(
+                    stream,
+                    HttpStatusCode.InternalServerError,
+                    "{\"error\":\"No stubbed response available.\"}",
+                    cancellationToken);
                 return;
             }
 
@@ -747,24 +746,103 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
                 }
             });
 
-            context.Response.StatusCode = (int)HttpStatusCode.OK;
-            context.Response.ContentType = "application/json";
-            await WriteResponseAsync(context.Response, payload, cancellationToken);
+            await WriteResponseAsync(stream, HttpStatusCode.OK, payload, cancellationToken);
         }
 
-        private static async Task WriteResponseAsync(HttpListenerResponse response, string payload, CancellationToken cancellationToken)
+        private static async Task<CapturedRequest> ReadRequestAsync(NetworkStream stream, CancellationToken cancellationToken)
         {
-            var bytes = Encoding.UTF8.GetBytes(payload);
-            response.ContentLength64 = bytes.Length;
-            await response.OutputStream.WriteAsync(bytes, cancellationToken);
-            response.OutputStream.Close();
+            var buffer = new byte[4096];
+            var requestBytes = new List<byte>();
+            var headerEndIndex = -1;
+
+            while (headerEndIndex < 0)
+            {
+                var read = await stream.ReadAsync(buffer, cancellationToken);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                requestBytes.AddRange(buffer.AsSpan(0, read).ToArray());
+                headerEndIndex = FindHeaderEnd(requestBytes);
+            }
+
+            if (headerEndIndex < 0)
+            {
+                return new CapturedRequest(string.Empty, string.Empty);
+            }
+
+            var headerText = Encoding.ASCII.GetString(requestBytes.GetRange(0, headerEndIndex).ToArray());
+            var contentLength = ReadContentLength(headerText);
+            var bodyStartIndex = headerEndIndex + 4;
+
+            while (requestBytes.Count - bodyStartIndex < contentLength)
+            {
+                var read = await stream.ReadAsync(buffer, cancellationToken);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                requestBytes.AddRange(buffer.AsSpan(0, read).ToArray());
+            }
+
+            var bodyBytes = requestBytes
+                .Skip(bodyStartIndex)
+                .Take(contentLength)
+                .ToArray();
+
+            return new CapturedRequest(ReadPath(headerText), Encoding.UTF8.GetString(bodyBytes));
         }
 
-        private static int GetAvailablePort()
+        private static int FindHeaderEnd(IReadOnlyList<byte> requestBytes)
         {
-            using var listener = new TcpListener(IPAddress.Loopback, 0);
-            listener.Start();
-            return ((IPEndPoint)listener.LocalEndpoint).Port;
+            for (var index = 0; index <= requestBytes.Count - 4; index++)
+            {
+                if (requestBytes[index] == '\r'
+                    && requestBytes[index + 1] == '\n'
+                    && requestBytes[index + 2] == '\r'
+                    && requestBytes[index + 3] == '\n')
+                {
+                    return index;
+                }
+            }
+
+            return -1;
+        }
+
+        private static int ReadContentLength(string headerText)
+        {
+            var headerLines = headerText.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+            var contentLengthLine = headerLines.FirstOrDefault(static line =>
+                line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase));
+
+            return contentLengthLine is not null
+                && int.TryParse(contentLengthLine["Content-Length:".Length..].Trim(), out var contentLength)
+                ? contentLength
+                : 0;
+        }
+
+        private static string ReadPath(string headerText)
+        {
+            var requestLine = headerText.Split("\r\n", StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            var parts = requestLine?.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return parts is { Length: >= 2 } ? parts[1] : string.Empty;
+        }
+
+        private static async Task WriteResponseAsync(
+            NetworkStream stream,
+            HttpStatusCode statusCode,
+            string payload,
+            CancellationToken cancellationToken)
+        {
+            var body = Encoding.UTF8.GetBytes(payload);
+            var statusText = statusCode == HttpStatusCode.OK ? "OK" : "Internal Server Error";
+            var headers = Encoding.ASCII.GetBytes(
+                $"HTTP/1.1 {(int)statusCode} {statusText}\r\nContent-Type: application/json\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n");
+
+            await stream.WriteAsync(headers, cancellationToken);
+            await stream.WriteAsync(body, cancellationToken);
         }
     }
 
