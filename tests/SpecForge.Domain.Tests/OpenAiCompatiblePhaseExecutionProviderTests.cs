@@ -375,7 +375,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "workflow", "US-0001");
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
         await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Refinement), "# Spec · US-0001 · v01");
-        await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign), "# Technical Design · US-0001 · v01");
+        await File.WriteAllTextAsync(
+            paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign),
+            """
+            # Technical Design · US-0001 · v01
+
+            ## Validation Strategy
+            - Run focused controller tests for sampling settings.
+            - Verify runtime client sampling options are mapped correctly.
+            """);
         await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Implementation), "# Implementation · US-0001 · v01");
         await File.WriteAllTextAsync(
             paths.GetPhaseEvidenceMarkdownPath(PhaseId.Implementation),
@@ -413,6 +421,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Contains("03-implementation.evidence.md", userPrompt);
         Assert.Contains("Meaningful touched repository files detected: `1`.", userPrompt);
         Assert.Contains("src/Feature.cs", userPrompt);
+        Assert.Contains("## Required Review Validation Checklist", userPrompt);
+        Assert.Contains("Run focused controller tests for sampling settings.", userPrompt);
+        Assert.Contains("Verify runtime client sampling options are mapped correctly.", userPrompt);
+        Assert.Contains("## Review Execution Expectations", userPrompt);
     }
 
     [Fact]
@@ -426,19 +438,38 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         Assert.False(readiness.CanExecute);
         Assert.Equal(PhaseExecutionBlockingReasons.ImplementationRequiresRepositoryWriteAccess, readiness.BlockingReason);
+        Assert.Equal("read-write", readiness.RequiredPermissions!.RepositoryAccess);
+        Assert.Equal("read", readiness.AssignedModelSecurity!.RepositoryAccess);
     }
 
     [Fact]
-    public void GetPhaseExecutionReadiness_BlocksReviewWithoutRepositoryReadAccess()
+    public void GetPhaseExecutionReadiness_BlocksReviewWithoutRepositoryWriteAccess()
+    {
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new CapturingFakeHttpMessageHandler()),
+            CreateOptions(model: "llama3.1", repositoryAccess: "read"));
+
+        var readiness = provider.GetPhaseExecutionReadiness(PhaseId.Review);
+
+        Assert.False(readiness.CanExecute);
+        Assert.Equal(PhaseExecutionBlockingReasons.ReviewRequiresRepositoryWriteAccess, readiness.BlockingReason);
+        Assert.Equal("read-write", readiness.RequiredPermissions!.RepositoryAccess);
+        Assert.Equal("read", readiness.AssignedModelSecurity!.RepositoryAccess);
+    }
+
+    [Fact]
+    public void GetPhaseExecutionReadiness_ReportsPhaseSpecificReadRequirements()
     {
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(new CapturingFakeHttpMessageHandler()),
             CreateOptions(model: "llama3.1", repositoryAccess: "none"));
 
-        var readiness = provider.GetPhaseExecutionReadiness(PhaseId.Review);
+        var readiness = provider.GetPhaseExecutionReadiness(PhaseId.TechnicalDesign);
 
         Assert.False(readiness.CanExecute);
-        Assert.Equal(PhaseExecutionBlockingReasons.ReviewRequiresRepositoryReadAccess, readiness.BlockingReason);
+        Assert.Equal(PhaseExecutionBlockingReasons.TechnicalDesignRequiresRepositoryReadAccess, readiness.BlockingReason);
+        Assert.Equal("read", readiness.RequiredPermissions!.RepositoryAccess);
+        Assert.Equal("none", readiness.AssignedModelSecurity!.RepositoryAccess);
     }
 
     [Fact]
@@ -622,6 +653,56 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Contains("SpecForge Native Codex Execution", fakeRunner.LastInvocation.Prompt);
         Assert.Contains("Make the required repository changes", fakeRunner.LastInvocation.Prompt);
         Assert.Contains("# Implementation · US-0001 · v01", result.Content);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CodexProvider_UsesWorkspaceWriteSandboxForReview()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var fakeRunner = new FakeNativeCliRunner(
+            "codex",
+            isAvailable: true,
+            responseJson: BuildMinimalReviewJson());
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new ThrowingHttpMessageHandler()),
+            CreateOptions(
+                model: string.Empty,
+                providerKind: "codex",
+                baseUrl: string.Empty,
+                apiKey: string.Empty,
+                repositoryAccess: "read"),
+            new RepositoryPromptCatalog(),
+            [fakeRunner]);
+        var technicalDesignPath = Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "phases", "02-technical-design.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(technicalDesignPath)!);
+        await File.WriteAllTextAsync(
+            technicalDesignPath,
+            """
+            # Technical Design · US-0001 · v01
+
+            ## Validation Strategy
+            - Run focused review validations.
+            """);
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Review,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>
+            {
+                [PhaseId.TechnicalDesign] = technicalDesignPath
+            },
+            ContextFilePaths: []);
+
+        var result = await provider.ExecuteAsync(context);
+
+        Assert.Equal("codex", result.ExecutionKind);
+        Assert.NotNull(fakeRunner.LastInvocation);
+        Assert.Equal("workspace-write", fakeRunner.LastInvocation!.SandboxMode);
+        Assert.Contains("SpecForge Native Codex Execution", fakeRunner.LastInvocation.Prompt);
+        Assert.Contains("Run the most relevant validation commands needed to verify the Technical Design validation strategy", fakeRunner.LastInvocation.Prompt);
+        Assert.Contains("## Required Review Validation Checklist", fakeRunner.LastInvocation.Prompt);
+        Assert.Contains("Run focused review validations.", fakeRunner.LastInvocation.Prompt);
     }
 
     [Fact]

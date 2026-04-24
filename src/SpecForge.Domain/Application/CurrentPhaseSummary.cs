@@ -8,4 +8,5 @@ public sealed record CurrentPhaseSummary(
     bool CanApprove,
     bool RequiresApproval,
     string? BlockingReason,
-    string? ExecutionPhase = null);
+    string? ExecutionPhase = null,
+    PhaseExecutionReadiness? ExecutionReadiness = null);

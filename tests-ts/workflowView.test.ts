@@ -2446,6 +2446,131 @@ test("buildWorkflowHtml reuses sidebar status colors in graph nodes and hero tok
   assert.match(html, /phase-node capture phase-tone-completed/);
 });
 
+test("buildWorkflowHtml marks a phase blocked when its model security precheck fails", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0099",
+    title: "Model security precheck",
+    category: "workflow",
+    status: "active",
+    currentPhase: "technical-design",
+    directoryPath: "/tmp/us.US-0099",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "technical-design",
+        title: "Technical Design",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: true,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/02-technical-design.md",
+        executePromptPath: null,
+        approvePromptPath: null,
+        executionReadiness: {
+          phaseId: "technical-design",
+          canExecute: true,
+          blockingReason: null,
+          requiredPermissions: {
+            modelExecutionRequired: true,
+            repositoryAccess: "read",
+            workspaceWriteAccess: false
+          },
+          assignedModelSecurity: {
+            providerKind: "openai-compatible",
+            model: "gpt-lite",
+            profileName: "default",
+            repositoryAccess: "read",
+            nativeCliRequired: false,
+            nativeCliAvailable: true
+          },
+          validationMessage: "Phase permission precheck passed."
+        }
+      },
+      {
+        phaseId: "implementation",
+        title: "Implementation",
+        order: 1,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null,
+        executionReadiness: {
+          phaseId: "implementation",
+          canExecute: false,
+          blockingReason: "implementation_requires_repository_write_access",
+          requiredPermissions: {
+            modelExecutionRequired: true,
+            repositoryAccess: "read-write",
+            workspaceWriteAccess: true
+          },
+          assignedModelSecurity: {
+            providerKind: "openai-compatible",
+            model: "gpt-lite",
+            profileName: "default",
+            repositoryAccess: "read",
+            nativeCliRequired: false,
+            nativeCliAvailable: true
+          },
+          validationMessage: "Phase permission precheck failed because the assigned model only has repository access 'read' but phase 'Implementation' requires 'read-write'."
+        }
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: "implementation_requires_repository_write_access",
+      canRestartFromSource: false,
+      regressionTargets: [],
+      executionPhase: "implementation",
+      executionReadiness: {
+        phaseId: "implementation",
+        canExecute: false,
+        blockingReason: "implementation_requires_repository_write_access",
+        requiredPermissions: {
+          modelExecutionRequired: true,
+          repositoryAccess: "read-write",
+          workspaceWriteAccess: true
+        },
+        assignedModelSecurity: {
+          providerKind: "openai-compatible",
+          model: "gpt-lite",
+          profileName: "default",
+          repositoryAccess: "read",
+          nativeCliRequired: false,
+          nativeCliAvailable: true
+        },
+        validationMessage: "Phase permission precheck failed."
+      }
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "implementation",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /phase-node implementation phase-tone-blocked selected/);
+  assert.match(html, /phase-tag phase-tag--blocked">security blocked</);
+  assert.match(html, /<h3>Phase Security<\/h3>/);
+  assert.match(html, /required read-write/);
+  assert.match(html, /assigned read/);
+});
+
 test("buildWorkflowHtml keeps execution disabled when the workflow is open without an SLM or LLM provider", () => {
   const html = buildWorkflowHtml({
     usId: "US-0002",

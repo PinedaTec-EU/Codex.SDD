@@ -137,6 +137,31 @@ export interface WorkflowPhaseDetails {
   readonly approvePromptPath: string | null;
   readonly executeSystemPromptPath?: string | null;
   readonly approveSystemPromptPath?: string | null;
+  readonly executionReadiness?: PhaseExecutionReadiness | null;
+}
+
+export interface PhaseExecutionRequirements {
+  readonly modelExecutionRequired: boolean;
+  readonly repositoryAccess: string;
+  readonly workspaceWriteAccess: boolean;
+}
+
+export interface PhaseExecutionModelSecurity {
+  readonly providerKind: string;
+  readonly model: string;
+  readonly profileName: string | null;
+  readonly repositoryAccess: string;
+  readonly nativeCliRequired: boolean;
+  readonly nativeCliAvailable: boolean;
+}
+
+export interface PhaseExecutionReadiness {
+  readonly phaseId: string;
+  readonly canExecute: boolean;
+  readonly blockingReason: string | null;
+  readonly requiredPermissions?: PhaseExecutionRequirements | null;
+  readonly assignedModelSecurity?: PhaseExecutionModelSecurity | null;
+  readonly validationMessage?: string | null;
 }
 
 export interface ClarificationQuestionAnswerDetails {
@@ -171,6 +196,7 @@ export interface CurrentPhaseControls {
   readonly regressionTargets: readonly string[];
   readonly rewindTargets?: readonly string[];
   readonly executionPhase?: string | null;
+  readonly executionReadiness?: PhaseExecutionReadiness | null;
 }
 
 export interface TimelineEventDetails {

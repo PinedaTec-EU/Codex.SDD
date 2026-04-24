@@ -47,6 +47,7 @@ internal static class NativeCliPromptBuilder
                 .AppendLine("## Native Review Rules")
                 .AppendLine()
                 .AppendLine("- Inspect the repository state and artifacts directly.")
+                .AppendLine("- Run the most relevant validation commands needed to verify the Technical Design validation strategy, even when they generate ephemeral build or test outputs.")
                 .AppendLine("- Do not modify files during review.")
                 .AppendLine("- Base findings only on evidence you actually inspected.")
                 .AppendLine();

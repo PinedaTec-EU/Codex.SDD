@@ -5,7 +5,18 @@ namespace SpecForge.Domain.Application;
 public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvider
 {
     public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
-        new(phaseId, CanExecute: true);
+        new(
+            phaseId,
+            CanExecute: true,
+            RequiredPermissions: PhaseExecutionPermissionCatalog.Describe(phaseId),
+            AssignedModelSecurity: new PhaseExecutionModelSecurity(
+                "deterministic",
+                "deterministic",
+                "deterministic",
+                "read-write",
+                NativeCliRequired: false,
+                NativeCliAvailable: true),
+            ValidationMessage: "Phase permission precheck passed for the deterministic provider.");
 
     public async Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
         PhaseExecutionContext context,

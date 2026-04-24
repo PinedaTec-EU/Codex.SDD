@@ -36,7 +36,8 @@ public sealed record WorkflowPhaseDetails(
     string? ExecutePromptPath,
     string? ApprovePromptPath,
     string? ExecuteSystemPromptPath = null,
-    string? ApproveSystemPromptPath = null);
+    string? ApproveSystemPromptPath = null,
+    PhaseExecutionReadiness? ExecutionReadiness = null);
 
 public sealed record CurrentPhaseControls(
     bool CanContinue,
@@ -46,7 +47,8 @@ public sealed record CurrentPhaseControls(
     bool CanRestartFromSource,
     IReadOnlyCollection<string> RegressionTargets,
     IReadOnlyCollection<string> RewindTargets,
-    string? ExecutionPhase = null);
+    string? ExecutionPhase = null,
+    PhaseExecutionReadiness? ExecutionReadiness = null);
 
 public sealed record TimelineEventDetails(
     string TimestampUtc,

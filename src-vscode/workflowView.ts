@@ -1,4 +1,4 @@
-import type { UserStoryWorkflowDetails, WorkflowPhaseDetails } from "./backendClient";
+import type { PhaseExecutionReadiness, UserStoryWorkflowDetails, WorkflowPhaseDetails } from "./backendClient";
 import { escapeHtml, escapeHtmlAttr as escapeHtmlAttribute } from "./htmlEscape";
 import { buildCapturePhaseSections } from "./workflow-view/capturePhaseView";
 import { buildClarificationPhaseSections } from "./workflow-view/clarificationPhaseView";
@@ -574,6 +574,59 @@ function heroTokenTone(value: string): "attention" | "paused" | "blocked" | "suc
   }
 }
 
+function phaseSecurityTone(readiness: PhaseExecutionReadiness | null | undefined): "success" | "blocked" | "attention" | null {
+  if (!readiness?.requiredPermissions?.modelExecutionRequired) {
+    return null;
+  }
+
+  return readiness.canExecute ? "success" : "blocked";
+}
+
+function formatPhaseSecurityState(readiness: PhaseExecutionReadiness | null | undefined): string | null {
+  if (!readiness?.requiredPermissions?.modelExecutionRequired) {
+    return null;
+  }
+
+  return readiness.canExecute ? "security ok" : "security blocked";
+}
+
+function buildPhaseSecuritySummary(readiness: PhaseExecutionReadiness | null | undefined): string {
+  if (!readiness?.requiredPermissions?.modelExecutionRequired) {
+    return "";
+  }
+
+  const requiredAccess = readiness.requiredPermissions.repositoryAccess;
+  const effectiveAccess = readiness.assignedModelSecurity?.repositoryAccess ?? "unknown";
+  const provider = readiness.assignedModelSecurity?.providerKind ?? "unknown";
+  const profile = readiness.assignedModelSecurity?.profileName ?? "default";
+  const model = readiness.assignedModelSecurity?.model ?? "default";
+  const nativeCliState = readiness.assignedModelSecurity?.nativeCliRequired
+    ? readiness.assignedModelSecurity.nativeCliAvailable
+      ? "native cli ready"
+      : "native cli missing"
+    : "http or local bridge";
+  const tone = phaseSecurityTone(readiness) ?? "attention";
+  const headline = readiness.canExecute
+    ? "Phase security precheck passed."
+    : "Phase security precheck failed.";
+
+  return `
+    <section class="detail-card detail-card--phase-security">
+      <h3>Phase Security</h3>
+      <div class="detail-meta">
+        <span class="token token--${escapeHtmlAttribute(tone)}">${escapeHtml(headline)}</span>
+        <span class="token">required ${escapeHtml(requiredAccess)}</span>
+        <span class="token">assigned ${escapeHtml(effectiveAccess)}</span>
+        <span class="token">${escapeHtml(provider)}</span>
+        <span class="token">${escapeHtml(profile)}</span>
+        <span class="token">${escapeHtml(model)}</span>
+        <span class="token">${escapeHtml(nativeCliState)}</span>
+      </div>
+      ${readiness.validationMessage ? `<p class="panel-copy">${escapeHtml(readiness.validationMessage)}</p>` : ""}
+    </section>
+  `;
+}
+
 function resolvePhaseVisualTone(
   workflowStatus: string,
   playbackState: "idle" | "playing" | "paused" | "stopping",
@@ -589,6 +642,10 @@ function resolvePhaseVisualTone(
 
   if (completedPhaseIds.has(phase.phaseId)) {
     return "completed";
+  }
+
+  if (phase.executionReadiness?.requiredPermissions?.modelExecutionRequired && !phase.executionReadiness.canExecute) {
+    return "blocked";
   }
 
   if (playbackState === "playing" && executionPhaseId === phase.phaseId) {
@@ -836,6 +893,8 @@ export function buildWorkflowHtml(
   );
   const selectedPhaseIterationCount = selectedPhaseMetricEvents.length;
   const selectedPhaseExecutionLabel = findLatestPhaseExecutionLabel(workflow, selectedPhase.phaseId, state);
+  const selectedPhaseSecurityState = formatPhaseSecurityState(selectedPhase.executionReadiness);
+  const selectedPhaseSecurityTone = phaseSecurityTone(selectedPhase.executionReadiness);
   const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
   const canRewindSelectedPhase = rewindablePhaseIds.has(selectedPhase.phaseId);
   const phaseSpecificSections = buildPhaseSpecificSections(
@@ -851,6 +910,7 @@ export function buildWorkflowHtml(
     ? resolveWorkflowRejectPlan(selectedPhase.phaseId)
     : null;
   const selectedPhaseStateClass = heroTokenClass(selectedPhaseDisplayState);
+  const selectedPhaseSecurityClass = selectedPhaseSecurityTone ? ` token--${selectedPhaseSecurityTone}` : "";
   const continueActionLabel = selectedPhaseIsCurrent ? "Continue" : "Continue Current Phase";
   const approveActionLabel = selectedPhaseIsCurrent ? "Approve" : "Approve Current Phase";
   const shouldRenderApproveAction = selectedPhaseIsCurrent
@@ -2212,6 +2272,10 @@ export function buildWorkflowHtml(
       background: rgba(255, 120, 120, 0.14);
       color: #ffb0b0;
     }
+    .phase-tag.phase-tag--success {
+      background: rgba(114, 241, 184, 0.14);
+      color: #99f2c6;
+    }
     .phase-tag.phase-tag--completed {
       background: rgba(114, 241, 184, 0.14);
       color: #99f2c6;
@@ -3311,12 +3375,14 @@ export function buildWorkflowHtml(
             <div class="detail-meta">
               <span class="token">${escapeHtml(phaseSecondaryLabel(selectedPhase))}</span>
               <span class="token${selectedPhaseStateClass}">${escapeHtml(selectedPhaseDisplayState)}</span>
+              ${selectedPhaseSecurityState ? `<span class="token${selectedPhaseSecurityClass}">${escapeHtml(selectedPhaseSecurityState)}</span>` : ""}
               ${selectedPhase.requiresApproval ? `<span class="token token--attention">approval required</span>` : ""}
               ${selectedPhase.isApproved ? `<span class="token token--success">approved</span>` : ""}
             </div>
             ${selectedPhaseMetrics ? `<div class="detail-metrics">${selectedPhaseMetrics}</div>` : ""}
             </section>
           </div>
+          ${buildPhaseSecuritySummary(selectedPhase.executionReadiness)}
           ${phaseSpecificSections.beforeArtifact.join("")}
           ${iterationRail}
           ${iterationDetailSection}
@@ -4287,6 +4353,9 @@ function buildPhaseGraph(
           <span class="phase-tag phase-tag--${escapeHtmlAttribute(visualTone)}">${escapeHtml(displayState)}</span>
           <span class="phase-tag">${escapeHtml(phaseModelLaneLabel(phase))}</span>
           ${modelProfileLabel ? `<span class="phase-tag">model ${escapeHtml(modelProfileLabel)}</span>` : ""}
+          ${formatPhaseSecurityState(phase.executionReadiness)
+            ? `<span class="phase-tag${phaseSecurityTone(phase.executionReadiness) ? ` phase-tag--${escapeHtmlAttribute(phaseSecurityTone(phase.executionReadiness) ?? "success")}` : ""}">${escapeHtml(formatPhaseSecurityState(phase.executionReadiness) ?? "")}</span>`
+            : ""}
           ${phase.isApproved ? `<span class="phase-tag">approved</span>` : ""}
         </div>
       </div>

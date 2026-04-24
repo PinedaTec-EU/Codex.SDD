@@ -73,40 +73,54 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId)
     {
+        var requirements = PhaseExecutionPermissionCatalog.Describe(phaseId);
+        if (!requirements.ModelExecutionRequired)
+        {
+            return new PhaseExecutionReadiness(
+                phaseId,
+                CanExecute: true,
+                RequiredPermissions: requirements,
+                ValidationMessage: "Phase does not require a model-backed execution precheck.");
+        }
+
         var modelSelection = ResolveModelSelection(phaseId);
         var nativeCliRunner = ResolveNativeCliRunner(modelSelection.ProviderKind);
+        var effectiveRepositoryAccess = NormalizeRepositoryAccess(modelSelection.RepositoryAccess);
+        var assignedModelSecurity = new PhaseExecutionModelSecurity(
+            modelSelection.ProviderKind,
+            string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
+            modelSelection.ProfileName,
+            effectiveRepositoryAccess,
+            NativeCliRequired: RequiresNativeCli(modelSelection),
+            NativeCliAvailable: nativeCliRunner?.IsAvailable ?? false);
         if (RequiresNativeCli(modelSelection) &&
             (nativeCliRunner is null || !nativeCliRunner.IsAvailable))
         {
             return new PhaseExecutionReadiness(
                 phaseId,
                 CanExecute: false,
-                ResolveNativeCliBlockingReason(modelSelection.ProviderKind));
+                ResolveNativeCliBlockingReason(modelSelection.ProviderKind),
+                RequiredPermissions: requirements,
+                AssignedModelSecurity: assignedModelSecurity,
+                ValidationMessage: "Phase permission precheck failed because the assigned native model runner is not available.");
         }
 
-        var requiredRepositoryAccess = phaseId switch
-        {
-            PhaseId.Implementation => RepositoryAccessReadWrite,
-            PhaseId.Review => RepositoryAccessRead,
-            _ => null
-        };
-
-        if (requiredRepositoryAccess is null)
-        {
-            return new PhaseExecutionReadiness(phaseId, CanExecute: true);
-        }
-
-        var effectiveRepositoryAccess = NormalizeRepositoryAccess(modelSelection.RepositoryAccess);
-        var canExecute = HasRequiredRepositoryAccess(effectiveRepositoryAccess, requiredRepositoryAccess);
+        var canExecute = HasRequiredRepositoryAccess(effectiveRepositoryAccess, requirements.RepositoryAccess);
 
         return canExecute
-            ? new PhaseExecutionReadiness(phaseId, CanExecute: true)
+            ? new PhaseExecutionReadiness(
+                phaseId,
+                CanExecute: true,
+                RequiredPermissions: requirements,
+                AssignedModelSecurity: assignedModelSecurity,
+                ValidationMessage: "Phase permission precheck passed for the assigned model profile.")
             : new PhaseExecutionReadiness(
                 phaseId,
                 CanExecute: false,
-                phaseId == PhaseId.Implementation
-                    ? PhaseExecutionBlockingReasons.ImplementationRequiresRepositoryWriteAccess
-                    : PhaseExecutionBlockingReasons.ReviewRequiresRepositoryReadAccess);
+                PhaseExecutionPermissionCatalog.ResolveRepositoryAccessBlockingReason(phaseId),
+                RequiredPermissions: requirements,
+                AssignedModelSecurity: assignedModelSecurity,
+                ValidationMessage: $"Phase permission precheck failed because the assigned model only has repository access '{effectiveRepositoryAccess}' but phase '{phaseId}' requires '{requirements.RepositoryAccess}'.");
     }
 
     public async Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
@@ -486,12 +500,35 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         if (context.PhaseId == PhaseId.Review)
         {
+            var requiredValidationChecklist = await ReadReviewValidationChecklistAsync(context, cancellationToken);
+            if (requiredValidationChecklist.Count > 0)
+            {
+                builder
+                    .AppendLine("## Required Review Validation Checklist")
+                    .AppendLine()
+                    .AppendLine("Every item below must be evaluated explicitly in `validationChecklist` with concrete evidence gathered during review.")
+                    .AppendLine();
+
+                foreach (var item in requiredValidationChecklist)
+                {
+                    builder.AppendLine($"- {item}");
+                }
+
+                builder.AppendLine();
+            }
+
             builder
                 .AppendLine()
                 .AppendLine("## Review Tolerance")
                 .AppendLine()
                 .AppendLine($"- Active tolerance: `{options.ReviewTolerance}`")
                 .AppendLine($"- Guidance: {ResolveReviewGuidance(options.ReviewTolerance)}")
+                .AppendLine()
+                .AppendLine("## Review Execution Expectations")
+                .AppendLine()
+                .AppendLine("- Inspect the repository files and implementation evidence directly, not only the artifact narrative.")
+                .AppendLine("- Run the most relevant validation commands required to verify the Technical Design validation strategy when direct inspection alone is insufficient.")
+                .AppendLine("- In each checklist evidence field, name the concrete files, commands, or artifacts you actually inspected.")
                 .AppendLine()
                 .AppendLine("Return only structured data that conforms to the response schema.");
         }
@@ -728,7 +765,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             prompt,
             modelSelection.ProviderKind,
             outputSchemaJson);
-        var sandboxMode = context.PhaseId == PhaseId.Implementation
+        var sandboxMode = context.PhaseId is PhaseId.Implementation or PhaseId.Review
             ? "workspace-write"
             : "read-only";
         var baselineWorkspaceChanges = context.PhaseId == PhaseId.Implementation
@@ -879,6 +916,60 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
 
         return true;
+    }
+
+    private static async Task<IReadOnlyCollection<string>> ReadReviewValidationChecklistAsync(
+        PhaseExecutionContext context,
+        CancellationToken cancellationToken)
+    {
+        if (!context.PreviousArtifactPaths.TryGetValue(PhaseId.TechnicalDesign, out var technicalDesignPath) ||
+            string.IsNullOrWhiteSpace(technicalDesignPath) ||
+            !File.Exists(technicalDesignPath))
+        {
+            return Array.Empty<string>();
+        }
+
+        var technicalDesign = await File.ReadAllTextAsync(technicalDesignPath, cancellationToken);
+        var validationSection = TryReadMarkdownSection(technicalDesign, "## Validation Strategy");
+        if (string.IsNullOrWhiteSpace(validationSection))
+        {
+            return Array.Empty<string>();
+        }
+
+        return validationSection
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(static line => line.Trim())
+            .Where(static line => line.StartsWith("- ", StringComparison.Ordinal))
+            .Select(static line => line[2..].Trim())
+            .Where(static line => !string.IsNullOrWhiteSpace(line))
+            .ToArray();
+    }
+
+    private static string? TryReadMarkdownSection(string markdown, string heading)
+    {
+        var lines = markdown.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        for (var index = 0; index < lines.Length; index++)
+        {
+            if (!string.Equals(lines[index], heading, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var builder = new StringBuilder();
+            for (var cursor = index + 1; cursor < lines.Length; cursor++)
+            {
+                if (lines[cursor].StartsWith("## ", StringComparison.Ordinal))
+                {
+                    break;
+                }
+
+                builder.AppendLine(lines[cursor]);
+            }
+
+            return builder.ToString().Trim();
+        }
+
+        return null;
     }
 
     private static async Task<IReadOnlyCollection<GitStatusSnapshotEntry>?> TryCaptureGitStatusSnapshotAsync(

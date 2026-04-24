@@ -166,7 +166,7 @@
                   "read",
                   "read-write"
                 ],
-                "description": "Repository access granted to this profile. Implementation requires read-write. Review requires at least read."
+                "description": "Repository access granted to this profile. Clarification, refinement, and technical design require read. Implementation and review require read-write."
               }
             }
           }

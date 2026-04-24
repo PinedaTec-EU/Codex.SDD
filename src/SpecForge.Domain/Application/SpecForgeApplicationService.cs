@@ -138,7 +138,8 @@ public sealed class SpecForgeApplicationService
                 workflowRun.CurrentPhase != Workflow.PhaseId.Capture,
                 BuildRegressionTargets(workflowRun),
                 BuildRewindTargets(workflowRun),
-                currentPhase.ExecutionPhase),
+                currentPhase.ExecutionPhase,
+                currentPhase.ExecutionReadiness),
             clarification is null
                 ? null
                 : new ClarificationSessionDetails(
@@ -218,6 +219,8 @@ public sealed class SpecForgeApplicationService
         var canAdvance = !requiresApproval || workflowRun.IsPhaseApproved(workflowRun.CurrentPhase);
         var canApprove = requiresApproval && !canAdvance;
         string? blockingReason = null;
+        string? executionPhase = null;
+        PhaseExecutionReadiness? executionReadiness = null;
         if (canApprove && workflowRun.CurrentPhase == Workflow.PhaseId.Refinement)
         {
             var refinementPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Refinement);
@@ -245,7 +248,7 @@ public sealed class SpecForgeApplicationService
                 var readiness = workflowRunner.GetPhaseExecutionReadiness(Workflow.PhaseId.Review);
                 canAdvance = readiness.CanExecute;
                 blockingReason = readiness.BlockingReason;
-                var executionPhase = readiness.CanExecute
+                var replayExecutionPhase = readiness.CanExecute
                     ? WorkflowPresentation.ToPhaseSlug(Workflow.PhaseId.Review)
                     : null;
                 SpecForgeDiagnostics.Log(
@@ -258,7 +261,8 @@ public sealed class SpecForgeApplicationService
                     canApprove,
                     requiresApproval,
                     blockingReason,
-                    executionPhase);
+                    replayExecutionPhase,
+                    readiness);
             }
             else
             {
@@ -293,6 +297,13 @@ public sealed class SpecForgeApplicationService
             {
                 canAdvance = false;
                 blockingReason = readiness.BlockingReason;
+                executionPhase = WorkflowPresentation.ToPhaseSlug(readiness.PhaseId);
+                executionReadiness = readiness;
+            }
+            else if (readiness.RequiredPermissions?.ModelExecutionRequired == true)
+            {
+                executionPhase = WorkflowPresentation.ToPhaseSlug(readiness.PhaseId);
+                executionReadiness = readiness;
             }
         }
 
@@ -303,7 +314,9 @@ public sealed class SpecForgeApplicationService
             canAdvance,
             canApprove,
             requiresApproval,
-            blockingReason);
+            blockingReason,
+            executionPhase,
+            executionReadiness);
     }
 
     public async Task<ContinuePhaseResponse> GenerateNextPhaseAsync(
@@ -560,7 +573,7 @@ public sealed class SpecForgeApplicationService
             ?? Path.GetFileName(Path.GetDirectoryName(filePath) ?? filePath);
     }
 
-    private static IReadOnlyCollection<WorkflowPhaseDetails> BuildPhaseDetails(
+    private IReadOnlyCollection<WorkflowPhaseDetails> BuildPhaseDetails(
         Workflow.WorkflowRun workflowRun,
         UserStoryFilePaths paths)
     {
@@ -594,7 +607,8 @@ public sealed class SpecForgeApplicationService
                     TryGetExecutePromptPath(paths, phaseId),
                     TryGetApprovePromptPath(paths, phaseId),
                     TryGetExecuteSystemPromptPath(paths, phaseId),
-                    TryGetApproveSystemPromptPath(paths, phaseId));
+                    TryGetApproveSystemPromptPath(paths, phaseId),
+                    workflowRunner.GetPhaseExecutionReadiness(phaseId));
             })
             .ToArray();
     }
