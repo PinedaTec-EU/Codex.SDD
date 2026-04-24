@@ -1487,9 +1487,11 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       min-height: ${desktopGraphHeight}px;
       z-index: 2;
     }
-    .graph-stage.graph-stage--overlay-blocking .phase-graph {
+    .graph-stage.graph-stage--overlay-active .phase-graph {
       filter: blur(2px) saturate(0.85) brightness(0.78);
       transform: scale(0.997);
+    }
+    .graph-stage.graph-stage--overlay-blocking .phase-graph {
       pointer-events: none;
     }
     .execution-overlay {
@@ -1833,15 +1835,16 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .phase-viewing-rail {
       position: absolute;
-      top: 30px;
-      right: -34px;
-      width: 108px;
-      height: 44px;
+      top: 22px;
+      bottom: 22px;
+      left: -16px;
+      right: -42px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      border-radius: 14px;
-      border: 1px solid rgba(216, 223, 232, 0.18);
+      justify-content: flex-end;
+      padding-right: 0;
+      border-radius: 18px;
+      border-left: 1px solid rgba(216, 223, 232, 0.18);
       background: linear-gradient(180deg, rgba(97, 106, 120, 0.96), rgba(48, 56, 68, 0.98));
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.12),
@@ -1849,7 +1852,15 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       z-index: -1;
       pointer-events: none;
     }
+    .phase-viewing-rail--current {
+      left: 22px;
+      right: -32px;
+    }
     .phase-viewing-rail__label {
+      display: inline-block;
+      transform: rotate(-90deg);
+      transform-origin: center;
+      margin-right: -12px;
       color: rgba(245, 248, 252, 0.94);
       text-shadow: 0 1px 2px rgba(7, 17, 28, 0.28);
       font-size: 0.68rem;
@@ -4022,7 +4033,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
       tabindex="0"
       style="--phase-left-desktop: ${desktopPosition.left}px; --phase-top-desktop: ${desktopPosition.top}px; --phase-left-mobile: ${mobilePosition.left}px; --phase-top-mobile: ${mobilePosition.top}px;">
       ${phaseIsCurrent ? `<span class="phase-current-rail"><span class="phase-current-rail__label">Current</span></span>` : ""}
-      ${phaseIsSelected && !phaseIsCurrent ? `<span class="phase-viewing-rail"><span class="phase-viewing-rail__label">Viewing</span></span>` : ""}
+      ${phaseIsSelected ? `<span class="phase-viewing-rail${phaseIsCurrent ? " phase-viewing-rail--current" : ""}"><span class="phase-viewing-rail__label">Viewing</span></span>` : ""}
       <div class="phase-node-content${phaseIsCurrent ? " phase-node-content--current" : ""}">
         <div class="phase-node-header">
           <div class="phase-node-header-main">
