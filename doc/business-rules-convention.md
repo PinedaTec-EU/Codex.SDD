@@ -48,6 +48,18 @@ The UI may still parse artifacts for preview-only rendering, but not to decide w
 - Domain rules must have .NET tests.
 - UI tests should verify rendering against canonical DTO fields, not reconstructed state from artifact text.
 
+## Workflow Execution Entry Convention
+
+- `play`, `continue`, `rerun`, direct phase replay, and future workflow execution triggers must pass through one execution entry point in `src-vscode/workflowPanel.ts`.
+- That entry point owns the shared execution side effects:
+  - choosing between autoplay and replay of the current phase;
+  - setting playback state and transient execution phase;
+  - showing execution overlay and active graph state;
+  - logging the execution request and blocked/no-op cases;
+  - applying the same refresh path before and after execution.
+- Individual command handlers must not duplicate this decision tree inline.
+- If a new trigger needs different behavior, extend the centralized execution entry with explicit options instead of branching ad hoc in the caller.
+
 ## Review Checklist
 
 When adding or reviewing workflow features:

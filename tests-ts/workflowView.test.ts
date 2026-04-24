@@ -2698,6 +2698,60 @@ test("buildWorkflowHtml renders rerun review action when review failed and the w
   assert.match(html, /token token--blocked">blocked</);
 });
 
+test("buildWorkflowHtml shows active execution state while rerunning a failed review", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0101",
+    title: "Review rerun playing",
+    category: "workflow",
+    status: "active",
+    currentPhase: "review",
+    directoryPath: "/tmp/us.US-0101",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "review",
+        title: "Review",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/04-review.md",
+        executePromptPath: "/tmp/review.execute.md",
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: "review_failed",
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "review",
+    selectedArtifactContent: "# Review",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    executionPhaseId: "review"
+  }, "playing");
+
+  assert.match(html, /phase-node review phase-tone-active selected phase-node--current/);
+  assert.match(html, /phase-tag phase-tag--active">executing</);
+  assert.match(html, /data-tone="playing"/);
+  assert.match(html, /Executing Review/);
+});
+
 test("buildWorkflowHtml keeps execution disabled when the workflow is open without an SLM or LLM provider", () => {
   const html = buildWorkflowHtml({
     usId: "US-0002",

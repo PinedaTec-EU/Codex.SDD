@@ -660,20 +660,20 @@ function resolvePhaseVisualTone(
     return "completed";
   }
 
-  if (isCurrentPhaseFailureBlocked(workflow, phase)) {
-    return "blocked";
-  }
-
-  if (phase.executionReadiness?.requiredPermissions?.modelExecutionRequired && !phase.executionReadiness.canExecute) {
-    return "blocked";
-  }
-
   if (playbackState === "playing" && executionPhaseId === phase.phaseId) {
     return "active";
   }
 
   if ((playbackState === "paused" || playbackState === "stopping") && pausedPhaseId === phase.phaseId) {
     return "paused";
+  }
+
+  if (isCurrentPhaseFailureBlocked(workflow, phase)) {
+    return "blocked";
+  }
+
+  if (phase.executionReadiness?.requiredPermissions?.modelExecutionRequired && !phase.executionReadiness.canExecute) {
+    return "blocked";
   }
 
   if (phase.state === "completed") {
