@@ -4318,38 +4318,27 @@ function graphPath(fromPhaseId, toPhaseId, positions, nodeWidth) {
     return buildCrossColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth);
 }
 function buildSameColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth) {
-    const channelOffset = Math.max(38, nodeWidth * 0.18);
-    const channelX = fromAnchor === "exit-left"
-        ? fromPosition.left - channelOffset
-        : fromPosition.left + nodeWidth + channelOffset;
-    const exit = projectAwayFromNode(fromPosition, fromAnchor, from, channelOffset);
-    const entry = projectAwayFromNode(toPosition, toAnchor, to, channelOffset);
-    const midY = entry.y > exit.y
-        ? exit.y + Math.max(28, (entry.y - exit.y) * 0.34)
-        : exit.y - Math.max(28, (exit.y - entry.y) * 0.34);
-    return buildRoundedOrthogonalPath(from, [
-        exit,
-        { x: channelX, y: exit.y },
-        { x: channelX, y: midY },
-        { x: channelX, y: entry.y },
-        entry,
-        to
-    ]);
+    const laneOffset = Math.max(34, nodeWidth * 0.16);
+    const laneX = fromAnchor === "exit-left" || toAnchor === "entry-left"
+        ? fromPosition.left - laneOffset
+        : fromPosition.left + nodeWidth + laneOffset;
+    const verticalSpread = Math.max(34, Math.abs(to.y - from.y) * 0.24);
+    const exitPull = projectAwayFromNode(fromPosition, fromAnchor, from, laneOffset);
+    const entryPull = projectAwayFromNode(toPosition, toAnchor, to, laneOffset);
+    return [
+        `M ${from.x} ${from.y}`,
+        `C ${exitPull.x} ${from.y + verticalSpread * 0.18}, ${laneX} ${from.y + verticalSpread}, ${laneX} ${from.y + verticalSpread * 1.35}`,
+        `S ${laneX} ${to.y - verticalSpread}, ${entryPull.x} ${to.y - verticalSpread * 0.2}`,
+        `S ${to.x} ${to.y}, ${to.x} ${to.y}`
+    ].join(" ");
 }
 function buildCrossColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth) {
-    const channelOffset = Math.max(34, nodeWidth * 0.16);
-    const exit = projectAwayFromNode(fromPosition, fromAnchor, from, channelOffset);
-    const entry = projectAwayFromNode(toPosition, toAnchor, to, channelOffset);
-    const horizontalMidX = exit.x < entry.x
-        ? exit.x + Math.max(44, (entry.x - exit.x) * 0.48)
-        : exit.x - Math.max(44, (exit.x - entry.x) * 0.48);
-    return buildRoundedOrthogonalPath(from, [
-        exit,
-        { x: horizontalMidX, y: exit.y },
-        { x: horizontalMidX, y: entry.y },
-        entry,
-        to
-    ]);
+    const channelOffset = Math.max(30, nodeWidth * 0.14);
+    const exitPull = projectAwayFromNode(fromPosition, fromAnchor, from, channelOffset);
+    const entryPull = projectAwayFromNode(toPosition, toAnchor, to, channelOffset);
+    const horizontalSpread = Math.max(52, Math.abs(to.x - from.x) * 0.34);
+    const verticalBias = Math.max(16, Math.abs(to.y - from.y) * 0.12);
+    return `M ${from.x} ${from.y} C ${exitPull.x + horizontalSpread * 0.22} ${exitPull.y}, ${entryPull.x - horizontalSpread * 0.28} ${entryPull.y - verticalBias}, ${to.x} ${to.y}`;
 }
 function resolveAnchors(from, to) {
     const deltaX = to.left - from.left;
@@ -4357,30 +4346,32 @@ function resolveAnchors(from, to) {
         const leftLane = from.left <= desktopLayoutConfig.columns.left + 40;
         return {
             fromAnchor: leftLane ? "exit-right" : "exit-left",
-            toAnchor: "entry-top"
+            toAnchor: leftLane ? "entry-right" : "entry-left"
         };
     }
     if (deltaX > 0) {
         return { fromAnchor: "exit-right", toAnchor: "entry-left" };
     }
-    return { fromAnchor: "exit-left", toAnchor: "entry-top" };
+    return { fromAnchor: "exit-left", toAnchor: "entry-right" };
 }
 function getAnchorPoint(position, anchor, nodeWidth) {
     switch (anchor) {
         case "entry-top":
             return { x: position.left + nodeWidth * 0.18, y: position.top };
         case "entry-left":
-            return { x: position.left, y: position.top + phaseNodeHeight * 0.28 };
+            return { x: position.left, y: position.top + phaseNodeHeight * 0.34 };
+        case "entry-right":
+            return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.31 };
         case "exit-right":
-            return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.68 };
+            return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.74 };
         case "exit-left":
-            return { x: position.left, y: position.top + phaseNodeHeight * 0.56 };
+            return { x: position.left, y: position.top + phaseNodeHeight * 0.72 };
         case "exit-bottom-left":
-            return { x: position.left + nodeWidth * 0.08, y: position.top + phaseNodeHeight };
+            return { x: position.left + nodeWidth * 0.14, y: position.top + phaseNodeHeight };
         case "exit-bottom-mid":
-            return { x: position.left + nodeWidth * 0.72, y: position.top + phaseNodeHeight };
+            return { x: position.left + nodeWidth * 0.58, y: position.top + phaseNodeHeight };
         case "exit-bottom-right":
-            return { x: position.left + nodeWidth * 0.92, y: position.top + phaseNodeHeight };
+            return { x: position.left + nodeWidth * 0.86, y: position.top + phaseNodeHeight };
     }
 }
 function projectAwayFromNode(position, anchor, point, offset) {
@@ -4389,8 +4380,10 @@ function projectAwayFromNode(position, anchor, point, offset) {
             return { x: point.x, y: position.top - offset };
         case "entry-left":
             return { x: position.left - offset, y: point.y };
+        case "entry-right":
+            return { x: point.x + offset, y: point.y };
         case "exit-right":
-            return { x: position.left + offset + (point.x - position.left), y: point.y };
+            return { x: point.x + offset, y: point.y };
         case "exit-left":
             return { x: position.left - offset, y: point.y };
         case "exit-bottom-left":
@@ -4398,33 +4391,6 @@ function projectAwayFromNode(position, anchor, point, offset) {
         case "exit-bottom-right":
             return { x: point.x, y: position.top + phaseNodeHeight + offset };
     }
-}
-function buildRoundedOrthogonalPath(start, points) {
-    const cleanPoints = [start, ...points].filter((point, index, list) => index === 0 || point.x !== list[index - 1].x || point.y !== list[index - 1].y);
-    if (cleanPoints.length < 2) {
-        return "";
-    }
-    let path = `M ${cleanPoints[0].x} ${cleanPoints[0].y}`;
-    for (let index = 1; index < cleanPoints.length; index++) {
-        const previous = cleanPoints[index - 1];
-        const current = cleanPoints[index];
-        const next = cleanPoints[index + 1];
-        if (!next) {
-            path += ` L ${current.x} ${current.y}`;
-            continue;
-        }
-        const radius = Math.min(24, Math.abs(current.x - previous.x) / 2 || 24, Math.abs(current.y - previous.y) / 2 || 24, Math.abs(next.x - current.x) / 2 || 24, Math.abs(next.y - current.y) / 2 || 24);
-        const cornerEntry = moveToward(current, previous, radius);
-        const cornerExit = moveToward(current, next, radius);
-        path += ` L ${cornerEntry.x} ${cornerEntry.y} Q ${current.x} ${current.y} ${cornerExit.x} ${cornerExit.y}`;
-    }
-    return path;
-}
-function moveToward(from, to, distance) {
-    if (from.x === to.x) {
-        return { x: from.x, y: from.y + Math.sign(to.y - from.y) * distance };
-    }
-    return { x: from.x + Math.sign(to.x - from.x) * distance, y: from.y };
 }
 function extractArtifactQuestionBlock(markdown) {
     if (!markdown) {

@@ -1497,8 +1497,8 @@ test("buildWorkflowHtml routes graph links around cards using rounded orthogonal
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /class="completed" d="M [^"]* L [^"]* Q [^"]* L [^"]*"/);
-  assert.match(html, /class="reverse-active" d="M [^"]* L [^"]* Q [^"]* L [^"]*"/);
+  assert.match(html, /class="completed" d="M [^"]* C [^"]*"/);
+  assert.match(html, /class="reverse-active" d="M [^"]* C [^"]* S [^"]*"/);
 });
 
 test("buildWorkflowHtml advances the execution overlay to refinement after clarification passes", () => {
