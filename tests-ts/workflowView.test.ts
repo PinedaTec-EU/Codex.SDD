@@ -113,6 +113,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /--phase-pending: rgba\(255, 255, 255, 0\.04\);/);
   assert.match(html, /phase-current-rail/);
   assert.match(html, /phase-current-rail__label">Current</);
+  assert.match(html, /phase-viewing-rail phase-viewing-rail--current/);
   assert.match(html, /phase-viewing-rail__label">Viewing</);
   assert.match(html, /phase-tag phase-tag--waiting-user">waiting-user</);
   assert.match(html, /<div class="phase-slug">US<\/div>/);
@@ -710,6 +711,7 @@ test("buildWorkflowHtml shows phase actions in the selected detail only for the 
   assert.doesNotMatch(html, /data-command="restart">Reject</);
   assert.doesNotMatch(html, /phase-node-actions/);
   assert.match(html, /phase-node capture phase-tone-completed selected/);
+  assert.match(html, /phase-viewing-rail">/);
   assert.match(html, /phase-viewing-rail__label">Viewing</);
   assert.match(html, /phase-node refinement phase-tone-waiting-user phase-node--current/);
   assert.match(html, /phase-current-rail__label">Current</);
