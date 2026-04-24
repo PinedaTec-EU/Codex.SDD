@@ -29,6 +29,7 @@ export interface SpecForgeModelProfile {
   readonly baseUrl: string;
   readonly apiKey: string | null;
   readonly model: string;
+  readonly reasoningEffort?: string | null;
   readonly repositoryAccess: string;
 }
 
@@ -268,7 +269,7 @@ function hasExplicitProfilesForAllModelDrivenPhases(assignments: SpecForgePhaseM
 
 function buildSettingsDiagnostics(settings: SpecForgeSettings): string {
   const profiles = settings.modelProfiles.map((profile) =>
-    `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"},apiKey=${profile.apiKey ? "set" : "empty"},repositoryAccess=${profile.repositoryAccess || "<missing>"}}`);
+    `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"}${profile.reasoningEffort ? `,reasoningEffort=${profile.reasoningEffort}` : ""},apiKey=${profile.apiKey ? "set" : "empty"},repositoryAccess=${profile.repositoryAccess || "<missing>"}}`);
 
   return [
     `profiles=${settings.modelProfiles.length}`,
@@ -334,9 +335,10 @@ function normalizeModelProfile(value: unknown): SpecForgeModelProfile | null {
   const baseUrl = normalizeUnknownOptional(candidate.baseUrl);
   const apiKey = normalizeUnknownOptional(candidate.apiKey);
   const model = normalizeUnknownOptional(candidate.model);
+  const reasoningEffort = normalizeReasoningEffort(candidate.reasoningEffort);
   const repositoryAccess = normalizeRepositoryAccess(candidate.repositoryAccess);
 
-  if (!provider && !name && !baseUrl && !apiKey && !model && !repositoryAccess) {
+  if (!provider && !name && !baseUrl && !apiKey && !model && !reasoningEffort && !repositoryAccess) {
     return null;
   }
 
@@ -346,6 +348,7 @@ function normalizeModelProfile(value: unknown): SpecForgeModelProfile | null {
     baseUrl: baseUrl ?? "",
     apiKey,
     model: model ?? "",
+    ...(reasoningEffort ? { reasoningEffort } : {}),
     repositoryAccess: repositoryAccess ?? "none"
   };
 }
@@ -437,6 +440,18 @@ function normalizeUnknownOptional(value: unknown): string | null {
 function normalizeTolerance(value: string | undefined): string {
   const normalized = value?.trim().toLowerCase();
   return normalized === "strict" || normalized === "inferential" ? normalized : "balanced";
+}
+
+function normalizeReasoningEffort(value: unknown): string | null {
+  const normalized = normalizeUnknownOptional(value)?.toLowerCase();
+  return normalized === "none"
+    || normalized === "minimal"
+    || normalized === "low"
+    || normalized === "medium"
+    || normalized === "high"
+    || normalized === "xhigh"
+    ? normalized
+    : null;
 }
 
 function isLocalOpenAiCompatibleEndpoint(baseUrl: string | null): boolean {

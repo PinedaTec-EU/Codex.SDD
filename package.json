@@ -158,6 +158,18 @@
                 "type": "string",
                 "description": "Concrete model identifier exposed by this profile's endpoint. Optional for native CLI execution, which can fall back to the local provider default."
               },
+              "reasoningEffort": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "minimal",
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh"
+                ],
+                "description": "Optional reasoning effort override. Sent to `openai-compatible` HTTP profiles and Codex CLI profiles when supported."
+              },
               "repositoryAccess": {
                 "type": "string",
                 "default": "none",

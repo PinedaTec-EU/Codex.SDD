@@ -6,6 +6,7 @@ public sealed record OpenAiCompatibleModelProfile(
     string BaseUrl,
     string ApiKey,
     string Model,
+    string? ReasoningEffort = null,
     string RepositoryAccess = "none");
 
 public sealed record OpenAiCompatiblePhaseModelAssignments(

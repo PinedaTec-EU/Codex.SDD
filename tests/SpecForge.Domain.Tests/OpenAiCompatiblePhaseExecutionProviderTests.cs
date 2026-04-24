@@ -59,6 +59,31 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Contains("This is the system prompt for the refinement execute template.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
     }
 
+    [Fact]
+    public async Task ExecuteAsync_SendsReasoningEffortForHttpProfiles()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            CreateOptions(
+                model: "gpt-5.4",
+                baseUrl: "https://api.openai.com/v1",
+                apiKey: "secret",
+                reasoningEffort: "high"));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Refinement,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        await provider.ExecuteAsync(context);
+
+        Assert.Contains("\"reasoning_effort\":\"high\"", handler.LastBody);
+    }
+
     [Theory]
     [InlineData("strict", 0.0d, "Be conservative. Ask for clarification whenever actor, trigger, business behavior, inputs, outputs, rules, or acceptance intent are materially ambiguous.")]
     [InlineData("balanced", 0.2d, "Use balanced judgment. Ask only for gaps that would block a credible refinement, but do not invent business-critical facts.")]
@@ -656,6 +681,37 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_CodexProvider_PassesReasoningEffortToNativeRunner()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var fakeRunner = new FakeNativeCliRunner(
+            "codex",
+            isAvailable: true,
+            responseJson: BuildMinimalRefinementJson());
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new ThrowingHttpMessageHandler()),
+            CreateOptions(
+                model: "gpt-5.3-codex",
+                providerKind: "codex",
+                baseUrl: string.Empty,
+                apiKey: string.Empty,
+                reasoningEffort: "high"),
+            new RepositoryPromptCatalog(),
+            [fakeRunner]);
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Refinement,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        await provider.ExecuteAsync(context);
+
+        Assert.Equal("high", fakeRunner.LastInvocation?.ReasoningEffort);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_CodexProvider_UsesWorkspaceWriteSandboxForReview()
     {
         await PrepareInitializedWorkspaceAsync();
@@ -1017,6 +1073,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         string apiKey = "",
         string clarificationTolerance = "balanced",
         string reviewTolerance = "balanced",
+        string? reasoningEffort = null,
         string repositoryAccess = "read-write",
         string providerKind = "openai-compatible",
         bool autoClarificationAnswersEnabled = false,
@@ -1035,6 +1092,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                     BaseUrl: baseUrl,
                     ApiKey: apiKey,
                     Model: model,
+                    ReasoningEffort: reasoningEffort,
                     RepositoryAccess: repositoryAccess)
             ],
             PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(

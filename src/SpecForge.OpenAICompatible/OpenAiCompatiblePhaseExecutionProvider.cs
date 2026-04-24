@@ -272,6 +272,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             model = modelSelection.Model,
             messages,
             temperature,
+            reasoning_effort = modelSelection.ReasoningEffort,
             response_format = responseFormat
         });
 
@@ -836,6 +837,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 workspaceRoot,
                 prompt,
                 string.IsNullOrWhiteSpace(modelSelection.Model) ? null : modelSelection.Model,
+                modelSelection.ReasoningEffort,
                 outputSchemaJson,
                 sandboxMode),
             cancellationToken);
@@ -1083,6 +1085,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             profile.BaseUrl,
             profile.ApiKey,
             profile.Model,
+            NormalizeReasoningEffort(profile.ReasoningEffort),
             profile.Name,
             profile.RepositoryAccess);
     }
@@ -1106,6 +1109,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             profile.BaseUrl,
             profile.ApiKey,
             profile.Model,
+            NormalizeReasoningEffort(profile.ReasoningEffort),
             profile.Name,
             profile.RepositoryAccess);
     }
@@ -1229,6 +1233,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     private static bool IsSupportedRepositoryAccess(string? repositoryAccess) =>
         NormalizeRepositoryAccess(repositoryAccess) is RepositoryAccessNone or RepositoryAccessRead or RepositoryAccessReadWrite;
 
+    private static bool IsSupportedReasoningEffort(string? reasoningEffort) =>
+        string.IsNullOrWhiteSpace(reasoningEffort) || NormalizeReasoningEffort(reasoningEffort) is not null;
+
     private static string NormalizeRepositoryAccess(string? repositoryAccess)
     {
         var normalized = string.IsNullOrWhiteSpace(repositoryAccess)
@@ -1242,6 +1249,24 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             RepositoryAccessReadWrite => RepositoryAccessReadWrite,
             RepositoryAccessRead => RepositoryAccessRead,
             _ => RepositoryAccessNone
+        };
+    }
+
+    private static string? NormalizeReasoningEffort(string? reasoningEffort)
+    {
+        var normalized = string.IsNullOrWhiteSpace(reasoningEffort)
+            ? null
+            : reasoningEffort.Trim().ToLowerInvariant();
+
+        return normalized switch
+        {
+            "none" => "none",
+            "minimal" => "minimal",
+            "low" => "low",
+            "medium" => "medium",
+            "high" => "high",
+            "xhigh" => "xhigh",
+            _ => null
         };
     }
 
@@ -1297,6 +1322,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             {
                 throw new ArgumentException(
                     $"RepositoryAccess must be one of: {RepositoryAccessNone}, {RepositoryAccessRead}, {RepositoryAccessReadWrite} for model profile '{profile.Name}'.",
+                    nameof(modelProfiles));
+            }
+
+            if (!IsSupportedReasoningEffort(profile.ReasoningEffort))
+            {
+                throw new ArgumentException(
+                    $"ReasoningEffort must be one of: none, minimal, low, medium, high, xhigh for model profile '{profile.Name}'.",
                     nameof(modelProfiles));
             }
 
@@ -1465,6 +1497,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         string BaseUrl,
         string ApiKey,
         string Model,
+        string? ReasoningEffort,
         string? ProfileName,
         string? RepositoryAccess);
 
@@ -1473,6 +1506,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         string WorkspaceRoot,
         string Prompt,
         string? Model,
+        string? ReasoningEffort,
         string OutputSchemaJson,
         string SandboxMode);
 
@@ -1556,7 +1590,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 startInfo.ArgumentList.Add(argument);
             }
 
-            var command = $"{ExecutablePath} {string.Join(' ', arguments)}".TrimEnd();
+            var command = BuildSanitizedCommandForLog(ExecutablePath, arguments, standardInput);
             var stdout = new StringBuilder();
             var stderr = new StringBuilder();
             var outputLock = new object();
@@ -1744,6 +1778,65 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
     }
 
+    private static string BuildSanitizedCommandForLog(
+        string executablePath,
+        IReadOnlyList<string> arguments,
+        string? standardInput)
+    {
+        var sanitizedArguments = new List<string>(arguments.Count + (standardInput is null ? 0 : 1));
+        var promptArgumentCollapsed = false;
+
+        for (var index = 0; index < arguments.Count; index++)
+        {
+            var argument = arguments[index];
+            if (!promptArgumentCollapsed && LooksLikeEmbeddedPromptArgument(argument, index, arguments))
+            {
+                sanitizedArguments.Add($"<prompt:{argument.Length} chars>");
+                promptArgumentCollapsed = true;
+                continue;
+            }
+
+            sanitizedArguments.Add(argument);
+        }
+
+        if (standardInput is not null)
+        {
+            sanitizedArguments.Add($"<stdin:{standardInput.Length} chars>");
+        }
+
+        return $"{executablePath} {string.Join(' ', sanitizedArguments)}".TrimEnd();
+    }
+
+    private static bool LooksLikeEmbeddedPromptArgument(
+        string argument,
+        int index,
+        IReadOnlyList<string> allArguments)
+    {
+        if (string.IsNullOrWhiteSpace(argument))
+        {
+            return false;
+        }
+
+        if (argument.Contains('\n') || argument.Contains('\r'))
+        {
+            return true;
+        }
+
+        var previous = index > 0 ? allArguments[index - 1] : null;
+        if (string.Equals(previous, "--json-schema", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        // Native CLI prompts are currently passed as the last positional argument.
+        if (index == allArguments.Count - 1 && argument.Length > 512)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     internal sealed class SystemCodexCliRunner : NativeCliRunnerBase
     {
         public override string ProviderKind => CodexProviderKind;
@@ -1773,6 +1866,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 {
                     arguments.Add("-m");
                     arguments.Add(invocation.Model);
+                }
+
+                if (!string.IsNullOrWhiteSpace(invocation.ReasoningEffort))
+                {
+                    arguments.Add("-c");
+                    arguments.Add($"model_reasoning_effort=\"{invocation.ReasoningEffort}\"");
                 }
 
                 arguments.Add("-C");

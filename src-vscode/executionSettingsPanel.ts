@@ -426,6 +426,20 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         .join("");
     }
 
+    function reasoningEffortOptions(selectedValue) {
+      return [
+        ["", "Provider default"],
+        ["none", "none"],
+        ["minimal", "minimal"],
+        ["low", "low"],
+        ["medium", "medium"],
+        ["high", "high"],
+        ["xhigh", "xhigh"]
+      ]
+        .map(([value, label]) => '<option value="' + value + '"' + (value === selectedValue ? " selected" : "") + '>' + escapeHtml(label) + '</option>')
+        .join("");
+    }
+
     function phaseOptions(selectedValue) {
       const options = ['<option value="">Use default</option>'];
       for (const profile of state.modelProfiles) {
@@ -525,7 +539,8 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
             + fieldMarkup("Repository Access", '<select data-profile-field="repositoryAccess">' + repositoryAccessOptions(profile.repositoryAccess || "none") + '</select>')
             + fieldMarkup("Base URL", '<input type="text" data-profile-field="baseUrl" value="' + escapeHtml(profile.baseUrl || "") + '" placeholder="https://api.example.test/v1" />', !showEndpointFields)
             + fieldMarkup("API Key", '<input type="password" data-profile-field="apiKey" value="' + escapeHtml(profile.apiKey || "") + '" placeholder="secret" />', !showEndpointFields)
-            + fieldMarkup("Model", '<input type="text" data-profile-field="model" value="' + escapeHtml(profile.model || "") + '" placeholder="' + escapeHtml(profile.provider === "openai-compatible" ? "gpt-5.4" : "provider-model") + '" />', !showEndpointFields)
+            + fieldMarkup("Model", '<input type="text" data-profile-field="model" value="' + escapeHtml(profile.model || "") + '" placeholder="' + escapeHtml(profile.provider === "openai-compatible" ? "gpt-5.4" : "gpt-5.3-codex") + '" />')
+            + fieldMarkup("Reasoning Effort", '<select data-profile-field="reasoningEffort">' + reasoningEffortOptions(profile.reasoningEffort || "") + '</select>')
             + '</div>'
             + '</section>';
         }).join("");
@@ -637,6 +652,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     }
 
     function syncFromDom() {
+      const previousProfiles = state.modelProfiles.slice();
       const nextProfiles = [];
       for (const card of document.querySelectorAll("[data-profile-index]")) {
         nextProfiles.push({
@@ -645,15 +661,18 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
           baseUrl: readProfileField(card, "baseUrl"),
           apiKey: readProfileField(card, "apiKey"),
           model: readProfileField(card, "model"),
+          reasoningEffort: readProfileField(card, "reasoningEffort"),
           repositoryAccess: readProfileField(card, "repositoryAccess") || "none"
         });
       }
+      remapAssignmentsForRenamedProfiles(previousProfiles, nextProfiles);
       state.modelProfiles = nextProfiles;
       pruneMissingAssignments();
       render();
     }
 
     function syncFromDomSilently() {
+      const previousProfiles = state.modelProfiles.slice();
       const nextProfiles = [];
       for (const card of document.querySelectorAll("[data-profile-index]")) {
         nextProfiles.push({
@@ -662,11 +681,42 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
           baseUrl: readProfileField(card, "baseUrl"),
           apiKey: readProfileField(card, "apiKey"),
           model: readProfileField(card, "model"),
+          reasoningEffort: readProfileField(card, "reasoningEffort"),
           repositoryAccess: readProfileField(card, "repositoryAccess") || "none"
         });
       }
+      remapAssignmentsForRenamedProfiles(previousProfiles, nextProfiles);
       state.modelProfiles = nextProfiles;
       pruneMissingAssignments();
+    }
+
+    function remapAssignmentsForRenamedProfiles(previousProfiles, nextProfiles) {
+      const renameMap = new Map();
+      for (let index = 0; index < Math.min(previousProfiles.length, nextProfiles.length); index += 1) {
+        const previousName = String(previousProfiles[index]?.name || "").trim();
+        const nextName = String(nextProfiles[index]?.name || "").trim();
+        if (!previousName || !nextName || previousName === nextName) {
+          continue;
+        }
+
+        renameMap.set(previousName, nextName);
+      }
+
+      if (renameMap.size === 0) {
+        return;
+      }
+
+      for (const phase of executionPhases) {
+        const current = String(state.phaseModelAssignments[phase.key] || "").trim();
+        if (current && renameMap.has(current)) {
+          state.phaseModelAssignments[phase.key] = renameMap.get(current);
+        }
+      }
+
+      const autoClarificationProfile = String(state.autoClarificationAnswersProfile || "").trim();
+      if (autoClarificationProfile && renameMap.has(autoClarificationProfile)) {
+        state.autoClarificationAnswersProfile = renameMap.get(autoClarificationProfile);
+      }
     }
 
     function pruneMissingAssignments() {
@@ -700,6 +750,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         baseUrl: "",
         apiKey: "",
         model: "",
+        reasoningEffort: "",
         repositoryAccess: "none"
       });
       render();
@@ -740,6 +791,7 @@ async function saveExecutionSettingsAsync(
       baseUrl: typeof profile.baseUrl === "string" ? profile.baseUrl.trim() : "",
       apiKey: typeof profile.apiKey === "string" ? profile.apiKey.trim() : "",
       model: typeof profile.model === "string" ? profile.model.trim() : "",
+      reasoningEffort: typeof profile.reasoningEffort === "string" ? profile.reasoningEffort.trim().toLowerCase() : "",
       repositoryAccess: typeof profile.repositoryAccess === "string" ? profile.repositoryAccess.trim() : "none"
     }))
     .filter((profile) =>
@@ -747,6 +799,7 @@ async function saveExecutionSettingsAsync(
       || profile.baseUrl.length > 0
       || profile.apiKey.length > 0
       || profile.model.length > 0
+      || profile.reasoningEffort.length > 0
       || profile.provider !== "openai-compatible"
       || profile.repositoryAccess !== "none");
 

@@ -103,7 +103,8 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
                         Provider: "openai-compatible",
                         BaseUrl: $"{modelStub.BaseUrl}/v1",
                         ApiKey: string.Empty,
-                        Model: "stub-model")
+                        Model: "stub-model",
+                        RepositoryAccess: "read-write")
                 ],
                 PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
                     DefaultProfile: "default")));

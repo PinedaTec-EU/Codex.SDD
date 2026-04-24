@@ -176,7 +176,7 @@ function hasExplicitProfilesForAllModelDrivenPhases(assignments) {
     ].every((value) => Boolean(value));
 }
 function buildSettingsDiagnostics(settings) {
-    const profiles = settings.modelProfiles.map((profile) => `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"},apiKey=${profile.apiKey ? "set" : "empty"},repositoryAccess=${profile.repositoryAccess || "<missing>"}}`);
+    const profiles = settings.modelProfiles.map((profile) => `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"},reasoningEffort=${profile.reasoningEffort || "<missing>"},apiKey=${profile.apiKey ? "set" : "empty"},repositoryAccess=${profile.repositoryAccess || "<missing>"}}`);
     return [
         `profiles=${settings.modelProfiles.length}`,
         `catalog=[${profiles.join(", ")}]`,
@@ -235,8 +235,9 @@ function normalizeModelProfile(value) {
     const baseUrl = normalizeUnknownOptional(candidate.baseUrl);
     const apiKey = normalizeUnknownOptional(candidate.apiKey);
     const model = normalizeUnknownOptional(candidate.model);
+    const reasoningEffort = normalizeReasoningEffort(candidate.reasoningEffort);
     const repositoryAccess = normalizeRepositoryAccess(candidate.repositoryAccess);
-    if (!provider && !name && !baseUrl && !apiKey && !model && !repositoryAccess) {
+    if (!provider && !name && !baseUrl && !apiKey && !model && !reasoningEffort && !repositoryAccess) {
         return null;
     }
     return {
@@ -245,6 +246,7 @@ function normalizeModelProfile(value) {
         baseUrl: baseUrl ?? "",
         apiKey,
         model: model ?? "",
+        reasoningEffort,
         repositoryAccess: repositoryAccess ?? "none"
     };
 }
@@ -317,6 +319,17 @@ function normalizeUnknownOptional(value) {
 function normalizeTolerance(value) {
     const normalized = value?.trim().toLowerCase();
     return normalized === "strict" || normalized === "inferential" ? normalized : "balanced";
+}
+function normalizeReasoningEffort(value) {
+    const normalized = normalizeUnknownOptional(value)?.toLowerCase();
+    return normalized === "none"
+        || normalized === "minimal"
+        || normalized === "low"
+        || normalized === "medium"
+        || normalized === "high"
+        || normalized === "xhigh"
+        ? normalized
+        : null;
 }
 function isLocalOpenAiCompatibleEndpoint(baseUrl) {
     if (!baseUrl) {
