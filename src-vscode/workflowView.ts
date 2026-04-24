@@ -555,6 +555,8 @@ function heroTokenTone(value: string): "attention" | "paused" | "blocked" | "suc
     case "needs_clarification":
     case "runner:paused":
       return "attention";
+    case "ready":
+    case "ready-for-execution":
     case "ready_for_refinement":
       return "success";
     case "runner:stopping":
@@ -695,9 +697,22 @@ function resolvePhaseVisualTone(
   }
 }
 
-function phaseToneLabel(tone: PhaseVisualTone, fallbackState: string): string {
+function phaseToneLabel(
+  tone: PhaseVisualTone,
+  fallbackState: string,
+  playbackState: "idle" | "playing" | "paused" | "stopping",
+  isCurrent: boolean
+): string {
   if (tone === "active") {
-    return fallbackState === "current" ? "executing" : fallbackState;
+    if (playbackState === "playing") {
+      return "executing";
+    }
+
+    if (isCurrent || fallbackState === "current") {
+      return "ready";
+    }
+
+    return fallbackState;
   }
 
   if (tone === "disabled" || tone === "pending" || tone === "completed" || tone === "blocked") {
@@ -705,6 +720,24 @@ function phaseToneLabel(tone: PhaseVisualTone, fallbackState: string): string {
   }
 
   return tone;
+}
+
+function canRerunCurrentReview(
+  workflow: UserStoryWorkflowDetails,
+  selectedPhase: WorkflowPhaseDetails,
+  playbackState: "idle" | "playing" | "paused" | "stopping"
+): boolean {
+  if (playbackState !== "idle") {
+    return false;
+  }
+
+  if (!selectedPhase.isCurrent || selectedPhase.phaseId !== "review") {
+    return false;
+  }
+
+  return workflow.controls.blockingReason === "review_failed"
+    || workflow.controls.blockingReason === "review_result_missing"
+    || workflow.controls.blockingReason === "review_missing_artifact";
 }
 
 function phaseSecondaryLabel(phase: WorkflowPhaseDetails): string {
@@ -836,7 +869,12 @@ export function buildWorkflowHtml(
     pausedExecutionPhaseId,
     new Set(state.completedPhaseIds ?? [])
   );
-  const selectedPhaseDisplayState = phaseToneLabel(selectedPhaseVisualTone, selectedPhase.state);
+  const selectedPhaseDisplayState = phaseToneLabel(
+    selectedPhaseVisualTone,
+    selectedPhase.state,
+    playbackState,
+    selectedPhase.isCurrent
+  );
   const displayedPhaseId = playbackState === "playing" && effectiveExecutionPhaseId
     ? effectiveExecutionPhaseId
     : playbackState === "paused" && pausedExecutionPhaseId
@@ -909,18 +947,24 @@ export function buildWorkflowHtml(
     : null;
   const selectedPhaseStateClass = heroTokenClass(selectedPhaseDisplayState);
   const continueActionLabel = selectedPhaseIsCurrent ? "Continue" : "Continue Current Phase";
+  const rerunReviewActionLabel = "Rerun Review";
   const approveActionLabel = selectedPhaseIsCurrent ? "Approve" : "Approve Current Phase";
   const shouldRenderApproveAction = selectedPhaseIsCurrent
     && selectedPhase.requiresApproval;
+  const shouldRenderRerunReviewAction = canRerunCurrentReview(workflow, selectedPhase, playbackState);
   const detailActions = (selectedPhaseIsCurrent && (workflow.controls.canApprove || shouldRenderApproveAction || rejectPlan))
     || canRewindSelectedPhase
     || workflow.controls.canContinue
+    || shouldRenderRerunReviewAction
     || workflow.controls.canApprove
     || shouldRenderApproveAction
     ? `
       <div class="detail-actions detail-actions--phase-header">
         ${workflow.controls.canContinue
             ? `<button class="workflow-action-button workflow-action-button--progress" data-command="continue"${playDisabled ? " disabled" : ""}>${continueActionLabel}</button>`
+            : ""}
+        ${shouldRenderRerunReviewAction
+            ? `<button class="workflow-action-button workflow-action-button--progress" data-command="continue"${playDisabled ? " disabled" : ""}>${rerunReviewActionLabel}</button>`
             : ""}
         ${shouldRenderApproveAction
             ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${!workflow.controls.canApprove || shouldRenderApprovalBranchEditor(workflow, selectedPhase, selectedPhaseIsCurrent) && Boolean(state.requireExplicitApprovalBranchAcceptance) ? " disabled" : ""}>${approveActionLabel}</button>`
@@ -4304,7 +4348,7 @@ function buildPhaseGraph(
       completedPhaseIds);
     const desktopPosition = desktopLayout.positions[phase.phaseId] ?? { left: desktopLayoutConfig.columns.left, top: desktopLayoutConfig.topOffset };
     const mobilePosition = mobileLayout.positions[phase.phaseId] ?? { left: mobileLayoutConfig.columns.left, top: mobileLayoutConfig.topOffset };
-    const displayState = phaseToneLabel(visualTone, phase.state);
+    const displayState = phaseToneLabel(visualTone, phase.state, playbackState, phase.isCurrent);
     const canPausePhase = canPauseWorkflowExecutionPhase(phase.phaseId) && phase.state === "pending";
     const pauseArmed = pausedPhaseIds.has(phase.phaseId);
     const phaseIsCurrent = phase.phaseId === displayedCurrentPhaseId;

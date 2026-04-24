@@ -243,9 +243,9 @@ public sealed class SpecForgeApplicationService
         if (workflowRun.CurrentPhase == Workflow.PhaseId.Review)
         {
             var replayPending = WorkflowRunner.IsReviewReplayPending(paths);
+            var readiness = workflowRunner.GetPhaseExecutionReadiness(Workflow.PhaseId.Review);
             if (replayPending)
             {
-                var readiness = workflowRunner.GetPhaseExecutionReadiness(Workflow.PhaseId.Review);
                 canAdvance = readiness.CanExecute;
                 blockingReason = readiness.BlockingReason;
                 var replayExecutionPhase = readiness.CanExecute
@@ -271,6 +271,8 @@ public sealed class SpecForgeApplicationService
                 {
                     canAdvance = false;
                     blockingReason = "review_missing_artifact";
+                    executionPhase = WorkflowPresentation.ToPhaseSlug(Workflow.PhaseId.Review);
+                    executionReadiness = readiness;
                 }
                 else
                 {
@@ -281,6 +283,8 @@ public sealed class SpecForgeApplicationService
                         blockingReason = reviewResult == "fail"
                             ? "review_failed"
                             : "review_result_missing";
+                        executionPhase = WorkflowPresentation.ToPhaseSlug(Workflow.PhaseId.Review);
+                        executionReadiness = readiness;
                     }
                 }
             }
@@ -329,10 +333,16 @@ public sealed class SpecForgeApplicationService
             $"[app.generate_next_phase] usId={usId} actor={actor}",
             interval: TimeSpan.FromSeconds(20));
         var currentPhase = await GetCurrentPhaseAsync(workspaceRoot, usId, cancellationToken);
-        if (!currentPhase.CanAdvance)
+        if (!currentPhase.CanAdvance && !CanReplayCurrentReview(currentPhase))
         {
             throw new WorkflowDomainException(
                 $"Workflow cannot continue from phase '{currentPhase.CurrentPhase}' because '{currentPhase.BlockingReason ?? "phase_cannot_advance"}'.");
+        }
+
+        if (!currentPhase.CanAdvance && currentPhase.ExecutionReadiness is { CanExecute: false } readiness)
+        {
+            throw new WorkflowDomainException(
+                $"Phase '{currentPhase.CurrentPhase}' cannot run because '{readiness.BlockingReason ?? currentPhase.BlockingReason ?? "phase_execution_not_ready"}'.");
         }
 
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
@@ -379,6 +389,10 @@ public sealed class SpecForgeApplicationService
         var nextPhase = workflowRun.Definition.GetNextPhase(workflowRun.CurrentPhase);
         return workflowRunner.GetPhaseExecutionReadiness(nextPhase);
     }
+
+    private static bool CanReplayCurrentReview(CurrentPhaseSummary currentPhase) =>
+        currentPhase.CurrentPhase == WorkflowPresentation.ToPhaseSlug(Workflow.PhaseId.Review)
+        && currentPhase.BlockingReason is "review_failed" or "review_result_missing" or "review_missing_artifact";
 
     public async Task<UserStoryRuntimeStatus> GetUserStoryRuntimeStatusAsync(
         string workspaceRoot,

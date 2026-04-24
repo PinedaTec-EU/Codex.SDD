@@ -451,7 +451,8 @@ public sealed class WorkflowRunner
                 clarificationResult.Execution);
         }
 
-        if (workflowRun.CurrentPhase == PhaseId.Review && IsReviewReplayPending(paths))
+        if (workflowRun.CurrentPhase == PhaseId.Review &&
+            await ShouldReplayCurrentReviewAsync(paths, cancellationToken))
         {
             var reviewReadiness = phaseExecutionProvider.GetPhaseExecutionReadiness(PhaseId.Review);
             if (!reviewReadiness.CanExecute)
@@ -460,8 +461,11 @@ public sealed class WorkflowRunner
                     $"Phase '{WorkflowPresentation.ToPhaseSlug(PhaseId.Review)}' cannot run because '{reviewReadiness.BlockingReason ?? "phase_execution_not_ready"}'.");
             }
 
+            var replayPending = IsReviewReplayPending(paths);
             SpecForgeDiagnostics.Log(
-                $"[runner.continue_phase] usId={usId} replaying current review phase after rewind.");
+                replayPending
+                    ? $"[runner.continue_phase] usId={usId} replaying current review phase after rewind."
+                    : $"[runner.continue_phase] usId={usId} replaying current review phase after failed or incomplete review.");
             var reviewGeneration = await MaterializePhaseArtifactAsync(
                 workspaceRoot,
                 paths,
@@ -474,7 +478,9 @@ public sealed class WorkflowRunner
                 "phase_completed",
                 normalizedActor,
                 workflowRun.CurrentPhase,
-                "Regenerated artifact for phase `review` after workflow rewind.",
+                replayPending
+                    ? "Regenerated artifact for phase `review` after workflow rewind."
+                    : "Regenerated artifact for phase `review` after a failed or incomplete review.",
                 cancellationToken,
                 reviewGeneration.ArtifactPath,
                 reviewGeneration.Usage,
@@ -1195,6 +1201,25 @@ public sealed class WorkflowRunner
         }
 
         return latestReviewRewindIndex > latestReviewCompletionIndex;
+    }
+
+    private static async Task<bool> ShouldReplayCurrentReviewAsync(
+        UserStoryFilePaths paths,
+        CancellationToken cancellationToken)
+    {
+        if (IsReviewReplayPending(paths))
+        {
+            return true;
+        }
+
+        var reviewPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Review);
+        if (string.IsNullOrWhiteSpace(reviewPath) || !File.Exists(reviewPath))
+        {
+            return true;
+        }
+
+        var reviewResult = TryReadReviewResult(await File.ReadAllTextAsync(reviewPath, cancellationToken));
+        return reviewResult != "pass";
     }
 
     private static string ParseReviewResult(string reviewMarkdown)

@@ -195,6 +195,58 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /scrollIntoView/);
 });
 
+test("buildWorkflowHtml shows ready instead of executing when the current phase is idle", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0001",
+    title: "Idle ready state",
+    category: "workflow",
+    status: "active",
+    currentPhase: "technical-design",
+    directoryPath: "/tmp/us.US-0001",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "technical-design",
+        title: "Technical Design",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: true,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/02-technical-design.md",
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "technical-design",
+    selectedArtifactContent: "## Technical Design",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /phase-tag phase-tag--active">ready</);
+  assert.match(html, /token token--success">ready</);
+  assert.doesNotMatch(html, /phase-tag phase-tag--active">executing</);
+});
+
 test("buildWorkflowHtml wires release-approval reject modal to rewind into review", () => {
   const html = buildWorkflowHtml({
     usId: "US-0099",
@@ -2571,6 +2623,76 @@ test("buildWorkflowHtml marks a phase blocked when its model security precheck f
   assert.match(html, /Phase permission precheck failed because the assigned model only has repository access &#39;read&#39; but phase &#39;Implementation&#39; requires &#39;read-write&#39;/);
   assert.doesNotMatch(html, /phase-tag[^"]*">model /);
   assert.doesNotMatch(html, /security blocked/);
+});
+
+test("buildWorkflowHtml renders rerun review action when review failed and the workflow is idle", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0100",
+    title: "Review rerun",
+    category: "workflow",
+    status: "active",
+    currentPhase: "review",
+    directoryPath: "/tmp/us.US-0100",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "review",
+        title: "Review",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/04-review.md",
+        executePromptPath: "/tmp/review.execute.md",
+        approvePromptPath: null,
+        executionReadiness: {
+          phaseId: "review",
+          canExecute: true,
+          blockingReason: null,
+          requiredPermissions: {
+            modelExecutionRequired: true,
+            repositoryAccess: "read-write",
+            workspaceWriteAccess: true
+          },
+          assignedModelSecurity: {
+            providerKind: "codex",
+            model: "gpt-5",
+            profileName: "reviewer",
+            repositoryAccess: "read-write",
+            nativeCliRequired: true,
+            nativeCliAvailable: true
+          },
+          validationMessage: "Phase security precheck passed."
+        }
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: "review_failed",
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "review",
+    selectedArtifactContent: "# Review",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /data-command="continue"[^>]*>Rerun Review</);
+  assert.match(html, /token token--success">ready</);
 });
 
 test("buildWorkflowHtml keeps execution disabled when the workflow is open without an SLM or LLM provider", () => {
