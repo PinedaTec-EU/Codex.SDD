@@ -1043,7 +1043,6 @@ test("buildWorkflowHtml animates the current execution phase while autoplay is r
     /if \(overlayTone === "playing"\) \{\s*clearExecutionOverlayDismissed\(dismissKey\);\s*\}\s*if \(overlayTone !== "playing" && dismissible && isExecutionOverlayDismissed\(dismissKey\)\)/
   );
   assert.match(html, /if \(messageElement && shuffledMessages\.length > 0\)/);
-  assert.match(html, /if \(overlayTone !== "playing" && graphStage\)/);
   assert.match(html, /const positionExecutionOverlay = \(\) =>/);
   assert.match(html, /window\.addEventListener\("resize", positionExecutionOverlay\)/);
   assert.match(html, /window\.removeEventListener\("resize", positionExecutionOverlay\)/);
@@ -1422,7 +1421,7 @@ test("buildWorkflowHtml embeds a broad rotating execution message catalog for lo
   assert.match(html, /Trying to keep the patch surgical instead of theatrical\./);
   assert.match(html, /Untangling edge cases before they untangle the plan\./);
   assert.match(html, /Math\.random/);
-  assert.match(html, /graph-stage--overlay-active/);
+  assert.match(html, /<div class="graph-stage graph-stage--overlay-active graph-stage--overlay-blocking">/);
   assert.match(
     html,
     /if \(overlayTone === "playing"\) {\s+clearExecutionOverlayDismissed\(dismissKey\);\s+}\s+if \(overlayTone !== "playing" && dismissible && isExecutionOverlayDismissed\(dismissKey\)\)/
@@ -1482,9 +1481,10 @@ test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
   assert.doesNotMatch(html, /<span class="execution-overlay__elapsed"/);
   assert.match(html, /data-show-elapsed="false"/);
   assert.match(html, /data-anchor-phase-id="review"/);
-  assert.match(html, /\.graph-stage\.graph-stage--overlay-active \.phase-graph[\s\S]*pointer-events: none;/);
+  assert.match(html, /<div class="graph-stage graph-stage--overlay-active">/);
+  assert.doesNotMatch(html, /<div class="graph-stage graph-stage--overlay-active graph-stage--overlay-blocking">/);
   assert.match(html, /graphStage\.classList\.remove\("graph-stage--overlay-active"\)/);
-  assert.match(html, /document\.addEventListener\("pointerdown"/);
+  assert.doesNotMatch(html, /document\.addEventListener\("pointerdown"/);
 });
 
 test("buildWorkflowHtml anchors paused state to the ad hoc paused phase when provided", () => {

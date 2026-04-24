@@ -1686,7 +1686,7 @@ export function buildWorkflowHtml(
       min-height: ${desktopGraphHeight}px;
       z-index: 2;
     }
-    .graph-stage.graph-stage--overlay-active .phase-graph {
+    .graph-stage.graph-stage--overlay-blocking .phase-graph {
       filter: blur(2px) saturate(0.85) brightness(0.78);
       transform: scale(0.997);
       pointer-events: none;
@@ -3243,7 +3243,7 @@ export function buildWorkflowHtml(
         <aside class="panel graph-panel">
           <h2 class="panel-title">Workflow Constellation</h2>
           <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and audit context.</p>
-          <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}">
+          <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}${playbackState === "playing" || playbackState === "stopping" ? " graph-stage--overlay-blocking" : ""}">
             ${executionOverlay}
             ${phaseGraph}
           </div>
@@ -4056,20 +4056,6 @@ export function buildWorkflowHtml(
           });
         }
 
-        if (overlayTone !== "playing" && graphStage) {
-          document.addEventListener("pointerdown", (event) => {
-            const target = event.target;
-            if (!(target instanceof Node)) {
-              return;
-            }
-
-            if (executionOverlay.contains(target)) {
-              return;
-            }
-
-            dismissOverlay();
-          }, { once: true });
-        }
       }
     }
 
