@@ -7,7 +7,12 @@ import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSet
 import { appendSpecForgeDebugLog, appendSpecForgeLog, isSpecForgeDebugLoggingEnabled, showSpecForgeOutput } from "./outputChannel";
 import { readRuntimeVersionAsync } from "./runtimeVersion";
 import { getCurrentActor } from "./userActor";
-import { normalizePlaybackStateAfterManualWorkflowChange } from "./workflowPlaybackState";
+import {
+  canPauseWorkflowExecutionPhase,
+  normalizePlaybackStateAfterManualWorkflowChange,
+  resolveNextWorkflowExecutionPhaseId,
+  resolveWorkflowExecutionPhaseId
+} from "./workflowPlaybackState";
 import { buildWorkBranchProposal } from "./workflowBranchName";
 import { resolveWorkflowRejectPlan } from "./workflowRejectPlan";
 import { buildWorkflowHtml } from "./workflowView";
@@ -36,6 +41,7 @@ type WorkflowPanelCommand =
   | { readonly command: "submitPhaseInput"; readonly prompt?: string }
   | { readonly command: "play" }
   | { readonly command: "pause" }
+  | { readonly command: "togglePhasePause"; readonly phaseId?: string }
   | { readonly command: "stop" };
 
 const panels = new Map<string, WorkflowPanelController>();
@@ -101,6 +107,7 @@ class WorkflowPanelController {
   private lastWorkflow: UserStoryWorkflowDetails | null = null;
   private transientExecutionPhaseId: string | null = null;
   private transientCompletedPhaseIds: readonly string[] = [];
+  private readonly pausedPhaseIds = new Set<string>();
   private readonly refinementApprovalBaseBranchProposal = "main";
 
   public constructor(
@@ -189,14 +196,6 @@ class WorkflowPanelController {
       `Workflow '${this.summary.usId}' refresh start. reason='${reason}', selectedPhase='${this.selectedPhaseId}', playback='${this.playbackState}', summaryPhase='${this.summary.currentPhase}'.`
     );
     const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
-    if (this.playbackState === "paused" && workflow.controls.canContinue) {
-      appendSpecForgeDebugLog(
-        `Workflow '${this.summary.usId}' cleared stale paused playback after refresh because the workflow can continue again.`
-      );
-      this.playbackState = "idle";
-      this.playbackStartedAtMs = null;
-      this.clearTransientExecutionPhase();
-    }
     this.lastWorkflow = workflow;
     this.summary = {
       ...this.summary,
@@ -302,10 +301,14 @@ class WorkflowPanelController {
         await this.startAutoplayAsync("command:play");
         return;
       case "pause":
-        appendSpecForgeLog(`Autoplay paused for '${this.summary.usId}'.`);
-        this.playbackState = "paused";
-        this.clearTransientExecutionPhase();
+        await this.armNextPhasePauseAsync("toolbar pause");
         await this.refreshAsync("command:pause");
+        return;
+      case "togglePhasePause":
+        if (message.phaseId) {
+          this.togglePhasePause(message.phaseId);
+        }
+        await this.refreshAsync("command:togglePhasePause");
         return;
       case "stop":
         appendSpecForgeLog(`Autoplay stopped for '${this.summary.usId}'.`);
@@ -754,6 +757,20 @@ class WorkflowPanelController {
       appendSpecForgeLog(`Autoplay loop started for '${this.summary.usId}'.`);
       while (this.playbackState === "playing") {
         const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+        const executionPhaseId = this.resolveExecutionPhaseIdForWorkflow(workflow);
+        if (executionPhaseId && this.isPhasePauseArmed(executionPhaseId)) {
+          this.playbackState = "paused";
+          this.setTransientExecutionPhase(executionPhaseId);
+          appendSpecForgeLog(
+            `Autoplay paused for '${workflow.usId}' before executing phase '${executionPhaseId}' because its phase card pause is armed.`
+          );
+          appendSpecForgeDebugLog(
+            `Workflow '${workflow.usId}' held at phase boundary before '${executionPhaseId}' due to ad hoc phase pause.`
+          );
+          await this.refreshAsync("autoplay:pausedByPhase");
+          return;
+        }
+
         if (!workflow.controls.canContinue) {
           this.playbackState = "paused";
           this.clearTransientExecutionPhase();
@@ -879,6 +896,7 @@ class WorkflowPanelController {
       phaseModelAssignments: settings.effectivePhaseModelAssignments,
       runtimeVersion,
       executionPhaseId: this.transientExecutionPhaseId,
+      pausedPhaseIds: [...this.pausedPhaseIds],
       completedPhaseIds: this.transientCompletedPhaseIds,
       playbackStartedAtMs: this.playbackStartedAtMs,
       executionSettingsPending: this.callbacks.hasPendingExecutionSettings(this.workspaceRoot),
@@ -924,9 +942,7 @@ class WorkflowPanelController {
   }
 
   private deriveInitialExecutionPhaseId(): string {
-    return this.summary.currentPhase === "capture"
-      ? "clarification"
-      : this.summary.currentPhase;
+    return resolveWorkflowExecutionPhaseId(this.summary.currentPhase) ?? this.summary.currentPhase;
   }
 
   private deriveExecutionPhaseFromWatchedPath(filePath: string): string | null {
@@ -979,6 +995,62 @@ class WorkflowPanelController {
 
     appendSpecForgeLog(
       `Workflow '${this.summary.usId}' applied deferred execution settings after ${trigger}. Phase changed from '${previousPhase}' to '${nextPhase}'.`
+    );
+  }
+
+  private resolveExecutionPhaseIdForWorkflow(workflow: UserStoryWorkflowDetails): string | null {
+    return resolveWorkflowExecutionPhaseId(workflow.currentPhase);
+  }
+
+  private isPhasePauseArmed(phaseId: string): boolean {
+    return this.pausedPhaseIds.has(phaseId);
+  }
+
+  private togglePhasePause(phaseId: string): void {
+    if (!canPauseWorkflowExecutionPhase(phaseId)) {
+      appendSpecForgeDebugLog(
+        `Workflow '${this.summary.usId}' ignored phase pause toggle for non-executable phase '${phaseId}'.`
+      );
+      return;
+    }
+
+    if (this.pausedPhaseIds.has(phaseId)) {
+      this.pausedPhaseIds.delete(phaseId);
+      appendSpecForgeLog(`Workflow '${this.summary.usId}' cleared ad hoc pause for phase '${phaseId}'.`);
+      return;
+    }
+
+    this.pausedPhaseIds.add(phaseId);
+    appendSpecForgeLog(`Workflow '${this.summary.usId}' armed ad hoc pause for phase '${phaseId}'.`);
+  }
+
+  private async armNextPhasePauseAsync(origin: string): Promise<void> {
+    const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+    this.lastWorkflow = workflow;
+    const executionPhaseId = this.transientExecutionPhaseId
+      ?? this.resolveExecutionPhaseIdForWorkflow(workflow)
+      ?? resolveWorkflowExecutionPhaseId(this.summary.currentPhase);
+    const nextPhaseId = executionPhaseId
+      ? resolveNextWorkflowExecutionPhaseId(executionPhaseId)
+      : null;
+
+    if (!nextPhaseId) {
+      appendSpecForgeDebugLog(
+        `Workflow '${this.summary.usId}' could not arm next phase pause from ${origin} because no later executable phase was found.`
+      );
+      return;
+    }
+
+    if (!this.pausedPhaseIds.has(nextPhaseId)) {
+      this.pausedPhaseIds.add(nextPhaseId);
+      appendSpecForgeLog(
+        `Workflow '${this.summary.usId}' armed ad hoc pause for next phase '${nextPhaseId}' from ${origin}.`
+      );
+      return;
+    }
+
+    appendSpecForgeDebugLog(
+      `Workflow '${this.summary.usId}' left next phase '${nextPhaseId}' paused because it was already armed from ${origin}.`
     );
   }
 }

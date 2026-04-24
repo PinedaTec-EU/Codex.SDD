@@ -4,6 +4,7 @@ import { buildClarificationPhaseSections } from "./workflow-view/clarificationPh
 import { buildImplementationPhaseSections } from "./workflow-view/implementationPhaseView";
 import type { ApprovalQuestionItem, PhaseIterationItem, PhaseSectionFragments, WorkflowViewState } from "./workflow-view/models";
 import { buildPrPreparationPhaseSections } from "./workflow-view/prPreparationPhaseView";
+import { canPauseWorkflowExecutionPhase } from "./workflowPlaybackState";
 import { resolveWorkflowRejectPlan } from "./workflowRejectPlan";
 import { buildRefinementPhaseSections } from "./workflow-view/refinementPhaseView";
 import { buildReleaseApprovalPhaseSections } from "./workflow-view/releaseApprovalPhaseView";
@@ -440,8 +441,11 @@ function buildExecutionOverlay(
 
   const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
   const effectiveExecutionPhaseId = resolveEffectiveExecutionPhaseId(workflow, state, playbackState);
+  const pausedExecutionPhaseId = resolvePausedExecutionPhaseId(workflow, state, playbackState);
   const overlayPhase = playbackState === "playing" && effectiveExecutionPhaseId
     ? workflow.phases.find((phase) => phase.phaseId === effectiveExecutionPhaseId) ?? currentPhase
+    : playbackState === "paused" && pausedExecutionPhaseId
+      ? workflow.phases.find((phase) => phase.phaseId === pausedExecutionPhaseId) ?? currentPhase
     : currentPhase;
   const overlay: ExecutionOverlayModel = playbackState === "playing"
     ? {
@@ -456,16 +460,24 @@ function buildExecutionOverlay(
     : playbackState === "paused"
       ? {
         usId: workflow.usId,
-        title: `Paused after ${currentPhase.title}`,
-        phaseId: currentPhase.phaseId,
+        title: pausedExecutionPhaseId && pausedExecutionPhaseId !== currentPhase.phaseId
+          ? `Paused before ${overlayPhase.title}`
+          : `Paused after ${currentPhase.title}`,
+        phaseId: overlayPhase.phaseId,
         tone: "paused",
         startedAtMs: state.playbackStartedAtMs ?? null,
         showElapsed: false,
-        messages: [
-          "The current phase finished, but SpecForge.AI will wait before launching the next one.",
-          "Playback is paused at the phase boundary. Resume when you want the workflow moving again.",
-          "Holding the line here so the next phase does not start on its own."
-        ]
+        messages: pausedExecutionPhaseId && pausedExecutionPhaseId !== currentPhase.phaseId
+          ? [
+            "This phase has an ad hoc pause armed, so SpecForge.AI is holding before execution starts.",
+            "Playback is paused at the phase boundary. Resume when you want this marked phase to run.",
+            "The workflow is staged on the next phase and waiting for you to release it."
+          ]
+          : [
+            "The current phase finished, but SpecForge.AI will wait before launching the next one.",
+            "Playback is paused at the phase boundary. Resume when you want the workflow moving again.",
+            "Holding the line here so the next phase does not start on its own."
+          ]
       }
       : {
         usId: workflow.usId,
@@ -552,6 +564,7 @@ function resolvePhaseVisualTone(
   phase: WorkflowPhaseDetails,
   disabled: boolean,
   executionPhaseId: string | null,
+  pausedPhaseId: string | null,
   completedPhaseIds: ReadonlySet<string>
 ): PhaseVisualTone {
   if (disabled) {
@@ -564,6 +577,10 @@ function resolvePhaseVisualTone(
 
   if (playbackState === "playing" && executionPhaseId === phase.phaseId) {
     return "active";
+  }
+
+  if ((playbackState === "paused" || playbackState === "stopping") && pausedPhaseId === phase.phaseId) {
+    return "paused";
   }
 
   if (phase.state === "completed") {
@@ -726,10 +743,13 @@ export function buildWorkflowHtml(
   const selectedPhase = workflow.phases.find((phase) => phase.phaseId === state.selectedPhaseId) ?? workflow.phases[0];
   const isClarificationDetail = selectedPhase.phaseId === "clarification" && workflow.clarification !== null;
   const effectiveExecutionPhaseId = resolveEffectiveExecutionPhaseId(workflow, state, playbackState);
+  const pausedExecutionPhaseId = resolvePausedExecutionPhaseId(workflow, state, playbackState);
   const phaseGraph = buildPhaseGraph(workflow, state, selectedPhase.phaseId, playbackState, effectiveExecutionPhaseId);
   const executionOverlay = buildExecutionOverlay(workflow, state, playbackState);
   const displayedPhaseId = playbackState === "playing" && effectiveExecutionPhaseId
     ? effectiveExecutionPhaseId
+    : playbackState === "paused" && pausedExecutionPhaseId
+      ? pausedExecutionPhaseId
     : workflow.currentPhase;
   const settingsBanner = state.executionSettingsPending && state.executionSettingsPendingMessage
     ? `
@@ -1936,10 +1956,6 @@ export function buildWorkflowHtml(
       opacity: 0.72;
       box-shadow: 0 10px 18px rgba(6, 8, 12, 0.14);
     }
-    .phase-node.phase-tone-disabled .phase-status-dot {
-      background: rgba(255, 255, 255, 0.14);
-      box-shadow: none;
-    }
     .phase-node-header {
       display: flex;
       justify-content: space-between;
@@ -1999,33 +2015,60 @@ export function buildWorkflowHtml(
       font-size: 0.9rem;
       font-weight: 700;
     }
-    .phase-status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.18);
-      box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.04);
-      margin-top: 4px;
+    .phase-pause-toggle {
+      width: 34px;
+      height: 34px;
+      margin-top: 2px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      color: rgba(235, 244, 255, 0.82);
+      background: rgba(255, 255, 255, 0.05);
+      box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.03);
+      cursor: pointer;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, color 140ms ease;
     }
-    .phase-node.phase-tone-active .phase-status-dot {
-      background: #59bbff;
-      box-shadow: 0 0 0 8px rgba(89, 187, 255, 0.12);
+    .phase-pause-toggle:hover:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: rgba(255, 213, 90, 0.42);
+      background: rgba(255, 213, 90, 0.14);
+      color: rgba(255, 235, 170, 0.96);
+      box-shadow: 0 0 0 8px rgba(255, 213, 90, 0.08);
     }
-    .phase-node.phase-tone-waiting-user .phase-status-dot {
-      background: var(--attention-egg);
-      box-shadow: 0 0 0 8px rgba(255, 213, 90, 0.14);
+    .phase-pause-toggle:focus-visible {
+      outline: 2px solid rgba(255, 213, 90, 0.62);
+      outline-offset: 2px;
     }
-    .phase-node.phase-tone-paused .phase-status-dot {
-      background: #59bbff;
-      box-shadow: 0 0 0 8px rgba(89, 187, 255, 0.1);
+    .phase-pause-toggle:disabled {
+      cursor: not-allowed;
+      opacity: 0.38;
+      box-shadow: none;
     }
-    .phase-node.phase-tone-blocked .phase-status-dot {
-      background: #ff8b8b;
-      box-shadow: 0 0 0 8px rgba(255, 139, 139, 0.08);
+    .phase-pause-toggle svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
     }
-    .phase-node.phase-tone-completed .phase-status-dot {
-      background: var(--accent);
-      box-shadow: 0 0 0 8px rgba(114, 241, 184, 0.1);
+    .phase-pause-toggle--armed {
+      border-color: rgba(255, 213, 90, 0.54);
+      background: rgba(255, 213, 90, 0.18);
+      color: rgba(255, 232, 152, 0.98);
+      box-shadow: 0 0 0 8px rgba(255, 213, 90, 0.1);
+    }
+    .phase-node.phase-tone-active .phase-pause-toggle,
+    .phase-node.phase-tone-paused .phase-pause-toggle {
+      border-color: rgba(92, 181, 255, 0.3);
+    }
+    .phase-node.phase-tone-active .phase-pause-toggle--armed,
+    .phase-node.phase-tone-paused .phase-pause-toggle--armed {
+      border-color: rgba(255, 213, 90, 0.58);
+    }
+    .phase-node.phase-tone-disabled .phase-pause-toggle {
+      opacity: 0.3;
+      box-shadow: none;
     }
     .phase-node h3 {
       margin: 14px 0 4px;
@@ -3263,19 +3306,40 @@ export function buildWorkflowHtml(
       document.body.removeChild(textarea);
       return copied;
     }
+    const postCommand = (element) => {
+      vscode.postMessage({
+        command: element.dataset.command,
+        phaseId: element.dataset.phaseId,
+        path: element.dataset.path,
+        kind: element.dataset.kind
+      });
+    };
     for (const element of document.querySelectorAll("[data-command]")) {
-      if (element instanceof HTMLElement && element.dataset.command === "approve") {
+      if (!(element instanceof HTMLElement) || element.dataset.command === "approve") {
         continue;
       }
 
-      element.addEventListener("click", () => {
-        vscode.postMessage({
-          command: element.dataset.command,
-          phaseId: element.dataset.phaseId,
-          path: element.dataset.path,
-          kind: element.dataset.kind
-        });
+      element.addEventListener("click", (event) => {
+        const nestedCommand = event.target instanceof Element
+          ? event.target.closest("[data-command]")
+          : null;
+        if (nestedCommand && nestedCommand !== element) {
+          return;
+        }
+
+        postCommand(element);
       });
+
+      if (element.dataset.command === "selectPhase") {
+        element.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") {
+            return;
+          }
+
+          event.preventDefault();
+          postCommand(element);
+        });
+      }
     }
     for (const element of document.querySelectorAll("[data-copy-text]")) {
       if (!(element instanceof HTMLButtonElement)) {
@@ -4059,6 +4123,8 @@ function buildPhaseGraph(
 ): string {
   const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
   const executionPhaseId = playbackState === "playing" ? effectiveExecutionPhaseId : null;
+  const pausedExecutionPhaseId = resolvePausedExecutionPhaseId(workflow, state, playbackState);
+  const pausedPhaseIds = new Set(state.pausedPhaseIds ?? []);
   const completedPhaseIds = new Set(state.completedPhaseIds ?? []);
   const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);
   const visiblePhases = workflow.phases.filter((phase) =>
@@ -4080,16 +4146,24 @@ function buildPhaseGraph(
       phase,
       disabled,
       executionPhaseId,
+      pausedExecutionPhaseId,
       completedPhaseIds);
     const desktopPosition = desktopLayout.positions[phase.phaseId] ?? { left: desktopLayoutConfig.columns.left, top: desktopLayoutConfig.topOffset };
     const mobilePosition = mobileLayout.positions[phase.phaseId] ?? { left: mobileLayoutConfig.columns.left, top: mobileLayoutConfig.topOffset };
     const displayState = phaseToneLabel(visualTone, phase.state);
     const modelProfileLabel = phaseModelProfileLabel(phase, state);
+    const canPausePhase = canPauseWorkflowExecutionPhase(phase.phaseId);
+    const pauseArmed = pausedPhaseIds.has(phase.phaseId);
+    const pauseButtonLabel = pauseArmed
+      ? `Remove pause before ${phase.title}`
+      : `Pause before ${phase.title}`;
     return `
-    <button
+    <div
       class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phase.phaseId === selectedPhaseId ? " selected" : ""}${phase.isCurrent ? " phase-node--current" : ""}"
       data-command="selectPhase"
       data-phase-id="${escapeHtmlAttribute(phase.phaseId)}"
+      role="button"
+      tabindex="0"
       style="--phase-left-desktop: ${desktopPosition.left}px; --phase-top-desktop: ${desktopPosition.top}px; --phase-left-mobile: ${mobilePosition.left}px; --phase-top-mobile: ${mobilePosition.top}px;">
       ${phase.isCurrent ? `<span class="phase-current-rail"><span class="phase-current-rail__label">Current</span></span>` : ""}
       <div class="phase-node-content${phase.isCurrent ? " phase-node-content--current" : ""}">
@@ -4098,7 +4172,18 @@ function buildPhaseGraph(
             <span class="phase-index">${index + 1}</span>
             ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
           </div>
-          <span class="phase-status-dot"></span>
+          <button
+            class="phase-pause-toggle${pauseArmed ? " phase-pause-toggle--armed" : ""}"
+            type="button"
+            data-command="togglePhasePause"
+            data-phase-id="${escapeHtmlAttribute(phase.phaseId)}"
+            data-phase-pause-button
+            aria-label="${escapeHtmlAttribute(pauseButtonLabel)}"
+            aria-pressed="${pauseArmed ? "true" : "false"}"
+            title="${escapeHtmlAttribute(pauseButtonLabel)}"
+            ${canPausePhase ? "" : "disabled"}>
+            ${pauseIcon()}
+          </button>
         </div>
         <h3>${escapeHtml(phase.title)}</h3>
         <div class="phase-slug">${escapeHtml(phaseSecondaryLabel(phase))}</div>
@@ -4109,7 +4194,7 @@ function buildPhaseGraph(
           ${phase.isApproved ? `<span class="phase-tag">approved</span>` : ""}
         </div>
       </div>
-    </button>
+    </div>
   `;
   }).join("");
 
@@ -4141,6 +4226,22 @@ function resolveEffectiveExecutionPhaseId(
 
   if (workflow.currentPhase === "capture") {
     return "clarification";
+  }
+
+  return workflow.currentPhase;
+}
+
+function resolvePausedExecutionPhaseId(
+  workflow: UserStoryWorkflowDetails,
+  state: WorkflowViewState,
+  playbackState: "idle" | "playing" | "paused" | "stopping"
+): string | null {
+  if (playbackState !== "paused" && playbackState !== "stopping") {
+    return null;
+  }
+
+  if (state.executionPhaseId) {
+    return state.executionPhaseId;
   }
 
   return workflow.currentPhase;
