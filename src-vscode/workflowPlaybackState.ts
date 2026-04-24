@@ -17,6 +17,7 @@ export function normalizePlaybackStateAfterManualWorkflowChange(
 }
 
 export function canPauseWorkflowExecutionPhase(phaseId: string): boolean {
+  // Capture is intentionally excluded: the first pauseable boundary is before clarification.
   return workflowExecutionPhaseOrder.includes(phaseId as typeof workflowExecutionPhaseOrder[number]);
 }
 

@@ -1636,6 +1636,175 @@ test("buildWorkflowHtml only shows phase pause buttons for unexecuted pending ph
   assert.match(html, /phase-pause-toggle phase-pause-toggle--armed/);
 });
 
+test("buildWorkflowHtml shows phase pause buttons again after a rewind makes later phases pending", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0017",
+    title: "Rewind pause recovery",
+    category: "workflow",
+    status: "active",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0017",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: false,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "technical-design",
+        title: "Technical Design",
+        order: 2,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "implementation",
+        title: "Implementation",
+        order: 3,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "technical-design",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.doesNotMatch(html, /data-command="togglePhasePause"[^>]*data-phase-id="capture"/);
+  assert.match(html, /data-command="togglePhasePause"[^>]*data-phase-id="technical-design"/);
+  assert.match(html, /data-command="togglePhasePause"[^>]*data-phase-id="implementation"/);
+});
+
+test("buildWorkflowHtml shows pause buttons after a reset from capture onward but never on capture", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0018",
+    title: "Reset pause recovery",
+    category: "workflow",
+    status: "active",
+    currentPhase: "capture",
+    directoryPath: "/tmp/us.US-0018",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "clarification",
+        title: "Clarification",
+        order: 1,
+        requiresApproval: false,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 2,
+        requiresApproval: false,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "capture",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.doesNotMatch(html, /data-command="togglePhasePause"[^>]*data-phase-id="capture"/);
+  assert.match(html, /data-command="togglePhasePause"[^>]*data-phase-id="clarification"/);
+  assert.match(html, /data-command="togglePhasePause"[^>]*data-phase-id="refinement"/);
+});
+
 test("buildWorkflowHtml locks background interaction while the workflow files modal is open", () => {
   const html = buildWorkflowHtml({
     usId: "US-0014",
