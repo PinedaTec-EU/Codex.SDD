@@ -6,6 +6,7 @@ import * as path from "node:path";
 import {
   getUserWorkspacePreferencesPath,
   readUserWorkspacePreferences,
+  setPausedWorkflowPhaseIds,
   setStarredUserStory
 } from "../src-vscode/userWorkspacePreferences";
 
@@ -27,4 +28,13 @@ test("user workspace preferences clear the starred user story when unset", async
   const preferences = await readUserWorkspacePreferences(workspaceRoot);
 
   assert.equal(preferences.starredUserStoryId, null);
+});
+
+test("user workspace preferences persist paused workflow phase ids per user story", async () => {
+  const workspaceRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "specforge-prefs-"));
+
+  await setPausedWorkflowPhaseIds(workspaceRoot, "US-0042", ["implementation", "review", "implementation"]);
+  const preferences = await readUserWorkspacePreferences(workspaceRoot);
+
+  assert.deepEqual(preferences.pausedWorkflowPhaseIdsByUsId["US-0042"], ["implementation", "review"]);
 });

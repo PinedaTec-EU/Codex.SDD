@@ -1623,6 +1623,104 @@ test("buildWorkflowHtml pauses before implementation when technical design is th
   assert.match(html, /phase-node implementation phase-tone-paused/);
 });
 
+test("buildWorkflowHtml prefers configured overlay model label over stale historical execution labels", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0020",
+    title: "Overlay model routing",
+    category: "workflow",
+    status: "active",
+    currentPhase: "technical-design",
+    directoryPath: "/tmp/us.US-0020",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "technical-design",
+        title: "Technical Design",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "implementation",
+        title: "Implementation",
+        order: 1,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    approvalQuestions: [],
+    events: [
+      {
+        timestampUtc: "2026-04-24T07:00:00Z",
+        code: "phase_completed",
+        actor: "system",
+        phase: "implementation",
+        summary: "Old implementation run.",
+        artifacts: [],
+        usage: null,
+        durationMs: null,
+        execution: {
+          providerKind: "openai-compatible",
+          model: "qwen3.6:27b",
+          profileName: "reviewer",
+          baseUrl: "http://localhost:11434/v1"
+        }
+      }
+    ],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "technical-design",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    executionPhaseId: "implementation",
+    modelProfiles: [
+      { name: "codex-main", model: "codex" },
+      { name: "reviewer", model: "qwen3.6:27b" }
+    ],
+    phaseModelAssignments: {
+      defaultProfileName: "light",
+      captureProfileName: null,
+      clarificationProfileName: null,
+      refinementProfileName: null,
+      technicalDesignProfileName: "codex-main",
+      implementationProfileName: "codex-main",
+      reviewProfileName: "reviewer",
+      releaseApprovalProfileName: null,
+      prPreparationProfileName: null
+    }
+  }, "playing");
+
+  assert.match(html, /Executing Implementation/);
+  assert.match(html, /execution-overlay__phase-model">codex-main \/ codex</);
+});
+
 test("buildWorkflowHtml only shows phase pause buttons for unexecuted pending phases", () => {
   const html = buildWorkflowHtml({
     usId: "US-0016",

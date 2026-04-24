@@ -495,11 +495,12 @@ function buildExecutionOverlay(
 
   const overlayPhaseProfileLabel = phaseModelProfileLabel(overlayPhase, state);
   const overlayConfiguredModel = findConfiguredModelForProfile(state, overlayPhaseProfileLabel);
-  const overlayPhaseModelLabel = findLatestPhaseExecutionLabel(workflow, overlayPhase.phaseId, state)
-    ?? formatExecutionLabel(
-      overlayConfiguredModel ? { model: overlayConfiguredModel, profileName: overlayPhaseProfileLabel } : null,
-      { configuredModel: overlayConfiguredModel }
-    )
+  const overlayPhaseConfiguredLabel = formatExecutionLabel(
+    overlayConfiguredModel ? { model: overlayConfiguredModel, profileName: overlayPhaseProfileLabel } : null,
+    { configuredModel: overlayConfiguredModel }
+  );
+  const overlayPhaseModelLabel = overlayPhaseConfiguredLabel
+    ?? findLatestPhaseExecutionLabel(workflow, overlayPhase.phaseId, state)
     ?? overlayPhaseProfileLabel;
 
   return `

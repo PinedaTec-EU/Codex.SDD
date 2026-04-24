@@ -15,6 +15,7 @@ import {
 import { buildWorkBranchProposal } from "./workflowBranchName";
 import { resolveWorkflowRejectPlan } from "./workflowRejectPlan";
 import { buildWorkflowHtml } from "./workflowView";
+import { readUserWorkspacePreferences, setPausedWorkflowPhaseIds } from "./userWorkspacePreferences";
 import { asErrorMessage, getNextAttachmentPathAsync } from "./utils";
 
 type WorkflowPanelCommand =
@@ -162,6 +163,7 @@ class WorkflowPanelController {
   public async showAsync(): Promise<void> {
     this.panel.reveal(vscode.ViewColumn.Active);
     this.callbacks.setActiveWorkflowUsId(this.summary.usId);
+    await this.loadPausedPhaseIdsAsync();
     await this.refreshAsync("showAsync");
   }
 
@@ -306,6 +308,7 @@ class WorkflowPanelController {
       case "togglePhasePause":
         if (message.phaseId) {
           this.togglePhasePause(message.phaseId);
+          await this.persistPausedPhaseIdsAsync();
         }
         await this.refreshAsync("command:togglePhasePause");
         return;
@@ -1025,6 +1028,28 @@ class WorkflowPanelController {
     appendSpecForgeLog(`Workflow '${this.summary.usId}' armed ad hoc pause for phase '${phaseId}'.`);
   }
 
+  private async loadPausedPhaseIdsAsync(): Promise<void> {
+    const preferences = await readUserWorkspacePreferences(this.workspaceRoot);
+    this.pausedPhaseIds.clear();
+    for (const phaseId of preferences.pausedWorkflowPhaseIdsByUsId[this.summary.usId] ?? []) {
+      if (!canPauseWorkflowExecutionPhase(phaseId)) {
+        continue;
+      }
+
+      this.pausedPhaseIds.add(phaseId);
+    }
+    appendSpecForgeDebugLog(
+      `Workflow '${this.summary.usId}' restored ${this.pausedPhaseIds.size} persisted phase pause(s).`
+    );
+  }
+
+  private async persistPausedPhaseIdsAsync(): Promise<void> {
+    await setPausedWorkflowPhaseIds(this.workspaceRoot, this.summary.usId, [...this.pausedPhaseIds]);
+    appendSpecForgeDebugLog(
+      `Workflow '${this.summary.usId}' persisted ${this.pausedPhaseIds.size} phase pause(s).`
+    );
+  }
+
   private async armNextPhasePauseAsync(origin: string): Promise<void> {
     const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
     this.lastWorkflow = workflow;
@@ -1041,6 +1066,7 @@ class WorkflowPanelController {
 
     if (!this.pausedPhaseIds.has(executionPhaseId)) {
       this.pausedPhaseIds.add(executionPhaseId);
+      await this.persistPausedPhaseIdsAsync();
       appendSpecForgeLog(
         `Workflow '${this.summary.usId}' armed ad hoc pause for next phase '${executionPhaseId}' from ${origin}.`
       );
