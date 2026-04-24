@@ -1832,6 +1832,121 @@ test("buildWorkflowHtml prefers assigned overlay profile over stale history when
   assert.doesNotMatch(html, /execution-overlay__phase-model">reviewer \/ qwen3\.6:27b</);
 });
 
+test("buildWorkflowHtml uses phase routing instead of stale history for every execution overlay phase", () => {
+  const phaseTitles = new Map([
+    ["capture", "Capture"],
+    ["clarification", "Clarification"],
+    ["refinement", "Refinement"],
+    ["technical-design", "Technical Design"],
+    ["implementation", "Implementation"],
+    ["review", "Review"],
+    ["release-approval", "Release Approval"],
+    ["pr-preparation", "PR Preparation"]
+  ]);
+  const assignmentKeys = new Map([
+    ["capture", "captureProfileName"],
+    ["clarification", "clarificationProfileName"],
+    ["refinement", "refinementProfileName"],
+    ["technical-design", "technicalDesignProfileName"],
+    ["implementation", "implementationProfileName"],
+    ["review", "reviewProfileName"],
+    ["release-approval", "releaseApprovalProfileName"],
+    ["pr-preparation", "prPreparationProfileName"]
+  ]);
+
+  for (const [phaseId, title] of phaseTitles) {
+    const assignedProfile = `${phaseId}-runner`;
+    const phaseModelAssignments = {
+      defaultProfileName: "light",
+      captureProfileName: "capture-runner",
+      clarificationProfileName: "clarification-runner",
+      refinementProfileName: "refinement-runner",
+      technicalDesignProfileName: "technical-design-runner",
+      implementationProfileName: "implementation-runner",
+      reviewProfileName: "review-runner",
+      releaseApprovalProfileName: "release-approval-runner",
+      prPreparationProfileName: "pr-preparation-runner"
+    };
+    const assignmentKey = assignmentKeys.get(phaseId);
+    assert.equal(
+      assignmentKey ? phaseModelAssignments[assignmentKey as keyof typeof phaseModelAssignments] : null,
+      assignedProfile
+    );
+
+    const html = buildWorkflowHtml({
+      usId: "US-0017",
+      title: "Phase routing overlay",
+      category: "workflow",
+      status: "active",
+      currentPhase: "capture",
+      directoryPath: "/tmp/us.US-0017",
+      workBranch: null,
+      mainArtifactPath: "/tmp/us.md",
+      timelinePath: "/tmp/timeline.md",
+      rawTimeline: "raw timeline",
+      phases: [...phaseTitles].map(([candidatePhaseId, candidateTitle], index) => ({
+        phaseId: candidatePhaseId,
+        title: candidateTitle,
+        order: index,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: candidatePhaseId === "capture",
+        state: candidatePhaseId === "capture" ? "current" : "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      })),
+      controls: {
+        canContinue: true,
+        canApprove: false,
+        requiresApproval: false,
+        blockingReason: null,
+        canRestartFromSource: false,
+        regressionTargets: []
+      },
+      clarification: null,
+      approvalQuestions: [],
+      events: [
+        {
+          timestampUtc: "2026-04-24T07:00:00Z",
+          code: "phase_completed",
+          actor: "system",
+          phase: phaseId,
+          summary: "Stale run.",
+          artifacts: [],
+          usage: null,
+          durationMs: null,
+          execution: {
+            providerKind: "openai-compatible",
+            model: "qwen3.6:27b",
+            profileName: "reviewer",
+            baseUrl: "http://localhost:11434/v1"
+          }
+        }
+      ],
+      attachmentsDirectoryPath: "/tmp/attachments",
+      attachments: []
+    }, {
+      selectedPhaseId: "capture",
+      selectedArtifactContent: null,
+      contextSuggestions: [],
+      settingsConfigured: true,
+      settingsMessage: null,
+      executionPhaseId: phaseId,
+      modelProfiles: [
+        { name: assignedProfile, model: "" },
+        { name: "reviewer", model: "qwen3.6:27b" }
+      ],
+      phaseModelAssignments
+    }, "playing");
+
+    assert.match(html, new RegExp(`Executing ${title}`));
+    assert.match(html, new RegExp(`execution-overlay__phase-model">${assignedProfile}<`));
+    assert.doesNotMatch(html, /execution-overlay__phase-model">reviewer \/ qwen3\.6:27b</);
+  }
+});
+
 test("buildWorkflowHtml only shows phase pause buttons for unexecuted pending phases", () => {
   const html = buildWorkflowHtml({
     usId: "US-0016",

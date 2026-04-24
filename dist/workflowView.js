@@ -388,8 +388,7 @@ function buildExecutionOverlay(workflow, state, playbackState) {
     const overlayConfiguredModel = findConfiguredModelForProfile(state, overlayPhaseProfileLabel);
     const overlayPhaseConfiguredLabel = formatExecutionLabel(overlayConfiguredModel ? { model: overlayConfiguredModel, profileName: overlayPhaseProfileLabel } : null, { configuredModel: overlayConfiguredModel });
     const overlayPhaseModelLabel = overlayPhaseConfiguredLabel
-        ?? overlayPhaseProfileLabel
-        ?? findLatestPhaseExecutionLabel(workflow, overlayPhase.phaseId, state);
+        ?? overlayPhaseProfileLabel;
     return `
     <div
       class="execution-overlay execution-overlay--${(0, htmlEscape_1.escapeHtmlAttr)(overlay.tone)}"
