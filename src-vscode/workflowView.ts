@@ -1685,9 +1685,11 @@ export function buildWorkflowHtml(
       min-height: ${desktopGraphHeight}px;
       z-index: 2;
     }
-    .graph-stage.graph-stage--overlay-blocking .phase-graph {
+    .graph-stage.graph-stage--overlay-active .phase-graph {
       filter: blur(2px) saturate(0.85) brightness(0.78);
       transform: scale(0.997);
+    }
+    .graph-stage.graph-stage--overlay-blocking .phase-graph {
       pointer-events: none;
     }
     .execution-overlay {

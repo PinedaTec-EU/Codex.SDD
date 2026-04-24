@@ -1490,6 +1490,8 @@ test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
   assert.match(html, /data-show-elapsed="false"/);
   assert.match(html, /data-anchor-phase-id="review"/);
   assert.match(html, /<div class="graph-stage graph-stage--overlay-active">/);
+  assert.match(html, /\.graph-stage\.graph-stage--overlay-active \.phase-graph[\s\S]*filter: blur\(2px\) saturate\(0\.85\) brightness\(0\.78\);/);
+  assert.match(html, /\.graph-stage\.graph-stage--overlay-blocking \.phase-graph[\s\S]*pointer-events: none;/);
   assert.doesNotMatch(html, /<div class="graph-stage graph-stage--overlay-active graph-stage--overlay-blocking">/);
   assert.match(html, /graphStage\.classList\.remove\("graph-stage--overlay-active"\)/);
   assert.doesNotMatch(html, /document\.addEventListener\("pointerdown"/);
