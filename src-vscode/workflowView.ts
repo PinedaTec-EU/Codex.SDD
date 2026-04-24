@@ -898,6 +898,8 @@ export function buildWorkflowHtml(
   const playDisabled = playbackState === "playing"
     || !state.settingsConfigured
     || (playbackState === "idle" && !workflow.controls.canContinue);
+  const rerunReviewDisabled = playbackState === "playing"
+    || !state.settingsConfigured;
   const isMarkdownArtifact = Boolean(selectedPhase.artifactPath?.toLowerCase().endsWith(".md"));
   const artifactPreviewHtml = isMarkdownArtifact
     ? renderMarkdownToHtml(state.selectedArtifactContent ?? "Artifact content unavailable.")
@@ -964,7 +966,7 @@ export function buildWorkflowHtml(
             ? `<button class="workflow-action-button workflow-action-button--progress" data-command="continue"${playDisabled ? " disabled" : ""}>${continueActionLabel}</button>`
             : ""}
         ${shouldRenderRerunReviewAction
-            ? `<button class="workflow-action-button workflow-action-button--progress" data-command="continue"${playDisabled ? " disabled" : ""}>${rerunReviewActionLabel}</button>`
+            ? `<button class="workflow-action-button workflow-action-button--progress" data-command="continue"${rerunReviewDisabled ? " disabled" : ""}>${rerunReviewActionLabel}</button>`
             : ""}
         ${shouldRenderApproveAction
             ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${!workflow.controls.canApprove || shouldRenderApprovalBranchEditor(workflow, selectedPhase, selectedPhaseIsCurrent) && Boolean(state.requireExplicitApprovalBranchAcceptance) ? " disabled" : ""}>${approveActionLabel}</button>`
@@ -2355,6 +2357,10 @@ export function buildWorkflowHtml(
       gap: 14px;
       border-color: rgba(92, 181, 255, 0.18);
       background: linear-gradient(180deg, rgba(14, 22, 31, 0.92), rgba(10, 16, 22, 0.98));
+    }
+    .detail-card--phase-security .panel-copy {
+      margin-top: 14px;
+      margin-bottom: 0;
     }
     .detail-card--approval-questions {
       display: grid;

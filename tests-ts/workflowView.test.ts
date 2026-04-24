@@ -2692,6 +2692,7 @@ test("buildWorkflowHtml renders rerun review action when review failed and the w
   }, "idle");
 
   assert.match(html, /data-command="continue"[^>]*>Rerun Review</);
+  assert.doesNotMatch(html, /data-command="continue"[^>]*disabled[^>]*>Rerun Review</);
   assert.match(html, /token token--success">ready</);
 });
 
