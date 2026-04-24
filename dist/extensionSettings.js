@@ -176,7 +176,7 @@ function hasExplicitProfilesForAllModelDrivenPhases(assignments) {
     ].every((value) => Boolean(value));
 }
 function buildSettingsDiagnostics(settings) {
-    const profiles = settings.modelProfiles.map((profile) => `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"},reasoningEffort=${profile.reasoningEffort || "<missing>"},apiKey=${profile.apiKey ? "set" : "empty"},repositoryAccess=${profile.repositoryAccess || "<missing>"}}`);
+    const profiles = settings.modelProfiles.map((profile) => `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"}${profile.reasoningEffort ? `,reasoningEffort=${profile.reasoningEffort}` : ""},apiKey=${profile.apiKey ? "set" : "empty"},repositoryAccess=${profile.repositoryAccess || "<missing>"}}`);
     return [
         `profiles=${settings.modelProfiles.length}`,
         `catalog=[${profiles.join(", ")}]`,
@@ -246,7 +246,7 @@ function normalizeModelProfile(value) {
         baseUrl: baseUrl ?? "",
         apiKey,
         model: model ?? "",
-        reasoningEffort,
+        ...(reasoningEffort ? { reasoningEffort } : {}),
         repositoryAccess: repositoryAccess ?? "none"
     };
 }

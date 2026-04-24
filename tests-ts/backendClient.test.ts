@@ -28,3 +28,13 @@ test("summarizeMcpDiagnosticLine ignores non-native diagnostics", () => {
 
   assert.equal(summarizeMcpDiagnosticLine(line), null);
 });
+
+test("summarizeMcpDiagnosticLine truncates oversized process diagnostics", () => {
+  const longCommand = `${"x".repeat(400)}`;
+  const line =
+    `[2026-04-24T14:33:00.0000000+00:00] [provider.native.exec] provider=claude command="${longCommand}" pid=123 started.`;
+
+  const summary = summarizeMcpDiagnosticLine(line);
+  assert.ok(summary?.startsWith("Claude process started."));
+  assert.ok(summary?.endsWith("..."));
+});

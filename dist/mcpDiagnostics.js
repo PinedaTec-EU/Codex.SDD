@@ -35,15 +35,15 @@ function summarizeMcpDiagnosticLine(line) {
                 return `${label} CLI still running without output. ${message}`;
             }
             if (message.includes(" started.")) {
-                return `${label} process started. ${message}`;
+                return `${label} process started. ${truncateDiagnosticMessage(message)}`;
             }
             if (message.includes(" exitCode=")) {
-                return `${label} process finished. ${message}`;
+                return `${label} process finished. ${truncateDiagnosticMessage(message)}`;
             }
             if (message.includes(" canceled ")) {
-                return `${label} process canceled. ${message}`;
+                return `${label} process canceled. ${truncateDiagnosticMessage(message)}`;
             }
-            return `${label} process update. ${message}`;
+            return `${label} process update. ${truncateDiagnosticMessage(message)}`;
         }
         default:
             return null;
@@ -73,5 +73,12 @@ function decodeLoggedChunk(value) {
         }
     }
     return trimmed;
+}
+function truncateDiagnosticMessage(message) {
+    const maxLength = 240;
+    if (message.length <= maxLength) {
+        return message;
+    }
+    return `${message.slice(0, maxLength)}...`;
 }
 //# sourceMappingURL=mcpDiagnostics.js.map
