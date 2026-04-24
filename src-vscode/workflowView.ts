@@ -4,7 +4,7 @@ import { buildClarificationPhaseSections } from "./workflow-view/clarificationPh
 import { buildImplementationPhaseSections } from "./workflow-view/implementationPhaseView";
 import type { ApprovalQuestionItem, PhaseIterationItem, PhaseSectionFragments, WorkflowViewState } from "./workflow-view/models";
 import { buildPrPreparationPhaseSections } from "./workflow-view/prPreparationPhaseView";
-import { canPauseWorkflowExecutionPhase } from "./workflowPlaybackState";
+import { canPauseWorkflowExecutionPhase, resolveWorkflowExecutionPhaseId } from "./workflowPlaybackState";
 import { resolveWorkflowRejectPlan } from "./workflowRejectPlan";
 import { buildRefinementPhaseSections } from "./workflow-view/refinementPhaseView";
 import { buildReleaseApprovalPhaseSections } from "./workflow-view/releaseApprovalPhaseView";
@@ -4251,11 +4251,7 @@ function resolveEffectiveExecutionPhaseId(
     return state.executionPhaseId;
   }
 
-  if (workflow.currentPhase === "capture") {
-    return "clarification";
-  }
-
-  return workflow.currentPhase;
+  return resolveWorkflowExecutionPhaseId(workflow.currentPhase);
 }
 
 function resolvePausedExecutionPhaseId(

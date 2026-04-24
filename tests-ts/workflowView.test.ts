@@ -1556,6 +1556,73 @@ test("buildWorkflowHtml anchors paused state to the ad hoc paused phase when pro
   assert.match(html, /aria-pressed="true"/);
 });
 
+test("buildWorkflowHtml pauses before implementation when technical design is the current phase", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0019",
+    title: "Technical design pause handoff",
+    category: "workflow",
+    status: "active",
+    currentPhase: "technical-design",
+    directoryPath: "/tmp/us.US-0019",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "technical-design",
+        title: "Technical Design",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "implementation",
+        title: "Implementation",
+        order: 1,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "technical-design",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    pausedPhaseIds: ["implementation"],
+    executionPhaseId: "implementation"
+  }, "paused");
+
+  assert.match(html, /Paused before Implementation/);
+  assert.match(html, /data-anchor-phase-id="implementation"/);
+  assert.match(html, /phase-node implementation phase-tone-paused/);
+});
+
 test("buildWorkflowHtml only shows phase pause buttons for unexecuted pending phases", () => {
   const html = buildWorkflowHtml({
     usId: "US-0016",

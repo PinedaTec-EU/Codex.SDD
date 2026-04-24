@@ -10,7 +10,6 @@ import { getCurrentActor } from "./userActor";
 import {
   canPauseWorkflowExecutionPhase,
   normalizePlaybackStateAfterManualWorkflowChange,
-  resolveNextWorkflowExecutionPhaseId,
   resolveWorkflowExecutionPhaseId
 } from "./workflowPlaybackState";
 import { buildWorkBranchProposal } from "./workflowBranchName";
@@ -782,7 +781,9 @@ class WorkflowPanelController {
           return;
         }
 
-        appendSpecForgeLog(`Autoplay continuing '${workflow.usId}' at phase '${workflow.currentPhase}'.`);
+        appendSpecForgeLog(
+          `Autoplay continuing '${workflow.usId}' from phase '${workflow.currentPhase}' into '${executionPhaseId ?? workflow.currentPhase}'.`
+        );
         appendSpecForgeDebugLog(
           `Autoplay loop iteration for '${workflow.usId}'. canContinue=${workflow.controls.canContinue}, requiresApproval=${workflow.controls.requiresApproval}, blockingReason='${workflow.controls.blockingReason ?? "none"}'.`
         );
@@ -1030,27 +1031,24 @@ class WorkflowPanelController {
     const executionPhaseId = this.transientExecutionPhaseId
       ?? this.resolveExecutionPhaseIdForWorkflow(workflow)
       ?? resolveWorkflowExecutionPhaseId(this.summary.currentPhase);
-    const nextPhaseId = executionPhaseId
-      ? resolveNextWorkflowExecutionPhaseId(executionPhaseId)
-      : null;
 
-    if (!nextPhaseId) {
+    if (!executionPhaseId) {
       appendSpecForgeDebugLog(
         `Workflow '${this.summary.usId}' could not arm next phase pause from ${origin} because no later executable phase was found.`
       );
       return;
     }
 
-    if (!this.pausedPhaseIds.has(nextPhaseId)) {
-      this.pausedPhaseIds.add(nextPhaseId);
+    if (!this.pausedPhaseIds.has(executionPhaseId)) {
+      this.pausedPhaseIds.add(executionPhaseId);
       appendSpecForgeLog(
-        `Workflow '${this.summary.usId}' armed ad hoc pause for next phase '${nextPhaseId}' from ${origin}.`
+        `Workflow '${this.summary.usId}' armed ad hoc pause for next phase '${executionPhaseId}' from ${origin}.`
       );
       return;
     }
 
     appendSpecForgeDebugLog(
-      `Workflow '${this.summary.usId}' left next phase '${nextPhaseId}' paused because it was already armed from ${origin}.`
+      `Workflow '${this.summary.usId}' left next phase '${executionPhaseId}' paused because it was already armed from ${origin}.`
     );
   }
 }

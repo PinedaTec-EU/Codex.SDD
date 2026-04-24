@@ -16,7 +16,9 @@ test("normalizePlaybackStateAfterManualWorkflowChange clears stale paused overla
 
 test("workflow playback helpers resolve executable and next pauseable phases", () => {
   assert.equal(resolveWorkflowExecutionPhaseId("capture"), "clarification");
-  assert.equal(resolveWorkflowExecutionPhaseId("review"), "review");
+  assert.equal(resolveWorkflowExecutionPhaseId("technical-design"), "implementation");
+  assert.equal(resolveWorkflowExecutionPhaseId("review"), "release-approval");
+  assert.equal(resolveWorkflowExecutionPhaseId("pr-preparation"), null);
   assert.equal(resolveWorkflowExecutionPhaseId("unknown"), null);
   assert.equal(resolveNextWorkflowExecutionPhaseId("clarification"), "refinement");
   assert.equal(resolveNextWorkflowExecutionPhaseId("pr-preparation"), null);

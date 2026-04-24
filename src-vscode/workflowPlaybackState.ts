@@ -26,9 +26,12 @@ export function resolveWorkflowExecutionPhaseId(currentPhaseId: string): string 
     return "clarification";
   }
 
-  return canPauseWorkflowExecutionPhase(currentPhaseId)
-    ? currentPhaseId
-    : null;
+  const phaseIndex = workflowExecutionPhaseOrder.indexOf(currentPhaseId as typeof workflowExecutionPhaseOrder[number]);
+  if (phaseIndex < 0 || phaseIndex + 1 >= workflowExecutionPhaseOrder.length) {
+    return null;
+  }
+
+  return workflowExecutionPhaseOrder[phaseIndex + 1];
 }
 
 export function resolveNextWorkflowExecutionPhaseId(executionPhaseId: string): string | null {
