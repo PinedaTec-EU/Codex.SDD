@@ -12,6 +12,7 @@ export interface SpecForgeSettings {
   readonly autoClarificationAnswersEnabled: boolean;
   readonly autoPlayEnabled: boolean;
   readonly destructiveRewindEnabled: boolean;
+  readonly pauseOnFailedReview: boolean;
 }
 
 export interface SpecForgeSettingsStatus {
@@ -80,7 +81,8 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
     requireExplicitApprovalBranchAcceptance: configuration.get<boolean>("features.requireApprovalBranchAcceptance", false),
     autoClarificationAnswersEnabled: configuration.get<boolean>("features.autoClarificationAnswersEnabled", false),
     autoPlayEnabled: configuration.get<boolean>("features.autoPlayEnabled", false),
-    destructiveRewindEnabled: configuration.get<boolean>("features.destructiveRewindEnabled", false)
+    destructiveRewindEnabled: configuration.get<boolean>("features.destructiveRewindEnabled", false),
+    pauseOnFailedReview: configuration.get<boolean>("features.pauseOnFailedReview", false)
   };
 }
 
@@ -268,6 +270,7 @@ function buildSettingsDiagnostics(settings: SpecForgeSettings): string {
     `phaseModels.prPreparation=${settings.phaseModelAssignments.prPreparationProfile ?? "<unset>"}`,
     `autoClarificationAnswers.enabled=${settings.autoClarificationAnswersEnabled}`,
     `autoClarificationAnswers.profile=${settings.autoClarificationAnswersProfile ?? "<unset>"}`,
+    `pauseOnFailedReview=${settings.pauseOnFailedReview}`,
     `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
     `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,
     `effective.clarification=${settings.effectivePhaseModelAssignments.clarificationProfileName ?? "<unset>"}`,

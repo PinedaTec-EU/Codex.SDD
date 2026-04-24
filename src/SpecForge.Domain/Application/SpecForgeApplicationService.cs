@@ -215,6 +215,7 @@ public sealed class SpecForgeApplicationService
         var requiresApproval = workflowRun.Definition.RequiresApproval(workflowRun.CurrentPhase);
         var canAdvance = !requiresApproval || workflowRun.IsPhaseApproved(workflowRun.CurrentPhase);
         var canApprove = requiresApproval && !canAdvance;
+        string? blockingReason = null;
         if (canApprove && workflowRun.CurrentPhase == Workflow.PhaseId.Refinement)
         {
             var refinementPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Refinement);
@@ -234,10 +235,30 @@ public sealed class SpecForgeApplicationService
             }
         }
 
-        string? blockingReason = null;
+        if (workflowRun.CurrentPhase == Workflow.PhaseId.Review)
+        {
+            var reviewPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Review);
+            if (string.IsNullOrWhiteSpace(reviewPath) || !File.Exists(reviewPath))
+            {
+                canAdvance = false;
+                blockingReason = "review_missing_artifact";
+            }
+            else
+            {
+                var reviewResult = WorkflowRunner.TryReadReviewResult(await File.ReadAllTextAsync(reviewPath, cancellationToken));
+                if (reviewResult != "pass")
+                {
+                    canAdvance = false;
+                    blockingReason = reviewResult == "fail"
+                        ? "review_failed"
+                        : "review_result_missing";
+                }
+            }
+        }
+
         if (!canAdvance)
         {
-            blockingReason = $"{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}_pending_user_approval";
+            blockingReason ??= $"{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}_pending_user_approval";
         }
         else
         {

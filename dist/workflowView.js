@@ -339,6 +339,9 @@ function buildExecutionOverlay(workflow, state, playbackState) {
         : playbackState === "paused" && pausedExecutionPhaseId
             ? workflow.phases.find((phase) => phase.phaseId === pausedExecutionPhaseId) ?? currentPhase
             : currentPhase;
+    const pausedOnFailedReview = playbackState === "paused"
+        && currentPhase.phaseId === "review"
+        && workflow.controls.blockingReason === "review_failed";
     const overlay = playbackState === "playing"
         ? {
             usId: workflow.usId,
@@ -352,24 +355,32 @@ function buildExecutionOverlay(workflow, state, playbackState) {
         : playbackState === "paused"
             ? {
                 usId: workflow.usId,
-                title: pausedExecutionPhaseId && pausedExecutionPhaseId !== currentPhase.phaseId
-                    ? `Paused before ${overlayPhase.title}`
-                    : `Paused after ${currentPhase.title}`,
+                title: pausedOnFailedReview
+                    ? "Review failed"
+                    : pausedExecutionPhaseId && pausedExecutionPhaseId !== currentPhase.phaseId
+                        ? `Paused before ${overlayPhase.title}`
+                        : `Paused after ${currentPhase.title}`,
                 phaseId: overlayPhase.phaseId,
                 tone: "paused",
                 startedAtMs: state.playbackStartedAtMs ?? null,
                 showElapsed: false,
-                messages: pausedExecutionPhaseId && pausedExecutionPhaseId !== currentPhase.phaseId
+                messages: pausedOnFailedReview
                     ? [
-                        "This phase has an ad hoc pause armed, so SpecForge.AI is holding before execution starts.",
-                        "Playback is paused at the phase boundary. Resume when you want this marked phase to run.",
-                        "The workflow is staged on the next phase and waiting for you to release it."
+                        "Review failed and playback is paused by configuration.",
+                        "A developer needs to inspect the failed validation checklist before this workflow can continue.",
+                        "Fix or regenerate the affected artifact, then rerun review."
                     ]
-                    : [
-                        "The current phase finished, but SpecForge.AI will wait before launching the next one.",
-                        "Playback is paused at the phase boundary. Resume when you want the workflow moving again.",
-                        "Holding the line here so the next phase does not start on its own."
-                    ]
+                    : pausedExecutionPhaseId && pausedExecutionPhaseId !== currentPhase.phaseId
+                        ? [
+                            "This phase has an ad hoc pause armed, so SpecForge.AI is holding before execution starts.",
+                            "Playback is paused at the phase boundary. Resume when you want this marked phase to run.",
+                            "The workflow is staged on the next phase and waiting for you to release it."
+                        ]
+                        : [
+                            "The current phase finished, but SpecForge.AI will wait before launching the next one.",
+                            "Playback is paused at the phase boundary. Resume when you want the workflow moving again.",
+                            "Holding the line here so the next phase does not start on its own."
+                        ]
             }
             : {
                 usId: workflow.usId,

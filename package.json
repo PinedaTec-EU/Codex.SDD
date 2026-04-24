@@ -282,6 +282,11 @@
           "type": "boolean",
           "default": false,
           "description": "When enabled, rewind and regress delete later derived artifacts and branch metadata. When disabled, both only move the workflow state back."
+        },
+        "specForge.features.pauseOnFailedReview": {
+          "type": "boolean",
+          "default": false,
+          "description": "When enabled, automatically pause workflow playback on a failed review and show the review warning overlay for developer inspection."
         }
       }
     },

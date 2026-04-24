@@ -659,15 +659,55 @@ public sealed class WorkflowRunnerTests : IDisposable
 
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         var implementationArtifact = await File.ReadAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Implementation));
+        var reviewArtifact = await File.ReadAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Review));
         var evidenceMarkdown = await File.ReadAllTextAsync(paths.GetPhaseEvidenceMarkdownPath(PhaseId.Implementation));
         var evidenceJson = await File.ReadAllTextAsync(paths.GetPhaseEvidenceJsonPath(PhaseId.Implementation));
 
         Assert.Contains("## Captured Phase Evidence", implementationArtifact);
         Assert.Contains("src/Feature.cs", implementationArtifact);
+        Assert.Contains("## Validation Checklist", reviewArtifact);
+        Assert.Contains("✅ Review must compare implementation back to the approved spec before final release approval.", reviewArtifact);
+        Assert.DoesNotContain("## Checks Performed", reviewArtifact);
         Assert.Contains("Meaningful touched repository files detected: `1`.", evidenceMarkdown);
         Assert.Contains("\"Path\": \"src/Feature.cs\"", evidenceJson);
         Assert.NotNull(provider.ReviewContext);
         Assert.Contains(paths.GetPhaseEvidenceMarkdownPath(PhaseId.Implementation), provider.ReviewContext!.ContextFilePaths);
+    }
+
+    [Fact]
+    public async Task ContinuePhaseAsync_Review_FailsClosedWhenReviewOmitsValidationStrategyChecklist()
+    {
+        await InitializeGitWorkspaceAsync(workspaceRoot);
+        await RunGitAsync(workspaceRoot, "checkout", "-b", "main");
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "README.md"), "seed");
+        await RunGitAsync(workspaceRoot, "add", "README.md");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "seed");
+
+        var fileStore = new UserStoryFileStore();
+        var runner = new WorkflowRunner(
+            fileStore,
+            new MissingReviewChecklistPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager());
+        var service = new SpecForgeApplicationService(fileStore, runner);
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Review guard", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        var reviewArtifact = await File.ReadAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Review));
+        var currentPhase = await service.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Contains("- Result: `fail`", reviewArtifact);
+        Assert.Contains("## Validation Checklist", reviewArtifact);
+        Assert.Contains("❌ Review must compare implementation back to the approved spec before final release approval.", reviewArtifact);
+        Assert.Contains("did not include the required Validation Checklist", reviewArtifact);
+        Assert.False(currentPhase.CanAdvance);
+        Assert.Equal("review_failed", currentPhase.BlockingReason);
     }
 
     [Fact]
@@ -1056,6 +1096,65 @@ public sealed class WorkflowRunnerTests : IDisposable
             PhaseExecutionContext context,
             CancellationToken cancellationToken = default) =>
             inner.ExecuteAsync(context, cancellationToken);
+    }
+
+    private sealed class MissingReviewChecklistPhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        private readonly DeterministicPhaseExecutionProvider inner = new();
+
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+            inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+            PhaseExecutionContext context,
+            ClarificationSession session,
+            CancellationToken cancellationToken = default) =>
+            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+
+        public async Task<PhaseExecutionResult> ExecuteAsync(
+            PhaseExecutionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            if (context.PhaseId == PhaseId.Implementation)
+            {
+                var featurePath = Path.Combine(context.WorkspaceRoot, "src", "Feature.cs");
+                Directory.CreateDirectory(Path.GetDirectoryName(featurePath)!);
+                await File.WriteAllTextAsync(
+                    featurePath,
+                    "namespace SpecForge;\npublic static class Feature { public const int Enabled = 1; }\n",
+                    cancellationToken);
+            }
+
+            if (context.PhaseId == PhaseId.Review)
+            {
+                return new PhaseExecutionResult(
+                    string.Join(
+                        Environment.NewLine,
+                        [
+                            $"# Review · {context.UsId} · v01",
+                            string.Empty,
+                            "## State",
+                            "- Result: `pass`",
+                            string.Empty,
+                            "## Checks Performed",
+                            "- [x] Schema conformance",
+                            "- [x] Artifact completeness",
+                            string.Empty,
+                            "## Findings",
+                            "- No findings.",
+                            string.Empty,
+                            "## Verdict",
+                            "- Final result: `pass`",
+                            "- Primary reason: Generic review claimed success.",
+                            string.Empty,
+                            "## Recommendation",
+                            "- Advance."
+                        ]) + Environment.NewLine,
+                    "test-double");
+            }
+
+            return await inner.ExecuteAsync(context, cancellationToken);
+        }
     }
 
     private sealed class NoOpWorkBranchManager : IWorkBranchManager

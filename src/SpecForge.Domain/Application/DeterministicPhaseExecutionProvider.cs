@@ -327,10 +327,13 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                        "## State",
                        $"- Result: `{result}`",
                        string.Empty,
-                       "## Checks Performed",
-                       $"- [x] Spec artifact present: `{refinementExists}`",
-                       $"- [x] Technical design artifact present: `{technicalDesignExists}`",
-                       $"- [x] Implementation artifact present: `{implementationExists}`",
+                       "## Validation Checklist",
+                       $"- \u2705 Review must compare implementation back to the approved spec before final release approval. \u2014 Evidence: Spec artifact present: `{refinementExists}`; technical design artifact present: `{technicalDesignExists}`; implementation artifact present: `{implementationExists}`.",
+                       string.Empty,
+                       "## Findings",
+                       result == "pass"
+                           ? "- No blocking findings in deterministic review."
+                           : "- Required workflow artifacts are incomplete.",
                        string.Empty,
                        "## Verdict",
                        $"- Final result: `{result}`",

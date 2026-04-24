@@ -898,6 +898,14 @@ public sealed class WorkflowRunner
                     implementationEvidence),
                 cancellationToken);
         }
+        else if (workflowRun.CurrentPhase == PhaseId.Review)
+        {
+            var version = ExtractArtifactVersion(artifactPath);
+            await File.WriteAllTextAsync(
+                artifactPath,
+                EnforceReviewValidationStrategyContract(result.Content, paths, workflowRun.UsId, version),
+                cancellationToken);
+        }
         else
         {
             await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
@@ -905,6 +913,118 @@ public sealed class WorkflowRunner
 
         diagnostics.MarkCompleted($"artifactPath='{artifactPath}'");
         return new ArtifactGenerationResult(artifactPath, result.Usage, stopwatch.ElapsedMilliseconds, result.Execution);
+    }
+
+    private static string EnforceReviewValidationStrategyContract(
+        string reviewMarkdown,
+        UserStoryFilePaths paths,
+        string usId,
+        int version)
+    {
+        var validationStrategy = ReadTechnicalDesignValidationStrategy(paths);
+        if (validationStrategy.Count == 0)
+        {
+            SpecForgeDiagnostics.Log(
+                $"[runner.review_guard] usId={usId} forced review result to fail because technical design validation strategy is missing.");
+            return ReviewArtifactJson.RenderMarkdown(
+                new ReviewArtifactDocument(
+                    "fail",
+                    [new ReviewValidationChecklistItem(
+                        "fail",
+                        "Technical Design must define a non-empty Validation Strategy.",
+                        "The current technical design artifact has no reviewable validation strategy items.")],
+                    ["Review cannot pass because there is no validation strategy to validate."],
+                    "Review requires a non-empty Technical Design validation strategy before it can pass.",
+                    ["Regenerate or operate the technical design phase with a concrete Validation Strategy."]),
+                usId,
+                version);
+        }
+
+        var reviewResult = ParseReviewResult(reviewMarkdown);
+        var reviewChecklist = ParseReviewValidationChecklist(reviewMarkdown);
+        var reviewChecklistByItem = reviewChecklist
+            .GroupBy(static item => NormalizeReviewChecklistKey(item.Item), StringComparer.Ordinal)
+            .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal);
+        var hasChecklist = reviewChecklistByItem.Count > 0;
+        var enforcedChecklist = validationStrategy
+            .Select(item =>
+            {
+                var key = NormalizeReviewChecklistKey(item);
+                if (reviewChecklistByItem.TryGetValue(key, out var reviewed))
+                {
+                    return reviewed with
+                    {
+                        Status = reviewed.Status.Equals("pass", StringComparison.OrdinalIgnoreCase) ? "pass" : "fail",
+                        Item = item,
+                        Evidence = string.IsNullOrWhiteSpace(reviewed.Evidence)
+                            ? "No concrete review evidence was provided for this validation item."
+                            : reviewed.Evidence
+                    };
+                }
+
+                return new ReviewValidationChecklistItem(
+                    "fail",
+                    item,
+                    hasChecklist
+                        ? "The review artifact did not validate this Technical Design validation strategy item."
+                        : "The review artifact did not include the required Validation Checklist.");
+            })
+            .ToArray();
+        var enforcedResult = reviewResult == "pass" && enforcedChecklist.All(static item => item.Status == "pass")
+            ? "pass"
+            : "fail";
+        var findings = ReadMarkdownBulletSection(reviewMarkdown, "## Findings");
+        var recommendations = ReadMarkdownBulletSection(reviewMarkdown, "## Recommendation");
+        var primaryReason = ParseReviewPrimaryReason(reviewMarkdown);
+
+        if (enforcedResult == "fail")
+        {
+            if (!hasChecklist)
+            {
+                findings = [..findings, "Review cannot pass because it did not include the required checklist derived from Technical Design validation strategy."];
+            }
+
+            var missingItems = enforcedChecklist
+                .Where(static item => item.Status == "fail")
+                .Select(static item => item.Item)
+                .ToArray();
+            if (missingItems.Length > 0)
+            {
+                findings = [..findings, $"Review failed {missingItems.Length} validation strategy item(s)."];
+            }
+
+            if (string.IsNullOrWhiteSpace(primaryReason) || reviewResult == "pass")
+            {
+                primaryReason = "Review failed because at least one Technical Design validation strategy item was not validated successfully.";
+            }
+
+            if (recommendations.Count == 0)
+            {
+                recommendations = ["Fix the failed validation strategy items and rerun the review phase."];
+            }
+        }
+
+        if (findings.Count == 0)
+        {
+            findings = ["No blocking review findings beyond the validation checklist."];
+        }
+
+        if (recommendations.Count == 0)
+        {
+            recommendations = ["Proceed only while the checklist remains fully green."];
+        }
+
+        return ReviewArtifactJson.RenderMarkdown(
+            new ReviewArtifactDocument(
+                enforcedResult,
+                enforcedChecklist,
+                findings,
+                string.IsNullOrWhiteSpace(primaryReason)
+                    ? "Review passed because every Technical Design validation strategy item has concrete passing evidence."
+                    : primaryReason,
+                recommendations),
+            usId,
+            version);
     }
 
     private static IReadOnlyDictionary<PhaseId, string> BuildPreviousArtifactMap(UserStoryFilePaths paths, PhaseId currentPhase)
@@ -950,6 +1070,137 @@ public sealed class WorkflowRunner
             .Distinct(StringComparer.Ordinal)
             .ToArray();
     }
+
+    internal static IReadOnlyList<string> ReadTechnicalDesignValidationStrategy(UserStoryFilePaths paths)
+    {
+        var technicalDesignPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.TechnicalDesign);
+        if (string.IsNullOrWhiteSpace(technicalDesignPath) || !File.Exists(technicalDesignPath))
+        {
+            return [];
+        }
+
+        var technicalDesignMarkdown = File.ReadAllText(technicalDesignPath);
+        return ReadMarkdownBulletSection(technicalDesignMarkdown, "## Validation Strategy");
+    }
+
+    internal static string? TryReadReviewResult(string reviewMarkdown)
+    {
+        var result = ParseReviewResult(reviewMarkdown);
+        return string.IsNullOrWhiteSpace(result) ? null : result;
+    }
+
+    private static string ParseReviewResult(string reviewMarkdown)
+    {
+        foreach (var line in reviewMarkdown.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith("- Result:", StringComparison.OrdinalIgnoreCase) &&
+                !trimmed.StartsWith("- Final result:", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var normalized = trimmed.ToLowerInvariant();
+            if (normalized.Contains("`pass`", StringComparison.Ordinal) ||
+                normalized.EndsWith(" pass", StringComparison.Ordinal) ||
+                normalized.EndsWith(": pass", StringComparison.Ordinal))
+            {
+                return "pass";
+            }
+
+            if (normalized.Contains("`fail`", StringComparison.Ordinal) ||
+                normalized.EndsWith(" fail", StringComparison.Ordinal) ||
+                normalized.EndsWith(": fail", StringComparison.Ordinal))
+            {
+                return "fail";
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string ParseReviewPrimaryReason(string reviewMarkdown)
+    {
+        foreach (var line in reviewMarkdown.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            var trimmed = line.Trim();
+            const string prefix = "- Primary reason:";
+            if (trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return trimmed[prefix.Length..].Trim();
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static IReadOnlyList<ReviewValidationChecklistItem> ParseReviewValidationChecklist(string reviewMarkdown)
+    {
+        return ReadMarkdownSectionBulletLines(reviewMarkdown, "## Validation Checklist")
+            .Select(ParseReviewValidationChecklistItem)
+            .Where(static item => item is not null)
+            .Cast<ReviewValidationChecklistItem>()
+            .ToArray();
+    }
+
+    private static ReviewValidationChecklistItem? ParseReviewValidationChecklistItem(string line)
+    {
+        var trimmed = line.Trim();
+        var status = trimmed.Contains("\u2705", StringComparison.Ordinal) ||
+            trimmed.Contains("[x]", StringComparison.OrdinalIgnoreCase)
+                ? "pass"
+                : trimmed.Contains("\u274C", StringComparison.Ordinal) ||
+                  trimmed.Contains("[ ]", StringComparison.OrdinalIgnoreCase)
+                    ? "fail"
+                    : string.Empty;
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return null;
+        }
+
+        var content = trimmed
+            .Replace("\u2705", string.Empty, StringComparison.Ordinal)
+            .Replace("\u274C", string.Empty, StringComparison.Ordinal)
+            .Replace("[x]", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("[ ]", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Trim();
+        var evidenceMarkerIndex = content.IndexOf("Evidence:", StringComparison.OrdinalIgnoreCase);
+        var item = evidenceMarkerIndex >= 0 ? content[..evidenceMarkerIndex] : content;
+        item = item.Trim(' ', '-', '\u2014', ':');
+        var evidence = evidenceMarkerIndex >= 0
+            ? content[(evidenceMarkerIndex + "Evidence:".Length)..].Trim()
+            : string.Empty;
+        return string.IsNullOrWhiteSpace(item)
+            ? null
+            : new ReviewValidationChecklistItem(status, item, evidence);
+    }
+
+    private static IReadOnlyList<string> ReadMarkdownBulletSection(string markdown, string heading)
+    {
+        return ReadMarkdownSectionBulletLines(markdown, heading)
+            .Select(static line => Regex.Replace(line, "^-\\s*(\\[[ xX]\\]\\s*)?", string.Empty).Trim())
+            .Where(static line => !string.IsNullOrWhiteSpace(line) && line != "...")
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> ReadMarkdownSectionBulletLines(string markdown, string heading)
+    {
+        var section = MarkdownHelper.TryReadSection(markdown, heading);
+        if (string.IsNullOrWhiteSpace(section))
+        {
+            return [];
+        }
+
+        return section
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n')
+            .Select(static line => line.Trim())
+            .Where(static line => line.StartsWith("-", StringComparison.Ordinal))
+            .ToArray();
+    }
+
+    private static string NormalizeReviewChecklistKey(string value) =>
+        Regex.Replace(value.Trim().ToLowerInvariant(), "\\s+", " ");
 
     private static string NextAvailableArtifactPath(UserStoryFilePaths paths, PhaseId phaseId)
     {

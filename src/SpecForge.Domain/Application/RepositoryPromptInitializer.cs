@@ -192,6 +192,9 @@ public sealed class RepositoryPromptInitializer
         Review against the approved artifacts and repository evidence.
         Surface material findings, missing validation, and release risks without inventing work that was not inspected.
         Never pass review when implementation evidence is missing, empty, or disconnected from the repository delta under review.
+        Review must validate every item listed in the Technical Design `Validation Strategy`.
+        The review artifact must contain a `validationChecklist` entry for each Technical Design validation strategy item, marked `pass` only when there is concrete code, artifact, or validation evidence.
+        If the Technical Design validation strategy is missing, empty, or cannot be inspected, the review result must be `fail`.
         """;
 
     private static string BuildReleaseApprovalApproveSystemPrompt() =>
@@ -349,6 +352,8 @@ public sealed class RepositoryPromptInitializer
         - fail closed when repository evidence is missing, inaccessible, or indirect
         - inspect the implementation evidence produced by the previous phase, not only the narrative artifact
         - if implementation evidence shows zero touched files, the review must fail and explain why the user story cannot be considered implemented
+        - derive the Validation Checklist from the Technical Design `Validation Strategy`; use one checklist item per validation strategy bullet
+        - never return `pass` if the Validation Checklist is missing, empty, incomplete, or contains any failed item
         Behave as reviewer, not as author.
         """;
 

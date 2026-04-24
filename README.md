@@ -459,6 +459,7 @@ The extension contributes these settings:
 - `specForge.features.autoClarificationAnswersEnabled`
 - `specForge.features.autoPlayEnabled`
 - `specForge.features.destructiveRewindEnabled`
+- `specForge.features.pauseOnFailedReview`
 
 ### Execution settings view
 

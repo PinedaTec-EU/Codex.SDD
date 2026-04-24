@@ -25,7 +25,8 @@ function readSpecForgeSettings(configuration) {
         requireExplicitApprovalBranchAcceptance: configuration.get("features.requireApprovalBranchAcceptance", false),
         autoClarificationAnswersEnabled: configuration.get("features.autoClarificationAnswersEnabled", false),
         autoPlayEnabled: configuration.get("features.autoPlayEnabled", false),
-        destructiveRewindEnabled: configuration.get("features.destructiveRewindEnabled", false)
+        destructiveRewindEnabled: configuration.get("features.destructiveRewindEnabled", false),
+        pauseOnFailedReview: configuration.get("features.pauseOnFailedReview", false)
     };
 }
 function buildBackendEnvironment(settings) {
@@ -181,6 +182,7 @@ function buildSettingsDiagnostics(settings) {
         `phaseModels.prPreparation=${settings.phaseModelAssignments.prPreparationProfile ?? "<unset>"}`,
         `autoClarificationAnswers.enabled=${settings.autoClarificationAnswersEnabled}`,
         `autoClarificationAnswers.profile=${settings.autoClarificationAnswersProfile ?? "<unset>"}`,
+        `pauseOnFailedReview=${settings.pauseOnFailedReview}`,
         `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
         `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,
         `effective.clarification=${settings.effectivePhaseModelAssignments.clarificationProfileName ?? "<unset>"}`,

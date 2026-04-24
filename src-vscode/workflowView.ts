@@ -452,6 +452,9 @@ function buildExecutionOverlay(
     : playbackState === "paused" && pausedExecutionPhaseId
       ? workflow.phases.find((phase) => phase.phaseId === pausedExecutionPhaseId) ?? currentPhase
     : currentPhase;
+  const pausedOnFailedReview = playbackState === "paused"
+    && currentPhase.phaseId === "review"
+    && workflow.controls.blockingReason === "review_failed";
   const overlay: ExecutionOverlayModel = playbackState === "playing"
     ? {
       usId: workflow.usId,
@@ -465,14 +468,22 @@ function buildExecutionOverlay(
     : playbackState === "paused"
       ? {
         usId: workflow.usId,
-        title: pausedExecutionPhaseId && pausedExecutionPhaseId !== currentPhase.phaseId
+        title: pausedOnFailedReview
+          ? "Review failed"
+          : pausedExecutionPhaseId && pausedExecutionPhaseId !== currentPhase.phaseId
           ? `Paused before ${overlayPhase.title}`
           : `Paused after ${currentPhase.title}`,
         phaseId: overlayPhase.phaseId,
         tone: "paused",
         startedAtMs: state.playbackStartedAtMs ?? null,
         showElapsed: false,
-        messages: pausedExecutionPhaseId && pausedExecutionPhaseId !== currentPhase.phaseId
+        messages: pausedOnFailedReview
+          ? [
+            "Review failed and playback is paused by configuration.",
+            "A developer needs to inspect the failed validation checklist before this workflow can continue.",
+            "Fix or regenerate the affected artifact, then rerun review."
+          ]
+          : pausedExecutionPhaseId && pausedExecutionPhaseId !== currentPhase.phaseId
           ? [
             "This phase has an ad hoc pause armed, so SpecForge.AI is holding before execution starts.",
             "Playback is paused at the phase boundary. Resume when you want this marked phase to run.",

@@ -476,10 +476,12 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             """
             {
               "result": "pass",
-              "checksPerformed": [
-                "Spec artifact present: true",
-                "Technical design artifact present: true",
-                "Implementation artifact present: true"
+              "validationChecklist": [
+                {
+                  "status": "pass",
+                  "item": "Cover valid and invalid values in domain and API tests.",
+                  "evidence": "Implementation evidence is present and planned verification covers focused tests for valid and invalid sampling settings."
+                }
               ],
               "findings": [
                 "No material deviations were detected in the simulated workflow artifacts."

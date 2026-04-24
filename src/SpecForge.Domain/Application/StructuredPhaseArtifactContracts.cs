@@ -175,12 +175,20 @@ public static class StructuredPhaseArtifactContracts
             properties: new Dictionary<string, JsonNode?>
             {
                 ["result"] = EnumStringSchema("pass", "fail"),
-                ["checksPerformed"] = ArraySchema(StringSchema()),
+                ["validationChecklist"] = ArraySchema(
+                    ObjectSchema(
+                        properties: new Dictionary<string, JsonNode?>
+                        {
+                            ["status"] = EnumStringSchema("pass", "fail"),
+                            ["item"] = StringSchema(),
+                            ["evidence"] = StringSchema()
+                        },
+                        required: ["status", "item", "evidence"])),
                 ["findings"] = ArraySchema(StringSchema()),
                 ["primaryReason"] = StringSchema(),
                 ["recommendation"] = ArraySchema(StringSchema())
             },
-            required: ["result", "checksPerformed", "findings", "primaryReason", "recommendation"]));
+            required: ["result", "validationChecklist", "findings", "primaryReason", "recommendation"]));
 
     private static JsonElement ToJsonElement(JsonObject schema)
     {
@@ -266,10 +274,15 @@ public sealed record ImplementationArtifactDocument(
 
 public sealed record ReviewArtifactDocument(
     string Result,
-    IReadOnlyList<string> ChecksPerformed,
+    IReadOnlyList<ReviewValidationChecklistItem> ValidationChecklist,
     IReadOnlyList<string> Findings,
     string PrimaryReason,
     IReadOnlyList<string> Recommendation);
+
+public sealed record ReviewValidationChecklistItem(
+    string Status,
+    string Item,
+    string Evidence);
 
 public static class ClarificationArtifactJson
 {
@@ -442,9 +455,9 @@ public static class ReviewArtifactJson
             "## State",
             $"- Result: `{normalized.Result}`",
             string.Empty,
-            "## Checks Performed"
+            "## Validation Checklist"
         };
-        lines.AddRange(StructuredPhaseArtifactMarkdown.RenderChecklistSection(normalized.ChecksPerformed));
+        lines.AddRange(StructuredPhaseArtifactMarkdown.RenderValidationChecklistSection(normalized.ValidationChecklist));
         lines.Add(string.Empty);
         lines.Add("## Findings");
         lines.AddRange(StructuredPhaseArtifactMarkdown.RenderBulletSection(normalized.Findings));
@@ -461,10 +474,20 @@ public static class ReviewArtifactJson
     private static ReviewArtifactDocument Normalize(ReviewArtifactDocument document) =>
         new(
             Result: StructuredPhaseArtifactJson.NormalizeScalar(document.Result),
-            ChecksPerformed: StructuredPhaseArtifactJson.NormalizeLines(document.ChecksPerformed),
+            ValidationChecklist: NormalizeChecklist(document.ValidationChecklist),
             Findings: StructuredPhaseArtifactJson.NormalizeLines(document.Findings),
             PrimaryReason: StructuredPhaseArtifactJson.NormalizeScalar(document.PrimaryReason),
             Recommendation: StructuredPhaseArtifactJson.NormalizeLines(document.Recommendation));
+
+    private static IReadOnlyList<ReviewValidationChecklistItem> NormalizeChecklist(
+        IReadOnlyList<ReviewValidationChecklistItem>? items) =>
+        (items ?? Array.Empty<ReviewValidationChecklistItem>())
+            .Select(static item => new ReviewValidationChecklistItem(
+                Status: StructuredPhaseArtifactJson.NormalizeScalar(item.Status).Equals("pass", StringComparison.OrdinalIgnoreCase) ? "pass" : "fail",
+                Item: StructuredPhaseArtifactJson.NormalizeScalar(item.Item),
+                Evidence: StructuredPhaseArtifactJson.NormalizeScalar(item.Evidence)))
+            .Where(static item => !string.IsNullOrWhiteSpace(item.Item))
+            .ToArray();
 }
 
 internal static class StructuredPhaseArtifactJson
@@ -529,6 +552,23 @@ internal static class StructuredPhaseArtifactMarkdown
 
         return items
             .Select(static item => item.StartsWith("- [", StringComparison.Ordinal) ? item : $"- [x] {item}")
+            .ToArray();
+    }
+
+    public static IReadOnlyList<string> RenderValidationChecklistSection(IReadOnlyList<ReviewValidationChecklistItem> items)
+    {
+        if (items.Count == 0)
+        {
+            return ["- \u274C No validation strategy item was reviewed. Evidence: missing review checklist."];
+        }
+
+        return items
+            .Select(static item =>
+            {
+                var marker = item.Status.Equals("pass", StringComparison.OrdinalIgnoreCase) ? "\u2705" : "\u274C";
+                var evidence = string.IsNullOrWhiteSpace(item.Evidence) ? "no evidence provided" : item.Evidence;
+                return $"- {marker} {item.Item} \u2014 Evidence: {evidence}";
+            })
             .ToArray();
     }
 }

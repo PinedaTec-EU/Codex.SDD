@@ -343,6 +343,7 @@ class WorkflowPanelController {
     this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
     this.selectedPhaseId = result.currentPhase;
     this.clearTransientExecutionPhase();
+    await this.pauseOnFailedReviewIfConfiguredAsync(result.currentPhase, result.generatedArtifactPath, "continue");
     this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, result.currentPhase, "continue");
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' continueCurrentPhaseAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
@@ -869,6 +870,36 @@ class WorkflowPanelController {
     await this.startAutoplayAsync(`autoPlay:${trigger}`);
   }
 
+  private async pauseOnFailedReviewIfConfiguredAsync(
+    phaseId: string,
+    artifactPath: string | null,
+    trigger: string
+  ): Promise<void> {
+    const settings = getSpecForgeSettings();
+    if (!settings.pauseOnFailedReview || phaseId !== "review") {
+      appendSpecForgeDebugLog(
+        `Workflow '${this.summary.usId}' did not apply failed-review pause after ${trigger}. pauseOnFailedReview=${settings.pauseOnFailedReview}, phase='${phaseId}'.`
+      );
+      return;
+    }
+
+    const artifactContent = await readArtifactContentAsync(artifactPath);
+    if (!isFailedReviewArtifact(artifactContent)) {
+      appendSpecForgeDebugLog(
+        `Workflow '${this.summary.usId}' did not apply failed-review pause after ${trigger} because the review artifact is not failed.`
+      );
+      return;
+    }
+
+    this.playbackState = "paused";
+    this.playbackStartedAtMs = null;
+    this.selectedPhaseId = "review";
+    this.setTransientExecutionPhase("review");
+    appendSpecForgeLog(
+      `Workflow '${this.summary.usId}' paused automatically at failed review because 'specForge.features.pauseOnFailedReview' is enabled.`
+    );
+  }
+
   private async renderWorkflowAsync(workflow: UserStoryWorkflowDetails): Promise<number> {
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === this.selectedPhaseId)
       ?? workflow.phases.find((phase) => phase.isCurrent)
@@ -1103,6 +1134,14 @@ async function readArtifactContentAsync(artifactPath: string | null | undefined)
   } catch {
     return null;
   }
+}
+
+function isFailedReviewArtifact(content: string | null): boolean {
+  if (!content) {
+    return false;
+  }
+
+  return /-\s*(Result|Final result):\s*`?fail`?/i.test(content);
 }
 
 async function openTextDocument(filePath: string): Promise<void> {

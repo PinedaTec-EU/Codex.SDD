@@ -1150,10 +1150,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         """
         {
           "result": "pass",
-          "checksPerformed": [
-            "Spec artifact present: true",
-            "Technical design artifact present: true",
-            "Implementation artifact present: true"
+          "validationChecklist": [
+            {
+              "status": "pass",
+              "item": "Review must compare implementation back to the approved spec before final release approval.",
+              "evidence": "Spec, technical design, implementation artifact, and implementation evidence are present."
+            }
           ],
           "findings": [
             "No material deviations were detected in the current artifact set."

@@ -9,6 +9,7 @@ Define the review template as the final validation artifact before human release
 - it must be clear and actionable
 - it must prioritize findings and verdict
 - it must reference the user story, approved spec, design, and implementation
+- it must derive its validation checklist from `02-technical-design.md` > `Validation Strategy`
 - it must not hide residual risks
 
 ## Proposed Template
@@ -27,12 +28,9 @@ Define the review template as the final validation artifact before human release
 ## Summary
 Short review conclusion.
 
-## Checks Performed
-- [ ] Matches the user story
-- [ ] Matches the approved spec
-- [ ] Respects the technical design
-- [ ] Respects repository constraints
-- [ ] Has sufficient validation
+## Validation Checklist
+- ✅ Technical Design validation strategy item 1 — Evidence: concrete code, artifact, diff, or validation evidence.
+- ❌ Technical Design validation strategy item 2 — Evidence: missing or insufficient evidence.
 
 ## Findings
 ### Finding 1
@@ -65,5 +63,8 @@ Short review conclusion.
 ## Usage Notes
 
 - findings must be structured and unambiguous
+- every Technical Design `Validation Strategy` item must appear in `Validation Checklist`
+- if `Validation Strategy` is missing, empty, or not reviewable, the review must fail
+- if any checklist item is ❌, the review must fail
 - if the review fails, the target regression phase must be clear
 - if it passes, the jump to `release_approval` must be ready
