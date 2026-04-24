@@ -353,7 +353,10 @@ function buildPhaseSpecificSections(
     case "implementation":
       return buildImplementationPhaseSections();
     case "review":
-      return buildReviewPhaseSections();
+      return buildReviewPhaseSections({
+        workflow,
+        selectedPhase
+      });
     case "release-approval":
       return buildReleaseApprovalPhaseSections();
     case "pr-preparation":
@@ -1972,6 +1975,17 @@ export function buildWorkflowHtml(
     }
     .graph-links path.pending {
       stroke: rgba(255, 255, 255, 0.1);
+    }
+    .graph-links path.reverse {
+      stroke: rgba(92, 181, 255, 0.34);
+      stroke-dasharray: 10 10;
+      stroke-width: 3;
+    }
+    .graph-links path.reverse-active {
+      stroke: rgba(92, 181, 255, 0.86);
+      stroke-dasharray: 14 8;
+      stroke-width: 3.5;
+      filter: drop-shadow(0 0 14px rgba(92, 181, 255, 0.34));
     }
     .graph-links path.disabled {
       stroke: rgba(255, 255, 255, 0.08);
@@ -4094,6 +4108,39 @@ export function buildWorkflowHtml(
       });
     }
 
+    const reviewRegressionTextarea = document.getElementById("review-regression-textarea");
+    if (reviewRegressionTextarea instanceof HTMLTextAreaElement) {
+      reviewRegressionTextarea.value = typeof viewState.reviewRegressionDraft === "string" ? viewState.reviewRegressionDraft : "";
+      reviewRegressionTextarea.addEventListener("input", () => {
+        vscode.setState({
+          ...viewState,
+          workflowFilesOpen: Boolean(viewState.workflowFilesOpen),
+          reviewRegressionDraft: reviewRegressionTextarea.value
+        });
+      });
+    }
+
+    const submitReviewRegression = document.getElementById("submit-review-regression");
+    if (submitReviewRegression && reviewRegressionTextarea instanceof HTMLTextAreaElement) {
+      submitReviewRegression.addEventListener("click", () => {
+        const prompt = reviewRegressionTextarea.value.trim();
+        if (!prompt) {
+          return;
+        }
+
+        vscode.postMessage({
+          command: "sendReviewToImplementation",
+          prompt
+        });
+        reviewRegressionTextarea.value = "";
+        vscode.setState({
+          ...viewState,
+          workflowFilesOpen: Boolean(viewState.workflowFilesOpen),
+          reviewRegressionDraft: ""
+        });
+      });
+    }
+
     for (const element of document.querySelectorAll("[data-add-suggested-context-files]")) {
       element.addEventListener("click", () => {
         const rawPaths = element.getAttribute("data-add-suggested-context-files");
@@ -4503,6 +4550,15 @@ function buildGraphLinks(
       fromPhaseId: fromPhase.phaseId,
       toPhaseId: toPhase.phaseId,
       className: linkClass(toPhase, executingTargetPhaseId, currentPhaseId, completedPhaseIds)
+    });
+  }
+
+  if (visiblePhases.some((phase) => phase.phaseId === "implementation")
+    && visiblePhases.some((phase) => phase.phaseId === "review")) {
+    edges.push({
+      fromPhaseId: "review",
+      toPhaseId: "implementation",
+      className: currentPhaseId === "review" ? "reverse-active" : "reverse"
     });
   }
 

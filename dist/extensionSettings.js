@@ -26,6 +26,8 @@ function readSpecForgeSettings(configuration) {
         requireExplicitApprovalBranchAcceptance: configuration.get("features.requireApprovalBranchAcceptance", false),
         autoClarificationAnswersEnabled: configuration.get("features.autoClarificationAnswersEnabled", false),
         autoPlayEnabled: configuration.get("features.autoPlayEnabled", false),
+        autoReviewEnabled: configuration.get("features.autoReviewEnabled", false),
+        maxImplementationReviewCycles: normalizeOptionalPositiveInteger(configuration.get("features.maxImplementationReviewCycles")),
         destructiveRewindEnabled: configuration.get("features.destructiveRewindEnabled", false),
         pauseOnFailedReview: configuration.get("features.pauseOnFailedReview", false)
     };
@@ -175,6 +177,21 @@ function hasExplicitProfilesForAllModelDrivenPhases(assignments) {
         assignments.reviewProfile
     ].every((value) => Boolean(value));
 }
+function normalizeOptionalPositiveInteger(value) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        const normalized = Math.trunc(value);
+        return normalized > 0 ? normalized : null;
+    }
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (trimmed.length === 0) {
+            return null;
+        }
+        const parsed = Number.parseInt(trimmed, 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    }
+    return null;
+}
 function buildSettingsDiagnostics(settings) {
     const profiles = settings.modelProfiles.map((profile) => `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"}${profile.reasoningEffort ? `,reasoningEffort=${profile.reasoningEffort}` : ""},apiKey=${profile.apiKey ? "set" : "empty"},repositoryAccess=${profile.repositoryAccess || "<missing>"}}`);
     return [
@@ -191,6 +208,8 @@ function buildSettingsDiagnostics(settings) {
         `phaseModels.prPreparation=${settings.phaseModelAssignments.prPreparationProfile ?? "<unset>"}`,
         `autoClarificationAnswers.enabled=${settings.autoClarificationAnswersEnabled}`,
         `autoClarificationAnswers.profile=${settings.autoClarificationAnswersProfile ?? "<unset>"}`,
+        `autoReviewEnabled=${settings.autoReviewEnabled}`,
+        `maxImplementationReviewCycles=${settings.maxImplementationReviewCycles ?? "<unset>"}`,
         `pauseOnFailedReview=${settings.pauseOnFailedReview}`,
         `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
         `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,

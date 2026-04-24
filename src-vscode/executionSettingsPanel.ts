@@ -14,6 +14,8 @@ type ExecutionSettingsMessage =
       readonly phaseModelAssignments?: Partial<SpecForgePhaseModelAssignments>;
       readonly autoClarificationAnswersEnabled?: boolean;
       readonly autoClarificationAnswersProfile?: string | null;
+      readonly autoReviewEnabled?: boolean;
+      readonly maxImplementationReviewCycles?: number | null;
     }
   | { readonly command: "openRawSettings"; };
 
@@ -70,7 +72,9 @@ class ExecutionSettingsPanelController {
               message.modelProfiles ?? [],
               message.phaseModelAssignments ?? {},
               message.autoClarificationAnswersEnabled ?? false,
-              message.autoClarificationAnswersProfile);
+              message.autoClarificationAnswersProfile,
+              message.autoReviewEnabled ?? false,
+              message.maxImplementationReviewCycles ?? null);
             await this.onDidSave();
             await this.refreshAsync();
           } catch (error) {
@@ -92,7 +96,9 @@ class ExecutionSettingsPanelController {
       modelProfiles: settings.modelProfiles,
       phaseModelAssignments: settings.phaseModelAssignments,
       autoClarificationAnswersEnabled: settings.autoClarificationAnswersEnabled,
-      autoClarificationAnswersProfile: settings.autoClarificationAnswersProfile
+      autoClarificationAnswersProfile: settings.autoClarificationAnswersProfile,
+      autoReviewEnabled: settings.autoReviewEnabled,
+      maxImplementationReviewCycles: settings.maxImplementationReviewCycles
     });
   }
 }
@@ -102,6 +108,8 @@ type ExecutionSettingsViewModel = {
   readonly phaseModelAssignments: SpecForgePhaseModelAssignments;
   readonly autoClarificationAnswersEnabled: boolean;
   readonly autoClarificationAnswersProfile: string | null;
+  readonly autoReviewEnabled: boolean;
+  readonly maxImplementationReviewCycles: number | null;
 };
 
 const executionPhases: ReadonlyArray<{ key: keyof SpecForgePhaseModelAssignments; label: string; }> = [
@@ -377,6 +385,27 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
           <select data-auto-clarification-profile></select>
         </label>
       </div>
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Review Automation</p>
+          <h2>Implementation loop</h2>
+          <p class="copy">Optionally continue from implementation into review automatically, but stop once the configured implementation/review cycle cap is reached.</p>
+        </div>
+      </div>
+      <div class="phase-grid">
+        <label class="phase-field">
+          <span>Enable auto review</span>
+          <select data-auto-review-enabled>
+            <option value="false"${model.autoReviewEnabled ? "" : " selected"}>Disabled</option>
+            <option value="true"${model.autoReviewEnabled ? " selected" : ""}>Enabled</option>
+          </select>
+        </label>
+        <label class="phase-field">
+          <span>Max implementation/review cycles</span>
+          <input type="number" min="1" step="1" data-max-implementation-review-cycles value="${escapeHtmlAttr(String(model.maxImplementationReviewCycles ?? 2))}" />
+          <span class="phase-field__hint">Automatic review stops when this many implementation attempts have been recorded.</span>
+        </label>
+      </div>
       <div class="actions">
         <button class="primary-action" type="submit">Save Execution Settings</button>
       </div>
@@ -398,6 +427,8 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       phaseModelAssignments: ${JSON.stringify(model.phaseModelAssignments)},
       autoClarificationAnswersEnabled: ${JSON.stringify(model.autoClarificationAnswersEnabled)},
       autoClarificationAnswersProfile: ${JSON.stringify(model.autoClarificationAnswersProfile)},
+      autoReviewEnabled: ${JSON.stringify(model.autoReviewEnabled)},
+      maxImplementationReviewCycles: ${JSON.stringify(model.maxImplementationReviewCycles ?? 2)},
       initialPermissionIssues: ${JSON.stringify(permissionIssues)}
     };
 
@@ -517,6 +548,8 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       const autoClarificationProfile = document.querySelector("[data-auto-clarification-profile]");
       const autoClarificationWrapper = document.querySelector("[data-auto-clarification-profile-wrapper]");
       const autoClarificationEnabled = document.querySelector("[data-auto-clarification-enabled]");
+      const autoReviewEnabled = document.querySelector("[data-auto-review-enabled]");
+      const maxImplementationReviewCycles = document.querySelector("[data-max-implementation-review-cycles]");
       const saveButton = document.querySelector('button[type="submit"]');
       const saveError = document.querySelector("[data-save-error]");
       if (!(profilesHost instanceof HTMLElement) || !(phaseGrid instanceof HTMLElement)) {
@@ -572,6 +605,24 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
           state.autoClarificationAnswersEnabled = autoClarificationEnabled.value === "true";
           render();
         });
+      }
+
+      if (autoReviewEnabled instanceof HTMLSelectElement) {
+        autoReviewEnabled.value = state.autoReviewEnabled ? "true" : "false";
+        autoReviewEnabled.addEventListener("change", () => {
+          state.autoReviewEnabled = autoReviewEnabled.value === "true";
+        });
+      }
+
+      if (maxImplementationReviewCycles instanceof HTMLInputElement) {
+        maxImplementationReviewCycles.value = String(state.maxImplementationReviewCycles || 2);
+        const syncMaxCycles = () => {
+          const parsed = Number.parseInt(maxImplementationReviewCycles.value, 10);
+          state.maxImplementationReviewCycles = Number.isFinite(parsed) && parsed > 0 ? parsed : 2;
+          maxImplementationReviewCycles.value = String(state.maxImplementationReviewCycles);
+        };
+        maxImplementationReviewCycles.addEventListener("input", syncMaxCycles);
+        maxImplementationReviewCycles.addEventListener("change", syncMaxCycles);
       }
 
       const fallbackProblem = hasFallbackProblem();
@@ -767,7 +818,9 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         modelProfiles: state.modelProfiles,
         phaseModelAssignments: state.phaseModelAssignments,
         autoClarificationAnswersEnabled: state.autoClarificationAnswersEnabled,
-        autoClarificationAnswersProfile: state.autoClarificationAnswersProfile
+        autoClarificationAnswersProfile: state.autoClarificationAnswersProfile,
+        autoReviewEnabled: state.autoReviewEnabled,
+        maxImplementationReviewCycles: state.maxImplementationReviewCycles
       });
     });
 
@@ -781,7 +834,9 @@ async function saveExecutionSettingsAsync(
   modelProfiles: readonly Partial<SpecForgeModelProfile>[],
   phaseModelAssignments: Partial<SpecForgePhaseModelAssignments>,
   autoClarificationAnswersEnabled = false,
-  autoClarificationAnswersProfile?: string | null
+  autoClarificationAnswersProfile?: string | null,
+  autoReviewEnabled = false,
+  maxImplementationReviewCycles?: number | null
 ): Promise<void> {
   const configuration = vscode.workspace.getConfiguration("specForge");
   const normalizedProfiles = modelProfiles
@@ -832,9 +887,23 @@ async function saveExecutionSettingsAsync(
     "execution.autoClarificationAnswersProfile",
     normalizeOptionalAssignment(autoClarificationAnswersProfile),
     vscode.ConfigurationTarget.Workspace);
+  await configuration.update("features.autoReviewEnabled", autoReviewEnabled, vscode.ConfigurationTarget.Workspace);
+  await configuration.update(
+    "features.maxImplementationReviewCycles",
+    normalizePositiveInteger(maxImplementationReviewCycles) ?? 2,
+    vscode.ConfigurationTarget.Workspace);
 }
 
 function normalizeOptionalAssignment(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function normalizePositiveInteger(value: number | null | undefined): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+
+  const normalized = Math.trunc(value);
+  return normalized > 0 ? normalized : null;
 }

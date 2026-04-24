@@ -78,6 +78,8 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
     ["ui.notifyOnAttention", true],
     ["features.enableContextSuggestions", true],
     ["features.requireApprovalBranchAcceptance", true],
+    ["features.autoReviewEnabled", true],
+    ["features.maxImplementationReviewCycles", 3],
     ["features.pauseOnFailedReview", true]
   ]);
 
@@ -131,6 +133,8 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
     requireExplicitApprovalBranchAcceptance: true,
     autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
+    autoReviewEnabled: true,
+    maxImplementationReviewCycles: 3,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: true
   });
@@ -196,6 +200,8 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
     requireExplicitApprovalBranchAcceptance: false,
     autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
+    autoReviewEnabled: false,
+    maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: false
   }), {
@@ -242,6 +248,8 @@ test("getSpecForgeSettingsStatus requires at least one model profile", () => {
     requireExplicitApprovalBranchAcceptance: false,
     autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
+    autoReviewEnabled: false,
+    maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: false
   });
@@ -278,6 +286,8 @@ test("getSpecForgeSettingsStatus rejects a single fallback profile when phase pe
     requireExplicitApprovalBranchAcceptance: false,
     autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
+    autoReviewEnabled: false,
+    maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: false
   });
@@ -314,6 +324,8 @@ test("getSpecForgeSettingsStatus still requires an api key for remote profiles",
     requireExplicitApprovalBranchAcceptance: false,
     autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
+    autoReviewEnabled: false,
+    maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: false
   });
@@ -346,6 +358,8 @@ test("getSpecForgeSettingsStatus accepts profiles using the default provider", (
     requireExplicitApprovalBranchAcceptance: false,
     autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
+    autoReviewEnabled: false,
+    maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: false
   });
@@ -402,6 +416,8 @@ test("getSpecForgeSettingsStatus accepts codex, copilot, and claude providers", 
     requireExplicitApprovalBranchAcceptance: false,
     autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
+    autoReviewEnabled: false,
+    maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: false
   });
@@ -441,8 +457,10 @@ test("getSpecForgeSettingsStatus allows native CLI providers without baseUrl api
       requireExplicitApprovalBranchAcceptance: false,
       autoClarificationAnswersEnabled: false,
       autoPlayEnabled: false,
+      autoReviewEnabled: false,
+      maxImplementationReviewCycles: null,
       destructiveRewindEnabled: false,
-    pauseOnFailedReview: false
+      pauseOnFailedReview: false
     });
 
     assert.equal(status.executionConfigured, true);
@@ -474,6 +492,8 @@ test("getSpecForgeSettingsStatus rejects unsupported providers", () => {
     requireExplicitApprovalBranchAcceptance: false,
     autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
+    autoReviewEnabled: false,
+    maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: false
   });
@@ -508,6 +528,8 @@ test("getSpecForgeSettingsStatus validates named profile assignments", () => {
     requireExplicitApprovalBranchAcceptance: false,
     autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
+    autoReviewEnabled: false,
+    maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: false
   });
@@ -568,6 +590,8 @@ test("getSpecForgeSettingsStatus allows multiple profiles without default when a
     requireExplicitApprovalBranchAcceptance: false,
     autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
+    autoReviewEnabled: false,
+    maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: false
   });
@@ -618,6 +642,8 @@ test("getSpecForgeSettingsStatus rejects review when its assigned profile lacks 
     requireExplicitApprovalBranchAcceptance: false,
     autoClarificationAnswersEnabled: false,
     autoPlayEnabled: false,
+    autoReviewEnabled: false,
+    maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: false
   });
@@ -651,6 +677,8 @@ test("getSpecForgeSettingsStatus requires an explicit auto-clarification profile
     requireExplicitApprovalBranchAcceptance: false,
     autoClarificationAnswersEnabled: true,
     autoPlayEnabled: false,
+    autoReviewEnabled: false,
+    maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: false
   });
@@ -686,6 +714,8 @@ test("buildBackendEnvironment serializes auto-clarification settings", () => {
     requireExplicitApprovalBranchAcceptance: false,
     autoClarificationAnswersEnabled: true,
     autoPlayEnabled: false,
+    autoReviewEnabled: false,
+    maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: false
   });

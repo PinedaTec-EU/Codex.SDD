@@ -13,6 +13,8 @@ export interface SpecForgeSettings {
   readonly requireExplicitApprovalBranchAcceptance: boolean;
   readonly autoClarificationAnswersEnabled: boolean;
   readonly autoPlayEnabled: boolean;
+  readonly autoReviewEnabled: boolean;
+  readonly maxImplementationReviewCycles: number | null;
   readonly destructiveRewindEnabled: boolean;
   readonly pauseOnFailedReview: boolean;
 }
@@ -84,6 +86,9 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
     requireExplicitApprovalBranchAcceptance: configuration.get<boolean>("features.requireApprovalBranchAcceptance", false),
     autoClarificationAnswersEnabled: configuration.get<boolean>("features.autoClarificationAnswersEnabled", false),
     autoPlayEnabled: configuration.get<boolean>("features.autoPlayEnabled", false),
+    autoReviewEnabled: configuration.get<boolean>("features.autoReviewEnabled", false),
+    maxImplementationReviewCycles: normalizeOptionalPositiveInteger(
+      configuration.get<unknown>("features.maxImplementationReviewCycles")),
     destructiveRewindEnabled: configuration.get<boolean>("features.destructiveRewindEnabled", false),
     pauseOnFailedReview: configuration.get<boolean>("features.pauseOnFailedReview", false)
   };
@@ -267,6 +272,25 @@ function hasExplicitProfilesForAllModelDrivenPhases(assignments: SpecForgePhaseM
   ].every((value) => Boolean(value));
 }
 
+function normalizeOptionalPositiveInteger(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const normalized = Math.trunc(value);
+    return normalized > 0 ? normalized : null;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return null;
+    }
+
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  return null;
+}
+
 function buildSettingsDiagnostics(settings: SpecForgeSettings): string {
   const profiles = settings.modelProfiles.map((profile) =>
     `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"}${profile.reasoningEffort ? `,reasoningEffort=${profile.reasoningEffort}` : ""},apiKey=${profile.apiKey ? "set" : "empty"},repositoryAccess=${profile.repositoryAccess || "<missing>"}}`);
@@ -285,6 +309,8 @@ function buildSettingsDiagnostics(settings: SpecForgeSettings): string {
     `phaseModels.prPreparation=${settings.phaseModelAssignments.prPreparationProfile ?? "<unset>"}`,
     `autoClarificationAnswers.enabled=${settings.autoClarificationAnswersEnabled}`,
     `autoClarificationAnswers.profile=${settings.autoClarificationAnswersProfile ?? "<unset>"}`,
+    `autoReviewEnabled=${settings.autoReviewEnabled}`,
+    `maxImplementationReviewCycles=${settings.maxImplementationReviewCycles ?? "<unset>"}`,
     `pauseOnFailedReview=${settings.pauseOnFailedReview}`,
     `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
     `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,

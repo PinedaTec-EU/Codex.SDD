@@ -46,6 +46,7 @@ const extensionSettings_1 = require("./extensionSettings");
 const outputChannel_1 = require("./outputChannel");
 const runtimeVersion_1 = require("./runtimeVersion");
 const userActor_1 = require("./userActor");
+const workflowAutomation_1 = require("./workflowAutomation");
 const workflowPlaybackState_1 = require("./workflowPlaybackState");
 const workflowBranchName_1 = require("./workflowBranchName");
 const workflowRejectPlan_1 = require("./workflowRejectPlan");
@@ -254,6 +255,11 @@ class WorkflowPanelController {
                     await this.submitPhaseInputAsync(message.prompt);
                 }
                 return;
+            case "sendReviewToImplementation":
+                if (message.prompt) {
+                    await this.sendReviewToImplementationAsync(message.prompt);
+                }
+                return;
             case "play":
                 await this.requestWorkflowExecutionAsync("command:play", "play");
                 return;
@@ -301,6 +307,7 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' continueCurrentPhaseAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("continueCurrentPhaseAsync");
+        await this.maybeAutoReviewAfterImplementationAsync("continue");
     }
     async replayCurrentPhaseDirectlyAsync(reason, phaseId) {
         if (this.playbackState !== "playing") {
@@ -398,6 +405,45 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' submitPhaseInputAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("submitPhaseInputAsync");
+        await this.maybeAutoReviewAfterImplementationAsync("phase input");
+    }
+    async sendReviewToImplementationAsync(prompt) {
+        const normalizedPrompt = prompt.trim();
+        if (normalizedPrompt.length === 0) {
+            return;
+        }
+        const previousPhase = this.summary.currentPhase;
+        await this.focusPhaseForAction("implementation", "sendReviewToImplementationAsync:focus");
+        const regressionReason = normalizedPrompt.split(/\r?\n/, 1)[0]?.trim() || "Review requested an implementation correction.";
+        const regression = await this.getBackendClient().requestRegression(this.summary.usId, "implementation", regressionReason, (0, userActor_1.getCurrentActor)(), (0, extensionSettings_1.getSpecForgeSettings)().destructiveRewindEnabled);
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regressed from review to implementation for a model-applied correction.`);
+        this.summary = {
+            ...this.summary,
+            currentPhase: regression.currentPhase,
+            status: regression.status
+        };
+        const operationPrompt = [
+            "Apply the following review feedback to the current implementation artifact.",
+            "Use the latest review artifact as corrective context and preserve approved scope unless the feedback explicitly changes it.",
+            "",
+            normalizedPrompt
+        ].join("\n");
+        const operation = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, operationPrompt, (0, userActor_1.getCurrentActor)());
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' applied review feedback over implementation.${this.formatExecutionSummary(operation.execution)}`);
+        this.logExecutionWarnings(operation.execution);
+        this.summary = {
+            ...this.summary,
+            currentPhase: operation.currentPhase,
+            status: operation.status
+        };
+        this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
+        this.clearTransientExecutionPhase();
+        this.selectedPhaseId = operation.currentPhase;
+        this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, operation.currentPhase, "review-to-implementation");
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' sendReviewToImplementationAsync requested explorer refresh.`);
+        await this.callbacks.refreshExplorer();
+        await this.refreshAsync("sendReviewToImplementationAsync");
+        await this.maybeAutoReviewAfterImplementationAsync("review correction");
     }
     async submitApprovalAnswerAsync(question, answer) {
         const previousPhase = this.summary.currentPhase;
@@ -672,8 +718,17 @@ class WorkflowPanelController {
             (0, outputChannel_1.appendSpecForgeLog)(`Autoplay loop started for '${this.summary.usId}'.`);
             while (this.playbackState === "playing") {
                 const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+                const settings = (0, extensionSettings_1.getSpecForgeSettings)();
                 const executionPhaseId = this.resolveExecutionPhaseIdForWorkflow(workflow);
                 const canReplayCurrentPhase = this.canReplayCurrentPhase(workflow);
+                if (workflow.currentPhase === "implementation"
+                    && (0, workflowAutomation_1.hasReachedImplementationReviewCycleLimit)(workflow, settings.maxImplementationReviewCycles)) {
+                    this.playbackState = "paused";
+                    this.setTransientExecutionPhase("implementation");
+                    (0, outputChannel_1.appendSpecForgeLog)(`Autoplay paused for '${workflow.usId}' because the implementation/review loop reached the configured limit (${settings.maxImplementationReviewCycles}).`);
+                    await this.refreshAsync("autoplay:implementationReviewLimit");
+                    return;
+                }
                 if (executionPhaseId && this.isPhasePauseArmed(executionPhaseId)) {
                     this.playbackState = "paused";
                     this.setTransientExecutionPhase(executionPhaseId);
@@ -765,6 +820,31 @@ class WorkflowPanelController {
             const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
             this.lastWorkflow = workflow;
             (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' did not auto-play after ${trigger} because canContinue=${workflow.controls.canContinue}, requiresApproval=${workflow.controls.requiresApproval}, blockingReason='${workflow.controls.blockingReason ?? "none"}'.`);
+        }
+    }
+    async maybeAutoReviewAfterImplementationAsync(trigger) {
+        const settings = (0, extensionSettings_1.getSpecForgeSettings)();
+        if (!settings.autoReviewEnabled) {
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' did not auto-review after ${trigger} because 'specForge.features.autoReviewEnabled' is false.`);
+            return;
+        }
+        const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+        this.lastWorkflow = workflow;
+        if (workflow.currentPhase !== "implementation") {
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' did not auto-review after ${trigger} because current phase is '${workflow.currentPhase}'.`);
+            return;
+        }
+        if ((0, workflowAutomation_1.hasReachedImplementationReviewCycleLimit)(workflow, settings.maxImplementationReviewCycles)) {
+            (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' stopped automatic review after ${trigger} because the implementation/review loop reached the configured limit (${settings.maxImplementationReviewCycles}).`);
+            return;
+        }
+        const executed = await this.requestWorkflowExecutionAsync(`autoReview:${trigger}`, `auto-review after ${trigger}`, {
+            allowCurrentPhaseReplay: false,
+            openSettingsWhenUnconfigured: false,
+            notifyWhenBlocked: false
+        });
+        if (!executed) {
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' did not auto-review after ${trigger} because the workflow could not continue from implementation.`);
         }
     }
     async pauseOnFailedReviewIfConfiguredAsync(phaseId, artifactPath, trigger) {
