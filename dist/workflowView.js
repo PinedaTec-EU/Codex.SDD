@@ -4311,35 +4311,52 @@ function graphPath(fromPhaseId, toPhaseId, positions, nodeWidth) {
     const { fromAnchor, toAnchor } = resolveAnchors(fromPosition, toPosition);
     const from = getAnchorPoint(fromPosition, fromAnchor, nodeWidth);
     const to = getAnchorPoint(toPosition, toAnchor, nodeWidth);
-    const fromColumn = fromPosition.left < toPosition.left
-        ? "left"
-        : fromPosition.left > toPosition.left
-            ? "right"
-            : fromPosition.left <= desktopLayoutConfig.columns.left + 40
-                ? "left"
-                : "right";
     const sameColumn = fromPosition.left === toPosition.left;
     if (sameColumn) {
-        const bendDirection = fromColumn === "left" ? -1 : 1;
-        const lateralOffset = Math.max(26, nodeWidth * 0.14) * bendDirection;
-        const verticalSpread = Math.max(28, Math.abs(to.y - from.y) * 0.26);
-        return `M ${from.x} ${from.y} C ${from.x + lateralOffset} ${from.y + verticalSpread}, ${to.x + lateralOffset} ${to.y - verticalSpread}, ${to.x} ${to.y}`;
+        return buildSameColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth);
     }
-    if (to.x > from.x) {
-        const horizontalOffset = Math.max(54, Math.abs(to.x - from.x) * 0.34);
-        const verticalOffset = Math.max(20, Math.abs(to.y - from.y) * 0.14);
-        return `M ${from.x} ${from.y} C ${from.x + horizontalOffset} ${from.y}, ${to.x - horizontalOffset} ${to.y - verticalOffset}, ${to.x} ${to.y}`;
-    }
-    const lateralOffset = Math.max(30, nodeWidth * 0.12);
-    const verticalSpread = Math.max(30, Math.abs(to.y - from.y) * 0.24);
-    return `M ${from.x} ${from.y} C ${from.x - lateralOffset} ${from.y + verticalSpread}, ${to.x - lateralOffset} ${to.y - verticalSpread}, ${to.x} ${to.y}`;
+    return buildCrossColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth);
+}
+function buildSameColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth) {
+    const channelOffset = Math.max(38, nodeWidth * 0.18);
+    const channelX = fromAnchor === "exit-left"
+        ? fromPosition.left - channelOffset
+        : fromPosition.left + nodeWidth + channelOffset;
+    const exit = projectAwayFromNode(fromPosition, fromAnchor, from, channelOffset);
+    const entry = projectAwayFromNode(toPosition, toAnchor, to, channelOffset);
+    const midY = entry.y > exit.y
+        ? exit.y + Math.max(28, (entry.y - exit.y) * 0.34)
+        : exit.y - Math.max(28, (exit.y - entry.y) * 0.34);
+    return buildRoundedOrthogonalPath(from, [
+        exit,
+        { x: channelX, y: exit.y },
+        { x: channelX, y: midY },
+        { x: channelX, y: entry.y },
+        entry,
+        to
+    ]);
+}
+function buildCrossColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth) {
+    const channelOffset = Math.max(34, nodeWidth * 0.16);
+    const exit = projectAwayFromNode(fromPosition, fromAnchor, from, channelOffset);
+    const entry = projectAwayFromNode(toPosition, toAnchor, to, channelOffset);
+    const horizontalMidX = exit.x < entry.x
+        ? exit.x + Math.max(44, (entry.x - exit.x) * 0.48)
+        : exit.x - Math.max(44, (exit.x - entry.x) * 0.48);
+    return buildRoundedOrthogonalPath(from, [
+        exit,
+        { x: horizontalMidX, y: exit.y },
+        { x: horizontalMidX, y: entry.y },
+        entry,
+        to
+    ]);
 }
 function resolveAnchors(from, to) {
     const deltaX = to.left - from.left;
-    const fromColumn = deltaX === 0 ? (from.left <= 100 ? "left" : "right") : deltaX > 0 ? "left" : "right";
     if (deltaX === 0) {
+        const leftLane = from.left <= desktopLayoutConfig.columns.left + 40;
         return {
-            fromAnchor: "exit-bottom-right",
+            fromAnchor: leftLane ? "exit-right" : "exit-left",
             toAnchor: "entry-top"
         };
     }
@@ -4365,6 +4382,49 @@ function getAnchorPoint(position, anchor, nodeWidth) {
         case "exit-bottom-right":
             return { x: position.left + nodeWidth * 0.92, y: position.top + phaseNodeHeight };
     }
+}
+function projectAwayFromNode(position, anchor, point, offset) {
+    switch (anchor) {
+        case "entry-top":
+            return { x: point.x, y: position.top - offset };
+        case "entry-left":
+            return { x: position.left - offset, y: point.y };
+        case "exit-right":
+            return { x: position.left + offset + (point.x - position.left), y: point.y };
+        case "exit-left":
+            return { x: position.left - offset, y: point.y };
+        case "exit-bottom-left":
+        case "exit-bottom-mid":
+        case "exit-bottom-right":
+            return { x: point.x, y: position.top + phaseNodeHeight + offset };
+    }
+}
+function buildRoundedOrthogonalPath(start, points) {
+    const cleanPoints = [start, ...points].filter((point, index, list) => index === 0 || point.x !== list[index - 1].x || point.y !== list[index - 1].y);
+    if (cleanPoints.length < 2) {
+        return "";
+    }
+    let path = `M ${cleanPoints[0].x} ${cleanPoints[0].y}`;
+    for (let index = 1; index < cleanPoints.length; index++) {
+        const previous = cleanPoints[index - 1];
+        const current = cleanPoints[index];
+        const next = cleanPoints[index + 1];
+        if (!next) {
+            path += ` L ${current.x} ${current.y}`;
+            continue;
+        }
+        const radius = Math.min(24, Math.abs(current.x - previous.x) / 2 || 24, Math.abs(current.y - previous.y) / 2 || 24, Math.abs(next.x - current.x) / 2 || 24, Math.abs(next.y - current.y) / 2 || 24);
+        const cornerEntry = moveToward(current, previous, radius);
+        const cornerExit = moveToward(current, next, radius);
+        path += ` L ${cornerEntry.x} ${cornerEntry.y} Q ${current.x} ${current.y} ${cornerExit.x} ${cornerExit.y}`;
+    }
+    return path;
+}
+function moveToward(from, to, distance) {
+    if (from.x === to.x) {
+        return { x: from.x, y: from.y + Math.sign(to.y - from.y) * distance };
+    }
+    return { x: from.x + Math.sign(to.x - from.x) * distance, y: from.y };
 }
 function extractArtifactQuestionBlock(markdown) {
     if (!markdown) {

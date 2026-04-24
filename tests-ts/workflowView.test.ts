@@ -1423,6 +1423,84 @@ test("buildWorkflowHtml computes deterministic two-column graph positions with o
   assert.match(html, /phase-graph" aria-label="Workflow graph" style="--graph-width-desktop:/);
 });
 
+test("buildWorkflowHtml routes graph links around cards using rounded orthogonal segments", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0042",
+    title: "Graph routing",
+    category: "workflow",
+    status: "active",
+    currentPhase: "review",
+    directoryPath: "/tmp/us.US-0042",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "implementation",
+        title: "Implementation",
+        order: 4,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: "/tmp/03-implementation.md",
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "review",
+        title: "Review",
+        order: 5,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "blocked",
+        artifactPath: "/tmp/04-review.md",
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "release-approval",
+        title: "Release Approval",
+        order: 6,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: "review_failed",
+      canRestartFromSource: false,
+      regressionTargets: ["implementation"],
+      rewindTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "review",
+    selectedArtifactContent: "## Review",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /class="completed" d="M [^"]* L [^"]* Q [^"]* L [^"]*"/);
+  assert.match(html, /class="reverse-active" d="M [^"]* L [^"]* Q [^"]* L [^"]*"/);
+});
+
 test("buildWorkflowHtml advances the execution overlay to refinement after clarification passes", () => {
   const html = buildWorkflowHtml({
     usId: "US-0005",
