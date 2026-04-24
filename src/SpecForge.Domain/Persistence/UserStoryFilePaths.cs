@@ -186,9 +186,33 @@ public sealed class UserStoryFilePaths
         return Path.Combine(PhasesDirectoryPath, $"{fileStem}.ops.md");
     }
 
+    public string GetPhaseEvidenceMarkdownPath(PhaseId phaseId)
+    {
+        var fileStem = GetPhaseArtifactFileStem(phaseId);
+        return Path.Combine(PhasesDirectoryPath, $"{fileStem}.evidence.md");
+    }
+
+    public string GetPhaseEvidenceJsonPath(PhaseId phaseId)
+    {
+        var fileStem = GetPhaseArtifactFileStem(phaseId);
+        return Path.Combine(PhasesDirectoryPath, $"{fileStem}.evidence.json");
+    }
+
     public string? GetLatestExistingPhaseOperationLogPath(PhaseId phaseId)
     {
         var candidate = GetPhaseOperationLogPath(phaseId);
+        return File.Exists(candidate) ? candidate : null;
+    }
+
+    public string? GetLatestExistingPhaseEvidenceMarkdownPath(PhaseId phaseId)
+    {
+        var candidate = GetPhaseEvidenceMarkdownPath(phaseId);
+        return File.Exists(candidate) ? candidate : null;
+    }
+
+    public string? GetLatestExistingPhaseEvidenceJsonPath(PhaseId phaseId)
+    {
+        var candidate = GetPhaseEvidenceJsonPath(phaseId);
         return File.Exists(candidate) ? candidate : null;
     }
 

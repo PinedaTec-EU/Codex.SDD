@@ -34,11 +34,19 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.True(File.Exists(paths.ReviewExecutePromptPath));
         var configContent = await File.ReadAllTextAsync(paths.ConfigFilePath);
         var manifestContent = await File.ReadAllTextAsync(paths.PromptManifestPath);
+        var implementationSystemPrompt = await File.ReadAllTextAsync(paths.ImplementationExecuteSystemPromptPath);
+        var implementationPrompt = await File.ReadAllTextAsync(paths.ImplementationExecutePromptPath);
+        var reviewSystemPrompt = await File.ReadAllTextAsync(paths.ReviewExecuteSystemPromptPath);
+        var reviewPrompt = await File.ReadAllTextAsync(paths.ReviewExecutePromptPath);
         Assert.Contains("categories:", configContent);
         Assert.Contains("- workflow", configContent);
         Assert.Contains("clarification.execute.system.md", manifestContent);
         Assert.Contains("release-approval.approve.system.md", manifestContent);
         Assert.Contains("internalCalls:", manifestContent);
+        Assert.Contains("implementation evidence", implementationSystemPrompt);
+        Assert.Contains("repository evidence, touched files, and validations", implementationPrompt);
+        Assert.Contains("implementation evidence is missing, empty", reviewSystemPrompt);
+        Assert.Contains("if implementation evidence shows zero touched files, the review must fail", reviewPrompt);
         var hashContent = await File.ReadAllTextAsync(paths.PromptSystemHashesPath);
         Assert.Contains("clarification.execute.system.md", hashContent);
     }

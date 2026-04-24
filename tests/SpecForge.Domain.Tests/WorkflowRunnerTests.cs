@@ -609,6 +609,69 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal(PhaseId.TechnicalDesign, loadedRun.CurrentPhase);
     }
 
+    [Fact]
+    public async Task ContinuePhaseAsync_Implementation_PersistsPhaseScopedEvidence_AndReviewConsumesIt()
+    {
+        await InitializeGitWorkspaceAsync(workspaceRoot);
+        await RunGitAsync(workspaceRoot, "checkout", "-b", "main");
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "README.md"), "seed");
+        await RunGitAsync(workspaceRoot, "add", "README.md");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "seed");
+
+        var provider = new EvidenceCapturingPhaseExecutionProvider();
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            provider,
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Implementation evidence", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        var implementationArtifact = await File.ReadAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Implementation));
+        var evidenceMarkdown = await File.ReadAllTextAsync(paths.GetPhaseEvidenceMarkdownPath(PhaseId.Implementation));
+        var evidenceJson = await File.ReadAllTextAsync(paths.GetPhaseEvidenceJsonPath(PhaseId.Implementation));
+
+        Assert.Contains("## Captured Phase Evidence", implementationArtifact);
+        Assert.Contains("src/Feature.cs", implementationArtifact);
+        Assert.Contains("Meaningful touched repository files detected: `1`.", evidenceMarkdown);
+        Assert.Contains("\"Path\": \"src/Feature.cs\"", evidenceJson);
+        Assert.NotNull(provider.ReviewContext);
+        Assert.Contains(paths.GetPhaseEvidenceMarkdownPath(PhaseId.Implementation), provider.ReviewContext!.ContextFilePaths);
+    }
+
+    [Fact]
+    public async Task ContinuePhaseAsync_Review_ThrowsWhenImplementationDidNotTouchRepositoryFiles()
+    {
+        await InitializeGitWorkspaceAsync(workspaceRoot);
+        await RunGitAsync(workspaceRoot, "checkout", "-b", "main");
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "README.md"), "seed");
+        await RunGitAsync(workspaceRoot, "add", "README.md");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "seed");
+
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new NoRepositoryDeltaPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Implementation evidence", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
+            runner.ContinuePhaseAsync(workspaceRoot, "US-0001"));
+
+        Assert.Contains("requires implementation evidence with at least one touched repository file", error.Message);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(workspaceRoot))
@@ -846,5 +909,76 @@ public sealed class WorkflowRunnerTests : IDisposable
             PhaseExecutionContext context,
             CancellationToken cancellationToken = default) =>
             inner.ExecuteAsync(context, cancellationToken);
+    }
+
+    private sealed class EvidenceCapturingPhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        private readonly DeterministicPhaseExecutionProvider inner = new();
+
+        public PhaseExecutionContext? ReviewContext { get; private set; }
+
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+            inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+            PhaseExecutionContext context,
+            ClarificationSession session,
+            CancellationToken cancellationToken = default) =>
+            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+
+        public async Task<PhaseExecutionResult> ExecuteAsync(
+            PhaseExecutionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            if (context.PhaseId == PhaseId.Implementation)
+            {
+                var featurePath = Path.Combine(context.WorkspaceRoot, "src", "Feature.cs");
+                Directory.CreateDirectory(Path.GetDirectoryName(featurePath)!);
+                await File.WriteAllTextAsync(
+                    featurePath,
+                    "namespace SpecForge;\npublic static class Feature { public const int Enabled = 1; }\n",
+                    cancellationToken);
+            }
+
+            if (context.PhaseId == PhaseId.Review)
+            {
+                ReviewContext = context;
+            }
+
+            return await inner.ExecuteAsync(context, cancellationToken);
+        }
+    }
+
+    private sealed class NoRepositoryDeltaPhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        private readonly DeterministicPhaseExecutionProvider inner = new();
+
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+            inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+            PhaseExecutionContext context,
+            ClarificationSession session,
+            CancellationToken cancellationToken = default) =>
+            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+
+        public Task<PhaseExecutionResult> ExecuteAsync(
+            PhaseExecutionContext context,
+            CancellationToken cancellationToken = default) =>
+            inner.ExecuteAsync(context, cancellationToken);
+    }
+
+    private sealed class NoOpWorkBranchManager : IWorkBranchManager
+    {
+        public Task<WorkBranchCreationResult> CreateBranchAsync(
+            string workspaceRoot,
+            string baseBranch,
+            string workBranch,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new WorkBranchCreationResult(
+                IsGitWorkspace: true,
+                BranchCreated: false,
+                CurrentBranch: baseBranch,
+                UpstreamBranch: $"origin/{baseBranch}"));
     }
 }

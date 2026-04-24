@@ -369,6 +369,53 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_ReviewPrompt_IncludesImplementationEvidenceContext()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "workflow", "US-0001");
+        Directory.CreateDirectory(paths.PhasesDirectoryPath);
+        await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Refinement), "# Spec · US-0001 · v01");
+        await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign), "# Technical Design · US-0001 · v01");
+        await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Implementation), "# Implementation · US-0001 · v01");
+        await File.WriteAllTextAsync(
+            paths.GetPhaseEvidenceMarkdownPath(PhaseId.Implementation),
+            """
+            # Implementation Evidence
+
+            ## Summary
+            - Meaningful touched repository files detected: `1`.
+
+            ## Touched Files
+            - `src/Feature.cs` | kind=`content_changed`
+            """);
+
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalReviewJson());
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            CreateOptions(model: "gpt-4.1-mini"));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Review,
+            UserStoryPath: paths.MainArtifactPath,
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>
+            {
+                [PhaseId.Refinement] = paths.GetPhaseArtifactPath(PhaseId.Refinement),
+                [PhaseId.TechnicalDesign] = paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign),
+                [PhaseId.Implementation] = paths.GetPhaseArtifactPath(PhaseId.Implementation)
+            },
+            ContextFilePaths: [paths.GetPhaseEvidenceMarkdownPath(PhaseId.Implementation)]);
+
+        await provider.ExecuteAsync(context);
+
+        var userPrompt = ReadUserPrompt(handler.LastBody);
+        Assert.Contains("## Context Files", userPrompt);
+        Assert.Contains("03-implementation.evidence.md", userPrompt);
+        Assert.Contains("Meaningful touched repository files detected: `1`.", userPrompt);
+        Assert.Contains("src/Feature.cs", userPrompt);
+    }
+
+    [Fact]
     public void GetPhaseExecutionReadiness_BlocksImplementationWithoutRepositoryWriteAccess()
     {
         var provider = new OpenAiCompatiblePhaseExecutionProvider(

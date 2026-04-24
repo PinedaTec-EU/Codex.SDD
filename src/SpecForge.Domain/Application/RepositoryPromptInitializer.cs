@@ -180,7 +180,8 @@ public sealed class RepositoryPromptInitializer
         This is the system prompt for the implementation execute template.
 
         Focus on repository-realistic implementation work, preserving traceability back to the approved design and spec.
-        Do not substitute planning text for actual implementation intent.
+        Do not substitute planning text for actual implementation evidence.
+        The implementation artifact must remain auditable from repository evidence, touched files, and validation actually performed.
         """;
 
     private static string BuildReviewExecuteSystemPrompt() =>
@@ -189,6 +190,7 @@ public sealed class RepositoryPromptInitializer
 
         Review against the approved artifacts and repository evidence.
         Surface material findings, missing validation, and release risks without inventing work that was not inspected.
+        Never pass review when implementation evidence is missing, empty, or disconnected from the repository delta under review.
         """;
 
     private static string BuildReleaseApprovalApproveSystemPrompt() =>
@@ -327,6 +329,8 @@ public sealed class RepositoryPromptInitializer
         - if the assigned executor cannot read and write the repository, do not pretend implementation happened
         - fail closed when repository access, file edit capability, or validation execution is missing
         - never mark repository changes as executed unless they were actually performed against this workspace
+        - make the implementation artifact auditable for the next phase by naming the repository evidence, touched files, and validations that actually happened
+        - if the phase produced no repository delta, say so explicitly instead of fabricating an execution narrative
         """;
 
     private static string BuildReviewExecutePrompt() =>
@@ -341,6 +345,8 @@ public sealed class RepositoryPromptInitializer
         Review guardrails:
         - if the assigned reviewer cannot inspect repository artifacts or diffs, do not claim code review happened
         - fail closed when repository evidence is missing, inaccessible, or indirect
+        - inspect the implementation evidence produced by the previous phase, not only the narrative artifact
+        - if implementation evidence shows zero touched files, the review must fail and explain why the user story cannot be considered implemented
         Behave as reviewer, not as author.
         """;
 
