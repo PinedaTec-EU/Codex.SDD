@@ -113,7 +113,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /--phase-pending: rgba\(255, 255, 255, 0\.04\);/);
   assert.match(html, /phase-current-rail/);
   assert.match(html, /phase-current-rail__label">Current</);
-  assert.doesNotMatch(html, /phase-viewing-rail__label">Viewing</);
+  assert.match(html, /phase-viewing-rail__label">Viewing</);
   assert.match(html, /phase-tag phase-tag--waiting-user">waiting-user</);
   assert.match(html, /<div class="phase-slug">US<\/div>/);
   assert.match(html, /<span class="token">spec<\/span>/);

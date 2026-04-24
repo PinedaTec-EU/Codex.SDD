@@ -653,6 +653,15 @@ class WorkflowPanelController {
             await this.refreshAsync(`${reason}:ignored`);
             return;
         }
+        const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+        this.lastWorkflow = workflow;
+        const executionPhaseId = this.transientExecutionPhaseId
+            ?? this.resolveExecutionPhaseIdForWorkflow(workflow)
+            ?? (0, workflowPlaybackState_1.resolveWorkflowExecutionPhaseId)(this.summary.currentPhase);
+        if (executionPhaseId && this.pausedPhaseIds.delete(executionPhaseId)) {
+            await this.persistPausedPhaseIdsAsync();
+            (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' released ad hoc pause for phase '${executionPhaseId}' because playback resumed from ${reason}.`);
+        }
         (0, outputChannel_1.showSpecForgeOutput)(true);
         if (this.playbackState !== "paused" || this.playbackStartedAtMs === null) {
             this.playbackStartedAtMs = Date.now();

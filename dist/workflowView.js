@@ -1488,7 +1488,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       min-height: ${desktopGraphHeight}px;
       z-index: 2;
     }
-    .graph-stage.graph-stage--overlay-active .phase-graph {
+    .graph-stage.graph-stage--overlay-blocking .phase-graph {
       filter: blur(2px) saturate(0.85) brightness(0.78);
       transform: scale(0.997);
       pointer-events: none;
@@ -1701,6 +1701,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       outline: 2px solid rgba(114, 241, 184, 0.52);
       outline-offset: 2px;
       z-index: 3;
+      box-shadow:
+        0 0 0 1px rgba(226, 232, 240, 0.2),
+        0 18px 30px rgba(0, 0, 0, 0.24),
+        0 0 22px rgba(196, 203, 214, 0.1);
     }
     .phase-node.phase-node--current {
       border-color: rgba(92, 181, 255, 0.42);
@@ -1824,6 +1828,34 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       font-size: 0.72rem;
       font-weight: 800;
       letter-spacing: 0.18em;
+      line-height: 1;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .phase-viewing-rail {
+      position: absolute;
+      top: 30px;
+      right: -34px;
+      width: 108px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 14px;
+      border: 1px solid rgba(216, 223, 232, 0.18);
+      background: linear-gradient(180deg, rgba(97, 106, 120, 0.96), rgba(48, 56, 68, 0.98));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 8px 18px rgba(12, 16, 22, 0.24);
+      z-index: -1;
+      pointer-events: none;
+    }
+    .phase-viewing-rail__label {
+      color: rgba(245, 248, 252, 0.94);
+      text-shadow: 0 1px 2px rgba(7, 17, 28, 0.28);
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
       line-height: 1;
       text-transform: uppercase;
       white-space: nowrap;
@@ -3045,7 +3077,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         <aside class="panel graph-panel">
           <h2 class="panel-title">Workflow Constellation</h2>
           <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and audit context.</p>
-          <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}">
+          <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}${playbackState === "playing" || playbackState === "stopping" ? " graph-stage--overlay-blocking" : ""}">
             ${executionOverlay}
             ${phaseGraph}
           </div>
@@ -3858,20 +3890,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           });
         }
 
-        if (overlayTone !== "playing" && graphStage) {
-          document.addEventListener("pointerdown", (event) => {
-            const target = event.target;
-            if (!(target instanceof Node)) {
-              return;
-            }
-
-            if (executionOverlay.contains(target)) {
-              return;
-            }
-
-            dismissOverlay();
-          }, { once: true });
-        }
       }
     }
 
@@ -3992,18 +4010,20 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         const canPausePhase = (0, workflowPlaybackState_1.canPauseWorkflowExecutionPhase)(phase.phaseId) && phase.state === "pending";
         const pauseArmed = pausedPhaseIds.has(phase.phaseId);
         const phaseIsCurrent = phase.phaseId === displayedCurrentPhaseId;
+        const phaseIsSelected = phase.phaseId === selectedPhaseId;
         const pauseButtonLabel = pauseArmed
             ? `Remove pause before ${phase.title}`
             : `Pause before ${phase.title}`;
         return `
     <div
-      class="phase-node ${(0, htmlEscape_1.escapeHtmlAttr)(phase.phaseId)} phase-tone-${(0, htmlEscape_1.escapeHtmlAttr)(visualTone)}${phase.phaseId === selectedPhaseId ? " selected" : ""}${phaseIsCurrent ? " phase-node--current" : ""}"
+      class="phase-node ${(0, htmlEscape_1.escapeHtmlAttr)(phase.phaseId)} phase-tone-${(0, htmlEscape_1.escapeHtmlAttr)(visualTone)}${phaseIsSelected ? " selected" : ""}${phaseIsCurrent ? " phase-node--current" : ""}"
       data-command="selectPhase"
       data-phase-id="${(0, htmlEscape_1.escapeHtmlAttr)(phase.phaseId)}"
       role="button"
       tabindex="0"
       style="--phase-left-desktop: ${desktopPosition.left}px; --phase-top-desktop: ${desktopPosition.top}px; --phase-left-mobile: ${mobilePosition.left}px; --phase-top-mobile: ${mobilePosition.top}px;">
       ${phaseIsCurrent ? `<span class="phase-current-rail"><span class="phase-current-rail__label">Current</span></span>` : ""}
+      ${phaseIsSelected && !phaseIsCurrent ? `<span class="phase-viewing-rail"><span class="phase-viewing-rail__label">Viewing</span></span>` : ""}
       <div class="phase-node-content${phaseIsCurrent ? " phase-node-content--current" : ""}">
         <div class="phase-node-header">
           <div class="phase-node-header-main">

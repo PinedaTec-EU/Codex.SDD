@@ -2032,9 +2032,9 @@ export function buildWorkflowHtml(
     }
     .phase-viewing-rail {
       position: absolute;
-      top: 30px;
-      right: -34px;
-      width: 108px;
+      top: 22px;
+      right: -18px;
+      width: 112px;
       height: 44px;
       display: flex;
       align-items: center;
@@ -2045,7 +2045,7 @@ export function buildWorkflowHtml(
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.12),
         0 8px 18px rgba(12, 16, 22, 0.24);
-      z-index: -1;
+      z-index: 1;
       pointer-events: none;
     }
     .phase-viewing-rail__label {
@@ -4237,7 +4237,7 @@ function buildPhaseGraph(
       tabindex="0"
       style="--phase-left-desktop: ${desktopPosition.left}px; --phase-top-desktop: ${desktopPosition.top}px; --phase-left-mobile: ${mobilePosition.left}px; --phase-top-mobile: ${mobilePosition.top}px;">
       ${phaseIsCurrent ? `<span class="phase-current-rail"><span class="phase-current-rail__label">Current</span></span>` : ""}
-      ${phaseIsSelected && !phaseIsCurrent ? `<span class="phase-viewing-rail"><span class="phase-viewing-rail__label">Viewing</span></span>` : ""}
+      ${phaseIsSelected ? `<span class="phase-viewing-rail"><span class="phase-viewing-rail__label">Viewing</span></span>` : ""}
       <div class="phase-node-content${phaseIsCurrent ? " phase-node-content--current" : ""}">
         <div class="phase-node-header">
           <div class="phase-node-header-main">
