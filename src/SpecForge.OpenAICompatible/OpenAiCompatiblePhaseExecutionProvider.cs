@@ -213,7 +213,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             throw new InvalidOperationException("OpenAI-compatible provider returned an empty content payload.");
         }
 
-        var normalizedContent = NormalizePhaseContent(context, content.Trim());
+        var canonicalJsonContent = NormalizePhaseJsonContent(context, content.Trim());
+        var normalizedContent = NormalizePhaseContent(context, canonicalJsonContent ?? content.Trim());
         return new PhaseExecutionResult(
             normalizedContent,
             ExecutionKind: "openai-compatible",
@@ -223,7 +224,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 Model: modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
                 BaseUrl: modelSelection.BaseUrl,
-                Warnings: prompt.Warnings));
+                Warnings: prompt.Warnings),
+            canonicalJsonContent);
     }
 
     private HttpRequestMessage BuildRequest(
@@ -749,7 +751,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 cancellationToken);
         }
 
-        var normalizedContent = NormalizePhaseContent(context, responseJson.Trim());
+        var canonicalJsonContent = NormalizePhaseJsonContent(context, responseJson.Trim());
+        var normalizedContent = NormalizePhaseContent(context, canonicalJsonContent ?? responseJson.Trim());
 
         return new PhaseExecutionResult(
             normalizedContent,
@@ -759,7 +762,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 ProviderKind: modelSelection.ProviderKind,
                 Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
-                Warnings: prompt.Warnings));
+                Warnings: prompt.Warnings),
+            canonicalJsonContent);
     }
 
     private async Task<string> ExecuteStructuredNativeAsync(
@@ -1274,6 +1278,16 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
 
         return content;
+    }
+
+    private static string? NormalizePhaseJsonContent(PhaseExecutionContext context, string content)
+    {
+        if (StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var contract))
+        {
+            return contract.NormalizeJsonContent(content);
+        }
+
+        return null;
     }
 
     private static bool HasExplicitProfilesForAllModelDrivenPhases(OpenAiCompatiblePhaseModelAssignments? assignments) =>

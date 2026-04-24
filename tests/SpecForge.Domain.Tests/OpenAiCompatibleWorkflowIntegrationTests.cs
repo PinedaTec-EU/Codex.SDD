@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using SpecForge.Domain.Application;
 using SpecForge.Domain.Persistence;
+using SpecForge.Domain.Workflow;
 using SpecForge.OpenAICompatible;
 
 namespace SpecForge.Domain.Tests;
@@ -567,6 +568,13 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Contains(workflow.Events, eventItem => eventItem.Code == "phase_completed" && eventItem.Phase == "technical-design");
         Assert.Contains(workflow.Events, eventItem => eventItem.Code == "phase_completed" && eventItem.Phase == "implementation");
         Assert.Contains(workflow.Events, eventItem => eventItem.Code == "phase_completed" && eventItem.Phase == "review");
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        Assert.True(File.Exists(paths.GetPhaseArtifactJsonPath(PhaseId.TechnicalDesign)));
+        Assert.True(File.Exists(paths.GetPhaseArtifactJsonPath(PhaseId.Implementation)));
+        Assert.True(File.Exists(paths.GetPhaseArtifactJsonPath(PhaseId.Review)));
+        var reviewJson = await File.ReadAllTextAsync(paths.GetPhaseArtifactJsonPath(PhaseId.Review));
+        Assert.Contains("\"validationChecklist\"", reviewJson);
+        Assert.Contains("Cover valid and invalid values in domain and API tests.", reviewJson);
 
         Assert.Equal(7, modelStub.Requests.Count);
         Assert.Equal(

@@ -883,12 +883,17 @@ public sealed class WorkflowRunner
         }
         else if (workflowRun.CurrentPhase == PhaseId.Implementation)
         {
+            var version = ExtractArtifactVersion(artifactPath);
             var implementationEvidence = await ImplementationPhaseEvidence.CaptureAsync(
                 workspaceRoot,
                 paths,
                 implementationEvidenceBaseline,
                 cancellationToken);
             await ImplementationPhaseEvidence.PersistAsync(paths, implementationEvidence, cancellationToken);
+            await WriteStructuredJsonIfAvailableAsync(
+                paths.GetPhaseArtifactJsonPath(PhaseId.Implementation, version),
+                result.StructuredJsonContent,
+                cancellationToken);
             await File.WriteAllTextAsync(
                 artifactPath,
                 ImplementationPhaseEvidence.AppendSection(
@@ -901,10 +906,18 @@ public sealed class WorkflowRunner
         else if (workflowRun.CurrentPhase == PhaseId.Review)
         {
             var version = ExtractArtifactVersion(artifactPath);
-            await File.WriteAllTextAsync(
-                artifactPath,
-                EnforceReviewValidationStrategyContract(result.Content, paths, workflowRun.UsId, version),
+            var reviewArtifact = EnforceReviewValidationStrategyContract(result.Content, paths, workflowRun.UsId, version);
+            await File.WriteAllTextAsync(paths.GetPhaseArtifactJsonPath(PhaseId.Review, version), reviewArtifact.Json, cancellationToken);
+            await File.WriteAllTextAsync(artifactPath, reviewArtifact.Markdown, cancellationToken);
+        }
+        else if (workflowRun.CurrentPhase == PhaseId.TechnicalDesign)
+        {
+            var version = ExtractArtifactVersion(artifactPath);
+            await WriteStructuredJsonIfAvailableAsync(
+                paths.GetPhaseArtifactJsonPath(PhaseId.TechnicalDesign, version),
+                result.StructuredJsonContent,
                 cancellationToken);
+            await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
         }
         else
         {
@@ -915,7 +928,22 @@ public sealed class WorkflowRunner
         return new ArtifactGenerationResult(artifactPath, result.Usage, stopwatch.ElapsedMilliseconds, result.Execution);
     }
 
-    private static string EnforceReviewValidationStrategyContract(
+    private static async Task WriteStructuredJsonIfAvailableAsync(
+        string artifactJsonPath,
+        string? structuredJsonContent,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(structuredJsonContent))
+        {
+            return;
+        }
+
+        await File.WriteAllTextAsync(artifactJsonPath, structuredJsonContent, cancellationToken);
+    }
+
+    private sealed record ReviewMaterialization(string Markdown, string Json);
+
+    private static ReviewMaterialization EnforceReviewValidationStrategyContract(
         string reviewMarkdown,
         UserStoryFilePaths paths,
         string usId,
@@ -926,18 +954,18 @@ public sealed class WorkflowRunner
         {
             SpecForgeDiagnostics.Log(
                 $"[runner.review_guard] usId={usId} forced review result to fail because technical design validation strategy is missing.");
-            return ReviewArtifactJson.RenderMarkdown(
-                new ReviewArtifactDocument(
+            var missingStrategyDocument = new ReviewArtifactDocument(
+                "fail",
+                [new ReviewValidationChecklistItem(
                     "fail",
-                    [new ReviewValidationChecklistItem(
-                        "fail",
-                        "Technical Design must define a non-empty Validation Strategy.",
-                        "The current technical design artifact has no reviewable validation strategy items.")],
-                    ["Review cannot pass because there is no validation strategy to validate."],
-                    "Review requires a non-empty Technical Design validation strategy before it can pass.",
-                    ["Regenerate or operate the technical design phase with a concrete Validation Strategy."]),
-                usId,
-                version);
+                    "Technical Design must define a non-empty Validation Strategy.",
+                    "The current technical design artifact has no reviewable validation strategy items.")],
+                ["Review cannot pass because there is no validation strategy to validate."],
+                "Review requires a non-empty Technical Design validation strategy before it can pass.",
+                ["Regenerate or operate the technical design phase with a concrete Validation Strategy."]);
+            return new ReviewMaterialization(
+                ReviewArtifactJson.RenderMarkdown(missingStrategyDocument, usId, version),
+                ReviewArtifactJson.Serialize(missingStrategyDocument));
         }
 
         var reviewResult = ParseReviewResult(reviewMarkdown);
@@ -1014,17 +1042,17 @@ public sealed class WorkflowRunner
             recommendations = ["Proceed only while the checklist remains fully green."];
         }
 
-        return ReviewArtifactJson.RenderMarkdown(
-            new ReviewArtifactDocument(
+        var document = new ReviewArtifactDocument(
                 enforcedResult,
                 enforcedChecklist,
                 findings,
                 string.IsNullOrWhiteSpace(primaryReason)
                     ? "Review passed because every Technical Design validation strategy item has concrete passing evidence."
                     : primaryReason,
-                recommendations),
-            usId,
-            version);
+                recommendations);
+        return new ReviewMaterialization(
+            ReviewArtifactJson.RenderMarkdown(document, usId, version),
+            ReviewArtifactJson.Serialize(document));
     }
 
     private static IReadOnlyDictionary<PhaseId, string> BuildPreviousArtifactMap(UserStoryFilePaths paths, PhaseId currentPhase)
@@ -1073,6 +1101,13 @@ public sealed class WorkflowRunner
 
     internal static IReadOnlyList<string> ReadTechnicalDesignValidationStrategy(UserStoryFilePaths paths)
     {
+        var technicalDesignJsonPath = paths.GetLatestExistingPhaseArtifactJsonPath(PhaseId.TechnicalDesign);
+        if (!string.IsNullOrWhiteSpace(technicalDesignJsonPath) && File.Exists(technicalDesignJsonPath))
+        {
+            var technicalDesignJson = File.ReadAllText(technicalDesignJsonPath);
+            return TechnicalDesignArtifactJson.ParseCanonicalJson(technicalDesignJson).ValidationStrategy;
+        }
+
         var technicalDesignPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.TechnicalDesign);
         if (string.IsNullOrWhiteSpace(technicalDesignPath) || !File.Exists(technicalDesignPath))
         {

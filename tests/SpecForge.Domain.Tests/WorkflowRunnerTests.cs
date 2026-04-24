@@ -700,12 +700,15 @@ public sealed class WorkflowRunnerTests : IDisposable
 
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         var reviewArtifact = await File.ReadAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Review));
+        var reviewJson = await File.ReadAllTextAsync(paths.GetPhaseArtifactJsonPath(PhaseId.Review));
         var currentPhase = await service.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
 
         Assert.Contains("- Result: `fail`", reviewArtifact);
         Assert.Contains("## Validation Checklist", reviewArtifact);
         Assert.Contains("❌ Review must compare implementation back to the approved spec before final release approval.", reviewArtifact);
         Assert.Contains("did not include the required Validation Checklist", reviewArtifact);
+        Assert.Contains("\"result\": \"fail\"", reviewJson);
+        Assert.Contains("\"validationChecklist\"", reviewJson);
         Assert.False(currentPhase.CanAdvance);
         Assert.Equal("review_failed", currentPhase.BlockingReason);
     }

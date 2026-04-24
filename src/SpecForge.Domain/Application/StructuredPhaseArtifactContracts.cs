@@ -9,6 +9,7 @@ namespace SpecForge.Domain.Application;
 public sealed record StructuredPhaseArtifactContract(
     string SchemaName,
     JsonElement JsonSchema,
+    Func<string, string> NormalizeJsonContent,
     Func<PhaseExecutionContext, string, string> NormalizeContent);
 
 public static class StructuredPhaseArtifactContracts
@@ -19,6 +20,7 @@ public static class StructuredPhaseArtifactContracts
             [PhaseId.Clarification] = new(
                 SchemaName: "clarification_artifact",
                 JsonSchema: BuildClarificationSchema(),
+                NormalizeJsonContent: static content => ClarificationArtifactJson.Serialize(ClarificationArtifactJson.ParseCanonicalJson(content)),
                 NormalizeContent: static (context, content) => ClarificationArtifactJson.RenderMarkdown(
                     ClarificationArtifactJson.ParseCanonicalJson(content),
                     context.UsId,
@@ -26,10 +28,12 @@ public static class StructuredPhaseArtifactContracts
             [PhaseId.Refinement] = new(
                 SchemaName: "refinement_artifact",
                 JsonSchema: BuildRefinementSchema(),
+                NormalizeJsonContent: static content => RefinementSpecJson.Serialize(RefinementSpecJson.ParseCanonicalJson(content)),
                 NormalizeContent: static (_, content) => RefinementSpecJson.Serialize(RefinementSpecJson.ParseCanonicalJson(content))),
             [PhaseId.TechnicalDesign] = new(
                 SchemaName: "technical_design_artifact",
                 JsonSchema: BuildTechnicalDesignSchema(),
+                NormalizeJsonContent: static content => TechnicalDesignArtifactJson.Serialize(TechnicalDesignArtifactJson.ParseCanonicalJson(content)),
                 NormalizeContent: static (context, content) => TechnicalDesignArtifactJson.RenderMarkdown(
                     TechnicalDesignArtifactJson.ParseCanonicalJson(content),
                     context.UsId,
@@ -37,6 +41,7 @@ public static class StructuredPhaseArtifactContracts
             [PhaseId.Implementation] = new(
                 SchemaName: "implementation_artifact",
                 JsonSchema: BuildImplementationSchema(),
+                NormalizeJsonContent: static content => ImplementationArtifactJson.Serialize(ImplementationArtifactJson.ParseCanonicalJson(content)),
                 NormalizeContent: static (context, content) => ImplementationArtifactJson.RenderMarkdown(
                     ImplementationArtifactJson.ParseCanonicalJson(content),
                     context.UsId,
@@ -44,6 +49,7 @@ public static class StructuredPhaseArtifactContracts
             [PhaseId.Review] = new(
                 SchemaName: "review_artifact",
                 JsonSchema: BuildReviewSchema(),
+                NormalizeJsonContent: static content => ReviewArtifactJson.Serialize(ReviewArtifactJson.ParseCanonicalJson(content)),
                 NormalizeContent: static (context, content) => ReviewArtifactJson.RenderMarkdown(
                     ReviewArtifactJson.ParseCanonicalJson(content),
                     context.UsId,
@@ -291,6 +297,9 @@ public static class ClarificationArtifactJson
             json,
             normalize: Normalize);
 
+    public static string Serialize(ClarificationArtifactDocument document) =>
+        StructuredPhaseArtifactJson.Serialize(Normalize(document));
+
     public static string RenderMarkdown(ClarificationArtifactDocument document, string usId, int version)
     {
         var normalized = Normalize(document);
@@ -329,6 +338,9 @@ public static class TechnicalDesignArtifactJson
         StructuredPhaseArtifactJson.DeserializeAndNormalize<TechnicalDesignArtifactDocument>(
             json,
             normalize: Normalize);
+
+    public static string Serialize(TechnicalDesignArtifactDocument document) =>
+        StructuredPhaseArtifactJson.Serialize(Normalize(document));
 
     public static string RenderMarkdown(TechnicalDesignArtifactDocument document, string usId, int version)
     {
@@ -406,6 +418,9 @@ public static class ImplementationArtifactJson
             json,
             normalize: Normalize);
 
+    public static string Serialize(ImplementationArtifactDocument document) =>
+        StructuredPhaseArtifactJson.Serialize(Normalize(document));
+
     public static string RenderMarkdown(ImplementationArtifactDocument document, string usId, int version)
     {
         var normalized = Normalize(document);
@@ -444,6 +459,9 @@ public static class ReviewArtifactJson
         StructuredPhaseArtifactJson.DeserializeAndNormalize<ReviewArtifactDocument>(
             json,
             normalize: Normalize);
+
+    public static string Serialize(ReviewArtifactDocument document) =>
+        StructuredPhaseArtifactJson.Serialize(Normalize(document));
 
     public static string RenderMarkdown(ReviewArtifactDocument document, string usId, int version)
     {
@@ -506,6 +524,9 @@ internal static class StructuredPhaseArtifactJson
             ?? throw new WorkflowDomainException("The structured phase artifact could not be deserialized.");
         return normalize(document);
     }
+
+    public static string Serialize<TDocument>(TDocument document) =>
+        JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine;
 
     public static IReadOnlyList<string> NormalizeLines(IReadOnlyList<string>? items) =>
         (items ?? Array.Empty<string>())
