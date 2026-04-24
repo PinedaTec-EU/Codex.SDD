@@ -629,8 +629,22 @@ function buildPhaseSecuritySummary(readiness: PhaseExecutionReadiness | null | u
   `;
 }
 
+function isCurrentPhaseFailureBlocked(workflow: UserStoryWorkflowDetails, phase: WorkflowPhaseDetails): boolean {
+  if (!phase.isCurrent) {
+    return false;
+  }
+
+  if (workflow.controls.canContinue || workflow.controls.requiresApproval || !workflow.controls.blockingReason) {
+    return false;
+  }
+
+  const blockingExecutionPhaseId = workflow.controls.executionPhase ?? null;
+  return blockingExecutionPhaseId === null || blockingExecutionPhaseId === phase.phaseId;
+}
+
 function resolvePhaseVisualTone(
   workflowStatus: string,
+  workflow: UserStoryWorkflowDetails,
   playbackState: "idle" | "playing" | "paused" | "stopping",
   phase: WorkflowPhaseDetails,
   disabled: boolean,
@@ -644,6 +658,10 @@ function resolvePhaseVisualTone(
 
   if (completedPhaseIds.has(phase.phaseId)) {
     return "completed";
+  }
+
+  if (isCurrentPhaseFailureBlocked(workflow, phase)) {
+    return "blocked";
   }
 
   if (phase.executionReadiness?.requiredPermissions?.modelExecutionRequired && !phase.executionReadiness.canExecute) {
@@ -862,6 +880,7 @@ export function buildWorkflowHtml(
   const executionOverlay = buildExecutionOverlay(workflow, state, playbackState);
   const selectedPhaseVisualTone = resolvePhaseVisualTone(
     workflow.status,
+    workflow,
     playbackState,
     selectedPhase,
     false,
@@ -4346,6 +4365,7 @@ function buildPhaseGraph(
     const disabled = false;
     const visualTone = resolvePhaseVisualTone(
       workflow.status,
+      workflow,
       playbackState,
       phase,
       disabled,

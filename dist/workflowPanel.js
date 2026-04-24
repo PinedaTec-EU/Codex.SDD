@@ -221,6 +221,15 @@ class WorkflowPanelController {
                     await vscode.commands.executeCommand("specForge.openExecutionSettings");
                     return;
                 }
+                {
+                    const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+                    this.lastWorkflow = workflow;
+                    if (this.canReplayCurrentPhase(workflow)) {
+                        (0, outputChannel_1.appendSpecForgeLog)(`Direct phase replay requested for '${this.summary.usId}' at phase '${workflow.currentPhase}'.`);
+                        await this.continueCurrentPhaseAsync();
+                        return;
+                    }
+                }
                 (0, outputChannel_1.appendSpecForgeLog)(`Autoplay requested from detail continue for '${this.summary.usId}' at phase '${this.summary.currentPhase}'.`);
                 await this.startAutoplayAsync("command:continue");
                 return;
@@ -263,6 +272,15 @@ class WorkflowPanelController {
                 if (!this.isExecutionConfigured()) {
                     await vscode.commands.executeCommand("specForge.openExecutionSettings");
                     return;
+                }
+                {
+                    const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+                    this.lastWorkflow = workflow;
+                    if (this.canReplayCurrentPhase(workflow)) {
+                        (0, outputChannel_1.appendSpecForgeLog)(`Direct phase replay requested from play for '${this.summary.usId}' at phase '${workflow.currentPhase}'.`);
+                        await this.continueCurrentPhaseAsync();
+                        return;
+                    }
                 }
                 await this.startAutoplayAsync("command:play");
                 return;
@@ -611,6 +629,7 @@ class WorkflowPanelController {
             while (this.playbackState === "playing") {
                 const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
                 const executionPhaseId = this.resolveExecutionPhaseIdForWorkflow(workflow);
+                const canReplayCurrentPhase = this.canReplayCurrentPhase(workflow);
                 if (executionPhaseId && this.isPhasePauseArmed(executionPhaseId)) {
                     this.playbackState = "paused";
                     this.setTransientExecutionPhase(executionPhaseId);
@@ -619,7 +638,7 @@ class WorkflowPanelController {
                     await this.refreshAsync("autoplay:pausedByPhase");
                     return;
                 }
-                if (!workflow.controls.canContinue) {
+                if (!workflow.controls.canContinue && !canReplayCurrentPhase) {
                     this.playbackState = "paused";
                     this.clearTransientExecutionPhase();
                     (0, outputChannel_1.appendSpecForgeLog)(`Autoplay paused for '${workflow.usId}' because current phase '${workflow.currentPhase}' requires attention.`);
@@ -629,7 +648,7 @@ class WorkflowPanelController {
                 }
                 (0, outputChannel_1.appendSpecForgeLog)(`Autoplay continuing '${workflow.usId}' from phase '${workflow.currentPhase}' into '${executionPhaseId ?? workflow.currentPhase}'.`);
                 (0, outputChannel_1.appendSpecForgeDebugLog)(`Autoplay loop iteration for '${workflow.usId}'. canContinue=${workflow.controls.canContinue}, requiresApproval=${workflow.controls.requiresApproval}, blockingReason='${workflow.controls.blockingReason ?? "none"}'.`);
-                if (executionPhaseId) {
+                if (executionPhaseId && !canReplayCurrentPhase) {
                     this.setTransientExecutionPhase(executionPhaseId);
                 }
                 await this.continueCurrentPhaseAsync();
@@ -678,6 +697,14 @@ class WorkflowPanelController {
             });
         }
         await this.refreshAsync(reason);
+    }
+    canReplayCurrentPhase(workflow) {
+        if (workflow.currentPhase !== "review") {
+            return false;
+        }
+        return workflow.controls.blockingReason === "review_failed"
+            || workflow.controls.blockingReason === "review_result_missing"
+            || workflow.controls.blockingReason === "review_missing_artifact";
     }
     async maybeAutoPlayAfterManualContinuationAsync(trigger) {
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();

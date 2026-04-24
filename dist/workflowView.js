@@ -501,12 +501,25 @@ function buildPhaseSecuritySummary(readiness) {
     </section>
   `;
 }
-function resolvePhaseVisualTone(workflowStatus, playbackState, phase, disabled, executionPhaseId, pausedPhaseId, completedPhaseIds) {
+function isCurrentPhaseFailureBlocked(workflow, phase) {
+    if (!phase.isCurrent) {
+        return false;
+    }
+    if (workflow.controls.canContinue || workflow.controls.requiresApproval || !workflow.controls.blockingReason) {
+        return false;
+    }
+    const blockingExecutionPhaseId = workflow.controls.executionPhase ?? null;
+    return blockingExecutionPhaseId === null || blockingExecutionPhaseId === phase.phaseId;
+}
+function resolvePhaseVisualTone(workflowStatus, workflow, playbackState, phase, disabled, executionPhaseId, pausedPhaseId, completedPhaseIds) {
     if (disabled) {
         return "disabled";
     }
     if (completedPhaseIds.has(phase.phaseId)) {
         return "completed";
+    }
+    if (isCurrentPhaseFailureBlocked(workflow, phase)) {
+        return "blocked";
     }
     if (phase.executionReadiness?.requiredPermissions?.modelExecutionRequired && !phase.executionReadiness.canExecute) {
         return "blocked";
@@ -672,7 +685,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     const isClarificationDetail = selectedPhase.phaseId === "clarification" && workflow.clarification !== null;
     const phaseGraph = buildPhaseGraph(workflow, state, selectedPhase.phaseId, playbackState, effectiveExecutionPhaseId);
     const executionOverlay = buildExecutionOverlay(workflow, state, playbackState);
-    const selectedPhaseVisualTone = resolvePhaseVisualTone(workflow.status, playbackState, selectedPhase, false, playbackState === "playing" ? effectiveExecutionPhaseId : null, pausedExecutionPhaseId, new Set(state.completedPhaseIds ?? []));
+    const selectedPhaseVisualTone = resolvePhaseVisualTone(workflow.status, workflow, playbackState, selectedPhase, false, playbackState === "playing" ? effectiveExecutionPhaseId : null, pausedExecutionPhaseId, new Set(state.completedPhaseIds ?? []));
     const selectedPhaseDisplayState = phaseToneLabel(selectedPhaseVisualTone, selectedPhase.state, playbackState, selectedPhase.isCurrent);
     const displayedPhaseId = playbackState === "playing" && effectiveExecutionPhaseId
         ? effectiveExecutionPhaseId
@@ -4110,7 +4123,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
     const mobileLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileLayout.positions, mobilePhaseNodeWidth);
     const nodes = visiblePhases.map((phase, index) => {
         const disabled = false;
-        const visualTone = resolvePhaseVisualTone(workflow.status, playbackState, phase, disabled, executionPhaseId, pausedExecutionPhaseId, completedPhaseIds);
+        const visualTone = resolvePhaseVisualTone(workflow.status, workflow, playbackState, phase, disabled, executionPhaseId, pausedExecutionPhaseId, completedPhaseIds);
         const desktopPosition = desktopLayout.positions[phase.phaseId] ?? { left: desktopLayoutConfig.columns.left, top: desktopLayoutConfig.topOffset };
         const mobilePosition = mobileLayout.positions[phase.phaseId] ?? { left: mobileLayoutConfig.columns.left, top: mobileLayoutConfig.topOffset };
         const displayState = phaseToneLabel(visualTone, phase.state, playbackState, phase.isCurrent);

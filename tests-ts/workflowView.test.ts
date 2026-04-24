@@ -2691,9 +2691,11 @@ test("buildWorkflowHtml renders rerun review action when review failed and the w
     settingsMessage: null
   }, "idle");
 
+  assert.match(html, /phase-node review phase-tone-blocked selected phase-node--current/);
+  assert.match(html, /phase-tag phase-tag--blocked">blocked</);
   assert.match(html, /data-command="continue"[^>]*>Rerun Review</);
   assert.doesNotMatch(html, /data-command="continue"[^>]*disabled[^>]*>Rerun Review</);
-  assert.match(html, /token token--success">ready</);
+  assert.match(html, /token token--blocked">blocked</);
 });
 
 test("buildWorkflowHtml keeps execution disabled when the workflow is open without an SLM or LLM provider", () => {
