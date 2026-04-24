@@ -121,6 +121,48 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GenerateNextPhaseAsync_AfterNonDestructiveReviewRewind_ReplaysReviewBeforeReleaseApproval()
+    {
+        var runner = new WorkflowRunner(new PassingReviewPhaseExecutionProvider());
+        var applicationService = new SpecForgeApplicationService(new UserStoryFileStore(), runner);
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
+
+        var rewind = await applicationService.RewindWorkflowAsync(
+            workspaceRoot,
+            "US-0001",
+            "review");
+
+        Assert.Equal("review", rewind.CurrentPhase);
+        Assert.Equal("active", rewind.Status);
+        var currentPhase = await applicationService.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
+        Assert.True(currentPhase.CanAdvance);
+        Assert.Null(currentPhase.BlockingReason);
+
+        var replay = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal("review", replay.CurrentPhase);
+        Assert.Equal("active", replay.Status);
+        Assert.NotNull(replay.GeneratedArtifactPath);
+        Assert.EndsWith("04-review.v02.md", replay.GeneratedArtifactPath, StringComparison.Ordinal);
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        Assert.True(File.Exists(paths.GetPhaseArtifactPath(PhaseId.Review, version: 2)));
+        var workflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
+        Assert.Equal("review", workflow.CurrentPhase);
+        Assert.Contains(workflow.Events, timelineEvent =>
+            timelineEvent.Code == "phase_completed" &&
+            timelineEvent.Phase == "review" &&
+            timelineEvent.Artifacts.Any(artifact => artifact.Contains("04-review.v02.md", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public async Task RestartUserStoryFromSourceAsync_ReturnsRegeneratedRefinementState()
     {
         var runner = new WorkflowRunner();
@@ -445,5 +487,68 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
 
         public Task<PhaseExecutionResult> ExecuteAsync(PhaseExecutionContext context, CancellationToken cancellationToken = default) =>
             inner.ExecuteAsync(context, cancellationToken);
+    }
+
+    private sealed class PassingReviewPhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        private readonly DeterministicPhaseExecutionProvider inner = new();
+
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+            inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+            PhaseExecutionContext context,
+            ClarificationSession session,
+            CancellationToken cancellationToken = default) =>
+            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+
+        public async Task<PhaseExecutionResult> ExecuteAsync(
+            PhaseExecutionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            if (context.PhaseId == PhaseId.Implementation)
+            {
+                var featurePath = Path.Combine(context.WorkspaceRoot, "src", "Feature.cs");
+                Directory.CreateDirectory(Path.GetDirectoryName(featurePath)!);
+                await File.WriteAllTextAsync(
+                    featurePath,
+                    "namespace SpecForge;\npublic static class Feature { public const int Enabled = 1; }\n",
+                    cancellationToken);
+            }
+
+            if (context.PhaseId == PhaseId.Review)
+            {
+                var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(context.WorkspaceRoot, context.UsId);
+                var validationItems = WorkflowRunner.ReadTechnicalDesignValidationStrategy(paths);
+                var checklist = validationItems.Select(item => $"- ✅ {item} Evidence: Validated by replay test.").ToArray();
+                var content = string.Join(
+                    Environment.NewLine,
+                    [
+                        $"# Review · {context.UsId} · v01",
+                        string.Empty,
+                        "## State",
+                        "- Result: `pass`",
+                        string.Empty,
+                        "## Validation Checklist",
+                        ..checklist,
+                        string.Empty,
+                        "## Findings",
+                        "- No findings.",
+                        string.Empty,
+                        "## Verdict",
+                        "- Final result: `pass`",
+                        "- Primary reason: Replay test review passed.",
+                        string.Empty,
+                        "## Recommendation",
+                        "- Advance."
+                    ]) + Environment.NewLine;
+
+                return new PhaseExecutionResult(
+                    content,
+                    ExecutionKind: "test-double");
+            }
+
+            return await inner.ExecuteAsync(context, cancellationToken);
+        }
     }
 }

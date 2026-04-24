@@ -237,21 +237,33 @@ public sealed class SpecForgeApplicationService
 
         if (workflowRun.CurrentPhase == Workflow.PhaseId.Review)
         {
-            var reviewPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Review);
-            if (string.IsNullOrWhiteSpace(reviewPath) || !File.Exists(reviewPath))
+            var replayPending = WorkflowRunner.IsReviewReplayPending(paths);
+            if (replayPending)
             {
-                canAdvance = false;
-                blockingReason = "review_missing_artifact";
+                var readiness = workflowRunner.GetPhaseExecutionReadiness(Workflow.PhaseId.Review);
+                canAdvance = readiness.CanExecute;
+                blockingReason = readiness.BlockingReason;
+                SpecForgeDiagnostics.Log(
+                    $"[app.current_phase] usId={usId} review replay is pending after rewind; canExecute={readiness.CanExecute} blockingReason='{readiness.BlockingReason ?? "none"}'.");
             }
             else
             {
-                var reviewResult = WorkflowRunner.TryReadReviewResult(await File.ReadAllTextAsync(reviewPath, cancellationToken));
-                if (reviewResult != "pass")
+                var reviewPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Review);
+                if (string.IsNullOrWhiteSpace(reviewPath) || !File.Exists(reviewPath))
                 {
                     canAdvance = false;
-                    blockingReason = reviewResult == "fail"
-                        ? "review_failed"
-                        : "review_result_missing";
+                    blockingReason = "review_missing_artifact";
+                }
+                else
+                {
+                    var reviewResult = WorkflowRunner.TryReadReviewResult(await File.ReadAllTextAsync(reviewPath, cancellationToken));
+                    if (reviewResult != "pass")
+                    {
+                        canAdvance = false;
+                        blockingReason = reviewResult == "fail"
+                            ? "review_failed"
+                            : "review_result_missing";
+                    }
                 }
             }
         }

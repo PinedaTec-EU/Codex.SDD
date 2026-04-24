@@ -267,6 +267,82 @@ test("buildWorkflowHtml wires release-approval reject modal to rewind into revie
   assert.match(html, /Reject, Rewind, and Apply/);
 });
 
+test("buildWorkflowHtml allows inspecting a selected phase while playback is paused", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0001",
+    title: "Paused release approval",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "release-approval",
+    directoryPath: "/tmp/us.US-0001",
+    workBranch: "feature/us-0001-paused-release",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "review",
+        title: "Review",
+        order: 5,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: "/tmp/04-review.md",
+        executePromptPath: "/tmp/review.execute.md",
+        approvePromptPath: null,
+        executeSystemPromptPath: "/tmp/review.execute.system.md",
+        approveSystemPromptPath: null
+      },
+      {
+        phaseId: "release-approval",
+        title: "Release Approval",
+        order: 6,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: "/tmp/release-approval.approve.md",
+        executeSystemPromptPath: null,
+        approveSystemPromptPath: "/tmp/release-approval.approve.system.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "release-approval_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: ["implementation"],
+      rewindTargets: ["review"]
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: [],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: []
+  }, {
+    selectedPhaseId: "review",
+    selectedArtifactContent: "## Review\nReview content",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    executionPhaseId: "release-approval"
+  }, "paused");
+
+  assert.match(html, /runner:paused/);
+  assert.match(html, /phase-node release-approval phase-tone-paused phase-node--current/);
+  assert.match(html, /phase-node review phase-tone-completed selected/);
+  assert.match(html, /<h2>Review<\/h2>/);
+  assert.match(html, /Review content/);
+  assert.doesNotMatch(html, /Reject Release Approval/);
+});
+
 test("buildWorkflowHtml requires explicit base-branch acceptance before approve when the flag is enabled", () => {
   const html = buildWorkflowHtml({
     usId: "US-0042",

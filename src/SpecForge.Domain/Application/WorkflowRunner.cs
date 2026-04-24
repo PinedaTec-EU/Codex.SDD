@@ -451,6 +451,48 @@ public sealed class WorkflowRunner
                 clarificationResult.Execution);
         }
 
+        if (workflowRun.CurrentPhase == PhaseId.Review && IsReviewReplayPending(paths))
+        {
+            var reviewReadiness = phaseExecutionProvider.GetPhaseExecutionReadiness(PhaseId.Review);
+            if (!reviewReadiness.CanExecute)
+            {
+                throw new WorkflowDomainException(
+                    $"Phase '{WorkflowPresentation.ToPhaseSlug(PhaseId.Review)}' cannot run because '{reviewReadiness.BlockingReason ?? "phase_execution_not_ready"}'.");
+            }
+
+            SpecForgeDiagnostics.Log(
+                $"[runner.continue_phase] usId={usId} replaying current review phase after rewind.");
+            var reviewGeneration = await MaterializePhaseArtifactAsync(
+                workspaceRoot,
+                paths,
+                workflowRun,
+                currentArtifactPath: null,
+                operationPrompt: null,
+                cancellationToken);
+            await AppendTimelineEventAsync(
+                paths.TimelineFilePath,
+                "phase_completed",
+                normalizedActor,
+                workflowRun.CurrentPhase,
+                "Regenerated artifact for phase `review` after workflow rewind.",
+                cancellationToken,
+                reviewGeneration.ArtifactPath,
+                reviewGeneration.Usage,
+                reviewGeneration.DurationMs,
+                reviewGeneration.Execution);
+            await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+            diagnostics.MarkCompleted(
+                $"phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} status={WorkflowPresentation.ToStatusSlug(workflowRun.Status)} artifact={reviewGeneration.ArtifactPath}");
+
+            return new ContinuePhaseResult(
+                workflowRun.UsId,
+                workflowRun.CurrentPhase,
+                workflowRun.Status,
+                reviewGeneration.ArtifactPath,
+                reviewGeneration.Usage,
+                reviewGeneration.Execution);
+        }
+
         EnsureNextPhaseExecutionIsReady(workflowRun);
         var sourcePhase = workflowRun.CurrentPhase;
         workflowRun.GenerateNextPhase();
@@ -1122,6 +1164,37 @@ public sealed class WorkflowRunner
     {
         var result = ParseReviewResult(reviewMarkdown);
         return string.IsNullOrWhiteSpace(result) ? null : result;
+    }
+
+    internal static bool IsReviewReplayPending(UserStoryFilePaths paths)
+    {
+        if (!File.Exists(paths.TimelineFilePath))
+        {
+            return false;
+        }
+
+        var events = TimelineMarkdownParser.ParseEvents(File.ReadAllText(paths.TimelineFilePath));
+        var latestReviewRewindIndex = -1;
+        var latestReviewCompletionIndex = -1;
+        var index = 0;
+        foreach (var timelineEvent in events)
+        {
+            if (timelineEvent.Phase == WorkflowPresentation.ToPhaseSlug(PhaseId.Review) &&
+                timelineEvent.Code == "workflow_rewound")
+            {
+                latestReviewRewindIndex = index;
+            }
+
+            if (timelineEvent.Phase == WorkflowPresentation.ToPhaseSlug(PhaseId.Review) &&
+                timelineEvent.Code == "phase_completed")
+            {
+                latestReviewCompletionIndex = index;
+            }
+
+            index++;
+        }
+
+        return latestReviewRewindIndex > latestReviewCompletionIndex;
     }
 
     private static string ParseReviewResult(string reviewMarkdown)

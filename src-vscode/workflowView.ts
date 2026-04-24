@@ -760,9 +760,11 @@ export function buildWorkflowHtml(
   const effectiveExecutionPhaseId = resolveEffectiveExecutionPhaseId(workflow, state, playbackState);
   const pausedExecutionPhaseId = resolvePausedExecutionPhaseId(workflow, state, playbackState);
   const displayedCurrentPhaseId = resolveDisplayedCurrentPhaseId(workflow, effectiveExecutionPhaseId, pausedExecutionPhaseId, playbackState);
-  const selectedPhaseId = playbackState === "idle"
-    ? state.selectedPhaseId
-    : displayedCurrentPhaseId ?? state.selectedPhaseId;
+  const selectedPhaseId = playbackState === "playing"
+    ? displayedCurrentPhaseId ?? state.selectedPhaseId
+    : playbackState === "paused" && state.selectedPhaseId === workflow.currentPhase
+      ? displayedCurrentPhaseId ?? state.selectedPhaseId
+    : state.selectedPhaseId;
   const selectedPhase = workflow.phases.find((phase) => phase.phaseId === selectedPhaseId) ?? workflow.phases[0];
   const selectedPhaseIsCurrent = selectedPhase.phaseId === displayedCurrentPhaseId;
   const isClarificationDetail = selectedPhase.phaseId === "clarification" && workflow.clarification !== null;
