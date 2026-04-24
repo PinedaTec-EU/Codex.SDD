@@ -127,7 +127,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         {
             var responseJson = await ExecuteStructuredNativeAsync(
                 context.WorkspaceRoot,
-                BuildStandaloneNativePrompt(modelSelection.ProviderKind, "SpecForge Native Clarification Auto Answers", prompt),
+                NativeCliPromptBuilder.BuildStandalonePrompt(modelSelection.ProviderKind, "SpecForge Native Clarification Auto Answers", prompt),
                 modelSelection,
                 BuildAutoClarificationAnswersSchema().GetRawText(),
                 sandboxMode: "read-only",
@@ -710,7 +710,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         ResolvedModelSelection modelSelection,
         CancellationToken cancellationToken)
     {
-        var nativePrompt = BuildNativePrompt(context, prompt, modelSelection.ProviderKind);
+        var nativePrompt = NativeCliPromptBuilder.BuildPhasePrompt(context, prompt, modelSelection.ProviderKind);
         SpecForgeDiagnostics.Log(
             $"[provider.native] usId={context.UsId} phase={context.PhaseId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={(string.IsNullOrWhiteSpace(modelSelection.Model) ? "(default)" : modelSelection.Model)}");
         if (!StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var contract))
@@ -792,86 +792,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             cancellationToken);
         diagnostics.MarkCompleted($"responseChars={response.Length}");
         return response;
-    }
-
-    private static string BuildNativePrompt(
-        PhaseExecutionContext context,
-        EffectivePrompt prompt,
-        string providerKind)
-    {
-        var providerLabel = ResolveNativeProviderLabel(providerKind);
-        var builder = new StringBuilder()
-            .AppendLine($"# SpecForge Native {providerLabel} Execution")
-            .AppendLine()
-            .AppendLine($"You are {providerLabel} executing a SpecForge workflow phase inside the live repository.")
-            .AppendLine("Use the workspace root as the repository root.")
-            .AppendLine("Do not create commits or branches.")
-            .AppendLine("Return only JSON matching the provided schema in your final response.")
-            .AppendLine();
-
-        if (!string.IsNullOrWhiteSpace(prompt.SystemPrompt))
-        {
-            builder
-                .AppendLine("## System Instructions")
-                .AppendLine()
-                .AppendLine(prompt.SystemPrompt.Trim())
-                .AppendLine();
-        }
-
-        if (context.PhaseId == PhaseId.Implementation)
-        {
-            builder
-                .AppendLine("## Native Implementation Rules")
-                .AppendLine()
-                .AppendLine("- Make the required repository changes in this workspace before you finish.")
-                .AppendLine("- Run the most relevant validation commands you can justify from the repo.")
-                .AppendLine("- Base the JSON response on the changes and validation you actually performed.")
-                .AppendLine();
-        }
-        else if (context.PhaseId == PhaseId.Review)
-        {
-            builder
-                .AppendLine("## Native Review Rules")
-                .AppendLine()
-                .AppendLine("- Inspect the repository state and artifacts directly.")
-                .AppendLine("- Do not modify files during review.")
-                .AppendLine("- Base findings only on evidence you actually inspected.")
-                .AppendLine();
-        }
-
-        builder
-            .AppendLine("## Phase Instructions")
-            .AppendLine()
-            .AppendLine(prompt.UserPrompt.Trim());
-
-        return builder.ToString().Trim();
-    }
-
-    private static string BuildStandaloneNativePrompt(string providerKind, string title, EffectivePrompt prompt)
-    {
-        var providerLabel = ResolveNativeProviderLabel(providerKind);
-        var builder = new StringBuilder()
-            .AppendLine($"# {title}")
-            .AppendLine()
-            .AppendLine($"You are {providerLabel} assisting the SpecForge workflow inside the live repository.")
-            .AppendLine("Return only JSON matching the provided schema in your final response.")
-            .AppendLine();
-
-        if (!string.IsNullOrWhiteSpace(prompt.SystemPrompt))
-        {
-            builder
-                .AppendLine("## System Instructions")
-                .AppendLine()
-                .AppendLine(prompt.SystemPrompt.Trim())
-                .AppendLine();
-        }
-
-        builder
-            .AppendLine("## Task")
-            .AppendLine()
-            .AppendLine(prompt.UserPrompt.Trim());
-
-        return builder.ToString().Trim();
     }
 
     private static async Task EnsureImplementationTouchedWorkspaceAsync(
@@ -1404,15 +1324,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         yield return new SystemCopilotCliRunner();
     }
 
-    private static string ResolveNativeProviderLabel(string providerKind) =>
-        providerKind switch
-        {
-            CodexProviderKind => "Codex",
-            ClaudeProviderKind => "Claude",
-            CopilotProviderKind => "Copilot",
-            _ => providerKind
-        };
-
     private static string FormatProcessOutputForLog(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -1428,8 +1339,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         return $"\"{normalized.Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
     }
-
-    private sealed record EffectivePrompt(string SystemPrompt, string UserPrompt, IReadOnlyCollection<string>? Warnings = null);
 
     private sealed record GitStatusSnapshotEntry(string StatusLine, string Fingerprint);
 
