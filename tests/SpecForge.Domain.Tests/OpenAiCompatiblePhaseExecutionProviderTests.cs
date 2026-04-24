@@ -576,6 +576,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.NotNull(fakeRunner.LastInvocation);
         Assert.Equal("read-only", fakeRunner.LastInvocation!.SandboxMode);
         Assert.Contains(expectedPromptMarker, fakeRunner.LastInvocation.Prompt);
+        Assert.Contains("## Response JSON Schema", fakeRunner.LastInvocation.Prompt);
+        Assert.Contains("\"specSummary\"", fakeRunner.LastInvocation.Prompt);
     }
 
     [Fact]

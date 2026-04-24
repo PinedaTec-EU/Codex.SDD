@@ -125,11 +125,16 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var prompt = await BuildAutoClarificationAnswersPromptAsync(context, session, cancellationToken);
         if (ShouldUseNativeCli(modelSelection))
         {
+            var autoClarificationAnswersSchema = BuildAutoClarificationAnswersSchema().GetRawText();
             var responseJson = await ExecuteStructuredNativeAsync(
                 context.WorkspaceRoot,
-                NativeCliPromptBuilder.BuildStandalonePrompt(modelSelection.ProviderKind, "SpecForge Native Clarification Auto Answers", prompt),
+                NativeCliPromptBuilder.BuildStandalonePrompt(
+                    modelSelection.ProviderKind,
+                    "SpecForge Native Clarification Auto Answers",
+                    prompt,
+                    autoClarificationAnswersSchema),
                 modelSelection,
-                BuildAutoClarificationAnswersSchema().GetRawText(),
+                autoClarificationAnswersSchema,
                 sandboxMode: "read-only",
                 cancellationToken);
             var document = ParseAutoClarificationAnswersDocument(responseJson);
@@ -438,17 +443,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine()
             .AppendLine("- Use the repository artifacts as the source of truth.")
             .AppendLine("- Stay strictly inside the requested phase contract.")
-            .AppendLine(context.PhaseId == PhaseId.Refinement
-                ? "- Return only the canonical JSON artifact for the current phase."
-                : "- Return only the markdown artifact for the current phase.");
+            .AppendLine("- Return only structured JSON that conforms to the response schema.");
 
         if (!string.IsNullOrWhiteSpace(context.OperationPrompt))
         {
             builder
                 .AppendLine("- Treat the current phase artifact as the document under edit, not as a discarded draft.")
                 .AppendLine("- Preserve valid content unless the requested operation requires a change.")
-                .AppendLine("- Update the artifact so the requested correction becomes explicit in the markdown.")
-                .AppendLine("- Add a concise new entry at the top of the artifact history log describing the operation.");
+                .AppendLine("- Update the structured fields so the requested correction becomes explicit in the rendered artifact.")
+                .AppendLine("- Add a concise new history entry describing the operation when the phase schema supports history.");
         }
 
         if (context.PhaseId == PhaseId.Clarification)
@@ -710,7 +713,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         ResolvedModelSelection modelSelection,
         CancellationToken cancellationToken)
     {
-        var nativePrompt = NativeCliPromptBuilder.BuildPhasePrompt(context, prompt, modelSelection.ProviderKind);
         SpecForgeDiagnostics.Log(
             $"[provider.native] usId={context.UsId} phase={context.PhaseId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={(string.IsNullOrWhiteSpace(modelSelection.Model) ? "(default)" : modelSelection.Model)}");
         if (!StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var contract))
@@ -718,6 +720,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract for native provider execution.");
         }
 
+        var outputSchemaJson = contract.JsonSchema.GetRawText();
+        var nativePrompt = NativeCliPromptBuilder.BuildPhasePrompt(
+            context,
+            prompt,
+            modelSelection.ProviderKind,
+            outputSchemaJson);
         var sandboxMode = context.PhaseId == PhaseId.Implementation
             ? "workspace-write"
             : "read-only";
@@ -728,7 +736,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             context.WorkspaceRoot,
             nativePrompt,
             modelSelection,
-            contract.JsonSchema.GetRawText(),
+            outputSchemaJson,
             sandboxMode,
             cancellationToken);
 

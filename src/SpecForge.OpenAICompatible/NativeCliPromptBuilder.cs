@@ -9,7 +9,8 @@ internal static class NativeCliPromptBuilder
     public static string BuildPhasePrompt(
         PhaseExecutionContext context,
         EffectivePrompt prompt,
-        string providerKind)
+        string providerKind,
+        string outputSchemaJson)
     {
         var providerLabel = ResolveProviderLabel(providerKind);
         var builder = new StringBuilder()
@@ -54,12 +55,25 @@ internal static class NativeCliPromptBuilder
         builder
             .AppendLine("## Phase Instructions")
             .AppendLine()
-            .AppendLine(prompt.UserPrompt.Trim());
+            .AppendLine(prompt.UserPrompt.Trim())
+            .AppendLine()
+            .AppendLine("## Response JSON Schema")
+            .AppendLine()
+            .AppendLine("Return the final answer as one JSON object matching this schema exactly.")
+            .AppendLine("Do not wrap the final answer in markdown fences and do not add prose outside the JSON object.")
+            .AppendLine()
+            .AppendLine("```json")
+            .AppendLine(outputSchemaJson.Trim())
+            .AppendLine("```");
 
         return builder.ToString().Trim();
     }
 
-    public static string BuildStandalonePrompt(string providerKind, string title, EffectivePrompt prompt)
+    public static string BuildStandalonePrompt(
+        string providerKind,
+        string title,
+        EffectivePrompt prompt,
+        string outputSchemaJson)
     {
         var providerLabel = ResolveProviderLabel(providerKind);
         var builder = new StringBuilder()
@@ -81,7 +95,16 @@ internal static class NativeCliPromptBuilder
         builder
             .AppendLine("## Task")
             .AppendLine()
-            .AppendLine(prompt.UserPrompt.Trim());
+            .AppendLine(prompt.UserPrompt.Trim())
+            .AppendLine()
+            .AppendLine("## Response JSON Schema")
+            .AppendLine()
+            .AppendLine("Return the final answer as one JSON object matching this schema exactly.")
+            .AppendLine("Do not wrap the final answer in markdown fences and do not add prose outside the JSON object.")
+            .AppendLine()
+            .AppendLine("```json")
+            .AppendLine(outputSchemaJson.Trim())
+            .AppendLine("```");
 
         return builder.ToString().Trim();
     }

@@ -10,3 +10,9 @@
 - Cancellation, stop, reset, rejection, or regression actions must use red.
 - Open, inspect, attach, or add-doc/context actions must use blue. This includes opening artifacts or prompts, opening workflow files, and attaching or adding repo context/docs.
 - When updating UI in this repo, prefer extending the existing design tokens and shared classes over adding one-off colors or isolated component-specific button rules.
+
+## Model Output Conventions
+
+- Every model call must request structured JSON output governed by an explicit JSON schema.
+- Human-facing markdown artifacts are rendered from the structured JSON after the model response is parsed and validated.
+- Do not ask a model to produce markdown as the primary response format unless the call is explicitly outside the SpecForge workflow contract and the deviation is documented locally.

@@ -139,7 +139,8 @@ public sealed class RepositoryPromptInitializer
         You are SpecForge's phase execution engine for this repository.
 
         Act strictly within the requested phase contract.
-        Prefer concrete, auditable markdown over generic prose.
+        Return structured JSON that conforms to the response schema supplied by the caller.
+        Human-facing markdown is rendered later from the validated JSON.
         Do not invent missing repository facts.
         """;
 
@@ -213,16 +214,17 @@ public sealed class RepositoryPromptInitializer
     private static string BuildSharedStylePrompt() =>
         """
         Write in English unless the repository artifacts are already in another language.
-        Keep the output concise, technical, and structured with markdown headings.
+        Keep string fields concise, technical, and directly usable in rendered artifacts.
         Avoid filler, motivational language, and broad product marketing phrasing.
         """;
 
     private static string BuildSharedOutputRulesPrompt() =>
         """
-        Return only the markdown artifact content for the requested phase.
+        Return only JSON that conforms to the response schema supplied by the caller.
         Do not wrap the response in code fences.
-        Preserve the expected section names of the target artifact.
-        If required context is missing or contradictory, state it explicitly inside the artifact instead of hiding the issue.
+        Do not return prose outside the structured payload.
+        Preserve the expected semantic fields of the target artifact.
+        If required context is missing or contradictory, state it explicitly inside the structured payload instead of hiding the issue.
         """;
 
     private static string BuildClarificationExecutePrompt() =>

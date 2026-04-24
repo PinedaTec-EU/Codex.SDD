@@ -62,7 +62,7 @@ internal static class PhaseExecutionProviderFactory
             StringComparison.OrdinalIgnoreCase);
         var autoClarificationAnswersProfile = Environment.GetEnvironmentVariable(AutoClarificationAnswersProfileEnvVar);
         var systemPrompt = Environment.GetEnvironmentVariable(SystemPromptEnvVar) ??
-                           "You generate markdown artifacts for SpecForge workflow phases. Return only markdown.";
+                           "You generate structured JSON for SpecForge workflow phases. Return only JSON that conforms to the supplied response schema.";
         var httpClient = new HttpClient
         {
             Timeout = ReadOpenAiTimeout()

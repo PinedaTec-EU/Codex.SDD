@@ -34,6 +34,8 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.True(File.Exists(paths.ReviewExecutePromptPath));
         var configContent = await File.ReadAllTextAsync(paths.ConfigFilePath);
         var manifestContent = await File.ReadAllTextAsync(paths.PromptManifestPath);
+        var sharedSystemPrompt = await File.ReadAllTextAsync(paths.SharedSystemPromptPath);
+        var sharedOutputRulesPrompt = await File.ReadAllTextAsync(paths.SharedOutputRulesPromptPath);
         var implementationSystemPrompt = await File.ReadAllTextAsync(paths.ImplementationExecuteSystemPromptPath);
         var implementationPrompt = await File.ReadAllTextAsync(paths.ImplementationExecutePromptPath);
         var reviewSystemPrompt = await File.ReadAllTextAsync(paths.ReviewExecuteSystemPromptPath);
@@ -43,6 +45,9 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.Contains("clarification.execute.system.md", manifestContent);
         Assert.Contains("release-approval.approve.system.md", manifestContent);
         Assert.Contains("internalCalls:", manifestContent);
+        Assert.Contains("Return structured JSON", sharedSystemPrompt);
+        Assert.Contains("Return only JSON", sharedOutputRulesPrompt);
+        Assert.DoesNotContain("Return only the markdown", sharedOutputRulesPrompt);
         Assert.Contains("implementation evidence", implementationSystemPrompt);
         Assert.Contains("repository evidence, touched files, and validations", implementationPrompt);
         Assert.Contains("implementation evidence is missing, empty", reviewSystemPrompt);
