@@ -2679,4 +2679,9 @@ test("buildWorkflowHtml keeps the hero header above a dedicated scrolling body",
   assert.match(html, /\.shell-body \{[\s\S]*overflow-y: auto;[\s\S]*overscroll-behavior: contain;/);
   assert.match(html, /<div class="shell-body">[\s\S]*<section class="layout">/);
   assert.match(html, /\.hero \{[\s\S]*position: relative;[\s\S]*z-index: 30;/);
+  assert.match(html, /const shellBody = document\.querySelector\("\.shell-body"\);/);
+  assert.match(html, /viewState\.workflowScrollTop = shellBody\.scrollTop/);
+  assert.match(html, /shellBody\.scrollTop = restoredWorkflowScrollTop/);
+  assert.match(html, /shellBody\.addEventListener\("scroll"/);
+  assert.match(html, /persistWorkflowScrollState\(\);\s+vscode\.postMessage/);
 });

@@ -3264,6 +3264,7 @@ export function buildWorkflowHtml(
     const vscode = acquireVsCodeApi();
     const viewState = vscode.getState() ?? {};
     const workflowShell = document.querySelector("[data-workflow-shell]");
+    const shellBody = document.querySelector(".shell-body");
     const currentPhaseNode = document.querySelector(".phase-node.phase-node--current");
     const currentPhaseId = currentPhaseNode instanceof HTMLElement
       ? currentPhaseNode.dataset.phaseId ?? ""
@@ -3290,6 +3291,30 @@ export function buildWorkflowHtml(
         // Best effort only. The workflow view still works without persisted scroll state.
       }
     }
+    const persistWorkflowScrollState = () => {
+      if (!(shellBody instanceof HTMLElement)) {
+        return;
+      }
+
+      viewState.workflowScrollTop = shellBody.scrollTop;
+      vscode.setState({
+        ...viewState,
+        workflowScrollTop: shellBody.scrollTop
+      });
+    };
+    if (shellBody instanceof HTMLElement) {
+      const restoredWorkflowScrollTop = typeof viewState.workflowScrollTop === "number"
+        ? viewState.workflowScrollTop
+        : null;
+      if (restoredWorkflowScrollTop !== null && restoredWorkflowScrollTop > 0) {
+        window.requestAnimationFrame(() => {
+          shellBody.scrollTop = restoredWorkflowScrollTop;
+        });
+      }
+      shellBody.addEventListener("scroll", () => {
+        persistWorkflowScrollState();
+      }, { passive: true });
+    }
 
     function copyPlainText(text) {
       const textarea = document.createElement("textarea");
@@ -3307,6 +3332,7 @@ export function buildWorkflowHtml(
       return copied;
     }
     const postCommand = (element) => {
+      persistWorkflowScrollState();
       vscode.postMessage({
         command: element.dataset.command,
         phaseId: element.dataset.phaseId,
