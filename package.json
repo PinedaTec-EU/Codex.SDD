@@ -49,6 +49,12 @@
         }
       ]
     },
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "specForge.workspaceMcp",
+        "label": "SpecForge Workspace MCP"
+      }
+    ],
     "commands": [
       {
         "command": "specForge.refreshUserStories",

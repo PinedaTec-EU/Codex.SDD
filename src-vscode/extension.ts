@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import { showUserStoryDetails } from "./detailsPanel";
 import { openExecutionSettingsPanelAsync } from "./executionSettingsPanel";
 import { activateExtension, deactivateExtension, type ExtensionActions, type ExtensionHost } from "./extensionRuntime";
-import { getSpecForgeSettings } from "./extensionSettings";
+import { buildBackendEnvironment, getSpecForgeSettings } from "./extensionSettings";
 import {
   appendSpecForgeDebugLog,
   appendSpecForgeLog,
@@ -32,6 +32,7 @@ import {
 } from "./specsExplorer";
 import { getUserWorkspacePreferencesPath, readUserWorkspacePreferences, setStarredUserStory } from "./userWorkspacePreferences";
 import type { UserStorySummary } from "./backendClient";
+import { buildServerProjectPath } from "./backendClientModel";
 
 let previousAttentionSnapshot = new Map<string, string>();
 
@@ -41,11 +42,13 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(getSpecForgeOutputChannel());
   void logActivationVersionAsync(context);
   appendSpecForgeDebugLog(`Extension activated in mode '${vscode.ExtensionMode[context.extensionMode]}'.`);
+  const manifestVersion = readManifestVersion(context);
   const sidebarProvider = new SidebarViewProvider(context.extensionUri, async () => {
     await refreshWorkspaceUiAsync("sidebar:onDidCreateUserStory");
   });
   const refreshableProvider = { refresh: () => sidebarProvider.refresh() };
   activateExtension(context, createVsCodeHost(), refreshableProvider, createExtensionActions(refreshableProvider, sidebarProvider));
+  const mcpProvider = new SpecForgeMcpServerDefinitionProvider(context.extensionUri.fsPath, manifestVersion);
   const refreshWorkspaceUiAsync = async (reason: string) => {
     if (reason.startsWith("watcher:") && hasActiveWorkflowPlayback()) {
       appendSpecForgeDebugLog(`Skipping workspace UI refresh while workflow playback is active. reason='${reason}'.`);
@@ -60,9 +63,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("specForge.userStories", sidebarProvider),
+    vscode.lm.registerMcpServerDefinitionProvider("specForge.workspaceMcp", mcpProvider),
     vscode.commands.registerCommand("specForge.openExecutionSettings", async () => {
       await openExecutionSettingsPanelAsync(context.extensionUri, async () => {
         await refreshWorkspaceUiAsync("executionSettingsSaved");
+        mcpProvider.refresh();
       });
     }),
     createWorkspaceWatcher(refreshWorkspaceUiAsync),
@@ -76,6 +81,7 @@ export function activate(context: vscode.ExtensionContext): void {
         resetBackendClient(workspaceRoot);
       }
 
+      mcpProvider.refresh();
       void refreshWorkspaceUiAsync("configurationChanged");
     })
   );
@@ -102,6 +108,63 @@ function createVsCodeHost(): ExtensionHost {
     registerTreeDataProvider: () => new vscode.Disposable(() => undefined),
     registerCommand: (command, callback) => vscode.commands.registerCommand(command, callback)
   };
+}
+
+class SpecForgeMcpServerDefinitionProvider implements vscode.McpServerDefinitionProvider<vscode.McpStdioServerDefinition> {
+  private readonly definitionsChangedEmitter = new vscode.EventEmitter<void>();
+
+  public readonly onDidChangeMcpServerDefinitions = this.definitionsChangedEmitter.event;
+
+  public constructor(
+    private readonly hostRoot: string,
+    private readonly version: string
+  ) {}
+
+  public provideMcpServerDefinitions(): vscode.ProviderResult<vscode.McpStdioServerDefinition[]> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      appendSpecForgeDebugLog("Skipping SpecForge MCP registration because no workspace folder is open.");
+      return [];
+    }
+
+    const settings = getSpecForgeSettings();
+    const environment = toMcpEnvironment(buildBackendEnvironment(settings));
+    const server = new vscode.McpStdioServerDefinition(
+      `SpecForge.AI (${workspaceFolder.name})`,
+      "dotnet",
+      ["run", "--project", buildServerProjectPath(this.hostRoot)],
+      environment,
+      this.version
+    );
+
+    server.cwd = workspaceFolder.uri;
+    appendSpecForgeDebugLog(`Providing SpecForge MCP server definition for workspace '${workspaceFolder.uri.fsPath}'.`);
+    return [server];
+  }
+
+  public resolveMcpServerDefinition(
+    server: vscode.McpStdioServerDefinition
+  ): vscode.ProviderResult<vscode.McpStdioServerDefinition> {
+    appendSpecForgeLog(`Resolving SpecForge MCP server '${server.label}'.`);
+    return server;
+  }
+
+  public refresh(): void {
+    appendSpecForgeDebugLog("Refreshing SpecForge MCP server definitions.");
+    this.definitionsChangedEmitter.fire();
+  }
+}
+
+function toMcpEnvironment(environment: NodeJS.ProcessEnv): Record<string, string | number | null> {
+  const result: Record<string, string | number | null> = {};
+
+  for (const [key, value] of Object.entries(environment)) {
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+
+  return result;
 }
 
 function readManifestVersion(context: vscode.ExtensionContext): string {
