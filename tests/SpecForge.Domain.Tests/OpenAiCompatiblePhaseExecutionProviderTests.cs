@@ -401,12 +401,31 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             new HttpClient(new CapturingFakeHttpMessageHandler()),
             CreateOptions(model: string.Empty, providerKind: "codex", baseUrl: string.Empty, apiKey: string.Empty),
             new RepositoryPromptCatalog(),
-            new FakeCodexCliRunner(isAvailable: false));
+            [new FakeNativeCliRunner("codex", isAvailable: false)]);
 
         var readiness = provider.GetPhaseExecutionReadiness(PhaseId.Implementation);
 
         Assert.False(readiness.CanExecute);
         Assert.Equal(PhaseExecutionBlockingReasons.CodexCliNotFound, readiness.BlockingReason);
+    }
+
+    [Theory]
+    [InlineData("claude", PhaseExecutionBlockingReasons.ClaudeCliNotFound)]
+    [InlineData("copilot", PhaseExecutionBlockingReasons.CopilotCliNotFound)]
+    public void GetPhaseExecutionReadiness_NativeProviderWithoutCliOrEndpoint_BlocksExecution(
+        string providerKind,
+        string expectedBlockingReason)
+    {
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new CapturingFakeHttpMessageHandler()),
+            CreateOptions(model: string.Empty, providerKind: providerKind, baseUrl: string.Empty, apiKey: string.Empty),
+            new RepositoryPromptCatalog(),
+            [new FakeNativeCliRunner(providerKind, isAvailable: false)]);
+
+        var readiness = provider.GetPhaseExecutionReadiness(PhaseId.Refinement);
+
+        Assert.False(readiness.CanExecute);
+        Assert.Equal(expectedBlockingReason, readiness.BlockingReason);
     }
 
     [Fact]
@@ -463,7 +482,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                         RepositoryAccess: "read-write")
                 ],
                 PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
-                    DefaultProfile: "bridge")));
+                    DefaultProfile: "bridge")),
+            new RepositoryPromptCatalog(),
+            [new FakeNativeCliRunner(providerKind, isAvailable: false)]);
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -478,12 +499,45 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal(providerKind, result.Execution!.ProviderKind);
     }
 
+    [Theory]
+    [InlineData("claude", "SpecForge Native Claude Execution")]
+    [InlineData("copilot", "SpecForge Native Copilot Execution")]
+    public async Task ExecuteAsync_NativeProvider_UsesNativeCliRunner(
+        string providerKind,
+        string expectedPromptMarker)
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var fakeRunner = new FakeNativeCliRunner(providerKind, isAvailable: true, responseJson: BuildMinimalRefinementJson());
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new ThrowingHttpMessageHandler()),
+            CreateOptions(model: "native-model", providerKind: providerKind, baseUrl: string.Empty, apiKey: string.Empty),
+            new RepositoryPromptCatalog(),
+            [fakeRunner]);
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Refinement,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        var result = await provider.ExecuteAsync(context);
+
+        Assert.Equal(providerKind, result.ExecutionKind);
+        Assert.NotNull(result.Execution);
+        Assert.Equal(providerKind, result.Execution!.ProviderKind);
+        Assert.NotNull(fakeRunner.LastInvocation);
+        Assert.Equal("read-only", fakeRunner.LastInvocation!.SandboxMode);
+        Assert.Contains(expectedPromptMarker, fakeRunner.LastInvocation.Prompt);
+    }
+
     [Fact]
     public async Task ExecuteAsync_CodexProvider_UsesNativeCodexRunnerForImplementation()
     {
         await PrepareInitializedWorkspaceAsync();
         await InitializeGitWorkspaceAsync();
-        var fakeRunner = new FakeCodexCliRunner(
+        var fakeRunner = new FakeNativeCliRunner(
+            "codex",
             isAvailable: true,
             responseJson: BuildMinimalImplementationJson(),
             onExecute: invocation =>
@@ -499,7 +553,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                 apiKey: string.Empty,
                 repositoryAccess: "read-write"),
             new RepositoryPromptCatalog(),
-            fakeRunner);
+            [fakeRunner]);
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -526,7 +580,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     {
         await PrepareInitializedWorkspaceAsync();
         await InitializeGitWorkspaceAsync();
-        var fakeRunner = new FakeCodexCliRunner(isAvailable: true, responseJson: BuildMinimalImplementationJson());
+        var fakeRunner = new FakeNativeCliRunner("codex", isAvailable: true, responseJson: BuildMinimalImplementationJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(new ThrowingHttpMessageHandler()),
             CreateOptions(
@@ -536,7 +590,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                 apiKey: string.Empty,
                 repositoryAccess: "read-write"),
             new RepositoryPromptCatalog(),
-            fakeRunner);
+            [fakeRunner]);
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -562,7 +616,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         await RunGitAsync("commit", "-m", "seed dirty file");
         await File.WriteAllTextAsync(dirtyFilePath, "namespace TravelAgent;\npublic static class ExistingService { public const int Before = 1; }\n");
 
-        var fakeRunner = new FakeCodexCliRunner(
+        var fakeRunner = new FakeNativeCliRunner(
+            "codex",
             isAvailable: true,
             responseJson: BuildMinimalImplementationJson(),
             onExecute: _ =>
@@ -578,7 +633,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                 apiKey: string.Empty,
                 repositoryAccess: "read-write"),
             new RepositoryPromptCatalog(),
-            fakeRunner);
+            [fakeRunner]);
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -601,6 +656,22 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             CreateOptions(
                 model: string.Empty,
                 providerKind: "codex",
+                baseUrl: string.Empty,
+                apiKey: string.Empty));
+
+        Assert.NotNull(provider);
+    }
+
+    [Theory]
+    [InlineData("claude")]
+    [InlineData("copilot")]
+    public void Constructor_NativeProviderWithoutEndpointConfiguration_DoesNotThrow(string providerKind)
+    {
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(new CapturingFakeHttpMessageHandler()),
+            CreateOptions(
+                model: string.Empty,
+                providerKind: providerKind,
                 baseUrl: string.Empty,
                 apiKey: string.Empty));
 
@@ -977,26 +1048,43 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         }
     }
 
-    private sealed class FakeCodexCliRunner : OpenAiCompatiblePhaseExecutionProvider.ICodexCliRunner
+    private sealed class FakeNativeCliRunner : OpenAiCompatiblePhaseExecutionProvider.INativeCliRunner
     {
         private readonly string responseJson;
-        private readonly Action<OpenAiCompatiblePhaseExecutionProvider.CodexCliInvocation>? onExecute;
+        private readonly Action<OpenAiCompatiblePhaseExecutionProvider.NativeCliInvocation>? onExecute;
 
-        public FakeCodexCliRunner(
+        public FakeNativeCliRunner(
+            string providerKind,
             bool isAvailable,
             string responseJson = "{}",
-            Action<OpenAiCompatiblePhaseExecutionProvider.CodexCliInvocation>? onExecute = null)
+            Action<OpenAiCompatiblePhaseExecutionProvider.NativeCliInvocation>? onExecute = null,
+            int checkExitCode = 0,
+            string checkStdout = "cli 1.0.0",
+            string checkStderr = "")
         {
+            ProviderKind = providerKind;
             IsAvailable = isAvailable;
             this.responseJson = responseJson;
             this.onExecute = onExecute;
+            CheckResult = new OpenAiCompatiblePhaseExecutionProvider.NativeCliCheckResult(
+                $"{providerKind} --version",
+                checkExitCode,
+                checkStdout,
+                checkStderr);
         }
+
+        public string ProviderKind { get; }
 
         public bool IsAvailable { get; }
 
-        public OpenAiCompatiblePhaseExecutionProvider.CodexCliInvocation? LastInvocation { get; private set; }
+        public OpenAiCompatiblePhaseExecutionProvider.NativeCliCheckResult CheckResult { get; }
 
-        public Task<string> ExecuteAsync(OpenAiCompatiblePhaseExecutionProvider.CodexCliInvocation invocation, CancellationToken cancellationToken)
+        public OpenAiCompatiblePhaseExecutionProvider.NativeCliInvocation? LastInvocation { get; private set; }
+
+        public Task<OpenAiCompatiblePhaseExecutionProvider.NativeCliCheckResult> CheckAvailabilityAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(CheckResult);
+
+        public Task<string> ExecuteAsync(OpenAiCompatiblePhaseExecutionProvider.NativeCliInvocation invocation, CancellationToken cancellationToken)
         {
             LastInvocation = invocation;
             onExecute?.Invoke(invocation);

@@ -123,7 +123,7 @@
         "specForge.execution.modelProfiles": {
           "type": "array",
           "default": [],
-          "description": "Named model profiles. Each profile declares its own provider and capabilities so the workflow can route phases explicitly. `openai-compatible`, `copilot`, and `claude` use endpoint settings here. `codex` can run natively from the local Codex CLI without a base URL.",
+          "description": "Named model profiles. Each profile declares its own provider and capabilities so the workflow can route phases explicitly. `codex`, `claude`, and `copilot` can run natively from their local CLI when available. `claude` and `copilot` can also fall back to the OpenAI-compatible transport bridge when endpoint settings are configured.",
           "items": {
             "type": "object",
             "required": [
@@ -143,20 +143,20 @@
                   "copilot",
                   "claude"
                 ],
-                "description": "Provider kind used by this profile. `codex` uses the local Codex CLI when available. `copilot` and `claude` still use the OpenAI-compatible transport bridge."
+                "description": "Provider kind used by this profile. `codex`, `claude`, and `copilot` prefer their native local CLI when available. `claude` and `copilot` fall back to the OpenAI-compatible transport bridge when a base URL is configured."
               },
               "baseUrl": {
                 "type": "string",
-                "description": "Base URL for this profile's endpoint. Required for `openai-compatible`, `copilot`, and `claude`. Omit for native `codex`."
+                "description": "Base URL for this profile's endpoint. Required for `openai-compatible`. Optional for `claude` and `copilot` when their native CLI is available. Omit for native `codex`."
               },
               "apiKey": {
                 "type": "string",
                 "default": "",
-                "description": "API key for this profile's endpoint. Required for remote `openai-compatible`, `copilot`, and `claude` endpoints. Not used by native `codex`."
+                "description": "API key for this profile's endpoint. Required for remote `openai-compatible`, `copilot`, and `claude` endpoints. Not used by native CLI execution."
               },
               "model": {
                 "type": "string",
-                "description": "Concrete model identifier exposed by this profile's endpoint. Optional for native `codex`, which can fall back to the local Codex default."
+                "description": "Concrete model identifier exposed by this profile's endpoint. Optional for native CLI execution, which can fall back to the local provider default."
               },
               "repositoryAccess": {
                 "type": "string",

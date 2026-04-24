@@ -25,7 +25,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     private readonly HttpClient httpClient;
     private readonly OpenAiCompatibleProviderOptions options;
     private readonly RepositoryPromptCatalog promptCatalog;
-    private readonly ICodexCliRunner codexCliRunner;
+    private readonly IReadOnlyDictionary<string, INativeCliRunner> nativeCliRunners;
 
     public OpenAiCompatiblePhaseExecutionProvider(
         HttpClient httpClient,
@@ -38,12 +38,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         HttpClient httpClient,
         OpenAiCompatibleProviderOptions options,
         RepositoryPromptCatalog promptCatalog,
-        ICodexCliRunner? codexCliRunner = null)
+        IEnumerable<INativeCliRunner>? nativeCliRunners = null)
     {
         this.httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         this.options = options ?? throw new ArgumentNullException(nameof(options));
         this.promptCatalog = promptCatalog ?? throw new ArgumentNullException(nameof(promptCatalog));
-        this.codexCliRunner = codexCliRunner ?? new SystemCodexCliRunner();
+        this.nativeCliRunners = (nativeCliRunners ?? CreateNativeCliRunners())
+            .ToDictionary(static runner => runner.ProviderKind, StringComparer.Ordinal);
 
         if (options.ModelProfiles is not { Count: > 0 })
         {
@@ -73,10 +74,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId)
     {
         var modelSelection = ResolveModelSelection(phaseId);
-        if (string.Equals(modelSelection.ProviderKind, CodexProviderKind, StringComparison.Ordinal) &&
-            !codexCliRunner.IsAvailable)
+        var nativeCliRunner = ResolveNativeCliRunner(modelSelection.ProviderKind);
+        if (RequiresNativeCli(modelSelection) &&
+            (nativeCliRunner is null || !nativeCliRunner.IsAvailable))
         {
-            return new PhaseExecutionReadiness(phaseId, CanExecute: false, PhaseExecutionBlockingReasons.CodexCliNotFound);
+            return new PhaseExecutionReadiness(
+                phaseId,
+                CanExecute: false,
+                ResolveNativeCliBlockingReason(modelSelection.ProviderKind));
         }
 
         var requiredRepositoryAccess = phaseId switch
@@ -118,11 +123,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         SpecForgeDiagnostics.Log(
             $"[provider.auto_clarification] usId={context.UsId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={modelSelection.Model} questions={session.Items.Count}");
         var prompt = await BuildAutoClarificationAnswersPromptAsync(context, session, cancellationToken);
-        if (string.Equals(modelSelection.ProviderKind, CodexProviderKind, StringComparison.Ordinal))
+        if (ShouldUseNativeCli(modelSelection))
         {
-            var responseJson = await ExecuteStructuredCodexAsync(
+            var responseJson = await ExecuteStructuredNativeAsync(
                 context.WorkspaceRoot,
-                BuildStandaloneCodexPrompt("SpecForge Native Clarification Auto Answers", prompt),
+                BuildStandaloneNativePrompt(modelSelection.ProviderKind, "SpecForge Native Clarification Auto Answers", prompt),
                 modelSelection,
                 BuildAutoClarificationAnswersSchema().GetRawText(),
                 sandboxMode: "read-only",
@@ -133,7 +138,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 document.Answers,
                 document.Reason,
                 Execution: new PhaseExecutionMetadata(
-                    ProviderKind: CodexProviderKind,
+                    ProviderKind: modelSelection.ProviderKind,
                     Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
                     ProfileName: modelSelection.ProfileName,
                     Warnings: prompt.Warnings));
@@ -177,9 +182,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var prompt = await BuildEffectivePromptAsync(context, cancellationToken);
         SpecForgeDiagnostics.Log(
             $"[provider.execute] usId={context.UsId} phase={context.PhaseId} promptBuilt systemChars={prompt.SystemPrompt.Length} userChars={prompt.UserPrompt.Length} warnings={(prompt.Warnings?.Count ?? 0)}");
-        if (string.Equals(modelSelection.ProviderKind, CodexProviderKind, StringComparison.Ordinal))
+        if (ShouldUseNativeCli(modelSelection))
         {
-            return await ExecuteViaCodexCliAsync(context, prompt, modelSelection, cancellationToken);
+            return await ExecuteViaNativeCliAsync(context, prompt, modelSelection, cancellationToken);
         }
 
         var contract = StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var phaseContract)
@@ -699,31 +704,34 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             answers);
     }
 
-    private async Task<PhaseExecutionResult> ExecuteViaCodexCliAsync(
+    private async Task<PhaseExecutionResult> ExecuteViaNativeCliAsync(
         PhaseExecutionContext context,
         EffectivePrompt prompt,
         ResolvedModelSelection modelSelection,
         CancellationToken cancellationToken)
     {
+        var nativePrompt = BuildNativePrompt(context, prompt, modelSelection.ProviderKind);
         SpecForgeDiagnostics.Log(
-            $"[provider.codex] usId={context.UsId} phase={context.PhaseId} profile={modelSelection.ProfileName ?? "default"} model={(string.IsNullOrWhiteSpace(modelSelection.Model) ? "(default)" : modelSelection.Model)}");
+            $"[provider.native] usId={context.UsId} phase={context.PhaseId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={(string.IsNullOrWhiteSpace(modelSelection.Model) ? "(default)" : modelSelection.Model)}");
         if (!StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var contract))
         {
-            throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract for Codex execution.");
+            throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract for native provider execution.");
         }
+
         var sandboxMode = context.PhaseId == PhaseId.Implementation
             ? "workspace-write"
             : "read-only";
         var baselineWorkspaceChanges = context.PhaseId == PhaseId.Implementation
             ? await TryCaptureGitStatusSnapshotAsync(context.WorkspaceRoot, cancellationToken)
             : null;
-        var responseJson = await ExecuteStructuredCodexAsync(
+        var responseJson = await ExecuteStructuredNativeAsync(
             context.WorkspaceRoot,
-            BuildCodexPrompt(context, prompt),
+            nativePrompt,
             modelSelection,
             contract.JsonSchema.GetRawText(),
             sandboxMode,
             cancellationToken);
+
         if (context.PhaseId == PhaseId.Implementation)
         {
             await EnsureImplementationTouchedWorkspaceAsync(
@@ -737,16 +745,16 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         return new PhaseExecutionResult(
             normalizedContent,
-            ExecutionKind: CodexProviderKind,
+            ExecutionKind: modelSelection.ProviderKind,
             Usage: null,
             Execution: new PhaseExecutionMetadata(
-                ProviderKind: CodexProviderKind,
+                ProviderKind: modelSelection.ProviderKind,
                 Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
                 Warnings: prompt.Warnings));
     }
 
-    private async Task<string> ExecuteStructuredCodexAsync(
+    private async Task<string> ExecuteStructuredNativeAsync(
         string workspaceRoot,
         string prompt,
         ResolvedModelSelection modelSelection,
@@ -754,16 +762,28 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         string sandboxMode,
         CancellationToken cancellationToken)
     {
-        if (!codexCliRunner.IsAvailable)
+        var nativeCliRunner = ResolveNativeCliRunner(modelSelection.ProviderKind);
+        if (nativeCliRunner is null || !nativeCliRunner.IsAvailable)
         {
-            throw new InvalidOperationException("Codex CLI is not available for native provider execution.");
+            throw new InvalidOperationException(
+                $"{modelSelection.ProviderKind} CLI is not available for native provider execution.");
         }
 
         await using var diagnostics = SpecForgeDiagnostics.StartProgressScope(
-            $"[provider.codex.cli] profile={modelSelection.ProfileName ?? "default"} model={(string.IsNullOrWhiteSpace(modelSelection.Model) ? "(default)" : modelSelection.Model)} sandbox={sandboxMode}",
+            $"[provider.native.cli] provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={(string.IsNullOrWhiteSpace(modelSelection.Model) ? "(default)" : modelSelection.Model)} sandbox={sandboxMode}",
             interval: TimeSpan.FromSeconds(20));
-        var response = await codexCliRunner.ExecuteAsync(
-            new CodexCliInvocation(
+        var checkResult = await nativeCliRunner.CheckAvailabilityAsync(cancellationToken);
+        SpecForgeDiagnostics.Log(
+            $"[provider.native.check] provider={modelSelection.ProviderKind} command=\"{checkResult.Command}\" exitCode={checkResult.ExitCode} stdout={FormatProcessOutputForLog(checkResult.StandardOutput)} stderr={FormatProcessOutputForLog(checkResult.StandardError)}");
+        if (checkResult.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"{modelSelection.ProviderKind} CLI health check failed with exit code {checkResult.ExitCode}. stderr: {checkResult.StandardError.Trim()} stdout: {checkResult.StandardOutput.Trim()}");
+        }
+
+        var response = await nativeCliRunner.ExecuteAsync(
+            new NativeCliInvocation(
+                modelSelection.ProviderKind,
                 workspaceRoot,
                 prompt,
                 string.IsNullOrWhiteSpace(modelSelection.Model) ? null : modelSelection.Model,
@@ -774,12 +794,16 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return response;
     }
 
-    private static string BuildCodexPrompt(PhaseExecutionContext context, EffectivePrompt prompt)
+    private static string BuildNativePrompt(
+        PhaseExecutionContext context,
+        EffectivePrompt prompt,
+        string providerKind)
     {
+        var providerLabel = ResolveNativeProviderLabel(providerKind);
         var builder = new StringBuilder()
-            .AppendLine("# SpecForge Native Codex Execution")
+            .AppendLine($"# SpecForge Native {providerLabel} Execution")
             .AppendLine()
-            .AppendLine("You are Codex executing a SpecForge workflow phase inside the live repository.")
+            .AppendLine($"You are {providerLabel} executing a SpecForge workflow phase inside the live repository.")
             .AppendLine("Use the workspace root as the repository root.")
             .AppendLine("Do not create commits or branches.")
             .AppendLine("Return only JSON matching the provided schema in your final response.")
@@ -823,12 +847,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return builder.ToString().Trim();
     }
 
-    private static string BuildStandaloneCodexPrompt(string title, EffectivePrompt prompt)
+    private static string BuildStandaloneNativePrompt(string providerKind, string title, EffectivePrompt prompt)
     {
+        var providerLabel = ResolveNativeProviderLabel(providerKind);
         var builder = new StringBuilder()
             .AppendLine($"# {title}")
             .AppendLine()
-            .AppendLine("You are Codex assisting the SpecForge workflow inside the live repository.")
+            .AppendLine($"You are {providerLabel} assisting the SpecForge workflow inside the live repository.")
             .AppendLine("Return only JSON matching the provided schema in your final response.")
             .AppendLine();
 
@@ -1062,6 +1087,29 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             profile.RepositoryAccess);
     }
 
+    private INativeCliRunner? ResolveNativeCliRunner(string providerKind) =>
+        nativeCliRunners.TryGetValue(providerKind, out var runner) ? runner : null;
+
+    private static bool RequiresNativeCli(ResolvedModelSelection modelSelection) =>
+        string.Equals(modelSelection.ProviderKind, CodexProviderKind, StringComparison.Ordinal) ||
+        (IsNativeCliCapableProviderKind(modelSelection.ProviderKind) &&
+         string.IsNullOrWhiteSpace(modelSelection.BaseUrl));
+
+    private bool ShouldUseNativeCli(ResolvedModelSelection modelSelection)
+    {
+        var nativeCliRunner = ResolveNativeCliRunner(modelSelection.ProviderKind);
+        return nativeCliRunner?.IsAvailable == true;
+    }
+
+    private static string ResolveNativeCliBlockingReason(string providerKind) =>
+        providerKind switch
+        {
+            CodexProviderKind => PhaseExecutionBlockingReasons.CodexCliNotFound,
+            ClaudeProviderKind => PhaseExecutionBlockingReasons.ClaudeCliNotFound,
+            CopilotProviderKind => PhaseExecutionBlockingReasons.CopilotCliNotFound,
+            _ => PhaseExecutionBlockingReasons.CodexCliNotFound
+        };
+
     private string ResolveProfileNameForPhase(PhaseId phaseId)
     {
         var assignments = options.PhaseModelAssignments;
@@ -1152,6 +1200,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     private static bool IsSupportedProviderKind(string providerKind) =>
         providerKind is OpenAiCompatibleProviderKind or CodexProviderKind or CopilotProviderKind or ClaudeProviderKind;
 
+    private static bool IsNativeCliCapableProviderKind(string providerKind) =>
+        providerKind is CodexProviderKind or ClaudeProviderKind or CopilotProviderKind;
+
     private static bool IsSupportedRepositoryAccess(string? repositoryAccess) =>
         NormalizeRepositoryAccess(repositoryAccess) is RepositoryAccessNone or RepositoryAccessRead or RepositoryAccessReadWrite;
 
@@ -1207,13 +1258,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 throw new ArgumentException($"Duplicate model profile '{profile.Name}'.", nameof(modelProfiles));
             }
 
-            if (!string.Equals(providerKind, CodexProviderKind, StringComparison.Ordinal) &&
+            if (!IsNativeCliCapableProviderKind(providerKind) &&
                 string.IsNullOrWhiteSpace(profile.BaseUrl))
             {
                 throw new ArgumentException($"BaseUrl is required for model profile '{profile.Name}'.", nameof(modelProfiles));
             }
 
-            if (!string.Equals(providerKind, CodexProviderKind, StringComparison.Ordinal) &&
+            if (!IsNativeCliCapableProviderKind(providerKind) &&
                 string.IsNullOrWhiteSpace(profile.Model))
             {
                 throw new ArgumentException($"Model is required for model profile '{profile.Name}'.", nameof(modelProfiles));
@@ -1226,7 +1277,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                     nameof(modelProfiles));
             }
 
-            if (!string.Equals(providerKind, CodexProviderKind, StringComparison.Ordinal) &&
+            if (!IsNativeCliCapableProviderKind(providerKind) &&
                 RequiresApiKey(profile.BaseUrl) && string.IsNullOrWhiteSpace(profile.ApiKey))
             {
                 throw new ArgumentException($"ApiKey is required for remote model profile '{profile.Name}'.", nameof(modelProfiles));
@@ -1346,6 +1397,38 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         };
     }
 
+    private static IEnumerable<INativeCliRunner> CreateNativeCliRunners()
+    {
+        yield return new SystemCodexCliRunner();
+        yield return new SystemClaudeCliRunner();
+        yield return new SystemCopilotCliRunner();
+    }
+
+    private static string ResolveNativeProviderLabel(string providerKind) =>
+        providerKind switch
+        {
+            CodexProviderKind => "Codex",
+            ClaudeProviderKind => "Claude",
+            CopilotProviderKind => "Copilot",
+            _ => providerKind
+        };
+
+    private static string FormatProcessOutputForLog(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "\"\"";
+        }
+
+        var normalized = value.ReplaceLineEndings("\\n").Trim();
+        if (normalized.Length > 320)
+        {
+            normalized = $"{normalized[..320]}...";
+        }
+
+        return $"\"{normalized.Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
+    }
+
     private sealed record EffectivePrompt(string SystemPrompt, string UserPrompt, IReadOnlyCollection<string>? Warnings = null);
 
     private sealed record GitStatusSnapshotEntry(string StatusLine, string Fingerprint);
@@ -1363,92 +1446,208 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         string? ProfileName,
         string? RepositoryAccess);
 
-    internal sealed record CodexCliInvocation(
+    internal sealed record NativeCliInvocation(
+        string ProviderKind,
         string WorkspaceRoot,
         string Prompt,
         string? Model,
         string OutputSchemaJson,
         string SandboxMode);
 
-    internal interface ICodexCliRunner
+    internal sealed record NativeCliCheckResult(
+        string Command,
+        int ExitCode,
+        string StandardOutput,
+        string StandardError);
+
+    internal interface INativeCliRunner
     {
+        string ProviderKind { get; }
+
         bool IsAvailable { get; }
 
-        Task<string> ExecuteAsync(CodexCliInvocation invocation, CancellationToken cancellationToken);
+        Task<NativeCliCheckResult> CheckAvailabilityAsync(CancellationToken cancellationToken);
+
+        Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken);
     }
 
-    internal sealed class SystemCodexCliRunner : ICodexCliRunner
+    internal abstract class NativeCliRunnerBase : INativeCliRunner
     {
-        private const string CodexCliPathEnvVar = "SPECFORGE_CODEX_CLI_PATH";
-        private readonly string? executablePath = ResolveExecutablePath();
+        private readonly string? executablePath;
+
+        protected NativeCliRunnerBase()
+        {
+            executablePath = ResolveExecutablePath();
+        }
+
+        public abstract string ProviderKind { get; }
 
         public bool IsAvailable => !string.IsNullOrWhiteSpace(executablePath);
 
-        public async Task<string> ExecuteAsync(CodexCliInvocation invocation, CancellationToken cancellationToken)
+        protected string ExecutablePath =>
+            executablePath ?? throw new InvalidOperationException($"{ProviderKind} CLI executable could not be resolved.");
+
+        protected abstract string ExecutablePathEnvVar { get; }
+
+        protected abstract string[] CandidateExecutableNames { get; }
+
+        protected virtual string? BundledExecutablePath => null;
+
+        protected abstract IReadOnlyList<string> GetVersionArguments();
+
+        public async Task<NativeCliCheckResult> CheckAvailabilityAsync(CancellationToken cancellationToken)
         {
             if (!IsAvailable)
             {
-                throw new InvalidOperationException("Codex CLI executable could not be resolved.");
+                throw new InvalidOperationException($"{ProviderKind} CLI executable could not be resolved.");
             }
 
+            var result = await RunProcessAsync(GetVersionArguments(), workingDirectory: Environment.CurrentDirectory, cancellationToken: cancellationToken);
+            return new NativeCliCheckResult(result.Command, result.ExitCode, result.StandardOutput, result.StandardError);
+        }
+
+        public abstract Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken);
+
+        protected async Task<ProcessExecutionResult> RunProcessAsync(
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            CancellationToken cancellationToken,
+            string? standardInput = null)
+        {
+            if (!IsAvailable)
+            {
+                throw new InvalidOperationException($"{ProviderKind} CLI executable could not be resolved.");
+            }
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = ExecutablePath,
+                WorkingDirectory = workingDirectory,
+                RedirectStandardInput = standardInput is not null,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false
+            };
+
+            foreach (var argument in arguments)
+            {
+                startInfo.ArgumentList.Add(argument);
+            }
+
+            using var process = new Process { StartInfo = startInfo };
+            process.Start();
+
+            if (standardInput is not null)
+            {
+                await process.StandardInput.WriteAsync(standardInput);
+                await process.StandardInput.FlushAsync();
+                process.StandardInput.Close();
+            }
+
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken);
+            var stdout = await stdoutTask;
+            var stderr = await stderrTask;
+
+            var command = $"{ExecutablePath} {string.Join(' ', arguments)}".TrimEnd();
+            SpecForgeDiagnostics.Log(
+                $"[provider.native.exec] provider={ProviderKind} command=\"{command}\" exitCode={process.ExitCode} stdout={FormatProcessOutputForLog(stdout)} stderr={FormatProcessOutputForLog(stderr)}");
+
+            return new ProcessExecutionResult(command, process.ExitCode, stdout, stderr);
+        }
+
+        private string? ResolveExecutablePath()
+        {
+            var explicitPath = Environment.GetEnvironmentVariable(ExecutablePathEnvVar);
+            if (!string.IsNullOrWhiteSpace(explicitPath) && File.Exists(explicitPath))
+            {
+                return explicitPath;
+            }
+
+            if (!string.IsNullOrWhiteSpace(BundledExecutablePath) && File.Exists(BundledExecutablePath))
+            {
+                return BundledExecutablePath;
+            }
+
+            var path = Environment.GetEnvironmentVariable("PATH");
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return null;
+            }
+
+            foreach (var candidateDirectory in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                foreach (var executableName in CandidateExecutableNames)
+                {
+                    var candidatePath = Path.Combine(candidateDirectory, executableName);
+                    if (File.Exists(candidatePath))
+                    {
+                        return candidatePath;
+                    }
+                }
+            }
+
+            return null;
+        }
+    }
+
+    internal sealed class SystemCodexCliRunner : NativeCliRunnerBase
+    {
+        public override string ProviderKind => CodexProviderKind;
+
+        protected override string ExecutablePathEnvVar => "SPECFORGE_CODEX_CLI_PATH";
+
+        protected override string[] CandidateExecutableNames => ["codex"];
+
+        protected override string? BundledExecutablePath => "/Applications/Codex.app/Contents/Resources/codex";
+
+        protected override IReadOnlyList<string> GetVersionArguments() => ["--version"];
+
+        public override async Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
+        {
             var schemaPath = Path.Combine(Path.GetTempPath(), $"specforge-codex-schema-{Guid.NewGuid():N}.json");
             var outputPath = Path.Combine(Path.GetTempPath(), $"specforge-codex-output-{Guid.NewGuid():N}.json");
             await File.WriteAllTextAsync(schemaPath, invocation.OutputSchemaJson, cancellationToken);
 
             try
             {
-                var startInfo = new ProcessStartInfo
+                var arguments = new List<string>
                 {
-                    FileName = executablePath!,
-                    WorkingDirectory = invocation.WorkspaceRoot,
-                    RedirectStandardInput = true,
-                    RedirectStandardError = true,
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false
+                    "exec"
                 };
 
-                startInfo.ArgumentList.Add("exec");
                 if (!string.IsNullOrWhiteSpace(invocation.Model))
                 {
-                    startInfo.ArgumentList.Add("-m");
-                    startInfo.ArgumentList.Add(invocation.Model);
+                    arguments.Add("-m");
+                    arguments.Add(invocation.Model);
                 }
 
-                startInfo.ArgumentList.Add("-C");
-                startInfo.ArgumentList.Add(invocation.WorkspaceRoot);
+                arguments.Add("-C");
+                arguments.Add(invocation.WorkspaceRoot);
                 if (string.Equals(invocation.SandboxMode, "workspace-write", StringComparison.Ordinal))
                 {
-                    startInfo.ArgumentList.Add("--full-auto");
+                    arguments.Add("--full-auto");
                 }
                 else
                 {
-                    startInfo.ArgumentList.Add("--sandbox");
-                    startInfo.ArgumentList.Add(invocation.SandboxMode);
+                    arguments.Add("--sandbox");
+                    arguments.Add(invocation.SandboxMode);
                 }
-                startInfo.ArgumentList.Add("--color");
-                startInfo.ArgumentList.Add("never");
-                startInfo.ArgumentList.Add("--output-schema");
-                startInfo.ArgumentList.Add(schemaPath);
-                startInfo.ArgumentList.Add("-o");
-                startInfo.ArgumentList.Add(outputPath);
-                startInfo.ArgumentList.Add("-");
 
-                using var process = new Process { StartInfo = startInfo };
-                process.Start();
-                await process.StandardInput.WriteAsync(invocation.Prompt);
-                await process.StandardInput.FlushAsync();
-                process.StandardInput.Close();
+                arguments.Add("--color");
+                arguments.Add("never");
+                arguments.Add("--output-schema");
+                arguments.Add(schemaPath);
+                arguments.Add("-o");
+                arguments.Add(outputPath);
+                arguments.Add("-");
 
-                var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-                var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-                await process.WaitForExitAsync(cancellationToken);
-                var stdout = await stdoutTask;
-                var stderr = await stderrTask;
-
-                if (process.ExitCode != 0)
+                var result = await RunProcessAsync(arguments, invocation.WorkspaceRoot, cancellationToken, invocation.Prompt);
+                if (result.ExitCode != 0)
                 {
                     throw new InvalidOperationException(
-                        $"Codex CLI execution failed with exit code {process.ExitCode}. stderr: {stderr.Trim()} stdout: {stdout.Trim()}");
+                        $"Codex CLI execution failed with exit code {result.ExitCode}. stderr: {result.StandardError.Trim()} stdout: {result.StandardOutput.Trim()}");
                 }
 
                 if (!File.Exists(outputPath))
@@ -1463,38 +1662,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 TryDelete(schemaPath);
                 TryDelete(outputPath);
             }
-        }
-
-        private static string? ResolveExecutablePath()
-        {
-            var explicitPath = Environment.GetEnvironmentVariable(CodexCliPathEnvVar);
-            if (!string.IsNullOrWhiteSpace(explicitPath) && File.Exists(explicitPath))
-            {
-                return explicitPath;
-            }
-
-            const string appBundlePath = "/Applications/Codex.app/Contents/Resources/codex";
-            if (File.Exists(appBundlePath))
-            {
-                return appBundlePath;
-            }
-
-            var path = Environment.GetEnvironmentVariable("PATH");
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                return null;
-            }
-
-            foreach (var candidateDirectory in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            {
-                var candidatePath = Path.Combine(candidateDirectory, "codex");
-                if (File.Exists(candidatePath))
-                {
-                    return candidatePath;
-                }
-            }
-
-            return null;
         }
 
         private static void TryDelete(string path)
@@ -1512,6 +1679,86 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             }
         }
     }
+
+    internal sealed class SystemClaudeCliRunner : NativeCliRunnerBase
+    {
+        public override string ProviderKind => ClaudeProviderKind;
+
+        protected override string ExecutablePathEnvVar => "SPECFORGE_CLAUDE_CLI_PATH";
+
+        protected override string[] CandidateExecutableNames => ["claude"];
+
+        protected override IReadOnlyList<string> GetVersionArguments() => ["--version"];
+
+        public override async Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
+        {
+            var arguments = new List<string>
+            {
+                "-p",
+                "--output-format",
+                "json",
+                "--json-schema",
+                invocation.OutputSchemaJson,
+                "--permission-mode",
+                "bypassPermissions",
+                "--add-dir",
+                invocation.WorkspaceRoot
+            };
+
+            if (!string.IsNullOrWhiteSpace(invocation.Model))
+            {
+                arguments.Add("--model");
+                arguments.Add(invocation.Model);
+            }
+
+            arguments.Add(invocation.Prompt);
+
+            var result = await RunProcessAsync(arguments, invocation.WorkspaceRoot, cancellationToken);
+            if (result.ExitCode != 0)
+            {
+                throw new InvalidOperationException(
+                    $"Claude CLI execution failed with exit code {result.ExitCode}. stderr: {result.StandardError.Trim()} stdout: {result.StandardOutput.Trim()}");
+            }
+
+            return result.StandardOutput.Trim();
+        }
+    }
+
+    internal sealed class SystemCopilotCliRunner : NativeCliRunnerBase
+    {
+        public override string ProviderKind => CopilotProviderKind;
+
+        protected override string ExecutablePathEnvVar => "SPECFORGE_COPILOT_CLI_PATH";
+
+        protected override string[] CandidateExecutableNames => ["gh"];
+
+        protected override IReadOnlyList<string> GetVersionArguments() => ["copilot", "--", "--version"];
+
+        public override async Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
+        {
+            var arguments = new List<string>
+            {
+                "copilot",
+                "-p",
+                invocation.Prompt
+            };
+
+            var result = await RunProcessAsync(arguments, invocation.WorkspaceRoot, cancellationToken);
+            if (result.ExitCode != 0)
+            {
+                throw new InvalidOperationException(
+                    $"Copilot CLI execution failed with exit code {result.ExitCode}. stderr: {result.StandardError.Trim()} stdout: {result.StandardOutput.Trim()}");
+            }
+
+            return result.StandardOutput.Trim();
+        }
+    }
+
+    internal sealed record ProcessExecutionResult(
+        string Command,
+        int ExitCode,
+        string StandardOutput,
+        string StandardError);
 
     private sealed record StructuredOutputResponseFormat(
         [property: JsonPropertyName("type")] string Type,
