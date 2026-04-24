@@ -505,8 +505,8 @@ function buildExecutionOverlay(
     { configuredModel: overlayConfiguredModel }
   );
   const overlayPhaseModelLabel = overlayPhaseConfiguredLabel
-    ?? findLatestPhaseExecutionLabel(workflow, overlayPhase.phaseId, state)
-    ?? overlayPhaseProfileLabel;
+    ?? overlayPhaseProfileLabel
+    ?? findLatestPhaseExecutionLabel(workflow, overlayPhase.phaseId, state);
 
   return `
     <div
