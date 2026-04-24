@@ -1451,8 +1451,45 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 startInfo.ArgumentList.Add(argument);
             }
 
+            var command = $"{ExecutablePath} {string.Join(' ', arguments)}".TrimEnd();
+            var stdout = new StringBuilder();
+            var stderr = new StringBuilder();
+            var outputLock = new object();
+            var lastOutputAtUtc = DateTimeOffset.UtcNow;
+            var stdoutChunksLogged = 0;
+            var stderrChunksLogged = 0;
+            var stdoutSuppressionLogged = false;
+            var stderrSuppressionLogged = false;
+
             using var process = new Process { StartInfo = startInfo };
             process.Start();
+            SpecForgeDiagnostics.Log(
+                $"[provider.native.exec] provider={ProviderKind} command=\"{command}\" pid={process.Id} started.");
+            using var cancellationRegistration = cancellationToken.Register(() =>
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        SpecForgeDiagnostics.Log(
+                            $"[provider.native.exec] provider={ProviderKind} pid={process.Id} cancellation requested; killing process tree.");
+                        process.Kill(entireProcessTree: true);
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                }
+                catch (Exception exception)
+                {
+                    SpecForgeDiagnostics.Log(
+                        $"[provider.native.exec] provider={ProviderKind} pid={process.Id} failed to kill process tree after cancellation: {exception.Message}");
+                }
+            });
+
+            var stdoutTask = ReadStreamAsync(process.StandardOutput, stdout, "stdout");
+            var stderrTask = ReadStreamAsync(process.StandardError, stderr, "stderr");
+            using var silenceCancellation = new CancellationTokenSource();
+            var silenceTask = LogSilenceUntilExitAsync(silenceCancellation.Token);
 
             if (standardInput is not null)
             {
@@ -1461,17 +1498,110 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 process.StandardInput.Close();
             }
 
-            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-            await process.WaitForExitAsync(cancellationToken);
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
+            try
+            {
+                await process.WaitForExitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                await silenceCancellation.CancelAsync();
+                SpecForgeDiagnostics.Log(
+                    $"[provider.native.exec] provider={ProviderKind} command=\"{command}\" pid={process.Id} canceled stdoutChars={stdout.Length} stderrChars={stderr.Length}.");
+                throw;
+            }
 
-            var command = $"{ExecutablePath} {string.Join(' ', arguments)}".TrimEnd();
+            await Task.WhenAll(stdoutTask, stderrTask);
+            await silenceCancellation.CancelAsync();
+            await silenceTask;
+
             SpecForgeDiagnostics.Log(
-                $"[provider.native.exec] provider={ProviderKind} command=\"{command}\" exitCode={process.ExitCode} stdout={FormatProcessOutputForLog(stdout)} stderr={FormatProcessOutputForLog(stderr)}");
+                $"[provider.native.exec] provider={ProviderKind} command=\"{command}\" pid={process.Id} exitCode={process.ExitCode} stdout={FormatProcessOutputForLog(stdout.ToString())} stderr={FormatProcessOutputForLog(stderr.ToString())}");
 
-            return new ProcessExecutionResult(command, process.ExitCode, stdout, stderr);
+            return new ProcessExecutionResult(command, process.ExitCode, stdout.ToString(), stderr.ToString());
+
+            async Task ReadStreamAsync(StreamReader reader, StringBuilder target, string streamName)
+            {
+                var buffer = new char[2048];
+                try
+                {
+                    while (true)
+                    {
+                        var read = await reader.ReadAsync(buffer.AsMemory(), cancellationToken);
+                        if (read == 0)
+                        {
+                            return;
+                        }
+
+                        var chunk = new string(buffer, 0, read);
+                        var logChunk = false;
+                        var logSuppression = false;
+                        lock (outputLock)
+                        {
+                            target.Append(chunk);
+                            lastOutputAtUtc = DateTimeOffset.UtcNow;
+                            if (streamName == "stdout")
+                            {
+                                stdoutChunksLogged++;
+                                logChunk = stdoutChunksLogged <= 12;
+                                if (!logChunk && !stdoutSuppressionLogged)
+                                {
+                                    stdoutSuppressionLogged = true;
+                                    logSuppression = true;
+                                }
+                            }
+                            else
+                            {
+                                stderrChunksLogged++;
+                                logChunk = stderrChunksLogged <= 12;
+                                if (!logChunk && !stderrSuppressionLogged)
+                                {
+                                    stderrSuppressionLogged = true;
+                                    logSuppression = true;
+                                }
+                            }
+                        }
+
+                        if (logChunk)
+                        {
+                            SpecForgeDiagnostics.Log(
+                                $"[provider.native.exec.{streamName}] provider={ProviderKind} pid={process.Id} chunk={FormatProcessOutputForLog(chunk)}");
+                        }
+                        else if (logSuppression)
+                        {
+                            SpecForgeDiagnostics.Log(
+                                $"[provider.native.exec.{streamName}] provider={ProviderKind} pid={process.Id} additional output suppressed until process completion.");
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+
+            async Task LogSilenceUntilExitAsync(CancellationToken silenceCancellationToken)
+            {
+                using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+                try
+                {
+                    while (!process.HasExited && await timer.WaitForNextTickAsync(silenceCancellationToken))
+                    {
+                        if (process.HasExited)
+                        {
+                            return;
+                        }
+
+                        var silentFor = DateTimeOffset.UtcNow - lastOutputAtUtc;
+                        if (silentFor >= TimeSpan.FromSeconds(30))
+                        {
+                            SpecForgeDiagnostics.Log(
+                                $"[provider.native.exec] provider={ProviderKind} pid={process.Id} no stdout/stderr for {Math.Round(silentFor.TotalSeconds)}s.");
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
         }
 
         private string? ResolveExecutablePath()
