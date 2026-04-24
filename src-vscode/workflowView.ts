@@ -4152,7 +4152,7 @@ function buildPhaseGraph(
     const mobilePosition = mobileLayout.positions[phase.phaseId] ?? { left: mobileLayoutConfig.columns.left, top: mobileLayoutConfig.topOffset };
     const displayState = phaseToneLabel(visualTone, phase.state);
     const modelProfileLabel = phaseModelProfileLabel(phase, state);
-    const canPausePhase = canPauseWorkflowExecutionPhase(phase.phaseId);
+    const canPausePhase = canPauseWorkflowExecutionPhase(phase.phaseId) && phase.state === "pending";
     const pauseArmed = pausedPhaseIds.has(phase.phaseId);
     const pauseButtonLabel = pauseArmed
       ? `Remove pause before ${phase.title}`
@@ -4172,18 +4172,19 @@ function buildPhaseGraph(
             <span class="phase-index">${index + 1}</span>
             ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
           </div>
-          <button
-            class="phase-pause-toggle${pauseArmed ? " phase-pause-toggle--armed" : ""}"
-            type="button"
-            data-command="togglePhasePause"
-            data-phase-id="${escapeHtmlAttribute(phase.phaseId)}"
-            data-phase-pause-button
-            aria-label="${escapeHtmlAttribute(pauseButtonLabel)}"
-            aria-pressed="${pauseArmed ? "true" : "false"}"
-            title="${escapeHtmlAttribute(pauseButtonLabel)}"
-            ${canPausePhase ? "" : "disabled"}>
-            ${pauseIcon()}
-          </button>
+          ${canPausePhase
+            ? `<button
+                class="phase-pause-toggle${pauseArmed ? " phase-pause-toggle--armed" : ""}"
+                type="button"
+                data-command="togglePhasePause"
+                data-phase-id="${escapeHtmlAttribute(phase.phaseId)}"
+                data-phase-pause-button
+                aria-label="${escapeHtmlAttribute(pauseButtonLabel)}"
+                aria-pressed="${pauseArmed ? "true" : "false"}"
+                title="${escapeHtmlAttribute(pauseButtonLabel)}">
+                ${pauseIcon()}
+              </button>`
+            : ""}
         </div>
         <h3>${escapeHtml(phase.title)}</h3>
         <div class="phase-slug">${escapeHtml(phaseSecondaryLabel(phase))}</div>
