@@ -29,7 +29,7 @@ export function renderMarkdownToHtml(markdown: string): string {
         index++;
       }
 
-      html.push(`<pre><code${language ? ` data-language="${escapeHtmlAttribute(language)}"` : ""}>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+      html.push(`<pre><code${language ? ` data-language="${escapeHtmlAttr(language)}"` : ""}>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
       continue;
     }
 
@@ -106,19 +106,6 @@ export function renderMarkdownToHtml(markdown: string): string {
   return html.join("\n");
 }
 
-export function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll("\"", "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-export function escapeHtmlAttribute(value: string): string {
-  return escapeHtml(value);
-}
-
 function renderMarkdownList(lines: readonly string[], startIndex: number, ordered: boolean): { html: string; nextIndex: number } {
   const items: string[] = [];
   let index = startIndex;
@@ -185,7 +172,7 @@ function renderInlineMarkdown(text: string): string {
   let html = escapeHtml(text);
   html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
   html = html.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)/g, (_match, label, href) => {
-    const safeHref = escapeHtmlAttribute(href);
+    const safeHref = escapeHtmlAttr(href);
     return `<a href="${safeHref}">${label}</a>`;
   });
   html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
@@ -194,3 +181,4 @@ function renderInlineMarkdown(text: string): string {
   html = html.replace(/(^|[\s(])_([^_]+)_(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>");
   return html;
 }
+import { escapeHtml, escapeHtmlAttr } from "../htmlEscape";

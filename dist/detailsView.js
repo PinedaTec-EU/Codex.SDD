@@ -1,7 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.escapeHtml = void 0;
 exports.buildUserStoryDetailsHtml = buildUserStoryDetailsHtml;
-exports.escapeHtml = escapeHtml;
+const htmlEscape_1 = require("./htmlEscape");
+Object.defineProperty(exports, "escapeHtml", { enumerable: true, get: function () { return htmlEscape_1.escapeHtml; } });
 const PHASES = [
     "capture",
     "clarification",
@@ -49,14 +51,14 @@ function buildUserStoryDetailsHtml(summary) {
   </style>
 </head>
 <body>
-  <h1>${escapeHtml(summary.usId)}</h1>
+  <h1>${(0, htmlEscape_1.escapeHtml)(summary.usId)}</h1>
   <div class="meta">
-    <div><strong>Title:</strong> ${escapeHtml(summary.title)}</div>
-    <div><strong>Category:</strong> <code>${escapeHtml(summary.category)}</code></div>
-    <div><strong>Status:</strong> <code>${escapeHtml(summary.status)}</code></div>
-    <div><strong>Current phase:</strong> <code>${escapeHtml(summary.currentPhase)}</code></div>
-    <div><strong>Branch:</strong> <code>${escapeHtml(summary.workBranch ?? "not-created")}</code></div>
-    <div><strong>Main artifact:</strong> <code>${escapeHtml(summary.mainArtifactPath)}</code></div>
+    <div><strong>Title:</strong> ${(0, htmlEscape_1.escapeHtml)(summary.title)}</div>
+    <div><strong>Category:</strong> <code>${(0, htmlEscape_1.escapeHtml)(summary.category)}</code></div>
+    <div><strong>Status:</strong> <code>${(0, htmlEscape_1.escapeHtml)(summary.status)}</code></div>
+    <div><strong>Current phase:</strong> <code>${(0, htmlEscape_1.escapeHtml)(summary.currentPhase)}</code></div>
+    <div><strong>Branch:</strong> <code>${(0, htmlEscape_1.escapeHtml)(summary.workBranch ?? "not-created")}</code></div>
+    <div><strong>Main artifact:</strong> <code>${(0, htmlEscape_1.escapeHtml)(summary.mainArtifactPath)}</code></div>
   </div>
   <h2>Workflow</h2>
   <ul>${phaseItems}</ul>
@@ -64,13 +66,5 @@ function buildUserStoryDetailsHtml(summary) {
   <p>Use <code>Continue Phase</code> when the current phase can advance, or <code>Approve Current Phase</code> only when the workflow is at a human checkpoint.</p>
 </body>
 </html>`;
-}
-function escapeHtml(value) {
-    return value
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll("\"", "&quot;")
-        .replaceAll("'", "&#39;");
 }
 //# sourceMappingURL=detailsView.js.map

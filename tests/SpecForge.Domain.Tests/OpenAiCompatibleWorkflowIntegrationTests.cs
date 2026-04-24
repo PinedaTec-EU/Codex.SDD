@@ -166,21 +166,21 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
 
         Assert.Equal(3, modelStub.Requests.Count);
         Assert.All(modelStub.Requests, request => Assert.Equal("/v1/chat/completions", request.Path));
-        Assert.Equal(0.4d, ExtractTemperature(modelStub.Requests[0].Body));
-        Assert.Equal(0.4d, ExtractTemperature(modelStub.Requests[1].Body));
-        Assert.Equal(0.2d, ExtractTemperature(modelStub.Requests[2].Body));
-        Assert.Equal("json_schema", ExtractResponseFormatType(modelStub.Requests[0].Body));
-        Assert.Equal("clarification_artifact", ExtractResponseSchemaName(modelStub.Requests[0].Body));
-        Assert.Equal("refinement_artifact", ExtractResponseSchemaName(modelStub.Requests[2].Body));
-        Assert.Contains("Role: clarification analyst.", ExtractUserPrompt(modelStub.Requests[0].Body));
-        Assert.Contains("- Phase: `Clarification`", ExtractUserPrompt(modelStub.Requests[0].Body));
-        Assert.Contains("Active tolerance: `inferential`", ExtractUserPrompt(modelStub.Requests[0].Body));
-        Assert.Contains("Role: clarification analyst.", ExtractUserPrompt(modelStub.Requests[1].Body));
-        Assert.Contains("- Phase: `Clarification`", ExtractUserPrompt(modelStub.Requests[1].Body));
-        Assert.Contains("Role: refinement analyst.", ExtractUserPrompt(modelStub.Requests[2].Body));
-        Assert.Contains("- Phase: `Refinement`", ExtractUserPrompt(modelStub.Requests[2].Body));
-        Assert.Contains("## Clarification Log", ExtractUserPrompt(modelStub.Requests[1].Body));
-        Assert.Contains("El editor de marketing publica el articulo.", ExtractUserPrompt(modelStub.Requests[1].Body));
+        Assert.Equal(0.4d, OpenAiCompatibleRequestJson.ReadTemperature(modelStub.Requests[0].Body));
+        Assert.Equal(0.4d, OpenAiCompatibleRequestJson.ReadTemperature(modelStub.Requests[1].Body));
+        Assert.Equal(0.2d, OpenAiCompatibleRequestJson.ReadTemperature(modelStub.Requests[2].Body));
+        Assert.Equal("json_schema", OpenAiCompatibleRequestJson.ReadResponseFormatType(modelStub.Requests[0].Body));
+        Assert.Equal("clarification_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[0].Body));
+        Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[2].Body));
+        Assert.Contains("Role: clarification analyst.", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[0].Body));
+        Assert.Contains("- Phase: `Clarification`", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[0].Body));
+        Assert.Contains("Active tolerance: `inferential`", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[0].Body));
+        Assert.Contains("Role: clarification analyst.", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[1].Body));
+        Assert.Contains("- Phase: `Clarification`", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[1].Body));
+        Assert.Contains("Role: refinement analyst.", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[2].Body));
+        Assert.Contains("- Phase: `Refinement`", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[2].Body));
+        Assert.Contains("## Clarification Log", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[1].Body));
+        Assert.Contains("El editor de marketing publica el articulo.", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[1].Body));
     }
 
     [Fact]
@@ -324,10 +324,10 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             && eventItem.Execution.Model == "stub-resolver");
 
         Assert.Equal(4, modelStub.Requests.Count);
-        Assert.Equal("clarification_artifact", ExtractResponseSchemaName(modelStub.Requests[0].Body));
-        Assert.Equal("auto_clarification_answers", ExtractResponseSchemaName(modelStub.Requests[1].Body));
-        Assert.Equal("clarification_artifact", ExtractResponseSchemaName(modelStub.Requests[2].Body));
-        Assert.Equal("refinement_artifact", ExtractResponseSchemaName(modelStub.Requests[3].Body));
+        Assert.Equal("clarification_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[0].Body));
+        Assert.Equal("auto_clarification_answers", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[1].Body));
+        Assert.Equal("clarification_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[2].Body));
+        Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[3].Body));
         Assert.Contains("\"model\":\"stub-resolver\"", modelStub.Requests[1].Body);
     }
 
@@ -577,11 +577,11 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
                 "implementation_artifact",
                 "review_artifact"
             ],
-            modelStub.Requests.Select(request => ExtractResponseSchemaName(request.Body)).ToArray());
-        Assert.Equal("stub-resolver", ExtractModel(modelStub.Requests[1].Body));
+            modelStub.Requests.Select(request => OpenAiCompatibleRequestJson.ReadResponseSchemaName(request.Body)).ToArray());
+        Assert.Equal("stub-resolver", OpenAiCompatibleRequestJson.ReadModel(modelStub.Requests[1].Body));
         Assert.All(
             modelStub.Requests.Where((_, index) => index != 1),
-            request => Assert.Equal("stub-default", ExtractModel(request.Body)));
+            request => Assert.Equal("stub-default", OpenAiCompatibleRequestJson.ReadModel(request.Body)));
     }
 
     public void Dispose()
@@ -590,41 +590,6 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         {
             Directory.Delete(workspaceRoot, recursive: true);
         }
-    }
-
-    private static string ExtractUserPrompt(string requestBody)
-    {
-        using var document = JsonDocument.Parse(requestBody);
-        var messages = document.RootElement.GetProperty("messages");
-        return messages
-            .EnumerateArray()
-            .First(message => string.Equals(message.GetProperty("role").GetString(), "user", StringComparison.Ordinal))
-            .GetProperty("content")
-            .GetString() ?? string.Empty;
-    }
-
-    private static double ExtractTemperature(string requestBody)
-    {
-        using var document = JsonDocument.Parse(requestBody);
-        return document.RootElement.GetProperty("temperature").GetDouble();
-    }
-
-    private static string ExtractResponseFormatType(string requestBody)
-    {
-        using var document = JsonDocument.Parse(requestBody);
-        return document.RootElement.GetProperty("response_format").GetProperty("type").GetString() ?? string.Empty;
-    }
-
-    private static string ExtractResponseSchemaName(string requestBody)
-    {
-        using var document = JsonDocument.Parse(requestBody);
-        return document.RootElement.GetProperty("response_format").GetProperty("json_schema").GetProperty("name").GetString() ?? string.Empty;
-    }
-
-    private static string ExtractModel(string requestBody)
-    {
-        using var document = JsonDocument.Parse(requestBody);
-        return document.RootElement.GetProperty("model").GetString() ?? string.Empty;
     }
 
     private async Task ResolvePendingApprovalQuestionsAsync(SpecForgeApplicationService applicationService, string usId)

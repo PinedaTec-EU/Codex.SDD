@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { escapeHtml, escapeHtmlAttr } from "./htmlEscape";
 import {
   getSpecForgeSettings,
   type SpecForgeModelProfile,
@@ -622,19 +623,6 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
   </script>
 </body>
 </html>`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
-function escapeHtmlAttr(value: string): string {
-  return escapeHtml(value)
-    .replaceAll("\"", "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 async function saveExecutionSettingsAsync(

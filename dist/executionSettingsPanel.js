@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.openExecutionSettingsPanelAsync = openExecutionSettingsPanelAsync;
 exports.buildExecutionSettingsHtml = buildExecutionSettingsHtml;
 const vscode = __importStar(require("vscode"));
+const htmlEscape_1 = require("./htmlEscape");
 const extensionSettings_1 = require("./extensionSettings");
 let currentPanel = null;
 async function openExecutionSettingsPanelAsync(extensionUri, onDidSave) {
@@ -326,9 +327,9 @@ function buildExecutionSettingsHtml(model) {
       </div>
       <div class="phase-grid" data-phase-grid>
         ${executionPhases.map((phase) => `
-          <label class="phase-field" data-phase-wrapper="${escapeHtmlAttr(String(phase.key))}">
-            <span>${escapeHtml(phase.label)}</span>
-            <select data-phase-field="${escapeHtmlAttr(String(phase.key))}"></select>
+          <label class="phase-field" data-phase-wrapper="${(0, htmlEscape_1.escapeHtmlAttr)(String(phase.key))}">
+            <span>${(0, htmlEscape_1.escapeHtml)(phase.label)}</span>
+            <select data-phase-field="${(0, htmlEscape_1.escapeHtmlAttr)(String(phase.key))}"></select>
             ${phase.key === "defaultProfile"
         ? '<span class="phase-field__hint">Required when you have multiple profiles and no single implicit fallback.</span>'
         : ""}
@@ -617,17 +618,6 @@ function buildExecutionSettingsHtml(model) {
   </script>
 </body>
 </html>`;
-}
-function escapeHtml(value) {
-    return value
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;");
-}
-function escapeHtmlAttr(value) {
-    return escapeHtml(value)
-        .replaceAll("\"", "&quot;")
-        .replaceAll("'", "&#39;");
 }
 async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, autoClarificationAnswersEnabled = false, autoClarificationAnswersProfile) {
     const configuration = vscode.workspace.getConfiguration("specForge");

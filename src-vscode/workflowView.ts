@@ -1,9 +1,10 @@
 import type { UserStoryWorkflowDetails, WorkflowPhaseDetails } from "./backendClient";
+import { escapeHtml, escapeHtmlAttr as escapeHtmlAttribute } from "./htmlEscape";
 import { buildCapturePhaseSections } from "./workflow-view/capturePhaseView";
 import { buildClarificationPhaseSections } from "./workflow-view/clarificationPhaseView";
 import { buildImplementationPhaseSections } from "./workflow-view/implementationPhaseView";
 import { fileIcon, pauseIcon, playIcon, rewindIcon, stopIcon } from "./workflow-view/icons";
-import { escapeHtml, escapeHtmlAttribute, renderMarkdownToHtml } from "./workflow-view/markdownRenderer";
+import { renderMarkdownToHtml } from "./workflow-view/markdownRenderer";
 import type { ApprovalQuestionItem, PhaseIterationItem, PhaseSectionFragments, WorkflowViewState } from "./workflow-view/models";
 import { buildPrPreparationPhaseSections } from "./workflow-view/prPreparationPhaseView";
 import { canPauseWorkflowExecutionPhase, resolveWorkflowExecutionPhaseId } from "./workflowPlaybackState";

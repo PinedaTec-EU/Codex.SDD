@@ -1,8 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.renderMarkdownToHtml = renderMarkdownToHtml;
-exports.escapeHtml = escapeHtml;
-exports.escapeHtmlAttribute = escapeHtmlAttribute;
 function renderMarkdownToHtml(markdown) {
     const normalized = markdown.replace(/\r\n/g, "\n").trim();
     if (normalized.length === 0) {
@@ -28,7 +26,7 @@ function renderMarkdownToHtml(markdown) {
             if (index < lines.length) {
                 index++;
             }
-            html.push(`<pre><code${language ? ` data-language="${escapeHtmlAttribute(language)}"` : ""}>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+            html.push(`<pre><code${language ? ` data-language="${(0, htmlEscape_1.escapeHtmlAttr)(language)}"` : ""}>${(0, htmlEscape_1.escapeHtml)(codeLines.join("\n"))}</code></pre>`);
             continue;
         }
         if (/^#{1,6}\s/.test(line)) {
@@ -90,17 +88,6 @@ function renderMarkdownToHtml(markdown) {
     }
     return html.join("\n");
 }
-function escapeHtml(value) {
-    return value
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll("\"", "&quot;")
-        .replaceAll("'", "&#39;");
-}
-function escapeHtmlAttribute(value) {
-    return escapeHtml(value);
-}
 function renderMarkdownList(lines, startIndex, ordered) {
     const items = [];
     let index = startIndex;
@@ -154,10 +141,10 @@ function splitMarkdownTableRow(row) {
         .map((cell) => cell.trim());
 }
 function renderInlineMarkdown(text) {
-    let html = escapeHtml(text);
+    let html = (0, htmlEscape_1.escapeHtml)(text);
     html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
     html = html.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)/g, (_match, label, href) => {
-        const safeHref = escapeHtmlAttribute(href);
+        const safeHref = (0, htmlEscape_1.escapeHtmlAttr)(href);
         return `<a href="${safeHref}">${label}</a>`;
     });
     html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
@@ -166,4 +153,5 @@ function renderInlineMarkdown(text) {
     html = html.replace(/(^|[\s(])_([^_]+)_(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>");
     return html;
 }
+const htmlEscape_1 = require("../htmlEscape");
 //# sourceMappingURL=markdownRenderer.js.map

@@ -1,4 +1,7 @@
 import type { UserStorySummary } from "./backendClient";
+import { escapeHtml } from "./htmlEscape";
+
+export { escapeHtml };
 
 const PHASES = [
   "capture",
@@ -64,13 +67,4 @@ export function buildUserStoryDetailsHtml(summary: UserStorySummary): string {
   <p>Use <code>Continue Phase</code> when the current phase can advance, or <code>Approve Current Phase</code> only when the workflow is at a human checkpoint.</p>
 </body>
 </html>`;
-}
-
-export function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll("\"", "&quot;")
-    .replaceAll("'", "&#39;");
 }

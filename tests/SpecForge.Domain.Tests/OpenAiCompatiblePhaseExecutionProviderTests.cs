@@ -51,12 +51,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("Bearer", handler.LastRequest.Headers.Authorization?.Scheme);
         Assert.Equal("ollama-local", handler.LastRequest.Headers.Authorization?.Parameter);
         Assert.Contains("\"model\":\"llama3.1\"", handler.LastBody);
-        Assert.Equal(0.2d, ReadTemperature(handler.LastBody));
-        Assert.Equal("json_schema", ReadResponseFormatType(handler.LastBody));
-        Assert.Equal("refinement_artifact", ReadResponseSchemaName(handler.LastBody));
+        Assert.Equal(0.2d, OpenAiCompatibleRequestJson.ReadTemperature(handler.LastBody));
+        Assert.Equal("json_schema", OpenAiCompatibleRequestJson.ReadResponseFormatType(handler.LastBody));
+        Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(handler.LastBody));
         Assert.Contains("Role: refinement analyst.", handler.LastBody);
         Assert.Contains("Initial text", handler.LastBody);
-        Assert.Contains("This is the system prompt for the refinement execute template.", ReadSystemPrompt(handler.LastBody));
+        Assert.Contains("This is the system prompt for the refinement execute template.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
     }
 
     [Theory]
@@ -85,8 +85,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         await provider.ExecuteAsync(context);
 
-        Assert.Equal(expectedTemperature, ReadTemperature(handler.LastBody));
-        var userPrompt = ReadUserPrompt(handler.LastBody);
+        Assert.Equal(expectedTemperature, OpenAiCompatibleRequestJson.ReadTemperature(handler.LastBody));
+        var userPrompt = OpenAiCompatibleRequestJson.ReadUserPrompt(handler.LastBody);
         Assert.Contains($"Active tolerance: `{clarificationTolerance}`", userPrompt);
         Assert.Contains(expectedGuidance, userPrompt);
     }
@@ -145,12 +145,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("resolver", result.Execution!.ProfileName);
         Assert.Equal("llama-resolver", result.Execution.Model);
         Assert.Equal("http://localhost:22434/v1/chat/completions", handler.LastRequest!.RequestUri!.ToString());
-        Assert.Equal("auto_clarification_answers", ReadResponseSchemaName(handler.LastBody));
+        Assert.Equal("auto_clarification_answers", OpenAiCompatibleRequestJson.ReadResponseSchemaName(handler.LastBody));
         Assert.Contains("\"model\":\"llama-resolver\"", handler.LastBody);
-        Assert.Contains("This is the system prompt for the clarification execute template.", ReadSystemPrompt(handler.LastBody));
-        Assert.Contains("This is the system prompt for the internal auto clarification answer task.", ReadSystemPrompt(handler.LastBody));
-        Assert.Contains("## Auto Clarification Answer Task", ReadUserPrompt(handler.LastBody));
-        Assert.Contains("Which role publishes the article?", ReadUserPrompt(handler.LastBody));
+        Assert.Contains("This is the system prompt for the clarification execute template.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
+        Assert.Contains("This is the system prompt for the internal auto clarification answer task.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
+        Assert.Contains("## Auto Clarification Answer Task", OpenAiCompatibleRequestJson.ReadUserPrompt(handler.LastBody));
+        Assert.Contains("Which role publishes the article?", OpenAiCompatibleRequestJson.ReadUserPrompt(handler.LastBody));
     }
 
     [Fact]
@@ -184,7 +184,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.NotNull(result.Execution!.Warnings);
         Assert.Contains(result.Execution.Warnings!, warning => warning.Contains("refinement.execute.system.md", StringComparison.Ordinal));
         Assert.Contains("modified outside the engine", result.Execution.Warnings!.First());
-        Assert.Contains("This refinement system prompt was modified outside the engine.", ReadSystemPrompt(handler.LastBody));
+        Assert.Contains("This refinement system prompt was modified outside the engine.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
     }
 
     [Theory]
@@ -213,8 +213,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         await provider.ExecuteAsync(context);
 
-        Assert.Equal(expectedTemperature, ReadTemperature(handler.LastBody));
-        var userPrompt = ReadUserPrompt(handler.LastBody);
+        Assert.Equal(expectedTemperature, OpenAiCompatibleRequestJson.ReadTemperature(handler.LastBody));
+        var userPrompt = OpenAiCompatibleRequestJson.ReadUserPrompt(handler.LastBody);
         Assert.Contains($"Active tolerance: `{reviewTolerance}`", userPrompt);
         Assert.Contains(expectedGuidance, userPrompt);
     }
@@ -328,7 +328,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         Assert.Equal("http://localhost:22434/v1/chat/completions", implementationHandler.LastRequest!.RequestUri!.ToString());
         Assert.Contains("\"model\":\"llama-top\"", implementationHandler.LastBody);
-        Assert.Equal("implementation_artifact", ReadResponseSchemaName(implementationHandler.LastBody));
+        Assert.Equal("implementation_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(implementationHandler.LastBody));
 
         var reviewHandler = new CapturingFakeHttpMessageHandler(BuildMinimalReviewJson());
         var reviewProvider = new OpenAiCompatiblePhaseExecutionProvider(
@@ -362,7 +362,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         Assert.Equal("http://localhost:11434/v1/chat/completions", reviewHandler.LastRequest!.RequestUri!.ToString());
         Assert.Contains("\"model\":\"llama-light\"", reviewHandler.LastBody);
-        Assert.Equal("review_artifact", ReadResponseSchemaName(reviewHandler.LastBody));
+        Assert.Equal("review_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(reviewHandler.LastBody));
         Assert.NotNull(reviewResult.Execution);
         Assert.Equal("light", reviewResult.Execution!.ProfileName);
         Assert.Equal("llama-light", reviewResult.Execution.Model);
@@ -408,7 +408,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         await provider.ExecuteAsync(context);
 
-        var userPrompt = ReadUserPrompt(handler.LastBody);
+        var userPrompt = OpenAiCompatibleRequestJson.ReadUserPrompt(handler.LastBody);
         Assert.Contains("## Context Files", userPrompt);
         Assert.Contains("03-implementation.evidence.md", userPrompt);
         Assert.Contains("Meaningful touched repository files detected: `1`.", userPrompt);
@@ -927,46 +927,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         }
     }
 
-    private static double ReadTemperature(string requestBody)
-    {
-        using var document = JsonDocument.Parse(requestBody);
-        return document.RootElement.GetProperty("temperature").GetDouble();
-    }
-
-    private static string ReadResponseFormatType(string requestBody)
-    {
-        using var document = JsonDocument.Parse(requestBody);
-        return document.RootElement.GetProperty("response_format").GetProperty("type").GetString() ?? string.Empty;
-    }
-
-    private static string ReadResponseSchemaName(string requestBody)
-    {
-        using var document = JsonDocument.Parse(requestBody);
-        return document.RootElement.GetProperty("response_format").GetProperty("json_schema").GetProperty("name").GetString() ?? string.Empty;
-    }
-
-    private static string ReadUserPrompt(string requestBody)
-    {
-        using var document = JsonDocument.Parse(requestBody);
-        return document.RootElement
-            .GetProperty("messages")
-            .EnumerateArray()
-            .First(message => string.Equals(message.GetProperty("role").GetString(), "user", StringComparison.Ordinal))
-            .GetProperty("content")
-            .GetString() ?? string.Empty;
-    }
-
-    private static string ReadSystemPrompt(string requestBody)
-    {
-        using var document = JsonDocument.Parse(requestBody);
-        return document.RootElement
-            .GetProperty("messages")
-            .EnumerateArray()
-            .First(message => string.Equals(message.GetProperty("role").GetString(), "system", StringComparison.Ordinal))
-            .GetProperty("content")
-            .GetString() ?? string.Empty;
-    }
-
     private static OpenAiCompatibleProviderOptions CreateOptions(
         string model,
         string profileName = "default",
@@ -1063,7 +1023,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             LastRequest = request;
             LastBody = await request.Content!.ReadAsStringAsync(cancellationToken);
 
-            var schemaName = ReadResponseSchemaName(LastBody);
+            var schemaName = OpenAiCompatibleRequestJson.ReadResponseSchemaName(LastBody);
             var responseContent = responsesBySchema.TryGetValue(schemaName, out var response)
                 ? response
                 : responsesBySchema.Values.Last();

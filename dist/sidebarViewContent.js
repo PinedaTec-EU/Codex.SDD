@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildSidebarHtml = buildSidebarHtml;
+const htmlEscape_1 = require("./htmlEscape");
 function buildSidebarHtml(model) {
     const busyIndicatorMarkup = buildBusyIndicatorMarkup(model);
     const isBusy = model.busyMessage !== null;
@@ -56,7 +57,7 @@ function buildSidebarHtml(model) {
         : groupStories(model.userStories).map((group) => ({ heading: group.category, items: group.items }));
     const storiesMarkup = storySections.map((section) => `
     <section class="story-group${section.heading ? "" : " story-group--flat"}">
-      ${section.heading ? `<div class="group-header">${escapeHtml(section.heading)}</div>` : ""}
+      ${section.heading ? `<div class="group-header">${(0, htmlEscape_1.escapeHtml)(section.heading)}</div>` : ""}
       ${section.items.map((summary) => buildStoryRowMarkup(summary, model.starredUserStoryId, model.activeWorkflowUsId)).join("")}
     </section>
   `).join("");
@@ -117,7 +118,7 @@ function buildSidebarHtml(model) {
           <label>
             <span>Category</span>
             <select name="category" data-create-field="category">
-              ${model.categories.map((category) => `<option value="${escapeHtmlAttr(category)}">${escapeHtml(category)}</option>`).join("")}
+              ${model.categories.map((category) => `<option value="${(0, htmlEscape_1.escapeHtmlAttr)(category)}">${(0, htmlEscape_1.escapeHtml)(category)}</option>`).join("")}
             </select>
           </label>
           <section class="intake-panel intake-panel--active" data-intake-panel="freeform">
@@ -228,24 +229,24 @@ function buildSidebarHtml(model) {
                 <button class="file-kind-toggle__option${createFileMode === "context" ? " file-kind-toggle__option--active" : ""}" type="button" data-command="setCreateFileMode" data-kind="context">Context</button>
                 <button class="file-kind-toggle__option${createFileMode === "attachment" ? " file-kind-toggle__option--active" : ""}" type="button" data-command="setCreateFileMode" data-kind="attachment">US Info</button>
               </div>
-              <button class="ghost-action" type="button" data-command="addCreateFiles" data-kind="${escapeHtmlAttr(createFileMode)}">Add Files</button>
+              <button class="ghost-action" type="button" data-command="addCreateFiles" data-kind="${(0, htmlEscape_1.escapeHtmlAttr)(createFileMode)}">Add Files</button>
             </div>
-            <div class="file-dropzone" data-create-dropzone data-kind="${escapeHtmlAttr(createFileMode)}">
+            <div class="file-dropzone" data-create-dropzone data-kind="${(0, htmlEscape_1.escapeHtmlAttr)(createFileMode)}">
               <strong>Drag & Drop Files</strong>
-              <span>Drop files here as ${escapeHtml(createFileMode === "context" ? "context" : "US info")}.</span>
+              <span>Drop files here as ${(0, htmlEscape_1.escapeHtml)(createFileMode === "context" ? "context" : "US info")}.</span>
             </div>
             ${createFiles.length > 0
             ? `<div class="draft-file-list">
                   ${createFiles.map((file) => `
                     <div class="draft-file-item">
                       <div class="draft-file-item__content">
-                        <strong>${escapeHtml(file.name)}</strong>
-                        <span>${escapeHtml(file.sourcePath)}</span>
+                        <strong>${(0, htmlEscape_1.escapeHtml)(file.name)}</strong>
+                        <span>${(0, htmlEscape_1.escapeHtml)(file.sourcePath)}</span>
                       </div>
                       <div class="draft-file-item__actions">
-                        <button class="file-kind-chip${file.kind === "context" ? " file-kind-chip--active" : ""}" type="button" data-command="setCreateFileKind" data-source-path="${escapeHtmlAttr(file.sourcePath)}" data-kind="context">Context</button>
-                        <button class="file-kind-chip${file.kind === "attachment" ? " file-kind-chip--active" : ""}" type="button" data-command="setCreateFileKind" data-source-path="${escapeHtmlAttr(file.sourcePath)}" data-kind="attachment">US Info</button>
-                        <button class="icon-action icon-action--danger draft-file-item__remove" type="button" data-command="removeCreateFile" data-source-path="${escapeHtmlAttr(file.sourcePath)}" aria-label="Remove ${escapeHtmlAttr(file.name)}" title="Remove ${escapeHtmlAttr(file.name)}">🗑</button>
+                        <button class="file-kind-chip${file.kind === "context" ? " file-kind-chip--active" : ""}" type="button" data-command="setCreateFileKind" data-source-path="${(0, htmlEscape_1.escapeHtmlAttr)(file.sourcePath)}" data-kind="context">Context</button>
+                        <button class="file-kind-chip${file.kind === "attachment" ? " file-kind-chip--active" : ""}" type="button" data-command="setCreateFileKind" data-source-path="${(0, htmlEscape_1.escapeHtmlAttr)(file.sourcePath)}" data-kind="attachment">US Info</button>
+                        <button class="icon-action icon-action--danger draft-file-item__remove" type="button" data-command="removeCreateFile" data-source-path="${(0, htmlEscape_1.escapeHtmlAttr)(file.sourcePath)}" aria-label="Remove ${(0, htmlEscape_1.escapeHtmlAttr)(file.name)}" title="Remove ${(0, htmlEscape_1.escapeHtmlAttr)(file.name)}">🗑</button>
                       </div>
                     </div>
                   `).join("")}
@@ -287,7 +288,7 @@ function buildSettingsWarningMarkup(model) {
       <div class="settings-warning__content">
         <p class="eyebrow warning">Configuration Required</p>
         <h2>SpecForge.AI settings are incomplete</h2>
-        <p class="copy">${escapeHtml(model.settingsMessage)}</p>
+        <p class="copy">${(0, htmlEscape_1.escapeHtml)(model.settingsMessage)}</p>
       </div>
       <button class="warning-action" data-command="openExecutionSettings">Open Execution Form</button>
     </section>
@@ -302,14 +303,14 @@ function buildBusyIndicatorMarkup(model) {
       <div class="busy-indicator__spinner" aria-hidden="true"></div>
       <div class="busy-indicator__content">
         <p class="eyebrow">Working</p>
-        <p class="copy">${escapeHtml(model.busyMessage)}</p>
+        <p class="copy">${(0, htmlEscape_1.escapeHtml)(model.busyMessage)}</p>
       </div>
     </section>
   `;
 }
 function buildRuntimeVersionMarkup(runtimeVersion) {
     return runtimeVersion
-        ? `<span class="runtime-version">v.${escapeHtml(runtimeVersion)}</span>`
+        ? `<span class="runtime-version">v.${(0, htmlEscape_1.escapeHtml)(runtimeVersion)}</span>`
         : "";
 }
 function buildCreateActionButton(enabled) {
@@ -321,8 +322,8 @@ function buildCreateActionButton(enabled) {
     <button
       class="icon-action"
       data-command="showCreateForm"
-      title="${escapeHtmlAttr(title)}"
-      aria-label="${escapeHtmlAttr(title)}"${disabled}>
+      title="${(0, htmlEscape_1.escapeHtmlAttr)(title)}"
+      aria-label="${(0, htmlEscape_1.escapeHtmlAttr)(title)}"${disabled}>
       <span aria-hidden="true">+</span>
     </button>
   `;
@@ -336,8 +337,8 @@ function buildViewModeActionButton(viewMode) {
     <button
       class="icon-action"
       data-command="toggleViewMode"
-      title="${escapeHtmlAttr(title)}"
-      aria-label="${escapeHtmlAttr(title)}">
+      title="${(0, htmlEscape_1.escapeHtmlAttr)(title)}"
+      aria-label="${(0, htmlEscape_1.escapeHtmlAttr)(title)}">
       <span aria-hidden="true">${isCategory ? "◫" : "≣"}</span>
     </button>
   `;
@@ -357,7 +358,7 @@ function buildPromptMenu(promptsInitialized) {
         <span aria-hidden="true">☰</span>
       </button>
       <div class="action-menu__panel" data-action-menu-panel role="menu" hidden>
-        <button class="action-menu__item" type="button" data-command="initializeRepoPrompts" role="menuitem">${escapeHtml(bootstrapLabel)}</button>
+        <button class="action-menu__item" type="button" data-command="initializeRepoPrompts" role="menuitem">${(0, htmlEscape_1.escapeHtml)(bootstrapLabel)}</button>
         <button class="action-menu__item" type="button" data-command="openPromptTemplates" role="menuitem"${promptsInitialized ? "" : " disabled"}>Open Prompt Templates</button>
       </div>
     </div>
@@ -394,7 +395,7 @@ function buildPromptsBootstrapMarkup(isFirstRun, promptsMessage) {
         </div>
       </div>
       <p class="copy">SpecForge.AI needs the repo prompt set under <code>.specs/prompts/</code> before the sidebar can create or refresh workflow intake.</p>
-      ${promptsMessage ? `<p class="copy">${escapeHtml(promptsMessage)}</p>` : ""}
+      ${promptsMessage ? `<p class="copy">${(0, htmlEscape_1.escapeHtml)(promptsMessage)}</p>` : ""}
       <button class="primary-action" data-command="initializeRepoPrompts">Bootstrap Prompts</button>
     </section>
   `;
@@ -1666,8 +1667,8 @@ function buildStoryRowMarkup(summary, starredUserStoryId, activeWorkflowUsId) {
     const statusTone = phaseRailStatus(summary.status);
     const displayTitle = buildStoryDisplayTitle(summary);
     return `
-    <div class="story-row story-row--shell story-row--status-${escapeHtmlAttr(statusTone)}${isActiveWorkflow ? " story-row--selected" : ""}">
-      <button class="story-card${shouldRenderPhaseRail(summary.status) ? ` story-card--active story-card--phase-${escapeHtmlAttr(summary.currentPhase)} story-card--status-${escapeHtmlAttr(phaseRailStatus(summary.status))}` : ""}" data-command="openWorkflow" data-us-id="${escapeHtmlAttr(summary.usId)}">
+    <div class="story-row story-row--shell story-row--status-${(0, htmlEscape_1.escapeHtmlAttr)(statusTone)}${isActiveWorkflow ? " story-row--selected" : ""}">
+      <button class="story-card${shouldRenderPhaseRail(summary.status) ? ` story-card--active story-card--phase-${(0, htmlEscape_1.escapeHtmlAttr)(summary.currentPhase)} story-card--status-${(0, htmlEscape_1.escapeHtmlAttr)(phaseRailStatus(summary.status))}` : ""}" data-command="openWorkflow" data-us-id="${(0, htmlEscape_1.escapeHtmlAttr)(summary.usId)}">
         ${shouldRenderPhaseRail(summary.status)
         ? `
             <span class="story-card__phase-rail" aria-hidden="true">
@@ -1676,26 +1677,26 @@ function buildStoryRowMarkup(summary, starredUserStoryId, activeWorkflowUsId) {
           `
         : ""}
         <span class="story-card__content">
-          <span class="story-card__id">${escapeHtml(summary.usId)}</span>
-          <strong>${escapeHtml(displayTitle)}</strong>
-          <span class="story-card__meta">${escapeHtml(summary.currentPhase)} · ${escapeHtml(summary.status)}</span>
+          <span class="story-card__id">${(0, htmlEscape_1.escapeHtml)(summary.usId)}</span>
+          <strong>${(0, htmlEscape_1.escapeHtml)(displayTitle)}</strong>
+          <span class="story-card__meta">${(0, htmlEscape_1.escapeHtml)(summary.currentPhase)} · ${(0, htmlEscape_1.escapeHtml)(summary.status)}</span>
         </span>
       </button>
       <div class="story-actions">
         <button
           class="icon-action story-star${starredUserStoryId === summary.usId ? " story-star--active" : ""}"
           data-command="toggleStarredUserStory"
-          data-us-id="${escapeHtmlAttr(summary.usId)}"
-          title="${escapeHtmlAttr(starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}"
-          aria-label="${escapeHtmlAttr(starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}">
+          data-us-id="${(0, htmlEscape_1.escapeHtmlAttr)(summary.usId)}"
+          title="${(0, htmlEscape_1.escapeHtmlAttr)(starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}"
+          aria-label="${(0, htmlEscape_1.escapeHtmlAttr)(starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}">
           <span aria-hidden="true">${starredUserStoryId === summary.usId ? "★" : "☆"}</span>
         </button>
         <button
           class="icon-action icon-action--danger story-delete"
           data-command="deleteUserStory"
-          data-us-id="${escapeHtmlAttr(summary.usId)}"
-          title="Delete ${escapeHtmlAttr(summary.usId)}"
-          aria-label="Delete ${escapeHtmlAttr(summary.usId)}">
+          data-us-id="${(0, htmlEscape_1.escapeHtmlAttr)(summary.usId)}"
+          title="Delete ${(0, htmlEscape_1.escapeHtmlAttr)(summary.usId)}"
+          aria-label="Delete ${(0, htmlEscape_1.escapeHtmlAttr)(summary.usId)}">
           <span aria-hidden="true">🗑</span>
         </button>
       </div>
@@ -1711,17 +1712,6 @@ function buildStoryDisplayTitle(summary) {
         || normalizedTitle.startsWith(`${summary.usId}-`) || normalizedTitle.startsWith(`${summary.usId}:`)
         ? normalizedTitle.slice(summary.usId.length).trimStart().replace(/^[·\-:]\s*/, "")
         : normalizedTitle;
-}
-function escapeHtml(value) {
-    return value
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll("\"", "&quot;")
-        .replaceAll("'", "&#39;");
-}
-function escapeHtmlAttr(value) {
-    return escapeHtml(value);
 }
 function phaseLabelFor(currentPhase) {
     const phaseLabels = {

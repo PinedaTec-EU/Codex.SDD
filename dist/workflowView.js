@@ -2,12 +2,13 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.escapeHtml = void 0;
 exports.buildWorkflowHtml = buildWorkflowHtml;
+const htmlEscape_1 = require("./htmlEscape");
+Object.defineProperty(exports, "escapeHtml", { enumerable: true, get: function () { return htmlEscape_1.escapeHtml; } });
 const capturePhaseView_1 = require("./workflow-view/capturePhaseView");
 const clarificationPhaseView_1 = require("./workflow-view/clarificationPhaseView");
 const implementationPhaseView_1 = require("./workflow-view/implementationPhaseView");
 const icons_1 = require("./workflow-view/icons");
 const markdownRenderer_1 = require("./workflow-view/markdownRenderer");
-Object.defineProperty(exports, "escapeHtml", { enumerable: true, get: function () { return markdownRenderer_1.escapeHtml; } });
 const prPreparationPhaseView_1 = require("./workflow-view/prPreparationPhaseView");
 const workflowPlaybackState_1 = require("./workflowPlaybackState");
 const workflowRejectPlan_1 = require("./workflowRejectPlan");
@@ -131,8 +132,8 @@ function fileNameFromPath(filePath) {
 function renderTokenSummaryRow(label, value) {
     return `
     <div class="token-summary__row">
-      <span class="token-summary__label">${(0, markdownRenderer_1.escapeHtml)(label)}</span>
-      <span class="token-summary__value">${(0, markdownRenderer_1.escapeHtml)(value)}</span>
+      <span class="token-summary__label">${(0, htmlEscape_1.escapeHtml)(label)}</span>
+      <span class="token-summary__value">${(0, htmlEscape_1.escapeHtml)(value)}</span>
     </div>
   `;
 }
@@ -226,8 +227,8 @@ function buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPrev
                 selectedPhase,
                 state,
                 heroTokenClass,
-                escapeHtml: markdownRenderer_1.escapeHtml,
-                escapeHtmlAttribute: markdownRenderer_1.escapeHtmlAttribute
+                escapeHtml: htmlEscape_1.escapeHtml,
+                escapeHtmlAttribute: htmlEscape_1.escapeHtmlAttr
             });
         case "refinement":
             return (0, refinementPhaseView_1.buildRefinementPhaseSections)({
@@ -237,8 +238,8 @@ function buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPrev
                 artifactQuestionBlock,
                 refinementApprovalQuestions,
                 unresolvedApprovalQuestionCount,
-                escapeHtml: markdownRenderer_1.escapeHtml,
-                escapeHtmlAttribute: markdownRenderer_1.escapeHtmlAttribute,
+                escapeHtml: htmlEscape_1.escapeHtml,
+                escapeHtmlAttribute: htmlEscape_1.escapeHtmlAttr,
                 heroTokenClass,
                 formatUtcTimestamp
             });
@@ -391,25 +392,25 @@ function buildExecutionOverlay(workflow, state, playbackState) {
         ?? overlayPhaseProfileLabel;
     return `
     <div
-      class="execution-overlay execution-overlay--${(0, markdownRenderer_1.escapeHtmlAttribute)(overlay.tone)}"
+      class="execution-overlay execution-overlay--${(0, htmlEscape_1.escapeHtmlAttr)(overlay.tone)}"
       data-execution-overlay
-      data-us-id="${(0, markdownRenderer_1.escapeHtmlAttribute)(overlay.usId)}"
-      data-phase-id="${(0, markdownRenderer_1.escapeHtmlAttribute)(overlay.phaseId)}"
-      data-anchor-phase-id="${(0, markdownRenderer_1.escapeHtmlAttribute)(overlay.phaseId)}"
-      data-tone="${(0, markdownRenderer_1.escapeHtmlAttribute)(overlay.tone)}"
+      data-us-id="${(0, htmlEscape_1.escapeHtmlAttr)(overlay.usId)}"
+      data-phase-id="${(0, htmlEscape_1.escapeHtmlAttr)(overlay.phaseId)}"
+      data-anchor-phase-id="${(0, htmlEscape_1.escapeHtmlAttr)(overlay.phaseId)}"
+      data-tone="${(0, htmlEscape_1.escapeHtmlAttr)(overlay.tone)}"
       data-started-at-ms="${overlay.startedAtMs ?? ""}"
       data-dismissible="${overlay.tone === "playing" ? "false" : "true"}"
       data-show-elapsed="${overlay.showElapsed ? "true" : "false"}"
-      data-messages='${(0, markdownRenderer_1.escapeHtmlAttribute)(JSON.stringify(overlay.messages))}'>
+      data-messages='${(0, htmlEscape_1.escapeHtmlAttr)(JSON.stringify(overlay.messages))}'>
       ${overlay.tone === "playing" ? "" : `<button type="button" class="execution-overlay__dismiss" data-execution-overlay-dismiss>Dismiss</button>`}
       <div class="execution-overlay__pulse" aria-hidden="true"></div>
       <div class="execution-overlay__body">
         <span class="execution-overlay__eyebrow">SpecForge.AI Runner</span>
-        <strong class="execution-overlay__title">${(0, markdownRenderer_1.escapeHtml)(overlay.title)}</strong>
-        <p class="execution-overlay__message" data-execution-message>${(0, markdownRenderer_1.escapeHtml)(overlay.messages[0] ?? "Processing workflow phase.")}</p>
+        <strong class="execution-overlay__title">${(0, htmlEscape_1.escapeHtml)(overlay.title)}</strong>
+        <p class="execution-overlay__message" data-execution-message>${(0, htmlEscape_1.escapeHtml)(overlay.messages[0] ?? "Processing workflow phase.")}</p>
       </div>
       ${overlay.showElapsed ? `<span class="execution-overlay__elapsed" data-execution-elapsed>00:00</span>` : ""}
-      ${overlayPhaseModelLabel ? `<span class="execution-overlay__phase-model">${(0, markdownRenderer_1.escapeHtml)(overlayPhaseModelLabel)}</span>` : ""}
+      ${overlayPhaseModelLabel ? `<span class="execution-overlay__phase-model">${(0, htmlEscape_1.escapeHtml)(overlayPhaseModelLabel)}</span>` : ""}
     </div>
   `;
 }
@@ -571,12 +572,12 @@ function buildArtifactPreviewSection(artifactPath, artifactPreviewHtml, artifact
       <div class="artifact-view-label">
         <span class="badge${badgeClass}">${badgeLabel}</span>
       </div>
-      <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${(0, markdownRenderer_1.escapeHtmlAttribute)(artifactPath)}">Open Artifact</button>
+      <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${(0, htmlEscape_1.escapeHtmlAttr)(artifactPath)}">Open Artifact</button>
     </div>
     ${effectiveArtifactPreviewHtml
         ? `<div class="markdown-preview${rawArtifact ? " markdown-preview--raw-artifact" : ""}">${effectiveArtifactPreviewHtml}</div>`
-        : `<pre class="artifact-preview${rawArtifact ? " artifact-preview--raw-artifact" : ""}">${(0, markdownRenderer_1.escapeHtml)(artifactContent)}</pre>`}
-    ${footerNote ? `<p class="muted">${(0, markdownRenderer_1.escapeHtml)(footerNote)}</p>` : ""}
+        : `<pre class="artifact-preview${rawArtifact ? " artifact-preview--raw-artifact" : ""}">${(0, htmlEscape_1.escapeHtml)(artifactContent)}</pre>`}
+    ${footerNote ? `<p class="muted">${(0, htmlEscape_1.escapeHtml)(footerNote)}</p>` : ""}
   `;
 }
 function buildWorkflowHtml(workflow, state, playbackState) {
@@ -604,7 +605,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         <div class="settings-warning__icon">~</div>
         <div>
           <p class="eyebrow warning">Execution Setup Pending</p>
-          <p class="warning-copy">${(0, markdownRenderer_1.escapeHtml)(state.executionSettingsPendingMessage)}</p>
+          <p class="warning-copy">${(0, htmlEscape_1.escapeHtml)(state.executionSettingsPendingMessage)}</p>
           <div class="detail-actions">
             <button class="workflow-action-button workflow-action-button--document" data-command="openSettings">Open Execution Settings</button>
           </div>
@@ -668,8 +669,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         ${shouldRenderApproveAction
             ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${!workflow.controls.canApprove || shouldRenderApprovalBranchEditor(workflow, selectedPhase, selectedPhaseIsCurrent) && Boolean(state.requireExplicitApprovalBranchAcceptance) ? " disabled" : ""}>${approveActionLabel}</button>`
             : ""}
-        ${rejectPlan ? `<button class="workflow-action-button workflow-action-button--danger" type="button" data-open-reject-modal data-reject-target-phase="${(0, markdownRenderer_1.escapeHtmlAttribute)(rejectPlan.targetPhaseId)}" data-reject-mode="${(0, markdownRenderer_1.escapeHtmlAttribute)(rejectPlan.mode)}" data-reject-title="${(0, markdownRenderer_1.escapeHtmlAttribute)(rejectPlan.modalTitle)}" data-reject-prompt="${(0, markdownRenderer_1.escapeHtmlAttribute)(rejectPlan.modalPrompt)}" data-reject-helper="${(0, markdownRenderer_1.escapeHtmlAttribute)(rejectPlan.helperText)}" data-reject-confirm-label="${(0, markdownRenderer_1.escapeHtmlAttribute)(rejectPlan.confirmLabel)}">Reject</button>` : ""}
-        ${canRewindSelectedPhase ? `<button class="workflow-action-button workflow-action-button--document" data-command="rewind" data-phase-id="${(0, markdownRenderer_1.escapeHtmlAttribute)(selectedPhase.phaseId)}">Rewind Here</button>` : ""}
+        ${rejectPlan ? `<button class="workflow-action-button workflow-action-button--danger" type="button" data-open-reject-modal data-reject-target-phase="${(0, htmlEscape_1.escapeHtmlAttr)(rejectPlan.targetPhaseId)}" data-reject-mode="${(0, htmlEscape_1.escapeHtmlAttr)(rejectPlan.mode)}" data-reject-title="${(0, htmlEscape_1.escapeHtmlAttr)(rejectPlan.modalTitle)}" data-reject-prompt="${(0, htmlEscape_1.escapeHtmlAttr)(rejectPlan.modalPrompt)}" data-reject-helper="${(0, htmlEscape_1.escapeHtmlAttr)(rejectPlan.helperText)}" data-reject-confirm-label="${(0, htmlEscape_1.escapeHtmlAttr)(rejectPlan.confirmLabel)}">Reject</button>` : ""}
+        ${canRewindSelectedPhase ? `<button class="workflow-action-button workflow-action-button--document" data-command="rewind" data-phase-id="${(0, htmlEscape_1.escapeHtmlAttr)(selectedPhase.phaseId)}">Rewind Here</button>` : ""}
       </div>
     `
         : "";
@@ -686,7 +687,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         </div>
         <div class="phase-duration-pill__body">
           <span class="phase-duration-pill__label">Duration${selectedPhaseIterationCount > 1 ? ` · ${selectedPhaseIterationCount} runs` : ""}</span>
-          <span class="phase-duration-pill__value">${(0, markdownRenderer_1.escapeHtml)(formatDuration(selectedPhaseDurationAggregate))}</span>
+          <span class="phase-duration-pill__value">${(0, htmlEscape_1.escapeHtml)(formatDuration(selectedPhaseDurationAggregate))}</span>
         </div>
       </div>
     `
@@ -721,24 +722,24 @@ function buildWorkflowHtml(workflow, state, playbackState) {
               type="button"
               class="iteration-rail__item${selectedIteration?.artifactPath === iteration.artifactPath ? " iteration-rail__item--selected" : ""}"
               data-command="selectIteration"
-              data-path="${(0, markdownRenderer_1.escapeHtmlAttribute)(iteration.artifactPath)}">
+              data-path="${(0, htmlEscape_1.escapeHtmlAttr)(iteration.artifactPath)}">
               <span class="iteration-rail__stem" aria-hidden="true"></span>
               <span class="iteration-rail__body">
-                <span class="iteration-rail__title">#${index + 1} · ${(0, markdownRenderer_1.escapeHtml)(formatUtcTimestamp(iteration.timestampUtc))}</span>
+                <span class="iteration-rail__title">#${index + 1} · ${(0, htmlEscape_1.escapeHtml)(formatUtcTimestamp(iteration.timestampUtc))}</span>
                 <span class="iteration-rail__meta">
-                  ${(0, markdownRenderer_1.escapeHtml)(iteration.code)}
-                  ${iteration.actor ? ` · ${(0, markdownRenderer_1.escapeHtml)(iteration.actor)}` : ""}
+                  ${(0, htmlEscape_1.escapeHtml)(iteration.code)}
+                  ${iteration.actor ? ` · ${(0, htmlEscape_1.escapeHtml)(iteration.actor)}` : ""}
                   ${formatExecutionLabel(iteration.execution, {
             actor: iteration.actor,
             configuredModel: findConfiguredModelForProfile(state, iteration.execution?.profileName)
-        }) ? ` · ${(0, markdownRenderer_1.escapeHtml)(formatExecutionLabel(iteration.execution, {
+        }) ? ` · ${(0, htmlEscape_1.escapeHtml)(formatExecutionLabel(iteration.execution, {
             actor: iteration.actor,
             configuredModel: findConfiguredModelForProfile(state, iteration.execution?.profileName)
         }) ?? "")}` : ""}
-                  ${iteration.usage ? ` · ${(0, markdownRenderer_1.escapeHtml)(`${formatMetricNumber(iteration.usage.inputTokens)}/${formatMetricNumber(iteration.usage.outputTokens)} tok`)}` : ""}
-                  ${iteration.durationMs !== null ? ` · ${(0, markdownRenderer_1.escapeHtml)(formatDuration(iteration.durationMs))}` : ""}
+                  ${iteration.usage ? ` · ${(0, htmlEscape_1.escapeHtml)(`${formatMetricNumber(iteration.usage.inputTokens)}/${formatMetricNumber(iteration.usage.outputTokens)} tok`)}` : ""}
+                  ${iteration.durationMs !== null ? ` · ${(0, htmlEscape_1.escapeHtml)(formatDuration(iteration.durationMs))}` : ""}
                 </span>
-                ${iteration.summary ? `<span class="iteration-rail__summary">${(0, markdownRenderer_1.escapeHtml)(iteration.summary)}</span>` : ""}
+                ${iteration.summary ? `<span class="iteration-rail__summary">${(0, htmlEscape_1.escapeHtml)(iteration.summary)}</span>` : ""}
               </span>
             </button>
           `).join("")}
@@ -751,24 +752,24 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       <section class="detail-card detail-card--iteration-detail">
         <h3>Selected Iteration</h3>
         <div class="iteration-detail__meta">
-          <span class="badge">${(0, markdownRenderer_1.escapeHtml)(selectedIteration.code)}</span>
-          <span class="badge">${(0, markdownRenderer_1.escapeHtml)(formatUtcTimestamp(selectedIteration.timestampUtc))}</span>
-          ${selectedIteration.actor ? `<span class="badge">${(0, markdownRenderer_1.escapeHtml)(selectedIteration.actor)}</span>` : ""}
+          <span class="badge">${(0, htmlEscape_1.escapeHtml)(selectedIteration.code)}</span>
+          <span class="badge">${(0, htmlEscape_1.escapeHtml)(formatUtcTimestamp(selectedIteration.timestampUtc))}</span>
+          ${selectedIteration.actor ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(selectedIteration.actor)}</span>` : ""}
           ${formatExecutionLabel(selectedIteration.execution, {
             actor: selectedIteration.actor,
             configuredModel: findConfiguredModelForProfile(state, selectedIteration.execution?.profileName)
-        }) ? `<span class="badge">model ${(0, markdownRenderer_1.escapeHtml)(formatExecutionLabel(selectedIteration.execution, {
+        }) ? `<span class="badge">model ${(0, htmlEscape_1.escapeHtml)(formatExecutionLabel(selectedIteration.execution, {
             actor: selectedIteration.actor,
             configuredModel: findConfiguredModelForProfile(state, selectedIteration.execution?.profileName)
         }) ?? "")}</span>` : ""}
-          ${selectedIteration.usage ? `<span class="badge">in/out ${(0, markdownRenderer_1.escapeHtml)(`${formatMetricNumber(selectedIteration.usage.inputTokens)}/${formatMetricNumber(selectedIteration.usage.outputTokens)}`)}</span>` : ""}
-          ${selectedIteration.usage ? `<span class="badge">total ${(0, markdownRenderer_1.escapeHtml)(formatMetricNumber(selectedIteration.usage.totalTokens))}</span>` : ""}
-          ${selectedIteration.durationMs !== null ? `<span class="badge">${(0, markdownRenderer_1.escapeHtml)(formatDuration(selectedIteration.durationMs))}</span>` : ""}
-          ${selectedIteration.usage && selectedIteration.durationMs !== null ? `<span class="badge">${(0, markdownRenderer_1.escapeHtml)(formatTokensPerSecond(selectedIteration.usage.outputTokens, selectedIteration.durationMs))}</span>` : ""}
+          ${selectedIteration.usage ? `<span class="badge">in/out ${(0, htmlEscape_1.escapeHtml)(`${formatMetricNumber(selectedIteration.usage.inputTokens)}/${formatMetricNumber(selectedIteration.usage.outputTokens)}`)}</span>` : ""}
+          ${selectedIteration.usage ? `<span class="badge">total ${(0, htmlEscape_1.escapeHtml)(formatMetricNumber(selectedIteration.usage.totalTokens))}</span>` : ""}
+          ${selectedIteration.durationMs !== null ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(formatDuration(selectedIteration.durationMs))}</span>` : ""}
+          ${selectedIteration.usage && selectedIteration.durationMs !== null ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(formatTokensPerSecond(selectedIteration.usage.outputTokens, selectedIteration.durationMs))}</span>` : ""}
         </div>
-        ${selectedIteration.summary ? `<p class="panel-copy">${(0, markdownRenderer_1.escapeHtml)(selectedIteration.summary)}</p>` : ""}
+        ${selectedIteration.summary ? `<p class="panel-copy">${(0, htmlEscape_1.escapeHtml)(selectedIteration.summary)}</p>` : ""}
         <div class="detail-actions">
-          <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${(0, markdownRenderer_1.escapeHtmlAttribute)(selectedIteration.artifactPath)}">Open This Iteration</button>
+          <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${(0, htmlEscape_1.escapeHtmlAttr)(selectedIteration.artifactPath)}">Open This Iteration</button>
         </div>
       </section>
     `
@@ -783,16 +784,16 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         : "<p class=\"muted\">No artifact is persisted for this phase.</p>";
     const promptButtons = [
         selectedPhase.executePromptPath
-            ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${(0, markdownRenderer_1.escapeHtmlAttribute)(selectedPhase.executePromptPath)}">Open Execute Prompt</button>`
+            ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${(0, htmlEscape_1.escapeHtmlAttr)(selectedPhase.executePromptPath)}">Open Execute Prompt</button>`
             : "",
         selectedPhase.executeSystemPromptPath
-            ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${(0, markdownRenderer_1.escapeHtmlAttribute)(selectedPhase.executeSystemPromptPath)}">Open Execute System Prompt</button>`
+            ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${(0, htmlEscape_1.escapeHtmlAttr)(selectedPhase.executeSystemPromptPath)}">Open Execute System Prompt</button>`
             : "",
         selectedPhase.approvePromptPath
-            ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${(0, markdownRenderer_1.escapeHtmlAttribute)(selectedPhase.approvePromptPath)}">Open Approve Prompt</button>`
+            ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${(0, htmlEscape_1.escapeHtmlAttr)(selectedPhase.approvePromptPath)}">Open Approve Prompt</button>`
             : "",
         selectedPhase.approveSystemPromptPath
-            ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${(0, markdownRenderer_1.escapeHtmlAttribute)(selectedPhase.approveSystemPromptPath)}">Open Approve System Prompt</button>`
+            ? `<button class="workflow-action-button workflow-action-button--document" data-command="openPrompt" data-path="${(0, htmlEscape_1.escapeHtmlAttr)(selectedPhase.approveSystemPromptPath)}">Open Approve System Prompt</button>`
             : ""
     ].filter(Boolean).join("");
     const promptSection = promptButtons
@@ -807,9 +808,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       </div>
       <div class="attachment-list">
         <div class="file-item">
-          <button class="attachment-item" data-command="openArtifact" data-path="${(0, markdownRenderer_1.escapeHtmlAttribute)(workflow.mainArtifactPath)}">
-            <strong>${(0, markdownRenderer_1.escapeHtml)(fileNameFromPath(workflow.mainArtifactPath))}</strong>
-            <span>${(0, markdownRenderer_1.escapeHtml)(workflow.mainArtifactPath)}</span>
+          <button class="attachment-item" data-command="openArtifact" data-path="${(0, htmlEscape_1.escapeHtmlAttr)(workflow.mainArtifactPath)}">
+            <strong>${(0, htmlEscape_1.escapeHtml)(fileNameFromPath(workflow.mainArtifactPath))}</strong>
+            <span>${(0, htmlEscape_1.escapeHtml)(workflow.mainArtifactPath)}</span>
           </button>
         </div>
       </div>
@@ -831,9 +832,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         ? `<div class="attachment-list">
               ${contextFiles.map((attachment) => `
                 <div class="file-item">
-                  <button class="attachment-item" draggable="true" data-file-path="${(0, markdownRenderer_1.escapeHtmlAttribute)(attachment.path)}" data-file-kind="context" data-command="openAttachment" data-path="${(0, markdownRenderer_1.escapeHtmlAttribute)(attachment.path)}">
-                    <strong>${(0, markdownRenderer_1.escapeHtml)(attachment.name)}</strong>
-                    <span>${(0, markdownRenderer_1.escapeHtml)(attachment.path)}</span>
+                  <button class="attachment-item" draggable="true" data-file-path="${(0, htmlEscape_1.escapeHtmlAttr)(attachment.path)}" data-file-kind="context" data-command="openAttachment" data-path="${(0, htmlEscape_1.escapeHtmlAttr)(attachment.path)}">
+                    <strong>${(0, htmlEscape_1.escapeHtml)(attachment.name)}</strong>
+                    <span>${(0, htmlEscape_1.escapeHtml)(attachment.path)}</span>
                   </button>
                 </div>
               `).join("")}
@@ -849,9 +850,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         ? `<div class="attachment-list">
               ${workflow.attachments.map((attachment) => `
                 <div class="file-item">
-                  <button class="attachment-item" draggable="true" data-file-path="${(0, markdownRenderer_1.escapeHtmlAttribute)(attachment.path)}" data-file-kind="attachment" data-command="openAttachment" data-path="${(0, markdownRenderer_1.escapeHtmlAttribute)(attachment.path)}">
-                    <strong>${(0, markdownRenderer_1.escapeHtml)(attachment.name)}</strong>
-                    <span>${(0, markdownRenderer_1.escapeHtml)(attachment.path)}</span>
+                  <button class="attachment-item" draggable="true" data-file-path="${(0, htmlEscape_1.escapeHtmlAttr)(attachment.path)}" data-file-kind="attachment" data-command="openAttachment" data-path="${(0, htmlEscape_1.escapeHtmlAttr)(attachment.path)}">
+                    <strong>${(0, htmlEscape_1.escapeHtml)(attachment.name)}</strong>
+                    <span>${(0, htmlEscape_1.escapeHtml)(attachment.path)}</span>
                   </button>
                 </div>
               `).join("")}
@@ -861,7 +862,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     </div>
   `;
     const playbackButtons = `
-    <button class="icon-button" data-command="rewind" data-phase-id="${(0, markdownRenderer_1.escapeHtmlAttribute)(selectedPhase.phaseId)}" aria-label="Rewind workflow to selected phase"${canRewindSelectedPhase ? "" : " disabled"}>
+    <button class="icon-button" data-command="rewind" data-phase-id="${(0, htmlEscape_1.escapeHtmlAttr)(selectedPhase.phaseId)}" aria-label="Rewind workflow to selected phase"${canRewindSelectedPhase ? "" : " disabled"}>
       ${(0, icons_1.rewindIcon)()}
     </button>
     <button class="icon-button icon-button--primary${shouldPulsePlay ? " icon-button--pulse" : ""}" data-command="play" aria-label="Play workflow"${playDisabled ? " disabled" : ""}>
@@ -881,31 +882,31 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         ? workflow.events.map((event) => `
       <div class="audit-row">
         <div class="audit-head">
-          <span>${(0, markdownRenderer_1.escapeHtml)(event.timestampUtc)} · ${(0, markdownRenderer_1.escapeHtml)(event.code)}</span>
+          <span>${(0, htmlEscape_1.escapeHtml)(event.timestampUtc)} · ${(0, htmlEscape_1.escapeHtml)(event.code)}</span>
           <div class="audit-head__meta">
-            ${event.actor ? `<span class="badge">${(0, markdownRenderer_1.escapeHtml)(event.actor)}</span>` : ""}
-            ${event.phase ? `<span class="badge">${(0, markdownRenderer_1.escapeHtml)(event.phase)}</span>` : ""}
+            ${event.actor ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(event.actor)}</span>` : ""}
+            ${event.phase ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(event.phase)}</span>` : ""}
           </div>
         </div>
-        <div class="audit-body">${(0, markdownRenderer_1.escapeHtml)(event.summary ?? "")}</div>
+        <div class="audit-body">${(0, htmlEscape_1.escapeHtml)(event.summary ?? "")}</div>
         ${event.usage || event.durationMs !== null || event.execution
             ? `<div class="audit-metrics">
               ${formatExecutionLabel(event.execution, {
                 actor: event.actor,
                 configuredModel: findConfiguredModelForProfile(state, event.execution?.profileName)
-            }) ? `<span class="badge">model ${(0, markdownRenderer_1.escapeHtml)(formatExecutionLabel(event.execution, {
+            }) ? `<span class="badge">model ${(0, htmlEscape_1.escapeHtml)(formatExecutionLabel(event.execution, {
                 actor: event.actor,
                 configuredModel: findConfiguredModelForProfile(state, event.execution?.profileName)
             }) ?? "")}</span>` : ""}
-              ${event.usage ? `<span class="badge">in/out ${(0, markdownRenderer_1.escapeHtml)(`${formatMetricNumber(event.usage.inputTokens)}/${formatMetricNumber(event.usage.outputTokens)}`)}</span>` : ""}
-              ${event.usage ? `<span class="badge">total ${(0, markdownRenderer_1.escapeHtml)(formatMetricNumber(event.usage.totalTokens))}</span>` : ""}
-              ${event.durationMs !== null ? `<span class="badge">${(0, markdownRenderer_1.escapeHtml)(formatDuration(event.durationMs))}</span>` : ""}
-              ${event.usage && event.durationMs !== null ? `<span class="badge">${(0, markdownRenderer_1.escapeHtml)(formatTokensPerSecond(event.usage.outputTokens, event.durationMs))}</span>` : ""}
+              ${event.usage ? `<span class="badge">in/out ${(0, htmlEscape_1.escapeHtml)(`${formatMetricNumber(event.usage.inputTokens)}/${formatMetricNumber(event.usage.outputTokens)}`)}</span>` : ""}
+              ${event.usage ? `<span class="badge">total ${(0, htmlEscape_1.escapeHtml)(formatMetricNumber(event.usage.totalTokens))}</span>` : ""}
+              ${event.durationMs !== null ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(formatDuration(event.durationMs))}</span>` : ""}
+              ${event.usage && event.durationMs !== null ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(formatTokensPerSecond(event.usage.outputTokens, event.durationMs))}</span>` : ""}
             </div>`
             : ""}
       </div>
     `).join("")
-        : `<pre class="audit-log">${(0, markdownRenderer_1.escapeHtml)(workflow.rawTimeline)}</pre>`;
+        : `<pre class="audit-log">${(0, htmlEscape_1.escapeHtml)(workflow.rawTimeline)}</pre>`;
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2974,7 +2975,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       <div class="workflow-files-dialog__head">
         <div>
           <p class="eyebrow">Workflow Files</p>
-          <h2 id="workflow-files-title">${(0, markdownRenderer_1.escapeHtml)(workflow.usId)} files and context</h2>
+          <h2 id="workflow-files-title">${(0, htmlEscape_1.escapeHtml)(workflow.usId)} files and context</h2>
           <p>Workflow-level files are grouped here instead of repeating them in every phase detail.</p>
         </div>
         <button class="workflow-files-dialog__close" type="button" data-close-workflow-files aria-label="Close workflow files">
@@ -3012,21 +3013,21 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       </div>
     </div>
   </div>
-  <div class="shell" data-workflow-shell data-us-id="${(0, markdownRenderer_1.escapeHtmlAttribute)(workflow.usId)}">
+  <div class="shell" data-workflow-shell data-us-id="${(0, htmlEscape_1.escapeHtmlAttr)(workflow.usId)}">
     <section class="panel hero">
       <div class="hero-head">
         <div>
           <div class="hero-caption">
             <p class="eyebrow">SpecForge.AI Workflow Graph</p>
-            ${state.runtimeVersion ? `<span class="runtime-version">v.${(0, markdownRenderer_1.escapeHtml)(state.runtimeVersion)}</span>` : ""}
+            ${state.runtimeVersion ? `<span class="runtime-version">v.${(0, htmlEscape_1.escapeHtml)(state.runtimeVersion)}</span>` : ""}
           </div>
-          <h1>${(0, markdownRenderer_1.escapeHtml)(buildWorkflowHeroTitle(workflow))}</h1>
+          <h1>${(0, htmlEscape_1.escapeHtml)(buildWorkflowHeroTitle(workflow))}</h1>
           <div class="hero-meta">
-            <span class="token accent">${(0, markdownRenderer_1.escapeHtml)(workflow.category)}</span>
-            <span class="token${heroTokenClass(workflow.status)}">${(0, markdownRenderer_1.escapeHtml)(workflow.status)}</span>
-            <span class="token">${(0, markdownRenderer_1.escapeHtml)(displayedPhaseId)}</span>
-            <span class="token">${(0, markdownRenderer_1.escapeHtml)(workflow.workBranch ?? "branch:not-created")}</span>
-            <span class="token${heroTokenClass(`runner:${playbackState}`)}">runner:${(0, markdownRenderer_1.escapeHtml)(playbackState)}</span>
+            <span class="token accent">${(0, htmlEscape_1.escapeHtml)(workflow.category)}</span>
+            <span class="token${heroTokenClass(workflow.status)}">${(0, htmlEscape_1.escapeHtml)(workflow.status)}</span>
+            <span class="token">${(0, htmlEscape_1.escapeHtml)(displayedPhaseId)}</span>
+            <span class="token">${(0, htmlEscape_1.escapeHtml)(workflow.workBranch ?? "branch:not-created")}</span>
+            <span class="token${heroTokenClass(`runner:${playbackState}`)}">runner:${(0, htmlEscape_1.escapeHtml)(playbackState)}</span>
           </div>
         </div>
         <div class="control-strip">
@@ -3053,10 +3054,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           <div class="detail-card-shell">
             ${detailActions}
             <section class="detail-card detail-card--phase-overview">
-            <h2>${(0, markdownRenderer_1.escapeHtml)(selectedPhase.title)}</h2>
+            <h2>${(0, htmlEscape_1.escapeHtml)(selectedPhase.title)}</h2>
             <div class="detail-meta">
-              <span class="token">${(0, markdownRenderer_1.escapeHtml)(phaseSecondaryLabel(selectedPhase))}</span>
-              <span class="token${selectedPhaseStateClass}">${(0, markdownRenderer_1.escapeHtml)(selectedPhaseDisplayState)}</span>
+              <span class="token">${(0, htmlEscape_1.escapeHtml)(phaseSecondaryLabel(selectedPhase))}</span>
+              <span class="token${selectedPhaseStateClass}">${(0, htmlEscape_1.escapeHtml)(selectedPhaseDisplayState)}</span>
               ${selectedPhase.requiresApproval ? `<span class="token token--attention">approval required</span>` : ""}
               ${selectedPhase.isApproved ? `<span class="token token--success">approved</span>` : ""}
             </div>
@@ -3996,9 +3997,9 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
             : `Pause before ${phase.title}`;
         return `
     <div
-      class="phase-node ${(0, markdownRenderer_1.escapeHtmlAttribute)(phase.phaseId)} phase-tone-${(0, markdownRenderer_1.escapeHtmlAttribute)(visualTone)}${phase.phaseId === selectedPhaseId ? " selected" : ""}${phaseIsCurrent ? " phase-node--current" : ""}"
+      class="phase-node ${(0, htmlEscape_1.escapeHtmlAttr)(phase.phaseId)} phase-tone-${(0, htmlEscape_1.escapeHtmlAttr)(visualTone)}${phase.phaseId === selectedPhaseId ? " selected" : ""}${phaseIsCurrent ? " phase-node--current" : ""}"
       data-command="selectPhase"
-      data-phase-id="${(0, markdownRenderer_1.escapeHtmlAttribute)(phase.phaseId)}"
+      data-phase-id="${(0, htmlEscape_1.escapeHtmlAttr)(phase.phaseId)}"
       role="button"
       tabindex="0"
       style="--phase-left-desktop: ${desktopPosition.left}px; --phase-top-desktop: ${desktopPosition.top}px; --phase-left-mobile: ${mobilePosition.left}px; --phase-top-mobile: ${mobilePosition.top}px;">
@@ -4014,21 +4015,21 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
                 class="phase-pause-toggle${pauseArmed ? " phase-pause-toggle--armed" : ""}"
                 type="button"
                 data-command="togglePhasePause"
-                data-phase-id="${(0, markdownRenderer_1.escapeHtmlAttribute)(phase.phaseId)}"
+                data-phase-id="${(0, htmlEscape_1.escapeHtmlAttr)(phase.phaseId)}"
                 data-phase-pause-button
-                aria-label="${(0, markdownRenderer_1.escapeHtmlAttribute)(pauseButtonLabel)}"
+                aria-label="${(0, htmlEscape_1.escapeHtmlAttr)(pauseButtonLabel)}"
                 aria-pressed="${pauseArmed ? "true" : "false"}"
-                title="${(0, markdownRenderer_1.escapeHtmlAttribute)(pauseButtonLabel)}">
+                title="${(0, htmlEscape_1.escapeHtmlAttr)(pauseButtonLabel)}">
                 ${(0, icons_1.pauseIcon)()}
               </button>`
             : ""}
         </div>
-        <h3>${(0, markdownRenderer_1.escapeHtml)(phase.title)}</h3>
-        <div class="phase-slug">${(0, markdownRenderer_1.escapeHtml)(phaseSecondaryLabel(phase))}</div>
+        <h3>${(0, htmlEscape_1.escapeHtml)(phase.title)}</h3>
+        <div class="phase-slug">${(0, htmlEscape_1.escapeHtml)(phaseSecondaryLabel(phase))}</div>
         <div class="phase-tags">
-          <span class="phase-tag phase-tag--${(0, markdownRenderer_1.escapeHtmlAttribute)(visualTone)}">${(0, markdownRenderer_1.escapeHtml)(displayState)}</span>
-          <span class="phase-tag">${(0, markdownRenderer_1.escapeHtml)(phaseModelLaneLabel(phase))}</span>
-          ${modelProfileLabel ? `<span class="phase-tag">model ${(0, markdownRenderer_1.escapeHtml)(modelProfileLabel)}</span>` : ""}
+          <span class="phase-tag phase-tag--${(0, htmlEscape_1.escapeHtmlAttr)(visualTone)}">${(0, htmlEscape_1.escapeHtml)(displayState)}</span>
+          <span class="phase-tag">${(0, htmlEscape_1.escapeHtml)(phaseModelLaneLabel(phase))}</span>
+          ${modelProfileLabel ? `<span class="phase-tag">model ${(0, htmlEscape_1.escapeHtml)(modelProfileLabel)}</span>` : ""}
           ${phase.isApproved ? `<span class="phase-tag">approved</span>` : ""}
         </div>
       </div>

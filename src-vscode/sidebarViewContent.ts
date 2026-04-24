@@ -1,4 +1,5 @@
 import type { UserStorySummary } from "./backendClient";
+import { escapeHtml, escapeHtmlAttr } from "./htmlEscape";
 
 type DraftCreateFile = {
   readonly sourcePath: string;
@@ -1764,19 +1765,6 @@ function buildStoryDisplayTitle(summary: UserStorySummary): string {
     || normalizedTitle.startsWith(`${summary.usId}-`) || normalizedTitle.startsWith(`${summary.usId}:`)
     ? normalizedTitle.slice(summary.usId.length).trimStart().replace(/^[·\-:]\s*/, "")
     : normalizedTitle;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll("\"", "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function escapeHtmlAttr(value: string): string {
-  return escapeHtml(value);
 }
 
 function phaseLabelFor(currentPhase: string): string {
