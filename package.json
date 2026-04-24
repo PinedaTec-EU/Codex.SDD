@@ -123,7 +123,7 @@
         "specForge.execution.modelProfiles": {
           "type": "array",
           "default": [],
-          "description": "Named model profiles. Each profile declares its own provider and capabilities so the workflow can route phases explicitly. `codex`, `claude`, and `copilot` can run natively from their local CLI when available. `claude` and `copilot` can also fall back to the OpenAI-compatible transport bridge when endpoint settings are configured.",
+          "description": "Named model profiles. Each profile declares its own provider and capabilities so the workflow can route phases explicitly. `codex`, `claude`, and `copilot` run natively from their local CLI. Use `openai-compatible` for endpoint-based bridge profiles.",
           "items": {
             "type": "object",
             "required": [
@@ -143,16 +143,16 @@
                   "copilot",
                   "claude"
                 ],
-                "description": "Provider kind used by this profile. `codex`, `claude`, and `copilot` prefer their native local CLI when available. `claude` and `copilot` fall back to the OpenAI-compatible transport bridge when a base URL is configured."
+                "description": "Provider kind used by this profile. `codex`, `claude`, and `copilot` use their native local CLI. `openai-compatible` uses the configured chat/completions endpoint."
               },
               "baseUrl": {
                 "type": "string",
-                "description": "Base URL for this profile's endpoint. Required for `openai-compatible`. Optional for `claude` and `copilot` when their native CLI is available. Omit for native `codex`."
+                "description": "Base URL for this profile's endpoint. Required for `openai-compatible`. Omit for native CLI providers."
               },
               "apiKey": {
                 "type": "string",
                 "default": "",
-                "description": "API key for this profile's endpoint. Required for remote `openai-compatible`, `copilot`, and `claude` endpoints. Not used by native CLI execution."
+                "description": "API key for this profile's endpoint. Required for remote `openai-compatible` endpoints. Not used by native CLI execution."
               },
               "model": {
                 "type": "string",

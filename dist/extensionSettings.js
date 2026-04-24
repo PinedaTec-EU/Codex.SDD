@@ -54,6 +54,7 @@ function getSpecForgeSettingsStatus(settings) {
 }
 const defaultModelProvider = "openai-compatible";
 const supportedModelProviders = new Set(["openai-compatible", "codex", "copilot", "claude"]);
+const nativeCliModelProviders = new Set(["codex", "copilot", "claude"]);
 function getModelProfileSettingsStatus(settings) {
     const profilesByName = new Map();
     const diagnostics = buildSettingsDiagnostics(settings);
@@ -81,21 +82,21 @@ function getModelProfileSettingsStatus(settings) {
                 diagnostics
             };
         }
-        if (profile.provider !== "codex" && !profile.baseUrl) {
+        if (!isNativeCliModelProvider(profile.provider) && !profile.baseUrl) {
             return {
                 executionConfigured: false,
                 message: `SpecForge.AI model profile '${profile.name}' is missing base URL.`,
                 diagnostics
             };
         }
-        if (profile.provider !== "codex" && !profile.model) {
+        if (!isNativeCliModelProvider(profile.provider) && !profile.model) {
             return {
                 executionConfigured: false,
                 message: `SpecForge.AI model profile '${profile.name}' is missing model.`,
                 diagnostics
             };
         }
-        if (profile.provider !== "codex" && !profile.apiKey && !isLocalOpenAiCompatibleEndpoint(profile.baseUrl)) {
+        if (!isNativeCliModelProvider(profile.provider) && !profile.apiKey && !isLocalOpenAiCompatibleEndpoint(profile.baseUrl)) {
             return {
                 executionConfigured: false,
                 message: `SpecForge.AI model profile '${profile.name}' needs an API key for a remote base URL.`,
@@ -151,6 +152,9 @@ function getModelProfileSettingsStatus(settings) {
         message: null,
         diagnostics
     };
+}
+function isNativeCliModelProvider(provider) {
+    return nativeCliModelProviders.has(provider);
 }
 function hasExplicitProfilesForAllModelDrivenPhases(assignments) {
     return [

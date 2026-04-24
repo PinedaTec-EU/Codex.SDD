@@ -405,39 +405,41 @@ test("getSpecForgeSettingsStatus accepts codex, copilot, and claude providers", 
   assert.match(status.diagnostics, /provider=copilot/);
 });
 
-test("getSpecForgeSettingsStatus allows codex without baseUrl apiKey or model", () => {
-  const status = getSpecForgeSettingsStatus({
-    modelProfiles: [
-      {
-        name: "codex-main",
-        provider: "codex",
-        baseUrl: "",
-        apiKey: null,
-        model: "",
-        repositoryAccess: "read-write"
-      }
-    ],
-    phaseModelAssignments: assignments(),
-    effectivePhaseModelAssignments: effective({
-      defaultProfileName: "codex-main",
-      implementationProfileName: "codex-main",
-      reviewProfileName: "codex-main"
-    }),
-    autoClarificationAnswersProfile: null,
-    clarificationTolerance: "balanced",
-    reviewTolerance: "balanced",
-    watcherEnabled: true,
-    attentionNotificationsEnabled: true,
-    contextSuggestionsEnabled: true,
-    requireExplicitApprovalBranchAcceptance: false,
-    autoClarificationAnswersEnabled: false,
-    autoPlayEnabled: false,
-    destructiveRewindEnabled: false
-  });
+test("getSpecForgeSettingsStatus allows native CLI providers without baseUrl apiKey or model", () => {
+  for (const provider of ["codex", "claude", "copilot"]) {
+    const status = getSpecForgeSettingsStatus({
+      modelProfiles: [
+        {
+          name: `${provider}-main`,
+          provider,
+          baseUrl: "",
+          apiKey: null,
+          model: "",
+          repositoryAccess: "read-write"
+        }
+      ],
+      phaseModelAssignments: assignments(),
+      effectivePhaseModelAssignments: effective({
+        defaultProfileName: `${provider}-main`,
+        implementationProfileName: `${provider}-main`,
+        reviewProfileName: `${provider}-main`
+      }),
+      autoClarificationAnswersProfile: null,
+      clarificationTolerance: "balanced",
+      reviewTolerance: "balanced",
+      watcherEnabled: true,
+      attentionNotificationsEnabled: true,
+      contextSuggestionsEnabled: true,
+      requireExplicitApprovalBranchAcceptance: false,
+      autoClarificationAnswersEnabled: false,
+      autoPlayEnabled: false,
+      destructiveRewindEnabled: false
+    });
 
-  assert.equal(status.executionConfigured, true);
-  assert.equal(status.message, null);
-  assert.match(status.diagnostics, /provider=codex/);
+    assert.equal(status.executionConfigured, true);
+    assert.equal(status.message, null);
+    assert.match(status.diagnostics, new RegExp(`provider=${provider}`));
+  }
 });
 
 test("getSpecForgeSettingsStatus rejects unsupported providers", () => {

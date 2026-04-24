@@ -306,7 +306,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     <section class="hero">
       <p class="eyebrow">Execution Setup</p>
       <h1>Providers and phase routing</h1>
-      <p class="copy">Define named executor profiles once, then assign the right one to each workflow phase. Native <code>codex</code> only needs repository access. Bridge-based providers still use endpoint settings.</p>
+      <p class="copy">Define named executor profiles once, then assign the right one to each workflow phase. Native CLI providers only need repository access. OpenAI-compatible bridge profiles still use endpoint settings.</p>
       <div class="actions">
         <button class="ghost-action" type="button" data-command="openRawSettings">Open Raw VS Code Settings</button>
       </div>
@@ -391,6 +391,10 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         .join("");
     }
 
+    function isNativeCliProvider(provider) {
+      return provider === "codex" || provider === "copilot" || provider === "claude";
+    }
+
     function repositoryAccessOptions(selectedValue) {
       return ["none", "read", "read-write"]
         .map((value) => '<option value="' + value + '"' + (value === selectedValue ? " selected" : "") + '>' + escapeHtml(value) + '</option>')
@@ -438,7 +442,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         profilesHost.innerHTML = '<div class="empty">No provider profiles configured yet.</div>';
       } else {
         profilesHost.innerHTML = state.modelProfiles.map((profile, index) => {
-          const showEndpointFields = profile.provider !== "codex";
+          const showEndpointFields = !isNativeCliProvider(profile.provider);
           return '<section class="profile-card" data-profile-index="' + index + '">'
             + '<div class="profile-card__header">'
             + '<strong>' + escapeHtml(profile.name || ('Profile ' + (index + 1))) + '</strong>'
