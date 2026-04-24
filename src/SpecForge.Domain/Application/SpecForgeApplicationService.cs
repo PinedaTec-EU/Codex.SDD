@@ -137,7 +137,8 @@ public sealed class SpecForgeApplicationService
                 currentPhase.BlockingReason,
                 workflowRun.CurrentPhase != Workflow.PhaseId.Capture,
                 BuildRegressionTargets(workflowRun),
-                BuildRewindTargets(workflowRun)),
+                BuildRewindTargets(workflowRun),
+                currentPhase.ExecutionPhase),
             clarification is null
                 ? null
                 : new ClarificationSessionDetails(
@@ -195,7 +196,8 @@ public sealed class SpecForgeApplicationService
                 false,
                 false,
                 workflowRun.Definition.RequiresApproval(workflowRun.CurrentPhase),
-                "phase_execution_in_progress");
+                "phase_execution_in_progress",
+                WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase));
         }
 
         if (workflowRun.CurrentPhase == Workflow.PhaseId.Clarification)
@@ -243,8 +245,20 @@ public sealed class SpecForgeApplicationService
                 var readiness = workflowRunner.GetPhaseExecutionReadiness(Workflow.PhaseId.Review);
                 canAdvance = readiness.CanExecute;
                 blockingReason = readiness.BlockingReason;
+                var executionPhase = readiness.CanExecute
+                    ? WorkflowPresentation.ToPhaseSlug(Workflow.PhaseId.Review)
+                    : null;
                 SpecForgeDiagnostics.Log(
                     $"[app.current_phase] usId={usId} review replay is pending after rewind; canExecute={readiness.CanExecute} blockingReason='{readiness.BlockingReason ?? "none"}'.");
+                return new CurrentPhaseSummary(
+                    workflowRun.UsId,
+                    WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
+                    WorkflowPresentation.ToStatusSlug(workflowRun.Status),
+                    canAdvance,
+                    canApprove,
+                    requiresApproval,
+                    blockingReason,
+                    executionPhase);
             }
             else
             {

@@ -170,6 +170,7 @@ export interface CurrentPhaseControls {
   readonly canRestartFromSource: boolean;
   readonly regressionTargets: readonly string[];
   readonly rewindTargets?: readonly string[];
+  readonly executionPhase?: string | null;
 }
 
 export interface TimelineEventDetails {

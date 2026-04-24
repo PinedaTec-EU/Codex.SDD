@@ -45,7 +45,8 @@ public sealed record CurrentPhaseControls(
     string? BlockingReason,
     bool CanRestartFromSource,
     IReadOnlyCollection<string> RegressionTargets,
-    IReadOnlyCollection<string> RewindTargets);
+    IReadOnlyCollection<string> RewindTargets,
+    string? ExecutionPhase = null);
 
 public sealed record TimelineEventDetails(
     string TimestampUtc,

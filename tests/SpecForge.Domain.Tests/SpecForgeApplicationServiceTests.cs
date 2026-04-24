@@ -144,6 +144,10 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         var currentPhase = await applicationService.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
         Assert.True(currentPhase.CanAdvance);
         Assert.Null(currentPhase.BlockingReason);
+        Assert.Equal("review", currentPhase.ExecutionPhase);
+
+        var rewoundWorkflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
+        Assert.Equal("review", rewoundWorkflow.Controls.ExecutionPhase);
 
         var replay = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
 

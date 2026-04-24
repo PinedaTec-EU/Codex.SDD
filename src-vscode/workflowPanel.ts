@@ -791,6 +791,10 @@ class WorkflowPanelController {
         appendSpecForgeDebugLog(
           `Autoplay loop iteration for '${workflow.usId}'. canContinue=${workflow.controls.canContinue}, requiresApproval=${workflow.controls.requiresApproval}, blockingReason='${workflow.controls.blockingReason ?? "none"}'.`
         );
+        if (executionPhaseId) {
+          this.setTransientExecutionPhase(executionPhaseId);
+        }
+
         await this.continueCurrentPhaseAsync();
       }
 
@@ -839,7 +843,7 @@ class WorkflowPanelController {
       this.playbackStartedAtMs = Date.now();
     }
     this.playbackState = "playing";
-    this.setTransientExecutionPhase(this.deriveInitialExecutionPhaseId());
+    this.setTransientExecutionPhase(executionPhaseId ?? this.deriveInitialExecutionPhaseId());
     if (!this.autoplayPromise) {
       this.autoplayPromise = this.runAutoplayAsync().finally(() => {
         this.autoplayPromise = null;
@@ -1048,7 +1052,7 @@ class WorkflowPanelController {
   }
 
   private resolveExecutionPhaseIdForWorkflow(workflow: UserStoryWorkflowDetails): string | null {
-    return resolveWorkflowExecutionPhaseId(workflow.currentPhase);
+    return workflow.controls.executionPhase ?? resolveWorkflowExecutionPhaseId(workflow.currentPhase);
   }
 
   private isPhasePauseArmed(phaseId: string): boolean {

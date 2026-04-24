@@ -7,4 +7,5 @@ public sealed record CurrentPhaseSummary(
     bool CanAdvance,
     bool CanApprove,
     bool RequiresApproval,
-    string? BlockingReason);
+    string? BlockingReason,
+    string? ExecutionPhase = null);

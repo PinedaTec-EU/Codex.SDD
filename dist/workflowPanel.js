@@ -629,6 +629,9 @@ class WorkflowPanelController {
                 }
                 (0, outputChannel_1.appendSpecForgeLog)(`Autoplay continuing '${workflow.usId}' from phase '${workflow.currentPhase}' into '${executionPhaseId ?? workflow.currentPhase}'.`);
                 (0, outputChannel_1.appendSpecForgeDebugLog)(`Autoplay loop iteration for '${workflow.usId}'. canContinue=${workflow.controls.canContinue}, requiresApproval=${workflow.controls.requiresApproval}, blockingReason='${workflow.controls.blockingReason ?? "none"}'.`);
+                if (executionPhaseId) {
+                    this.setTransientExecutionPhase(executionPhaseId);
+                }
                 await this.continueCurrentPhaseAsync();
             }
             (0, outputChannel_1.appendSpecForgeLog)(`Autoplay loop exited for '${this.summary.usId}' with state '${this.playbackState}'.`);
@@ -668,7 +671,7 @@ class WorkflowPanelController {
             this.playbackStartedAtMs = Date.now();
         }
         this.playbackState = "playing";
-        this.setTransientExecutionPhase(this.deriveInitialExecutionPhaseId());
+        this.setTransientExecutionPhase(executionPhaseId ?? this.deriveInitialExecutionPhaseId());
         if (!this.autoplayPromise) {
             this.autoplayPromise = this.runAutoplayAsync().finally(() => {
                 this.autoplayPromise = null;
@@ -834,7 +837,7 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' applied deferred execution settings after ${trigger}. Phase changed from '${previousPhase}' to '${nextPhase}'.`);
     }
     resolveExecutionPhaseIdForWorkflow(workflow) {
-        return (0, workflowPlaybackState_1.resolveWorkflowExecutionPhaseId)(workflow.currentPhase);
+        return workflow.controls.executionPhase ?? (0, workflowPlaybackState_1.resolveWorkflowExecutionPhaseId)(workflow.currentPhase);
     }
     isPhasePauseArmed(phaseId) {
         return this.pausedPhaseIds.has(phaseId);
