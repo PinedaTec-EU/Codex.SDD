@@ -1,3 +1,5 @@
+import { validatePhasePermissionAssignments } from "./executionSettingsModel";
+
 export interface SpecForgeSettings {
   readonly modelProfiles: readonly SpecForgeModelProfile[];
   readonly phaseModelAssignments: SpecForgePhaseModelAssignments;
@@ -227,6 +229,18 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
     return {
       executionConfigured: false,
       message: `SpecForge.AI auto-clarification answers profile references unknown profile '${settings.autoClarificationAnswersProfile}'.`,
+      diagnostics
+    };
+  }
+
+  const permissionIssues = validatePhasePermissionAssignments(
+    settings.modelProfiles,
+    settings.phaseModelAssignments
+  );
+  if (permissionIssues.length > 0) {
+    return {
+      executionConfigured: false,
+      message: permissionIssues[0]?.message ?? "SpecForge.AI found a phase model permission mismatch.",
       diagnostics
     };
   }

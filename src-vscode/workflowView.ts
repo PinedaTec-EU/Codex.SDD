@@ -893,8 +893,6 @@ export function buildWorkflowHtml(
   );
   const selectedPhaseIterationCount = selectedPhaseMetricEvents.length;
   const selectedPhaseExecutionLabel = findLatestPhaseExecutionLabel(workflow, selectedPhase.phaseId, state);
-  const selectedPhaseSecurityState = formatPhaseSecurityState(selectedPhase.executionReadiness);
-  const selectedPhaseSecurityTone = phaseSecurityTone(selectedPhase.executionReadiness);
   const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
   const canRewindSelectedPhase = rewindablePhaseIds.has(selectedPhase.phaseId);
   const phaseSpecificSections = buildPhaseSpecificSections(
@@ -910,7 +908,6 @@ export function buildWorkflowHtml(
     ? resolveWorkflowRejectPlan(selectedPhase.phaseId)
     : null;
   const selectedPhaseStateClass = heroTokenClass(selectedPhaseDisplayState);
-  const selectedPhaseSecurityClass = selectedPhaseSecurityTone ? ` token--${selectedPhaseSecurityTone}` : "";
   const continueActionLabel = selectedPhaseIsCurrent ? "Continue" : "Continue Current Phase";
   const approveActionLabel = selectedPhaseIsCurrent ? "Approve" : "Approve Current Phase";
   const shouldRenderApproveAction = selectedPhaseIsCurrent
@@ -3375,7 +3372,6 @@ export function buildWorkflowHtml(
             <div class="detail-meta">
               <span class="token">${escapeHtml(phaseSecondaryLabel(selectedPhase))}</span>
               <span class="token${selectedPhaseStateClass}">${escapeHtml(selectedPhaseDisplayState)}</span>
-              ${selectedPhaseSecurityState ? `<span class="token${selectedPhaseSecurityClass}">${escapeHtml(selectedPhaseSecurityState)}</span>` : ""}
               ${selectedPhase.requiresApproval ? `<span class="token token--attention">approval required</span>` : ""}
               ${selectedPhase.isApproved ? `<span class="token token--success">approved</span>` : ""}
             </div>
@@ -4309,7 +4305,6 @@ function buildPhaseGraph(
     const desktopPosition = desktopLayout.positions[phase.phaseId] ?? { left: desktopLayoutConfig.columns.left, top: desktopLayoutConfig.topOffset };
     const mobilePosition = mobileLayout.positions[phase.phaseId] ?? { left: mobileLayoutConfig.columns.left, top: mobileLayoutConfig.topOffset };
     const displayState = phaseToneLabel(visualTone, phase.state);
-    const modelProfileLabel = phaseModelProfileLabel(phase, state);
     const canPausePhase = canPauseWorkflowExecutionPhase(phase.phaseId) && phase.state === "pending";
     const pauseArmed = pausedPhaseIds.has(phase.phaseId);
     const phaseIsCurrent = phase.phaseId === displayedCurrentPhaseId;
@@ -4352,10 +4347,6 @@ function buildPhaseGraph(
         <div class="phase-tags">
           <span class="phase-tag phase-tag--${escapeHtmlAttribute(visualTone)}">${escapeHtml(displayState)}</span>
           <span class="phase-tag">${escapeHtml(phaseModelLaneLabel(phase))}</span>
-          ${modelProfileLabel ? `<span class="phase-tag">model ${escapeHtml(modelProfileLabel)}</span>` : ""}
-          ${formatPhaseSecurityState(phase.executionReadiness)
-            ? `<span class="phase-tag${phaseSecurityTone(phase.executionReadiness) ? ` phase-tag--${escapeHtmlAttribute(phaseSecurityTone(phase.executionReadiness) ?? "success")}` : ""}">${escapeHtml(formatPhaseSecurityState(phase.executionReadiness) ?? "")}</span>`
-            : ""}
           ${phase.isApproved ? `<span class="phase-tag">approved</span>` : ""}
         </div>
       </div>

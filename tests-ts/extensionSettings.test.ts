@@ -251,7 +251,7 @@ test("getSpecForgeSettingsStatus requires at least one model profile", () => {
   assert.match(status.diagnostics, /profiles=0/);
 });
 
-test("getSpecForgeSettingsStatus allows a single valid local profile without api key", () => {
+test("getSpecForgeSettingsStatus rejects a single fallback profile when phase permissions are insufficient", () => {
   const status = getSpecForgeSettingsStatus({
     modelProfiles: [
       {
@@ -282,8 +282,8 @@ test("getSpecForgeSettingsStatus allows a single valid local profile without api
     pauseOnFailedReview: false
   });
 
-  assert.equal(status.executionConfigured, true);
-  assert.equal(status.message, null);
+  assert.equal(status.executionConfigured, false);
+  assert.equal(status.message, "Clarification requires repository access 'read', but profile 'light' only grants 'none'.");
   assert.match(status.diagnostics, /catalog=\[light\{provider=openai-compatible,baseUrl=http:\/\/localhost:11434\/v1,model=llama3\.1,apiKey=empty,repositoryAccess=none\}\]/);
 });
 
@@ -332,7 +332,7 @@ test("getSpecForgeSettingsStatus accepts profiles using the default provider", (
         baseUrl: "https://api.example.test/v1",
         apiKey: "secret",
         model: "gpt-test",
-        repositoryAccess: "none"
+        repositoryAccess: "read-write"
       }
     ],
     phaseModelAssignments: assignments(),
@@ -372,7 +372,7 @@ test("getSpecForgeSettingsStatus accepts codex, copilot, and claude providers", 
         baseUrl: "https://api.example.test/v1",
         apiKey: "secret",
         model: "claude-sonnet",
-        repositoryAccess: "read"
+        repositoryAccess: "read-write"
       },
       {
         name: "fallback",
@@ -380,7 +380,7 @@ test("getSpecForgeSettingsStatus accepts codex, copilot, and claude providers", 
         baseUrl: "https://api.example.test/v1",
         apiKey: "secret",
         model: "gpt-4.1",
-        repositoryAccess: "none"
+        repositoryAccess: "read"
       }
     ],
     phaseModelAssignments: assignments({
@@ -535,6 +535,14 @@ test("getSpecForgeSettingsStatus allows multiple profiles without default when a
         apiKey: null,
         model: "",
         repositoryAccess: "read-write"
+      },
+      {
+        name: "reviewer",
+        provider: "claude",
+        baseUrl: "",
+        apiKey: null,
+        model: "",
+        repositoryAccess: "read-write"
       }
     ],
     phaseModelAssignments: assignments({
@@ -542,9 +550,59 @@ test("getSpecForgeSettingsStatus allows multiple profiles without default when a
       refinementProfile: "planner",
       technicalDesignProfile: "planner",
       implementationProfile: "implementer",
+      reviewProfile: "reviewer"
+    }),
+    effectivePhaseModelAssignments: effective({
+      clarificationProfileName: "planner",
+      refinementProfileName: "planner",
+      technicalDesignProfileName: "planner",
+      implementationProfileName: "implementer",
+      reviewProfileName: "reviewer"
+    }),
+    autoClarificationAnswersProfile: null,
+    clarificationTolerance: "balanced",
+    reviewTolerance: "balanced",
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true,
+    contextSuggestionsEnabled: true,
+    requireExplicitApprovalBranchAcceptance: false,
+    autoClarificationAnswersEnabled: false,
+    autoPlayEnabled: false,
+    destructiveRewindEnabled: false,
+    pauseOnFailedReview: false
+  });
+
+  assert.equal(status.executionConfigured, true);
+  assert.equal(status.message, null);
+});
+
+test("getSpecForgeSettingsStatus rejects review when its assigned profile lacks repository write access", () => {
+  const status = getSpecForgeSettingsStatus({
+    modelProfiles: [
+      {
+        name: "planner",
+        provider: "openai-compatible",
+        baseUrl: "https://api.example.test/v1",
+        apiKey: "secret",
+        model: "gpt-5.4",
+        repositoryAccess: "read"
+      },
+      {
+        name: "implementer",
+        provider: "codex",
+        baseUrl: "",
+        apiKey: null,
+        model: "",
+        repositoryAccess: "read-write"
+      }
+    ],
+    phaseModelAssignments: assignments({
+      defaultProfile: "planner",
+      implementationProfile: "implementer",
       reviewProfile: "planner"
     }),
     effectivePhaseModelAssignments: effective({
+      defaultProfileName: "planner",
       clarificationProfileName: "planner",
       refinementProfileName: "planner",
       technicalDesignProfileName: "planner",
@@ -564,8 +622,8 @@ test("getSpecForgeSettingsStatus allows multiple profiles without default when a
     pauseOnFailedReview: false
   });
 
-  assert.equal(status.executionConfigured, true);
-  assert.equal(status.message, null);
+  assert.equal(status.executionConfigured, false);
+  assert.equal(status.message, "Review requires repository access 'read-write', but profile 'planner' only grants 'read'.");
 });
 
 test("getSpecForgeSettingsStatus requires an explicit auto-clarification profile when enabled", () => {

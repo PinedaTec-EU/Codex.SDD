@@ -2565,10 +2565,12 @@ test("buildWorkflowHtml marks a phase blocked when its model security precheck f
   }, "idle");
 
   assert.match(html, /phase-node implementation phase-tone-blocked selected/);
-  assert.match(html, /phase-tag phase-tag--blocked">security blocked</);
   assert.match(html, /<h3>Phase Security<\/h3>/);
   assert.match(html, /required read-write/);
   assert.match(html, /assigned read/);
+  assert.match(html, /Phase permission precheck failed because the assigned model only has repository access &#39;read&#39; but phase &#39;Implementation&#39; requires &#39;read-write&#39;/);
+  assert.doesNotMatch(html, /phase-tag[^"]*">model /);
+  assert.doesNotMatch(html, /security blocked/);
 });
 
 test("buildWorkflowHtml keeps execution disabled when the workflow is open without an SLM or LLM provider", () => {

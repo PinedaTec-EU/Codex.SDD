@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { escapeHtml, escapeHtmlAttr } from "./htmlEscape";
+import { requiresDefaultFallback, validatePhasePermissionAssignments } from "./executionSettingsModel";
 import {
   getSpecForgeSettings,
   type SpecForgeModelProfile,
@@ -64,13 +65,18 @@ class ExecutionSettingsPanelController {
           await vscode.commands.executeCommand("workbench.action.openSettings", "@ext:local.specforge-ai specForge");
           return;
         case "saveExecutionSettings":
-          await saveExecutionSettingsAsync(
-            message.modelProfiles ?? [],
-            message.phaseModelAssignments ?? {},
-            message.autoClarificationAnswersEnabled ?? false,
-            message.autoClarificationAnswersProfile);
-          await this.onDidSave();
-          await this.refreshAsync();
+          try {
+            await saveExecutionSettingsAsync(
+              message.modelProfiles ?? [],
+              message.phaseModelAssignments ?? {},
+              message.autoClarificationAnswersEnabled ?? false,
+              message.autoClarificationAnswersProfile);
+            await this.onDidSave();
+            await this.refreshAsync();
+          } catch (error) {
+            const messageText = error instanceof Error ? error.message : String(error);
+            void vscode.window.showErrorMessage(messageText);
+          }
           return;
       }
     });
@@ -111,6 +117,7 @@ const executionPhases: ReadonlyArray<{ key: keyof SpecForgePhaseModelAssignments
 ];
 
 export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): string {
+  const permissionIssues = validatePhasePermissionAssignments(model.modelProfiles, model.phaseModelAssignments);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -285,6 +292,15 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     .warning-banner--visible {
       display: grid;
     }
+    .save-error {
+      font-size: 0.76rem;
+      color: rgba(255, 176, 176, 0.92);
+      line-height: 1.45;
+      display: none;
+    }
+    .save-error--visible {
+      display: block;
+    }
     .empty {
       padding: 14px;
       border-radius: 16px;
@@ -337,7 +353,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
             <select data-phase-field="${escapeHtmlAttr(String(phase.key))}"></select>
             ${phase.key === "defaultProfile"
               ? '<span class="phase-field__hint">Required when you have multiple profiles and no single implicit fallback.</span>'
-              : ""}
+              : '<span class="phase-field__hint"></span>'}
           </label>
         `).join("")}
       </div>
@@ -364,16 +380,25 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       <div class="actions">
         <button class="primary-action" type="submit">Save Execution Settings</button>
       </div>
+      <p class="save-error" data-save-error></p>
     </form>
   </div>
   <script>
     const vscode = acquireVsCodeApi();
     const executionPhases = ${JSON.stringify(executionPhases)};
+    const permissionRequirements = ${JSON.stringify([
+      { assignmentKey: "clarificationProfile", label: "Clarification", requiredRepositoryAccess: "read" },
+      { assignmentKey: "refinementProfile", label: "Refinement", requiredRepositoryAccess: "read" },
+      { assignmentKey: "technicalDesignProfile", label: "Technical Design", requiredRepositoryAccess: "read" },
+      { assignmentKey: "implementationProfile", label: "Implementation", requiredRepositoryAccess: "read-write" },
+      { assignmentKey: "reviewProfile", label: "Review", requiredRepositoryAccess: "read-write" }
+    ])};
     let state = {
       modelProfiles: ${JSON.stringify(model.modelProfiles)},
       phaseModelAssignments: ${JSON.stringify(model.phaseModelAssignments)},
       autoClarificationAnswersEnabled: ${JSON.stringify(model.autoClarificationAnswersEnabled)},
-      autoClarificationAnswersProfile: ${JSON.stringify(model.autoClarificationAnswersProfile)}
+      autoClarificationAnswersProfile: ${JSON.stringify(model.autoClarificationAnswersProfile)},
+      initialPermissionIssues: ${JSON.stringify(permissionIssues)}
     };
 
     function escapeHtml(value) {
@@ -426,6 +451,51 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       return state.autoClarificationAnswersEnabled && !String(state.autoClarificationAnswersProfile || "").trim();
     }
 
+    function validatePermissionIssues() {
+      const profilesByName = new Map(
+        state.modelProfiles
+          .map((profile) => ({
+            name: String(profile.name || "").trim(),
+            repositoryAccess: String(profile.repositoryAccess || "none").trim() || "none"
+          }))
+          .filter((profile) => profile.name.length > 0)
+          .map((profile) => [profile.name, profile])
+      );
+      const implicitDefaultProfile = state.modelProfiles.length === 1
+        ? String(state.modelProfiles[0]?.name || "").trim() || null
+        : null;
+      const defaultProfile = String(state.phaseModelAssignments.defaultProfile || "").trim() || implicitDefaultProfile;
+      const issues = [];
+
+      for (const requirement of permissionRequirements) {
+        const assignedProfile = String(state.phaseModelAssignments[requirement.assignmentKey] || "").trim() || defaultProfile;
+        if (!assignedProfile) {
+          continue;
+        }
+
+        const profile = profilesByName.get(assignedProfile);
+        if (!profile) {
+          continue;
+        }
+
+        const actual = profile.repositoryAccess || "none";
+        const okay = requirement.requiredRepositoryAccess === "read"
+          ? actual === "read" || actual === "read-write"
+          : actual === "read-write";
+        if (okay) {
+          continue;
+        }
+
+        issues.push({
+          assignmentKey: requirement.assignmentKey,
+          label: requirement.label,
+          message: requirement.label + " requires repository access '" + requirement.requiredRepositoryAccess + "', but profile '" + assignedProfile + "' only grants '" + actual + "'."
+        });
+      }
+
+      return issues;
+    }
+
     function render() {
       const profilesHost = document.querySelector("[data-profiles]");
       const phaseGrid = document.querySelector("[data-phase-grid]");
@@ -434,6 +504,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       const autoClarificationWrapper = document.querySelector("[data-auto-clarification-profile-wrapper]");
       const autoClarificationEnabled = document.querySelector("[data-auto-clarification-enabled]");
       const saveButton = document.querySelector('button[type="submit"]');
+      const saveError = document.querySelector("[data-save-error]");
       if (!(profilesHost instanceof HTMLElement) || !(phaseGrid instanceof HTMLElement)) {
         return;
       }
@@ -490,6 +561,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
 
       const fallbackProblem = hasFallbackProblem();
       const autoClarificationProblem = hasAutoClarificationProblem();
+      const permissionIssues = validatePermissionIssues();
       if (warning instanceof HTMLElement) {
         warning.classList.toggle("warning-banner--visible", fallbackProblem);
       }
@@ -500,13 +572,38 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       if (autoClarificationWrapper instanceof HTMLElement) {
         autoClarificationWrapper.classList.toggle("phase-field--invalid", autoClarificationProblem);
       }
+      for (const phase of executionPhases) {
+        if (phase.key === "defaultProfile") {
+          continue;
+        }
+        const wrapper = document.querySelector('[data-phase-wrapper="' + phase.key + '"]');
+        const hint = wrapper instanceof HTMLElement ? wrapper.querySelector(".phase-field__hint") : null;
+        const issue = permissionIssues.find((candidate) => candidate.assignmentKey === phase.key);
+        if (wrapper instanceof HTMLElement) {
+          wrapper.classList.toggle("phase-field--invalid", Boolean(issue));
+        }
+        if (hint instanceof HTMLElement) {
+          hint.textContent = issue ? issue.message : "";
+        }
+      }
       if (saveButton instanceof HTMLButtonElement) {
-        saveButton.disabled = fallbackProblem || autoClarificationProblem;
+        saveButton.disabled = fallbackProblem || autoClarificationProblem || permissionIssues.length > 0;
         saveButton.title = fallbackProblem
           ? "Define the default fallback profile before saving."
           : autoClarificationProblem
             ? "Select the profile that should answer clarification questions."
+            : permissionIssues.length > 0
+              ? permissionIssues[0].message
             : "";
+      }
+      if (saveError instanceof HTMLElement) {
+        const errorMessage = fallbackProblem
+          ? "Define the default fallback profile before saving."
+          : autoClarificationProblem
+            ? "Select the profile that should answer clarification questions."
+            : permissionIssues[0]?.message || "";
+        saveError.textContent = errorMessage;
+        saveError.classList.toggle("save-error--visible", errorMessage.length > 0);
       }
 
       for (const button of profilesHost.querySelectorAll("[data-remove-profile]")) {
@@ -611,7 +708,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     document.getElementById("execution-settings-form")?.addEventListener("submit", (event) => {
       event.preventDefault();
       syncFromDom();
-      if (hasFallbackProblem()) {
+      if (hasFallbackProblem() || hasAutoClarificationProblem() || validatePermissionIssues().length > 0) {
         return;
       }
       vscode.postMessage({
@@ -664,6 +761,16 @@ async function saveExecutionSettingsAsync(
     releaseApprovalProfile: normalizeOptionalAssignment(phaseModelAssignments.releaseApprovalProfile),
     prPreparationProfile: normalizeOptionalAssignment(phaseModelAssignments.prPreparationProfile)
   };
+  const permissionIssues = validatePhasePermissionAssignments(normalizedProfiles, normalizedAssignments);
+  if (requiresDefaultFallback(normalizedProfiles, normalizedAssignments)) {
+    throw new Error("Define the default fallback profile before saving execution settings.");
+  }
+  if (autoClarificationAnswersEnabled && !normalizeOptionalAssignment(autoClarificationAnswersProfile)) {
+    throw new Error("Select the profile that should answer clarification questions before saving execution settings.");
+  }
+  if (permissionIssues.length > 0) {
+    throw new Error(permissionIssues[0]?.message ?? "Execution settings include a phase model permission mismatch.");
+  }
 
   await configuration.update("execution.modelProfiles", normalizedProfiles, vscode.ConfigurationTarget.Workspace);
   await configuration.update("execution.phaseModels", normalizedAssignments, vscode.ConfigurationTarget.Workspace);

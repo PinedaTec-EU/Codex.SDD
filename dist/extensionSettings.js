@@ -4,6 +4,7 @@ exports.getSpecForgeSettings = getSpecForgeSettings;
 exports.readSpecForgeSettings = readSpecForgeSettings;
 exports.buildBackendEnvironment = buildBackendEnvironment;
 exports.getSpecForgeSettingsStatus = getSpecForgeSettingsStatus;
+const executionSettingsModel_1 = require("./executionSettingsModel");
 function getSpecForgeSettings() {
     const vscode = require("vscode");
     return readSpecForgeSettings(vscode.workspace.getConfiguration("specForge"));
@@ -145,6 +146,14 @@ function getModelProfileSettingsStatus(settings) {
         return {
             executionConfigured: false,
             message: `SpecForge.AI auto-clarification answers profile references unknown profile '${settings.autoClarificationAnswersProfile}'.`,
+            diagnostics
+        };
+    }
+    const permissionIssues = (0, executionSettingsModel_1.validatePhasePermissionAssignments)(settings.modelProfiles, settings.phaseModelAssignments);
+    if (permissionIssues.length > 0) {
+        return {
+            executionConfigured: false,
+            message: permissionIssues[0]?.message ?? "SpecForge.AI found a phase model permission mismatch.",
             diagnostics
         };
     }

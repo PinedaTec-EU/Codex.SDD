@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { requiresDefaultFallback } from "../src-vscode/executionSettingsModel";
+import { requiresDefaultFallback, validatePhasePermissionAssignments } from "../src-vscode/executionSettingsModel";
 
 test("requiresDefaultFallback returns true when multiple profiles exist without default", () => {
   assert.equal(requiresDefaultFallback([
@@ -24,4 +24,36 @@ test("requiresDefaultFallback returns false for a single profile or explicit def
   ], {
     defaultProfile: "planner"
   }), false);
+});
+
+test("validatePhasePermissionAssignments rejects implementation and review when assigned profile lacks write access", () => {
+  const issues = validatePhasePermissionAssignments([
+    { name: "planner", repositoryAccess: "read" }
+  ], {
+    defaultProfile: "planner",
+    clarificationProfile: null,
+    refinementProfile: null,
+    technicalDesignProfile: null,
+    implementationProfile: null,
+    reviewProfile: null
+  });
+
+  assert.deepEqual(issues.map((item) => item.assignmentKey), ["implementationProfile", "reviewProfile"]);
+  assert.match(issues[0]?.message ?? "", /Implementation requires repository access 'read-write'/);
+});
+
+test("validatePhasePermissionAssignments accepts read phases on read and write phases on read-write", () => {
+  const issues = validatePhasePermissionAssignments([
+    { name: "planner", repositoryAccess: "read" },
+    { name: "implementer", repositoryAccess: "read-write" }
+  ], {
+    defaultProfile: "planner",
+    clarificationProfile: null,
+    refinementProfile: null,
+    technicalDesignProfile: null,
+    implementationProfile: "implementer",
+    reviewProfile: "implementer"
+  });
+
+  assert.equal(issues.length, 0);
 });
