@@ -610,6 +610,31 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ContinuePhaseAsync_WhenImplementationExecutionIsCanceled_PersistsImplementationAsCurrentPhase()
+    {
+        var provider = new BlockingPhaseExecutionProvider(PhaseId.Implementation);
+        var runner = new WorkflowRunner(provider);
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        using var cancellation = new CancellationTokenSource();
+        var runningTask = runner.ContinuePhaseAsync(workspaceRoot, "US-0001", cancellationToken: cancellation.Token);
+        await provider.WaitUntilStartedAsync();
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => runningTask);
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        var loadedRun = await new UserStoryFileStore().LoadAsync(paths.RootDirectory);
+        Assert.Equal(PhaseId.Implementation, loadedRun.CurrentPhase);
+        Assert.Equal(UserStoryStatus.Active, loadedRun.Status);
+        Assert.False(File.Exists(paths.GetPhaseArtifactPath(PhaseId.Implementation)));
+    }
+
+    [Fact]
     public async Task ContinuePhaseAsync_Implementation_PersistsPhaseScopedEvidence_AndReviewConsumesIt()
     {
         await InitializeGitWorkspaceAsync(workspaceRoot);
@@ -910,6 +935,42 @@ public sealed class WorkflowRunnerTests : IDisposable
             PhaseExecutionContext context,
             CancellationToken cancellationToken = default) =>
             inner.ExecuteAsync(context, cancellationToken);
+    }
+
+    private sealed class BlockingPhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        private readonly PhaseId blockedPhase;
+        private readonly TaskCompletionSource<bool> started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly DeterministicPhaseExecutionProvider inner = new();
+
+        public BlockingPhaseExecutionProvider(PhaseId blockedPhase)
+        {
+            this.blockedPhase = blockedPhase;
+        }
+
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+            inner.GetPhaseExecutionReadiness(phaseId);
+
+        public async Task<PhaseExecutionResult> ExecuteAsync(
+            PhaseExecutionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            if (context.PhaseId == blockedPhase)
+            {
+                started.TrySetResult(true);
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+
+            return await inner.ExecuteAsync(context, cancellationToken);
+        }
+
+        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+            PhaseExecutionContext context,
+            ClarificationSession session,
+            CancellationToken cancellationToken = default) =>
+            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+
+        public Task WaitUntilStartedAsync() => started.Task;
     }
 
     private sealed class AutoAnsweringPhaseExecutionProvider : IPhaseExecutionProvider

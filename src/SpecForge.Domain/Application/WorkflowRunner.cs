@@ -456,6 +456,9 @@ public sealed class WorkflowRunner
         workflowRun.GenerateNextPhase();
         SpecForgeDiagnostics.Log(
             $"[runner.continue_phase] usId={usId} advanced phase {WorkflowPresentation.ToPhaseSlug(sourcePhase)} -> {WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}");
+        await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+        SpecForgeDiagnostics.Log(
+            $"[runner.continue_phase] usId={usId} persisted advanced phase {WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} before materialization.");
 
         string? artifactPath = null;
         TokenUsage? usage = null;
