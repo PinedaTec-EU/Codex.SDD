@@ -428,6 +428,9 @@ function buildExecutionOverlay(
         ]
       };
 
+  const overlayPhaseModelLabel = findLatestPhaseExecutionLabel(workflow, overlayPhase.phaseId)
+    ?? phaseModelProfileLabel(overlayPhase, state);
+
   return `
     <div
       class="execution-overlay execution-overlay--${escapeHtmlAttribute(overlay.tone)}"
@@ -448,6 +451,7 @@ function buildExecutionOverlay(
         <p class="execution-overlay__message" data-execution-message>${escapeHtml(overlay.messages[0] ?? "Processing workflow phase.")}</p>
       </div>
       ${overlay.showElapsed ? `<span class="execution-overlay__elapsed" data-execution-elapsed>00:00</span>` : ""}
+      ${overlayPhaseModelLabel ? `<span class="execution-overlay__phase-model">${escapeHtml(overlayPhaseModelLabel)}</span>` : ""}
     </div>
   `;
 }
@@ -584,10 +588,22 @@ function phaseModelProfileLabel(phase: WorkflowPhaseDetails, state: WorkflowView
   }
 
   switch (phase.phaseId) {
+    case "capture":
+      return assignments.captureProfileName ?? assignments.defaultProfileName;
+    case "clarification":
+      return assignments.clarificationProfileName ?? assignments.defaultProfileName;
+    case "refinement":
+      return assignments.refinementProfileName ?? assignments.defaultProfileName;
+    case "technical-design":
+      return assignments.technicalDesignProfileName ?? assignments.defaultProfileName;
     case "implementation":
       return assignments.implementationProfileName ?? assignments.defaultProfileName;
     case "review":
       return assignments.reviewProfileName ?? assignments.defaultProfileName;
+    case "release-approval":
+      return assignments.releaseApprovalProfileName ?? assignments.defaultProfileName;
+    case "pr-preparation":
+      return assignments.prPreparationProfileName ?? assignments.defaultProfileName;
     default:
       return assignments.defaultProfileName;
   }
@@ -656,6 +672,20 @@ export function buildWorkflowHtml(
   const displayedPhaseId = playbackState === "playing" && effectiveExecutionPhaseId
     ? effectiveExecutionPhaseId
     : workflow.currentPhase;
+  const settingsBanner = state.executionSettingsPending && state.executionSettingsPendingMessage
+    ? `
+      <div class="settings-warning settings-warning--pending" role="status">
+        <div class="settings-warning__icon">~</div>
+        <div>
+          <p class="eyebrow warning">Execution Setup Pending</p>
+          <p class="warning-copy">${escapeHtml(state.executionSettingsPendingMessage)}</p>
+          <div class="detail-actions">
+            <button class="workflow-action-button workflow-action-button--document" data-command="openSettings">Open Execution Settings</button>
+          </div>
+        </div>
+      </div>
+    `
+    : "";
   const shouldPulsePlay = playbackState === "idle" && workflow.controls.canContinue;
   const playDisabled = playbackState === "playing"
     || !state.settingsConfigured
@@ -1308,6 +1338,12 @@ export function buildWorkflowHtml(
         linear-gradient(180deg, rgba(66, 48, 10, 0.96), rgba(28, 22, 8, 0.98)),
         rgba(12, 18, 24, 0.92);
     }
+    .settings-warning--pending {
+      border-color: rgba(92, 181, 255, 0.26);
+      background:
+        linear-gradient(180deg, rgba(22, 42, 68, 0.96), rgba(10, 21, 36, 0.98)),
+        rgba(12, 18, 24, 0.92);
+    }
     .settings-warning__icon {
       width: 46px;
       height: 46px;
@@ -1326,6 +1362,14 @@ export function buildWorkflowHtml(
     }
     .eyebrow.warning {
       color: #ffd75a;
+    }
+    .settings-warning--pending .eyebrow.warning {
+      color: #8ccfff;
+    }
+    .settings-warning--pending .settings-warning__icon {
+      background: rgba(92, 181, 255, 0.18);
+      color: #9cd7ff;
+      box-shadow: 0 0 0 8px rgba(92, 181, 255, 0.06);
     }
     .token.accent {
       background: rgba(114, 241, 184, 0.12);
@@ -1528,7 +1572,7 @@ export function buildWorkflowHtml(
       gap: 14px;
       width: min(430px, calc(100% - 24px));
       min-height: 142px;
-      padding: 14px 16px;
+      padding: 14px 16px 34px;
       border-radius: 18px;
       border: 1px solid rgba(92, 181, 255, 0.34);
       background:
@@ -1602,6 +1646,21 @@ export function buildWorkflowHtml(
       font-size: 0.8rem;
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
       flex: 0 0 auto;
+    }
+    .execution-overlay__phase-model {
+      position: absolute;
+      right: 16px;
+      bottom: 12px;
+      max-width: calc(100% - 32px);
+      color: rgba(166, 172, 178, 0.78);
+      font-size: 0.72rem;
+      line-height: 1.2;
+      text-align: right;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
     }
     .execution-overlay__dismiss {
       position: absolute;
@@ -2999,6 +3058,7 @@ export function buildWorkflowHtml(
           </button>
         </div>
       </div>
+      ${settingsBanner}
     </section>
     <div class="shell-body">
       <section class="layout">

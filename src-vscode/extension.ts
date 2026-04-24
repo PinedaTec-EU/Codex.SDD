@@ -17,10 +17,13 @@ import { SidebarViewProvider } from "./sidebarView";
 import { getRepoPromptsStatusAsync } from "./repoPromptsStatus";
 import {
   approveCurrentPhase,
+  applyPendingBackendClientReset,
   continuePhase,
   configureBackendHostRoot,
   createUserStoryFromInput,
   disposeBackendClients,
+  hasPendingBackendClientReset,
+  requestBackendClientReset,
   initializeRepoPrompts,
   importUserStoryFromMarkdown,
   getOrCreateBackendClient,
@@ -48,8 +51,13 @@ export function activate(context: vscode.ExtensionContext): void {
     await refreshWorkspaceUiAsync("sidebar:onDidCreateUserStory");
   });
   const refreshableProvider = { refresh: () => sidebarProvider.refresh() };
-  activateExtension(context, createVsCodeHost(), refreshableProvider, createExtensionActions(refreshableProvider, sidebarProvider));
   const mcpProvider = new SpecForgeMcpServerDefinitionProvider(context.extensionUri.fsPath, manifestVersion);
+  activateExtension(
+    context,
+    createVsCodeHost(),
+    refreshableProvider,
+    createExtensionActions(refreshableProvider, sidebarProvider, mcpProvider)
+  );
   const refreshWorkspaceUiAsync = async (reason: string) => {
     if (reason.startsWith("watcher:") && hasActiveWorkflowPlayback()) {
       appendSpecForgeDebugLog(`Skipping workspace UI refresh while workflow playback is active. reason='${reason}'.`);
@@ -68,6 +76,23 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("specForge.openExecutionSettings", async () => {
       await openExecutionSettingsPanelAsync(context.extensionUri, async () => {
         await refreshWorkspaceUiAsync("executionSettingsSaved");
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceRoot) {
+          mcpProvider.refresh();
+          return;
+        }
+
+        const resetResult = requestBackendClientReset(workspaceRoot);
+        if (resetResult === "deferred") {
+          appendSpecForgeLog(
+            `Execution settings were saved while a workflow phase was running for '${workspaceRoot}'. The new setup will apply after the next phase boundary.`
+          );
+          void vscode.window.showInformationMessage(
+            "Execution settings saved. SpecForge.AI will apply them after the current phase completes."
+          );
+          return;
+        }
+
         mcpProvider.refresh();
       });
     }),
@@ -79,7 +104,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
       if (workspaceRoot) {
-        resetBackendClient(workspaceRoot);
+        const resetResult = requestBackendClientReset(workspaceRoot);
+        if (resetResult === "deferred") {
+          appendSpecForgeLog(
+            `Configuration changes for '${workspaceRoot}' were deferred because a workflow phase is still running.`
+          );
+          void refreshWorkspaceUiAsync("configurationChanged");
+          return;
+        }
       }
 
       mcpProvider.refresh();
@@ -88,7 +120,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   void ensureRepoPromptsInitializedAsync();
-  void autoOpenStarredUserStoryAsync(sidebarProvider);
+  void autoOpenStarredUserStoryAsync(sidebarProvider, mcpProvider);
 }
 
 export function deactivate(): void {
@@ -202,7 +234,11 @@ function readManifestVersion(context: vscode.ExtensionContext): string {
     : "unknown";
 }
 
-function createExtensionActions(explorerProvider: { refresh(): void }, sidebarProvider: SidebarViewProvider): ExtensionActions {
+function createExtensionActions(
+  explorerProvider: { refresh(): void },
+  sidebarProvider: SidebarViewProvider,
+  mcpProvider: SpecForgeMcpServerDefinitionProvider
+): ExtensionActions {
   return {
     createUserStoryFromInput,
     importUserStoryFromMarkdown,
@@ -233,7 +269,16 @@ function createExtensionActions(explorerProvider: { refresh(): void }, sidebarPr
           },
           stopBackend: (root) => {
             resetBackendClient(root);
-          }
+          },
+          applyPendingExecutionSettings: (root) => {
+            const applied = applyPendingBackendClientReset(root);
+            if (applied) {
+              mcpProvider.refresh();
+            }
+
+            return applied;
+          },
+          hasPendingExecutionSettings: (root) => hasPendingBackendClientReset(root)
         }
       );
     },
@@ -331,7 +376,10 @@ function createWorkspaceWatcher(onChange: (reason: string) => Promise<void>): vs
   });
 }
 
-async function autoOpenStarredUserStoryAsync(sidebarProvider: SidebarViewProvider): Promise<void> {
+async function autoOpenStarredUserStoryAsync(
+  sidebarProvider: SidebarViewProvider,
+  mcpProvider: SpecForgeMcpServerDefinitionProvider
+): Promise<void> {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceRoot) {
     return;
@@ -363,7 +411,16 @@ async function autoOpenStarredUserStoryAsync(sidebarProvider: SidebarViewProvide
         },
         stopBackend: (root) => {
           resetBackendClient(root);
-        }
+        },
+        applyPendingExecutionSettings: (root) => {
+          const applied = applyPendingBackendClientReset(root);
+          if (applied) {
+            mcpProvider.refresh();
+          }
+
+          return applied;
+        },
+        hasPendingExecutionSettings: (root) => hasPendingBackendClientReset(root)
       }
     );
   } catch {

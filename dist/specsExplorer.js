@@ -46,6 +46,9 @@ exports.requestRegression = requestRegression;
 exports.restartUserStoryFromSource = restartUserStoryFromSource;
 exports.deleteUserStory = deleteUserStory;
 exports.getOrCreateBackendClient = getOrCreateBackendClient;
+exports.requestBackendClientReset = requestBackendClientReset;
+exports.applyPendingBackendClientReset = applyPendingBackendClientReset;
+exports.hasPendingBackendClientReset = hasPendingBackendClientReset;
 exports.resetBackendClient = resetBackendClient;
 exports.disposeBackendClients = disposeBackendClients;
 const fs = __importStar(require("node:fs"));
@@ -60,6 +63,7 @@ const workflowPanel_1 = require("./workflowPanel");
 const explorerModel_1 = require("./explorerModel");
 const repoPromptsStatus_1 = require("./repoPromptsStatus");
 const backendClients = new Map();
+const pendingBackendClientResets = new Set();
 const REGRESSION_TARGETS = {
     review: ["implementation", "technical-design", "refinement"],
     "release-approval": ["implementation", "technical-design", "refinement"]
@@ -494,6 +498,11 @@ async function pathExistsAsync(filePath) {
 }
 function getBackendClient(workspaceRoot) {
     let client = backendClients.get(workspaceRoot);
+    if (client && pendingBackendClientResets.has(workspaceRoot) && !client.isBusy()) {
+        (0, outputChannel_1.appendSpecForgeLog)(`Applying deferred MCP backend reset for '${workspaceRoot}' before creating the next request.`);
+        resetBackendClient(workspaceRoot);
+        client = undefined;
+    }
     if (!client) {
         client = (0, backendClient_1.createMcpBackendClient)(workspaceRoot, backendHostRoot ?? workspaceRoot, (0, extensionSettings_1.getSpecForgeSettings)());
         backendClients.set(workspaceRoot, client);
@@ -503,12 +512,44 @@ function getBackendClient(workspaceRoot) {
 function getOrCreateBackendClient(workspaceRoot) {
     return getBackendClient(workspaceRoot);
 }
+function requestBackendClientReset(workspaceRoot) {
+    const client = backendClients.get(workspaceRoot);
+    if (!client) {
+        pendingBackendClientResets.delete(workspaceRoot);
+        return "noop";
+    }
+    if (client.isBusy()) {
+        pendingBackendClientResets.add(workspaceRoot);
+        (0, outputChannel_1.appendSpecForgeLog)(`Deferring MCP backend reset for '${workspaceRoot}' because a workflow phase is still running.`);
+        return "deferred";
+    }
+    resetBackendClient(workspaceRoot);
+    return "applied";
+}
+function applyPendingBackendClientReset(workspaceRoot) {
+    if (!pendingBackendClientResets.has(workspaceRoot)) {
+        return false;
+    }
+    const client = backendClients.get(workspaceRoot);
+    if (client?.isBusy()) {
+        (0, outputChannel_1.appendSpecForgeLog)(`Pending MCP backend reset for '${workspaceRoot}' is still deferred because the backend remains busy.`);
+        return false;
+    }
+    (0, outputChannel_1.appendSpecForgeLog)(`Applying deferred MCP backend reset for '${workspaceRoot}' after the phase boundary.`);
+    resetBackendClient(workspaceRoot);
+    return true;
+}
+function hasPendingBackendClientReset(workspaceRoot) {
+    return pendingBackendClientResets.has(workspaceRoot);
+}
 function resetBackendClient(workspaceRoot) {
+    pendingBackendClientResets.delete(workspaceRoot);
     const client = backendClients.get(workspaceRoot);
     client?.dispose();
     backendClients.delete(workspaceRoot);
 }
 function disposeBackendClients() {
+    pendingBackendClientResets.clear();
     for (const client of backendClients.values()) {
         client.dispose();
     }

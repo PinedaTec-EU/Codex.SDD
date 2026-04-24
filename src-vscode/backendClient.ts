@@ -229,6 +229,7 @@ export interface SpecForgeBackendClient {
   submitClarificationAnswers(usId: string, answers: readonly string[], actor?: string): Promise<void>;
   submitApprovalAnswer(usId: string, question: string, answer: string, actor?: string): Promise<SubmitApprovalAnswerResult>;
   operateCurrentPhaseArtifact(usId: string, prompt: string, actor?: string): Promise<OperateCurrentPhaseArtifactResult>;
+  isBusy(): boolean;
   cancelActiveOperations(): void;
   dispose(): void;
 }
@@ -426,6 +427,10 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
       prompt,
       ...(actor && actor.trim().length > 0 ? { actor } : {})
     });
+  }
+
+  public isBusy(): boolean {
+    return this.pending.size > 0 || this.initializationPromise !== null;
   }
 
   public cancelActiveOperations(): void {

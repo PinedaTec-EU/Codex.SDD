@@ -301,6 +301,7 @@ class WorkflowPanelController {
         this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
         this.selectedPhaseId = result.currentPhase;
         this.clearTransientExecutionPhase();
+        this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, result.currentPhase, "continue");
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' continueCurrentPhaseAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("continueCurrentPhaseAsync");
@@ -320,6 +321,7 @@ class WorkflowPanelController {
         if (normalizedPrompt.length === 0) {
             return;
         }
+        const previousPhase = this.summary.currentPhase;
         const result = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, normalizedPrompt, (0, userActor_1.getCurrentActor)());
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regenerated phase '${result.currentPhase}' after human input.${result.execution ? ` Model: ${result.execution.profileName ? `${result.execution.profileName} / ` : ""}${result.execution.model}.` : ""}`);
         this.logExecutionWarnings(result.execution);
@@ -331,11 +333,13 @@ class WorkflowPanelController {
         this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
         this.clearTransientExecutionPhase();
         this.selectedPhaseId = result.currentPhase;
+        this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, result.currentPhase, "phase input");
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' submitPhaseInputAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("submitPhaseInputAsync");
     }
     async submitApprovalAnswerAsync(question, answer) {
+        const previousPhase = this.summary.currentPhase;
         const result = await this.getBackendClient().submitApprovalAnswer(this.summary.usId, question, answer, (0, userActor_1.getCurrentActor)());
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' recorded a human approval answer and generated '${result.generatedArtifactPath}'.`);
         this.summary = {
@@ -346,6 +350,7 @@ class WorkflowPanelController {
         this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
         this.clearTransientExecutionPhase();
         this.selectedPhaseId = result.currentPhase;
+        this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, result.currentPhase, "approval answer");
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' submitApprovalAnswerAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("submitApprovalAnswerAsync");
@@ -432,6 +437,7 @@ class WorkflowPanelController {
         await this.maybeAutoPlayAfterManualContinuationAsync("approval");
     }
     async requestRegressionAsync(targetPhase) {
+        const previousPhase = this.summary.currentPhase;
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
         const destructiveRewindEnabled = settings.destructiveRewindEnabled;
         const reason = await vscode.window.showInputBox({
@@ -452,11 +458,13 @@ class WorkflowPanelController {
         this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
         this.clearTransientExecutionPhase();
         this.selectedPhaseId = result.currentPhase;
+        this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, result.currentPhase, "regression");
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' requestRegressionAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("requestRegressionAsync");
     }
     async restartCurrentWorkflowAsync() {
+        const previousPhase = this.summary.currentPhase;
         const reason = await vscode.window.showInputBox({
             prompt: "Reason for restart from source",
             ignoreFocusOut: true,
@@ -475,11 +483,13 @@ class WorkflowPanelController {
         this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
         this.clearTransientExecutionPhase();
         this.selectedPhaseId = result.currentPhase;
+        this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, result.currentPhase, "restart");
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' restartCurrentWorkflowAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("restartCurrentWorkflowAsync");
     }
     async rewindWorkflowAsync(targetPhase) {
+        const previousPhase = this.summary.currentPhase;
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
         const destructiveRewindEnabled = settings.destructiveRewindEnabled;
         const confirmation = await vscode.window.showWarningMessage(destructiveRewindEnabled
@@ -504,11 +514,13 @@ class WorkflowPanelController {
         this.clearTransientExecutionPhase();
         this.selectedPhaseId = result.currentPhase;
         this.selectedIterationArtifactPath = null;
+        this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, result.currentPhase, "rewind");
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' rewindWorkflowAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("rewindWorkflowAsync");
     }
     async debugResetToCaptureAsync() {
+        const previousPhase = this.summary.currentPhase;
         const confirmation = await vscode.window.showWarningMessage(`Reset ${this.summary.usId} to capture and delete all generated artifacts after the source?`, { modal: true }, "Reset to Capture");
         if (confirmation !== "Reset to Capture") {
             return;
@@ -526,6 +538,7 @@ class WorkflowPanelController {
         this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
         this.clearTransientExecutionPhase();
         this.selectedPhaseId = result.currentPhase;
+        this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, result.currentPhase, "reset");
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' debugResetToCaptureAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("debugResetToCaptureAsync");
@@ -641,6 +654,10 @@ class WorkflowPanelController {
             executionPhaseId: this.transientExecutionPhaseId,
             completedPhaseIds: this.transientCompletedPhaseIds,
             playbackStartedAtMs: this.playbackStartedAtMs,
+            executionSettingsPending: this.callbacks.hasPendingExecutionSettings(this.workspaceRoot),
+            executionSettingsPendingMessage: this.callbacks.hasPendingExecutionSettings(this.workspaceRoot)
+                ? "Execution settings changed while this phase was running. SpecForge.AI will reload the setup after the workflow enters the next phase."
+                : null,
             debugMode: (0, outputChannel_1.isSpecForgeDebugLoggingEnabled)(),
             approvalBaseBranchProposal: this.refinementApprovalBaseBranchProposal,
             approvalWorkBranchProposal: this.buildRefinementApprovalWorkBranchProposal(workflow),
@@ -706,6 +723,15 @@ class WorkflowPanelController {
             return [];
         }
         return phaseOrder.slice(0, executionPhaseIndex);
+    }
+    applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, nextPhase, trigger) {
+        if (previousPhase === nextPhase) {
+            return;
+        }
+        if (!this.callbacks.applyPendingExecutionSettings(this.workspaceRoot)) {
+            return;
+        }
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' applied deferred execution settings after ${trigger}. Phase changed from '${previousPhase}' to '${nextPhase}'.`);
     }
 }
 async function readArtifactContentAsync(artifactPath) {

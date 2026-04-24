@@ -6,39 +6,49 @@ function buildRefinementPhaseSections(args) {
     const approvalBranchEditorVisible = selectedPhase.phaseId === "refinement"
         && selectedPhase.isCurrent
         && workflow.controls.requiresApproval;
+    const branchAlreadyCreated = selectedPhase.phaseId === "refinement"
+        && !selectedPhase.isCurrent
+        && Boolean(workflow.workBranch?.trim());
+    const approvalBranchSectionVisible = approvalBranchEditorVisible || (selectedPhase.phaseId === "refinement" && branchAlreadyCreated);
     const approvalBaseBranchProposal = state.approvalBaseBranchProposal?.trim() || "main";
     const approvalWorkBranchProposal = state.approvalWorkBranchProposal?.trim() || workflow.workBranch?.trim() || "";
     const requiresExplicitApprovalBranchAcceptance = Boolean(state.requireExplicitApprovalBranchAcceptance);
-    const approvalBranchSection = approvalBranchEditorVisible
+    const approvalBranchSection = approvalBranchSectionVisible
         ? `
       <section class="detail-card detail-card--approval-branch" data-approval-branch-shell data-require-explicit-approval-branch-acceptance="${requiresExplicitApprovalBranchAcceptance ? "true" : "false"}">
         <div class="approval-branch__copy">
           <h3>Approval Branch</h3>
-          <p>Confirm the base branch used to create the user story work branch before approving the refinement.</p>
+          <p>${branchAlreadyCreated
+            ? "This is the work branch captured when the refinement was approved."
+            : "Confirm the base branch used to create the user story work branch before approving the refinement."}</p>
         </div>
         <div class="approval-branch__controls">
-          <label class="approval-branch__field" for="approval-base-branch">Base Branch</label>
-          <div class="approval-branch__input-row">
-            <input
-              id="approval-base-branch"
-              class="approval-branch__input"
-              type="text"
-              value="${escapeHtmlAttribute(approvalBaseBranchProposal)}"
-              data-approval-base-branch-input
-              spellcheck="false"
-              autocomplete="off" />
-            ${requiresExplicitApprovalBranchAcceptance
-            ? `<button type="button" class="workflow-action-button workflow-action-button--progress approval-branch__accept" data-approval-branch-accept>Accept</button>`
-            : ""}
-            <span class="approval-branch__accepted" data-approval-branch-accepted hidden>Accepted ✓</span>
-          </div>
-          <p class="approval-branch__hint" data-approval-branch-hint>
-            ${unresolvedApprovalQuestionCount > 0
-            ? "Approve stays disabled until all human approval questions are resolved below."
-            : requiresExplicitApprovalBranchAcceptance
-                ? "Approve stays disabled until you accept this branch value explicitly."
-                : "You can approve directly, and the current branch value will be sent with the action."}
-          </p>
+          ${branchAlreadyCreated
+            ? ""
+            : `
+              <label class="approval-branch__field" for="approval-base-branch">Base Branch</label>
+              <div class="approval-branch__input-row">
+                <input
+                  id="approval-base-branch"
+                  class="approval-branch__input"
+                  type="text"
+                  value="${escapeHtmlAttribute(approvalBaseBranchProposal)}"
+                  data-approval-base-branch-input
+                  spellcheck="false"
+                  autocomplete="off" />
+                ${requiresExplicitApprovalBranchAcceptance
+                ? `<button type="button" class="workflow-action-button workflow-action-button--progress approval-branch__accept" data-approval-branch-accept>Accept</button>`
+                : ""}
+                <span class="approval-branch__accepted" data-approval-branch-accepted hidden>Accepted ✓</span>
+              </div>
+              <p class="approval-branch__hint" data-approval-branch-hint>
+                ${unresolvedApprovalQuestionCount > 0
+                ? "Approve stays disabled until all human approval questions are resolved below."
+                : requiresExplicitApprovalBranchAcceptance
+                    ? "Approve stays disabled until you accept this branch value explicitly."
+                    : "You can approve directly, and the current branch value will be sent with the action."}
+              </p>
+            `}
           <label class="approval-branch__field" for="approval-work-branch">Work Branch</label>
           <input
             id="approval-work-branch"
@@ -47,8 +57,11 @@ function buildRefinementPhaseSections(args) {
             value="${escapeHtmlAttribute(approvalWorkBranchProposal)}"
             data-approval-work-branch-input
             spellcheck="false"
-            autocomplete="off" />
-          <p class="approval-branch__hint">This is the branch that will be created after approval. You can edit the proposed name before continuing.</p>
+            autocomplete="off"
+            ${branchAlreadyCreated ? "readonly" : ""} />
+          <p class="approval-branch__hint">${branchAlreadyCreated
+            ? "The work branch has already been created for this user story and is now shown here as read only."
+            : "This is the branch that will be created after approval. You can edit the proposed name before continuing."}</p>
         </div>
       </section>
     `

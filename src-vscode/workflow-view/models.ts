@@ -10,13 +10,21 @@ export interface WorkflowViewState {
   readonly settingsMessage: string | null;
   readonly phaseModelAssignments?: {
     readonly defaultProfileName: string | null;
+    readonly captureProfileName: string | null;
+    readonly clarificationProfileName: string | null;
+    readonly refinementProfileName: string | null;
+    readonly technicalDesignProfileName: string | null;
     readonly implementationProfileName: string | null;
     readonly reviewProfileName: string | null;
+    readonly releaseApprovalProfileName: string | null;
+    readonly prPreparationProfileName: string | null;
   };
   readonly runtimeVersion?: string | null;
   readonly executionPhaseId?: string | null;
   readonly completedPhaseIds?: readonly string[];
   readonly playbackStartedAtMs?: number | null;
+  readonly executionSettingsPending?: boolean;
+  readonly executionSettingsPendingMessage?: string | null;
   readonly debugMode?: boolean;
   readonly approvalBaseBranchProposal?: string | null;
   readonly approvalWorkBranchProposal?: string | null;

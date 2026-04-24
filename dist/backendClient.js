@@ -190,6 +190,9 @@ class StdioMcpBackendClient {
             ...(actor && actor.trim().length > 0 ? { actor } : {})
         });
     }
+    isBusy() {
+        return this.pending.size > 0 || this.initializationPromise !== null;
+    }
     cancelActiveOperations() {
         this.dispose();
     }
