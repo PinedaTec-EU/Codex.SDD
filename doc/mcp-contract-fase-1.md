@@ -17,12 +17,13 @@ Define the minimum MCP backend interface required to execute the canonical phase
 - all user-story identifiers use `usId`
 - phases use these canonical ids:
   - `capture`
+  - `clarification`
   - `refinement`
-  - `technical_design`
+  - `technical-design`
   - `implementation`
   - `review`
-  - `release_approval`
-  - `pr_preparation`
+  - `release-approval`
+  - `pr-preparation`
 - responses must include at least:
   - `usId`
   - `status`
@@ -33,15 +34,9 @@ Define the minimum MCP backend interface required to execute the canonical phase
 
 ```yaml
 usId: US-0001
-status: active
-currentPhase: refinement
-activeArtifacts:
-  us: .specs/us/us.US-0001/us.md
-  refinement: .specs/us/us.US-0001/phases/01-spec.md
-messages:
-  - code: spec_generated
-    level: info
-    text: Spec generated and pending approval
+status: waiting-user
+currentPhase: clarification
+blockingReason: clarification_pending_answers
 ```
 
 ## Minimum Tools
@@ -55,25 +50,21 @@ Purpose:
 Minimum input:
 
 ```yaml
+workspaceRoot: /repo/SpecForge.AI
+usId: US-0001
 title: Create SDD foundation for SpecForge
+kind: feature
+category: workflow
 sourceText: |
   I want a VS Code tool...
-baseBranch: main
 ```
 
 Minimum output:
 
 ```yaml
 usId: US-0001
-status: active
-currentPhase: refinement
-createdArtifacts:
-  us: .specs/us/us.US-0001/us.md
-  state: .specs/us/us.US-0001/state.yaml
-messages:
-  - code: us_created
-    level: info
-    text: User story created successfully
+rootDirectory: /repo/SpecForge.AI/.specs/us/workflow/US-0001
+mainArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/us.md
 ```
 
 Business errors:
@@ -90,8 +81,12 @@ Purpose:
 Minimum input:
 
 ```yaml
+workspaceRoot: /repo/SpecForge.AI
+usId: US-0001
 sourcePath: /repo/doc/input/specforge-us.md
-baseBranch: main
+title: Create SDD foundation for SpecForge
+kind: feature
+category: workflow
 ```
 
 Minimum output:
@@ -113,10 +108,7 @@ Purpose:
 Minimum input:
 
 ```yaml
-filter:
-  status:
-    - active
-    - waiting_user
+workspaceRoot: /repo/SpecForge.AI
 ```
 
 Minimum output:
@@ -125,9 +117,12 @@ Minimum output:
 items:
   - usId: US-0001
     title: Create SDD foundation for SpecForge
-    status: waiting_user
-    currentPhase: refinement
-    updatedAt: 2026-04-18T09:30:00Z
+    category: workflow
+    status: waiting-user
+    currentPhase: clarification
+    directoryPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001
+    mainArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/us.md
+    workBranch: null
 ```
 
 ### `get_user_story_summary`
@@ -139,6 +134,7 @@ Purpose:
 Minimum input:
 
 ```yaml
+workspaceRoot: /repo/SpecForge.AI
 usId: US-0001
 ```
 
@@ -146,19 +142,54 @@ Minimum output:
 
 ```yaml
 usId: US-0001
-status: waiting_user
-currentPhase: refinement
-phaseStates:
-  refinement: waiting_user
-activeArtifacts:
-  us: .specs/us/us.US-0001/us.md
-  refinement: .specs/us/us.US-0001/phases/01-spec.md
-branch:
-  baseBranch: main
-  workBranch: null
-metrics:
-  regressionCount: 0
-  manualInterventionCount: 0
+status: waiting-user
+currentPhase: clarification
+category: workflow
+directoryPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001
+mainArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/us.md
+workBranch: null
+```
+
+### `get_user_story_workflow`
+
+Purpose:
+
+- retrieve the workflow DTO used by the extension, including phases, controls, clarification state, audit trail, and attached files
+
+Minimum input:
+
+```yaml
+workspaceRoot: /repo/SpecForge.AI
+usId: US-0001
+```
+
+Minimum output:
+
+```yaml
+usId: US-0001
+status: waiting-user
+currentPhase: clarification
+directoryPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001
+mainArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/us.md
+timelinePath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/timeline.md
+controls:
+  canContinue: false
+  canApprove: false
+  requiresApproval: false
+  blockingReason: clarification_pending_answers
+  canRestartFromSource: true
+  regressionTargets: []
+  rewindTargets: []
+clarification:
+  status: waiting-user
+  tolerance: balanced
+  reason: missing_required_detail
+  items:
+    - index: 1
+      question: Which repository area owns the workflow graph?
+      answer: null
+contextFiles: []
+attachments: []
 ```
 
 Business errors:
@@ -174,6 +205,7 @@ Purpose:
 Minimum input:
 
 ```yaml
+workspaceRoot: /repo/SpecForge.AI
 usId: US-0001
 ```
 
@@ -181,11 +213,12 @@ Minimum output:
 
 ```yaml
 usId: US-0001
-currentPhase: refinement
-status: waiting_user
+currentPhase: clarification
+status: waiting-user
 canAdvance: false
-requiresApproval: true
-blockingReason: refinement_pending_user_approval
+canApprove: false
+requiresApproval: false
+blockingReason: clarification_pending_answers
 ```
 
 Business errors:
@@ -201,6 +234,7 @@ Purpose:
 Minimum input:
 
 ```yaml
+workspaceRoot: /repo/SpecForge.AI
 usId: US-0001
 ```
 
@@ -234,21 +268,23 @@ Purpose:
 Minimum input:
 
 ```yaml
+workspaceRoot: /repo/SpecForge.AI
 usId: US-0001
-requestedBy: user
+actor: user
 ```
 
 Minimum output:
 
 ```yaml
 usId: US-0001
-status: waiting_user
-currentPhase: refinement
-generatedArtifact: .specs/us/us.US-0001/phases/01-spec.md
-messages:
-  - code: spec_generated
-    level: info
-    text: Spec generated with red-team evaluation and blue-team reconstruction
+status: waiting-user
+currentPhase: clarification
+generatedArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/00-clarification.md
+usage:
+  inputTokens: 0
+  outputTokens: 0
+  totalTokens: 0
+execution: null
 ```
 
 Business errors:
@@ -269,32 +305,30 @@ Purpose:
 Minimum input:
 
 ```yaml
+workspaceRoot: /repo/SpecForge.AI
 usId: US-0001
-phaseId: refinement
-approvedBy: user
 actor: alice
 baseBranch: main
 ```
 
 Notes:
 
-- `baseBranch` is required when the approval executes `refinement`, because that is when the work branch is created
+- `baseBranch` is required when approving `refinement`, because that is when the work branch is created
 - for other checkpoints `baseBranch` is optional or not applicable
 - in phase 1, branch creation is integrated into this operation and is not exposed as a separate tool
+- this operation marks the current phase as approved but does not itself advance to the next phase
 
 Minimum output:
 
 ```yaml
 usId: US-0001
 status: active
-currentPhase: technical_design
-branch:
-  baseBranch: main
-  workBranch: feature/us-0001-specforge-foundation
-messages:
-  - code: phase_approved
-    level: info
-    text: Phase approved and workflow advanced
+title: Create SDD foundation for SpecForge
+category: workflow
+directoryPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001
+mainArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/us.md
+currentPhase: refinement
+workBranch: feature/us-0001-specforge-foundation
 ```
 
 Business errors:
@@ -314,10 +348,10 @@ Purpose:
 Minimum input:
 
 ```yaml
+workspaceRoot: /repo/SpecForge.AI
 usId: US-0001
-targetPhaseId: technical_design
+targetPhase: technical-design
 reason: Review detected insufficient decoupling
-requestedBy: user
 actor: alice
 ```
 
@@ -326,11 +360,7 @@ Minimum output:
 ```yaml
 usId: US-0001
 status: active
-currentPhase: technical_design
-messages:
-  - code: phase_regressed
-    level: warning
-    text: Workflow regressed to technical_design
+currentPhase: technical-design
 ```
 
 Business errors:
@@ -348,8 +378,8 @@ Purpose:
 Minimum input:
 
 ```yaml
+workspaceRoot: /repo/SpecForge.AI
 usId: US-0001
-requestedBy: user
 actor: alice
 reason: The user story changed after refinement started
 ```
@@ -358,18 +388,136 @@ Minimum output:
 
 ```yaml
 usId: US-0001
-status: active
-currentPhase: refinement
-messages:
-  - code: us_restarted_from_source
-    level: warning
-    text: Derived artifacts were cleared and the flow was restarted
+status: waiting-user
+currentPhase: clarification
+generatedArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/00-clarification.md
 ```
 
 Business errors:
 
 - `us_not_found`
 - `restart_not_allowed`
+
+### `rewind_workflow`
+
+Purpose:
+
+- move the workflow state back to an earlier executed phase, optionally deleting later derived artifacts
+
+Minimum input:
+
+```yaml
+workspaceRoot: /repo/SpecForge.AI
+usId: US-0001
+targetPhase: refinement
+actor: alice
+destructive: false
+```
+
+Minimum output:
+
+```yaml
+usId: US-0001
+status: waiting-user
+currentPhase: refinement
+deletedPaths: []
+preservedPaths:
+  - /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/02-technical-design.md
+```
+
+Business errors:
+
+- `us_not_found`
+- `validation_error`
+
+### `reset_user_story_to_capture`
+
+Purpose:
+
+- return the workflow to `capture` and remove all derived artifacts and branch metadata
+
+Minimum input:
+
+```yaml
+workspaceRoot: /repo/SpecForge.AI
+usId: US-0001
+```
+
+Minimum output:
+
+```yaml
+usId: US-0001
+status: active
+currentPhase: capture
+deletedPaths:
+  - /repo/SpecForge.AI/.specs/us/workflow/US-0001/clarification.md
+  - /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/00-clarification.md
+preservedPaths:
+  - /repo/SpecForge.AI/.specs/us/workflow/US-0001/us.md
+  - /repo/SpecForge.AI/.specs/us/workflow/US-0001/state.yaml
+```
+
+Business errors:
+
+- `us_not_found`
+
+### `submit_clarification_answers`
+
+Purpose:
+
+- persist ordered answers for the current clarification session so the workflow can continue from `clarification`
+
+Minimum input:
+
+```yaml
+workspaceRoot: /repo/SpecForge.AI
+usId: US-0001
+answers:
+  - The workflow graph lives in src-vscode/workflowView.ts
+  - Use the existing shared button styles
+actor: alice
+```
+
+Minimum output:
+
+```yaml
+{}
+```
+
+Business errors:
+
+- `us_not_found`
+- `validation_error`
+
+### `submit_approval_answer`
+
+Purpose:
+
+- persist a human answer into the current refinement approval questions without invoking a model run
+
+Minimum input:
+
+```yaml
+workspaceRoot: /repo/SpecForge.AI
+usId: US-0001
+question: Should this include branch auto-creation for non-git workspaces?
+answer: No. Record metadata only outside git workspaces.
+actor: alice
+```
+
+Minimum output:
+
+```yaml
+usId: US-0001
+status: waiting-user
+currentPhase: refinement
+generatedArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/01-spec.v02.md
+```
+
+Business errors:
+
+- `us_not_found`
+- `validation_error`
 
 ### `operate_current_phase_artifact`
 
@@ -380,6 +528,7 @@ Purpose:
 Minimum input:
 
 ```yaml
+workspaceRoot: /repo/SpecForge.AI
 usId: US-0001
 actor: alice
 prompt: |
@@ -391,15 +540,11 @@ Minimum output:
 
 ```yaml
 usId: US-0001
-status: waiting_user
+status: waiting-user
 currentPhase: refinement
-operationLogPath: .specs/us/us.US-0001/phases/01-spec.ops.md
-sourceArtifactPath: .specs/us/us.US-0001/phases/01-spec.md
-generatedArtifactPath: .specs/us/us.US-0001/phases/01-spec.v02.md
-messages:
-  - code: artifact_operated
-    level: info
-    text: The current artifact was operated through a prompt and a new version was generated
+operationLogPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/01-spec.ops.md
+sourceArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/01-spec.md
+generatedArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/01-spec.v02.md
 ```
 
 Business errors:
@@ -417,6 +562,7 @@ Purpose:
 Minimum input:
 
 ```yaml
+workspaceRoot: /repo/SpecForge.AI
 usId: US-0001
 ```
 
@@ -426,10 +572,10 @@ Minimum output:
 usId: US-0001
 contextFiles:
   - name: service.cs
-    path: .specs/us/us.US-0001/context/service.cs
+    path: /repo/SpecForge.AI/.specs/us/workflow/US-0001/context/service.cs
 attachments:
   - name: api-notes.md
-    path: .specs/us/us.US-0001/attachments/api-notes.md
+    path: /repo/SpecForge.AI/.specs/us/workflow/US-0001/attachments/api-notes.md
 ```
 
 Business errors:
@@ -445,17 +591,17 @@ Purpose:
 Minimum input:
 
 ```yaml
+workspaceRoot: /repo/SpecForge.AI
 usId: US-0001
 kind: context
 sourcePaths:
-  - src/SpecForge.Domain/Application/WorkflowRunner.cs
-  - tests/SpecForge.Domain.Tests/WorkflowRunnerTests.cs
+  - /repo/SpecForge.AI/src/SpecForge.Domain/Application/WorkflowRunner.cs
+  - /repo/SpecForge.AI/tests/SpecForge.Domain.Tests/WorkflowRunnerTests.cs
 ```
 
 Notes:
 
 - `kind` supports `context` and `attachment`
-- relative paths resolve against `workspaceRoot`
 - only files stored as `context` enter the model runtime by default
 
 Minimum output:
@@ -477,8 +623,9 @@ Purpose:
 Minimum input:
 
 ```yaml
+workspaceRoot: /repo/SpecForge.AI
 usId: US-0001
-filePath: .specs/us/us.US-0001/attachments/api-notes.md
+filePath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/attachments/api-notes.md
 kind: context
 ```
 
@@ -505,7 +652,7 @@ Business errors:
 
 - user-story summary resource by `usId`
 - current-phase resource by `usId`
-- active-artifacts resource by `usId`
+- workflow details resource by `usId`
 
 ## Open Decisions
 

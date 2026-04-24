@@ -55,16 +55,16 @@ Playback is intentionally theatrical enough to communicate that the workflow is 
 - Canonical user story workflow:
   - `capture`
   - `refinement`
-  - `technical_design`
+  - `technical-design`
   - `implementation`
   - `review`
-  - `release_approval`
-  - `pr_preparation`
+  - `release-approval`
+  - `pr-preparation`
 - Phase execution semantics are explicit:
-  - automatic/system-driven phases: `capture`, `technical_design`, `implementation`, `review`, `pr_preparation`
-  - human checkpoint phases: `clarification`, `refinement`, and `release_approval`
+  - automatic/system-driven phases: `capture`, `technical-design`, `implementation`, `review`, `pr-preparation`
+  - human checkpoint phases: `clarification`, `refinement`, and `release-approval`
 - Explicit approval gates and regression rules
-- Local workspace persistence under `.specs/us/us.<us-id>/`
+- Local workspace persistence under `.specs/us/<category>/<US-ID>/`
 - Human-readable artifacts in Markdown
 - Shared audit trail in `timeline.md` with actor and UTC timestamp for user actions
 - Explicit artifact operation logs such as `phases/01-spec.ops.md` when a developer asks the model to operate over the current spec
@@ -434,7 +434,7 @@ The workflow view intentionally distinguishes between:
 - automatic phases that the system can execute when model configuration and prompts are ready
 - user-driven checkpoints that require explicit approval before the next transition
 
-Today the canonical checkpoints are `refinement` as the spec baseline and `release_approval` as the final human release gate. The graph and phase detail make this visible so the operator can see where the workflow will stop and wait for attention.
+Today the canonical checkpoints are `refinement` as the spec baseline and `release-approval` as the final human release gate. The graph and phase detail make this visible so the operator can see where the workflow will stop and wait for attention.
 
 ### Running the extension locally
 
@@ -451,9 +451,14 @@ The extension contributes these settings:
 - `specForge.execution.phaseModels`
 - `specForge.execution.clarificationTolerance`
 - `specForge.execution.reviewTolerance`
+- `specForge.execution.autoClarificationAnswersProfile`
 - `specForge.ui.enableWatcher`
 - `specForge.ui.notifyOnAttention`
 - `specForge.features.enableContextSuggestions`
+- `specForge.features.requireApprovalBranchAcceptance`
+- `specForge.features.autoClarificationAnswersEnabled`
+- `specForge.features.autoPlayEnabled`
+- `specForge.features.destructiveRewindEnabled`
 
 ### Execution settings view
 
@@ -501,19 +506,24 @@ Example persisted shape:
 Each user story lives under:
 
 ```text
-.specs/us/us.<us-id>/
+.specs/us/<category>/<US-ID>/
 ```
 
 Typical contents:
 
 ```text
-.specs/us/us.US-0001/
+.specs/us/workflow/US-0001/
   us.md
   clarification.md
   state.yaml
+  runtime.yaml
   branch.yaml
   timeline.md
+  context/
+  attachments/
+  restarts/
   phases/
+    00-clarification.md
     01-spec.md
     02-technical-design.md
     03-implementation.md

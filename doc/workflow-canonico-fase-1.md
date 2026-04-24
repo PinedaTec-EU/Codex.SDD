@@ -51,7 +51,47 @@ Checkpoint:
 
 - not required
 
-### 2. `refinement`
+Operational Notes:
+
+- `capture` is persisted as the initial state in `state.yaml`, but it does not produce a dedicated phase artifact
+- the next linear transition from `capture` is always `clarification`
+
+### 2. `clarification`
+
+Purpose:
+
+- determine whether the source user story is specific enough to enter refinement
+- persist open questions and human answers without mutating `us.md`
+
+Input:
+
+- `us.md`
+- current clarification tolerance
+- attached `context files` when available
+- attached `user story info` files for operator context
+
+Output:
+
+- `clarification.md`
+- `phases/00-clarification.md` when a clarification artifact is generated for the workflow phase
+
+Definition of Done:
+
+- either the clarification log contains the required questions and answers
+- or the workflow can prove that no additional clarification is needed and advance directly to refinement semantics
+
+Checkpoint:
+
+- no formal approval gate, but the workflow may stop in `waiting-user` until all clarification answers are present
+
+Operational Notes:
+
+- `clarification` is a first-class persisted phase in the canonical workflow
+- `clarification.md` accumulates the question and answer log across iterations
+- `us.md` remains the stable source artifact and is not rewritten on each clarification round
+- only files classified as `context` are injected into model-backed runtime context by default
+
+### 3. `refinement`
 
 Purpose:
 
@@ -92,7 +132,7 @@ Operational Notes:
 - approving this phase freezes the spec baseline and creates the work branch that isolates implementation
 - approval must fail if the spec is structurally invalid or still contains placeholder-only required sections
 
-### 3. `technical_design`
+### 4. `technical-design`
 
 Purpose:
 
@@ -123,7 +163,7 @@ Operational Notes:
 - the previous version remains preserved as history and stops being the active one
 - this artifact is derived from the approved spec and should remain short, implementable, and bounded
 
-### 4. `implementation`
+### 5. `implementation`
 
 Purpose:
 
@@ -152,7 +192,7 @@ Operational Notes:
 
 - if this phase already produced a previous output and must be redone, a new file version is generated and the previous one is archived as inactive
 
-### 5. `review`
+### 6. `review`
 
 Purpose:
 
@@ -177,9 +217,14 @@ Definition of Done:
 
 Checkpoint:
 
-- mandatory when the result is `pass`
+- not a manual approval checkpoint
 
-### 6. `release_approval`
+Operational Notes:
+
+- the phase output must still record an explicit `pass` or `fail` verdict
+- when review fails, the operator can request regression to `refinement`, `technical-design`, or `implementation`
+
+### 7. `release-approval`
 
 Purpose:
 
@@ -203,7 +248,7 @@ Checkpoint:
 
 - mandatory
 
-### 7. `pr_preparation`
+### 8. `pr-preparation`
 
 Purpose:
 
@@ -211,7 +256,7 @@ Purpose:
 
 Input:
 
-- `release_approval` approval
+- `release-approval` approval
 
 Output:
 
@@ -228,22 +273,23 @@ Checkpoint:
 
 ## Valid Transitions
 
-- `capture -> refinement`
-- `refinement -> technical_design`
-- `technical_design -> implementation`
+- `capture -> clarification`
+- `clarification -> refinement`
+- `refinement -> technical-design`
+- `technical-design -> implementation`
 - `implementation -> review`
-- `review -> release_approval`
-- `release_approval -> pr_preparation`
-- `pr_preparation -> completed`
+- `review -> release-approval`
+- `release-approval -> pr-preparation`
+- `pr-preparation -> completed`
 
 ## Valid Regressions
 
 - `review -> refinement`
-- `review -> technical_design`
+- `review -> technical-design`
 - `review -> implementation`
-- `release_approval -> refinement`
-- `release_approval -> technical_design`
-- `release_approval -> implementation`
+- `release-approval -> refinement`
+- `release-approval -> technical-design`
+- `release-approval -> implementation`
 
 ## Operational Rules
 
@@ -251,7 +297,7 @@ Checkpoint:
 - a phase with a mandatory checkpoint cannot advance without approval
 - every regression must record reason and evidence
 - every human intervention must be associated with a phase or checkpoint
-- if a phase fails repeatedly without new information, the user story moves to `waiting_user`
+- if a phase fails repeatedly without new information, the user story moves to `waiting-user`
 - if a user story is already `completed` and the user wants to change `us.md`, `refinement`, or equivalent artifacts, the system should recommend creating a new user story
 - `us.md` is the source of truth only to start the flow, not to silently mutate an already started execution
 
@@ -276,32 +322,40 @@ Convention:
 
 Input resolution by phase:
 
+- `clarification` takes `us.md`
 - `refinement` takes `us.md`
-- `technical_design` takes the approved active version of `01-spec.md`
+- `technical-design` takes the approved active version of `01-spec.md`
 - `implementation` takes the approved active version of `02-technical-design*.md`
-- `review` takes `us.md` and the active versions of `refinement`, `technical_design`, and `implementation`
-- `release_approval` and `pr_preparation` take the active version of `04-review.md` and branch metadata
+- `review` takes `us.md` and the active versions of `refinement`, `technical-design`, and `implementation`
+- `release-approval` and `pr-preparation` take the active version of `04-review.md` and branch metadata
 
 ```text
 .specs/
   us/
-    us.<us-id>/
-      us.md
-      state.yaml
-      timeline.md
-      phases/
-        01-spec.md
-        01-spec.ops.md
-        02-technical-design.md
-        02-technical-design.v02.md
-        03-implementation.md
-        04-review.md
-      branch.yaml
+    <category>/
+      US-0001/
+        us.md
+        clarification.md
+        state.yaml
+        runtime.yaml
+        timeline.md
+        branch.yaml
+        context/
+        attachments/
+        restarts/
+        phases/
+          00-clarification.md
+          01-spec.md
+          01-spec.ops.md
+          02-technical-design.md
+          02-technical-design.v02.md
+          03-implementation.md
+          04-review.md
 ```
 
 Location rule:
 
-- each user story lives under `.specs/us/us.<us-id>/`
+- each user story lives under `.specs/us/<category>/<US-ID>/`
 - this convention prioritizes visibility at the workspace root and clear separation from product code
 - `timeline.md` is the mandatory audit trail for who acted, when it happened, and which phase was affected
 
@@ -310,28 +364,11 @@ Location rule:
 ```yaml
 usId: US-0001
 workflowId: canonical-v1
-status: active
-currentPhase: refinement
+status: waiting-user
+currentPhase: clarification
 sourceHash: sha256:...
-activeArtifacts:
-  refinement: phases/01-spec.md
-  technicalDesign: phases/02-technical-design.md
-  implementation: phases/03-implementation.md
-  review: phases/04-review.md
 approvedPhases:
-  - refinement
-phaseStates:
-  refinement: waiting_user
-  technicalDesign: pending
-  implementation: pending
-  review: pending
-  releaseApproval: pending
-  prPreparation: pending
-metrics:
-  regressionCount: 0
-  manualInterventionCount: 0
-  reviewFailCount: 0
-  reviewPassCount: 0
+  []
 ```
 
 ## Minimum Events
@@ -354,5 +391,4 @@ metrics:
 ## Open Decisions
 
 - whether `timeline` will remain markdown or also migrate to `yaml`
-- whether `capture` should be modeled as a persisted phase or as workflow bootstrap
 - whether review should incorporate automated validations in addition to agent analysis
