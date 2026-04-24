@@ -320,9 +320,7 @@ class WorkflowPanelController {
     const usageSummary = result.usage
       ? ` Tokens in/out/total: ${result.usage.inputTokens}/${result.usage.outputTokens}/${result.usage.totalTokens}.`
       : "";
-    const executionSummary = result.execution
-      ? ` Model: ${result.execution.profileName ? `${result.execution.profileName} / ` : ""}${result.execution.model}.`
-      : "";
+    const executionSummary = this.formatExecutionSummary(result.execution);
     appendSpecForgeLog(
       `Workflow '${this.summary.usId}' advanced from '${previousPhase}' to '${result.currentPhase}' with status '${result.status}'.${executionSummary}${usageSummary}`
     );
@@ -361,7 +359,7 @@ class WorkflowPanelController {
     const previousPhase = this.summary.currentPhase;
     const result = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, normalizedPrompt, getCurrentActor());
     appendSpecForgeLog(
-      `Workflow '${this.summary.usId}' regenerated phase '${result.currentPhase}' after human input.${result.execution ? ` Model: ${result.execution.profileName ? `${result.execution.profileName} / ` : ""}${result.execution.model}.` : ""}`
+      `Workflow '${this.summary.usId}' regenerated phase '${result.currentPhase}' after human input.${this.formatExecutionSummary(result.execution)}`
     );
     this.logExecutionWarnings(result.execution);
     this.summary = {
@@ -415,6 +413,43 @@ class WorkflowPanelController {
     for (const warning of execution.warnings) {
       appendSpecForgeLog(`Workflow '${this.summary.usId}' system prompt warning: ${warning}`);
     }
+  }
+
+  private formatExecutionSummary(
+    execution?: { readonly model: string; readonly profileName: string | null } | null
+  ): string {
+    if (!execution) {
+      return "";
+    }
+
+    const settings = getSpecForgeSettings();
+    const configuredModel = execution.profileName
+      ? settings.modelProfiles.find((profile) => profile.name === execution.profileName)?.model?.trim() ?? ""
+      : "";
+    const normalizedExecutionModel = execution.model.trim();
+    const normalizedProfileName = execution.profileName?.trim().toLowerCase() ?? "";
+    const suspiciousExecutionModel = normalizedExecutionModel.length === 0
+      || normalizedExecutionModel.toLowerCase() === normalizedProfileName
+      || (configuredModel.length > 0 && normalizedExecutionModel.toLowerCase() !== configuredModel.toLowerCase());
+    const displayModel = configuredModel.length > 0
+      ? configuredModel
+      : suspiciousExecutionModel
+        ? ""
+        : normalizedExecutionModel;
+
+    if (execution.profileName?.trim() && displayModel) {
+      return ` Model: ${execution.profileName} / ${displayModel}.`;
+    }
+
+    if (execution.profileName?.trim()) {
+      return ` Model: ${execution.profileName}.`;
+    }
+
+    if (displayModel) {
+      return ` Model: ${displayModel}.`;
+    }
+
+    return "";
   }
 
   private async attachFilesAsync(kind: "context" | "attachment"): Promise<void> {
@@ -787,6 +822,10 @@ class WorkflowPanelController {
       contextSuggestions,
       settingsConfigured: settingsStatus.executionConfigured,
       settingsMessage: settingsStatus.message,
+      modelProfiles: settings.modelProfiles.map((profile) => ({
+        name: profile.name,
+        model: profile.model
+      })),
       phaseModelAssignments: settings.effectivePhaseModelAssignments,
       runtimeVersion,
       executionPhaseId: this.transientExecutionPhaseId,

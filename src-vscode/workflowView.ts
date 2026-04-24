@@ -221,9 +221,45 @@ function buildPhaseIterations(workflow: UserStoryWorkflowDetails, phaseId: strin
   return iterations;
 }
 
-function formatExecutionLabel(execution: { model: string; profileName?: string | null } | null | undefined): string | null {
-  if (!execution?.model) {
-    return null;
+function normalizeExecutionIdentity(value: string | null | undefined): string {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function isSuspiciousExecutionModel(
+  execution: { model: string; profileName?: string | null } | null | undefined,
+  options?: {
+    readonly actor?: string | null;
+    readonly configuredModel?: string | null;
+  }
+): boolean {
+  const model = normalizeExecutionIdentity(execution?.model);
+  if (!model) {
+    return false;
+  }
+
+  const actor = normalizeExecutionIdentity(options?.actor);
+  const profileName = normalizeExecutionIdentity(execution?.profileName);
+  const configuredModel = normalizeExecutionIdentity(options?.configuredModel);
+
+  return model === actor
+    || model === profileName
+    || (configuredModel.length > 0 && model !== configuredModel);
+}
+
+function formatExecutionLabel(
+  execution: { model: string; profileName?: string | null } | null | undefined,
+  options?: {
+    readonly actor?: string | null;
+    readonly configuredModel?: string | null;
+  }
+): string | null {
+  const configuredModel = options?.configuredModel?.trim() ?? "";
+  if (execution?.profileName && configuredModel.length > 0) {
+    return `${execution.profileName} / ${configuredModel}`;
+  }
+
+  if (!execution?.model || isSuspiciousExecutionModel(execution, options)) {
+    return execution?.profileName?.trim() || configuredModel || null;
   }
 
   return execution.profileName
@@ -233,20 +269,36 @@ function formatExecutionLabel(execution: { model: string; profileName?: string |
 
 function findLatestPhaseExecutionLabel(
   workflow: UserStoryWorkflowDetails,
-  phaseId: string
+  phaseId: string,
+  state: WorkflowViewState
 ): string | null {
   for (const event of [...workflow.events].reverse()) {
     if (event.phase !== phaseId) {
       continue;
     }
 
-    const executionLabel = formatExecutionLabel(event.execution);
+    const executionLabel = formatExecutionLabel(event.execution, {
+      actor: event.actor,
+      configuredModel: findConfiguredModelForProfile(state, event.execution?.profileName)
+    });
     if (executionLabel) {
       return executionLabel;
     }
   }
 
   return null;
+}
+
+function findConfiguredModelForProfile(
+  state: WorkflowViewState,
+  profileName: string | null | undefined
+): string | null {
+  if (!profileName) {
+    return null;
+  }
+
+  const model = state.modelProfiles?.find((profile) => profile.name === profileName)?.model?.trim();
+  return model && model.length > 0 ? model : null;
 }
 
 function buildPhaseSpecificSections(
@@ -428,8 +480,14 @@ function buildExecutionOverlay(
         ]
       };
 
-  const overlayPhaseModelLabel = findLatestPhaseExecutionLabel(workflow, overlayPhase.phaseId)
-    ?? phaseModelProfileLabel(overlayPhase, state);
+  const overlayPhaseProfileLabel = phaseModelProfileLabel(overlayPhase, state);
+  const overlayConfiguredModel = findConfiguredModelForProfile(state, overlayPhaseProfileLabel);
+  const overlayPhaseModelLabel = findLatestPhaseExecutionLabel(workflow, overlayPhase.phaseId, state)
+    ?? formatExecutionLabel(
+      overlayConfiguredModel ? { model: overlayConfiguredModel, profileName: overlayPhaseProfileLabel } : null,
+      { configuredModel: overlayConfiguredModel }
+    )
+    ?? overlayPhaseProfileLabel;
 
   return `
     <div
@@ -722,7 +780,7 @@ export function buildWorkflowHtml(
     0
   );
   const selectedPhaseIterationCount = selectedPhaseMetricEvents.length;
-  const selectedPhaseExecutionLabel = findLatestPhaseExecutionLabel(workflow, selectedPhase.phaseId);
+  const selectedPhaseExecutionLabel = findLatestPhaseExecutionLabel(workflow, selectedPhase.phaseId, state);
   const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
   const canRewindSelectedPhase = rewindablePhaseIds.has(selectedPhase.phaseId);
   const phaseSpecificSections = buildPhaseSpecificSections(
@@ -815,7 +873,13 @@ export function buildWorkflowHtml(
                 <span class="iteration-rail__meta">
                   ${escapeHtml(iteration.code)}
                   ${iteration.actor ? ` · ${escapeHtml(iteration.actor)}` : ""}
-                  ${formatExecutionLabel(iteration.execution) ? ` · ${escapeHtml(formatExecutionLabel(iteration.execution) ?? "")}` : ""}
+                  ${formatExecutionLabel(iteration.execution, {
+                    actor: iteration.actor,
+                    configuredModel: findConfiguredModelForProfile(state, iteration.execution?.profileName)
+                  }) ? ` · ${escapeHtml(formatExecutionLabel(iteration.execution, {
+                    actor: iteration.actor,
+                    configuredModel: findConfiguredModelForProfile(state, iteration.execution?.profileName)
+                  }) ?? "")}` : ""}
                   ${iteration.usage ? ` · ${escapeHtml(`${formatMetricNumber(iteration.usage.inputTokens)}/${formatMetricNumber(iteration.usage.outputTokens)} tok`)}` : ""}
                   ${iteration.durationMs !== null ? ` · ${escapeHtml(formatDuration(iteration.durationMs))}` : ""}
                 </span>
@@ -835,7 +899,13 @@ export function buildWorkflowHtml(
           <span class="badge">${escapeHtml(selectedIteration.code)}</span>
           <span class="badge">${escapeHtml(formatUtcTimestamp(selectedIteration.timestampUtc))}</span>
           ${selectedIteration.actor ? `<span class="badge">${escapeHtml(selectedIteration.actor)}</span>` : ""}
-          ${formatExecutionLabel(selectedIteration.execution) ? `<span class="badge">model ${escapeHtml(formatExecutionLabel(selectedIteration.execution) ?? "")}</span>` : ""}
+          ${formatExecutionLabel(selectedIteration.execution, {
+            actor: selectedIteration.actor,
+            configuredModel: findConfiguredModelForProfile(state, selectedIteration.execution?.profileName)
+          }) ? `<span class="badge">model ${escapeHtml(formatExecutionLabel(selectedIteration.execution, {
+            actor: selectedIteration.actor,
+            configuredModel: findConfiguredModelForProfile(state, selectedIteration.execution?.profileName)
+          }) ?? "")}</span>` : ""}
           ${selectedIteration.usage ? `<span class="badge">in/out ${escapeHtml(`${formatMetricNumber(selectedIteration.usage.inputTokens)}/${formatMetricNumber(selectedIteration.usage.outputTokens)}`)}</span>` : ""}
           ${selectedIteration.usage ? `<span class="badge">total ${escapeHtml(formatMetricNumber(selectedIteration.usage.totalTokens))}</span>` : ""}
           ${selectedIteration.durationMs !== null ? `<span class="badge">${escapeHtml(formatDuration(selectedIteration.durationMs))}</span>` : ""}
@@ -975,7 +1045,13 @@ export function buildWorkflowHtml(
         <div class="audit-body">${escapeHtml(event.summary ?? "")}</div>
         ${event.usage || event.durationMs !== null || event.execution
           ? `<div class="audit-metrics">
-              ${formatExecutionLabel(event.execution) ? `<span class="badge">model ${escapeHtml(formatExecutionLabel(event.execution) ?? "")}</span>` : ""}
+              ${formatExecutionLabel(event.execution, {
+                actor: event.actor,
+                configuredModel: findConfiguredModelForProfile(state, event.execution?.profileName)
+              }) ? `<span class="badge">model ${escapeHtml(formatExecutionLabel(event.execution, {
+                actor: event.actor,
+                configuredModel: findConfiguredModelForProfile(state, event.execution?.profileName)
+              }) ?? "")}</span>` : ""}
               ${event.usage ? `<span class="badge">in/out ${escapeHtml(`${formatMetricNumber(event.usage.inputTokens)}/${formatMetricNumber(event.usage.outputTokens)}`)}</span>` : ""}
               ${event.usage ? `<span class="badge">total ${escapeHtml(formatMetricNumber(event.usage.totalTokens))}</span>` : ""}
               ${event.durationMs !== null ? `<span class="badge">${escapeHtml(formatDuration(event.durationMs))}</span>` : ""}

@@ -8,6 +8,10 @@ export interface WorkflowViewState {
   readonly contextSuggestions: readonly SuggestedContextFile[];
   readonly settingsConfigured: boolean;
   readonly settingsMessage: string | null;
+  readonly modelProfiles?: readonly {
+    readonly name: string;
+    readonly model: string;
+  }[];
   readonly phaseModelAssignments?: {
     readonly defaultProfileName: string | null;
     readonly captureProfileName: string | null;

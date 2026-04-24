@@ -288,9 +288,7 @@ class WorkflowPanelController {
         const usageSummary = result.usage
             ? ` Tokens in/out/total: ${result.usage.inputTokens}/${result.usage.outputTokens}/${result.usage.totalTokens}.`
             : "";
-        const executionSummary = result.execution
-            ? ` Model: ${result.execution.profileName ? `${result.execution.profileName} / ` : ""}${result.execution.model}.`
-            : "";
+        const executionSummary = this.formatExecutionSummary(result.execution);
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' advanced from '${previousPhase}' to '${result.currentPhase}' with status '${result.status}'.${executionSummary}${usageSummary}`);
         this.logExecutionWarnings(result.execution);
         this.summary = {
@@ -323,7 +321,7 @@ class WorkflowPanelController {
         }
         const previousPhase = this.summary.currentPhase;
         const result = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, normalizedPrompt, (0, userActor_1.getCurrentActor)());
-        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regenerated phase '${result.currentPhase}' after human input.${result.execution ? ` Model: ${result.execution.profileName ? `${result.execution.profileName} / ` : ""}${result.execution.model}.` : ""}`);
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regenerated phase '${result.currentPhase}' after human input.${this.formatExecutionSummary(result.execution)}`);
         this.logExecutionWarnings(result.execution);
         this.summary = {
             ...this.summary,
@@ -365,6 +363,35 @@ class WorkflowPanelController {
         for (const warning of execution.warnings) {
             (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' system prompt warning: ${warning}`);
         }
+    }
+    formatExecutionSummary(execution) {
+        if (!execution) {
+            return "";
+        }
+        const settings = (0, extensionSettings_1.getSpecForgeSettings)();
+        const configuredModel = execution.profileName
+            ? settings.modelProfiles.find((profile) => profile.name === execution.profileName)?.model?.trim() ?? ""
+            : "";
+        const normalizedExecutionModel = execution.model.trim();
+        const normalizedProfileName = execution.profileName?.trim().toLowerCase() ?? "";
+        const suspiciousExecutionModel = normalizedExecutionModel.length === 0
+            || normalizedExecutionModel.toLowerCase() === normalizedProfileName
+            || (configuredModel.length > 0 && normalizedExecutionModel.toLowerCase() !== configuredModel.toLowerCase());
+        const displayModel = configuredModel.length > 0
+            ? configuredModel
+            : suspiciousExecutionModel
+                ? ""
+                : normalizedExecutionModel;
+        if (execution.profileName?.trim() && displayModel) {
+            return ` Model: ${execution.profileName} / ${displayModel}.`;
+        }
+        if (execution.profileName?.trim()) {
+            return ` Model: ${execution.profileName}.`;
+        }
+        if (displayModel) {
+            return ` Model: ${displayModel}.`;
+        }
+        return "";
     }
     async attachFilesAsync(kind) {
         const selection = await vscode.window.showOpenDialog({
@@ -649,6 +676,10 @@ class WorkflowPanelController {
             contextSuggestions,
             settingsConfigured: settingsStatus.executionConfigured,
             settingsMessage: settingsStatus.message,
+            modelProfiles: settings.modelProfiles.map((profile) => ({
+                name: profile.name,
+                model: profile.model
+            })),
             phaseModelAssignments: settings.effectivePhaseModelAssignments,
             runtimeVersion,
             executionPhaseId: this.transientExecutionPhaseId,
