@@ -1002,7 +1002,8 @@ export function buildWorkflowAuditHtml(
   <style>
     :root {
       color-scheme: light dark;
-      font-family: "Avenir Next", "Segoe UI", ui-sans-serif, sans-serif;
+      font-family: var(--vscode-font-family, "Segoe UI", ui-sans-serif, sans-serif);
+      font-size: calc(var(--vscode-font-size, 13px) * 0.96);
     }
     * {
       box-sizing: border-box;
@@ -1522,7 +1523,8 @@ export function buildWorkflowHtml(
   <style>
     :root {
       color-scheme: light dark;
-      font-family: "Avenir Next", "Segoe UI", ui-sans-serif, sans-serif;
+      font-family: var(--vscode-font-family, "Segoe UI", ui-sans-serif, sans-serif);
+      font-size: calc(var(--vscode-font-size, 13px) * 0.96);
       --accent: #72f1b8;
       --accent-strong: #1fd89b;
       --accent-soft: rgba(114, 241, 184, 0.16);
@@ -1635,7 +1637,7 @@ export function buildWorkflowHtml(
     }
     h1 {
       margin: 0;
-      font-size: clamp(1.7rem, 3vw, 2.55rem);
+      font-size: clamp(1.4rem, 2.2vw, 1.9rem);
       line-height: 1.05;
       max-width: 820px;
     }
@@ -1773,7 +1775,7 @@ export function buildWorkflowHtml(
       bottom: 0;
       left: 0;
       padding-left: 0;
-      font-size: clamp(1.38rem, 2.9vw, 2.3rem);
+      font-size: clamp(1.16rem, 2.2vw, 1.78rem);
       font-weight: 800;
       line-height: 1.05;
       color: #f7fbff;
@@ -2100,7 +2102,7 @@ export function buildWorkflowHtml(
       position: relative;
       z-index: 2;
       margin: 0 0 6px;
-      font-size: 1.1rem;
+      font-size: 1rem;
     }
     .panel-copy {
       position: relative;
@@ -2300,7 +2302,7 @@ export function buildWorkflowHtml(
       min-height: ${phaseNodeHeight}px;
       border-radius: 26px;
       border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 16px 18px;
+      padding: 14px 16px;
       color: inherit;
       background: linear-gradient(180deg, rgba(22, 28, 38, 0.94), rgba(10, 14, 20, 0.98));
       text-align: left;
@@ -2509,19 +2511,19 @@ export function buildWorkflowHtml(
       white-space: nowrap;
     }
     .phase-index {
-      width: 34px;
-      height: 34px;
+      width: 30px;
+      height: 30px;
       border-radius: 12px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       background: rgba(255, 255, 255, 0.08);
-      font-size: 0.9rem;
+      font-size: 0.82rem;
       font-weight: 700;
     }
     .phase-pause-toggle {
-      width: 34px;
-      height: 34px;
+      width: 30px;
+      height: 30px;
       margin-top: 2px;
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 12px;
@@ -2552,8 +2554,8 @@ export function buildWorkflowHtml(
       box-shadow: none;
     }
     .phase-pause-toggle svg {
-      width: 16px;
-      height: 16px;
+      width: 14px;
+      height: 14px;
       fill: currentColor;
     }
     .phase-pause-toggle--armed {
@@ -2581,7 +2583,7 @@ export function buildWorkflowHtml(
     }
     .phase-node h3 {
       margin: 14px 0 4px;
-      font-size: 1rem;
+      font-size: 0.92rem;
       position: relative;
       z-index: 1;
     }
@@ -2603,7 +2605,7 @@ export function buildWorkflowHtml(
     }
     .phase-slug {
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
-      font-size: 0.76rem;
+      font-size: 0.72rem;
       opacity: 0.66;
       position: relative;
       z-index: 1;
@@ -2619,7 +2621,7 @@ export function buildWorkflowHtml(
     .phase-tag {
       border-radius: 999px;
       padding: 4px 8px;
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       background: rgba(255, 255, 255, 0.07);
       color: rgba(255, 255, 255, 0.84);
     }
@@ -3727,6 +3729,9 @@ export function buildWorkflowHtml(
       }
     }
     @media (max-width: 1160px) {
+      :root {
+        font-size: calc(var(--vscode-font-size, 13px) * 0.92);
+      }
       .layout-main {
         grid-template-columns: 1fr;
       }
@@ -3736,6 +3741,21 @@ export function buildWorkflowHtml(
       .graph-stage, .phase-graph {
         min-width: var(--graph-width-desktop, ${desktopGraphWidth}px);
         min-height: var(--graph-height-desktop, ${desktopGraphHeight}px);
+      }
+    }
+    @media (max-width: 1500px) and (min-width: 761px) {
+      :root {
+        font-size: calc(var(--vscode-font-size, 13px) * 0.93);
+      }
+      .hero, .graph-panel, .detail-panel {
+        padding: 18px;
+      }
+      .shell {
+        padding: 16px;
+        gap: 16px;
+      }
+      .layout-main {
+        gap: 16px;
       }
     }
     @media (max-width: 760px) {
