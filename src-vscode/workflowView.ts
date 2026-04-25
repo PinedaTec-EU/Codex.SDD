@@ -1264,7 +1264,7 @@ export function buildWorkflowHtml(
     : "";
   const touchSummary = selectedPhaseTouches.total > 0
     ? `
-      <div class="token-summary">
+      <div class="token-summary token-summary--touches">
         <div class="token-summary__header">Touches</div>
         <div class="token-summary__rows">
           ${renderTokenSummaryRow("Total", String(selectedPhaseTouches.total))}
@@ -1279,7 +1279,7 @@ export function buildWorkflowHtml(
     : "";
   const tokenSummary = selectedPhaseMetricEvents.some((event) => event.usage)
     ? `
-      <div class="token-summary">
+      <div class="token-summary token-summary--wide">
         <div class="token-summary__header">Tokens</div>
         <div class="token-summary__rows">
           ${renderTokenSummaryRow("Input / Output", `${formatMetricNumber(selectedPhaseUsageAggregate.inputTokens)} / ${formatMetricNumber(selectedPhaseUsageAggregate.outputTokens)}`)}
@@ -1769,6 +1769,9 @@ export function buildWorkflowHtml(
       border: 1px solid rgba(255, 255, 255, 0.08);
       background: linear-gradient(180deg, rgba(34, 39, 47, 0.92), rgba(20, 24, 30, 0.98));
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+    .token-summary--wide {
+      grid-column: 1 / -1;
     }
     .token-summary__header {
       margin-bottom: 10px;
