@@ -193,7 +193,10 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /workflow-reject-textarea/);
   assert.match(html, /data-submit-reject/);
   assert.match(html, /specforge-ai:auto-scroll-phase:/);
-  assert.match(html, /scrollIntoView/);
+  assert.match(html, /centerFocusedPhaseInGraph/);
+  assert.match(html, /const selectedPhaseNode = document\.querySelector\("\.phase-node\.selected"\);/);
+  assert.match(html, /focusedPhaseNode\.offsetTop/);
+  assert.match(html, /graphPanel\.scrollTop = Math\.max\(0, targetTop\)/);
 });
 
 test("buildWorkflowHtml shows rewind on prior phase cards and pause only on later phases", () => {
@@ -3630,16 +3633,25 @@ test("buildWorkflowHtml keeps the hero header above a dedicated scrolling body",
   assert.match(html, /\.shell \{[\s\S]*grid-template-rows: auto minmax\(0, 1fr\);[\s\S]*overflow: hidden;/);
   assert.match(html, /\.shell-body \{[\s\S]*overflow: hidden;/);
   assert.match(html, /<div class="shell-body">[\s\S]*<section class="layout">[\s\S]*<div class="layout-main">/);
+  assert.match(html, /\.layout-main > \* \{[\s\S]*height: 100%;/);
+  assert.match(html, /\.detail-panel \{[\s\S]*display: block;[\s\S]*height: 100%;[\s\S]*overflow-y: auto;/);
   assert.match(html, /\.hero \{[\s\S]*position: relative;[\s\S]*z-index: 30;/);
   assert.match(html, /const shellBody = document\.querySelector\("\.shell-body"\);/);
   assert.match(html, /const graphPanel = document\.querySelector\(/);
   assert.match(html, /const detailPanel = document\.querySelector\(/);
+  assert.match(html, /const centerFocusedPhaseInGraph = \(\) => \{/);
+  assert.match(html, /focusedPhaseNode\.offsetTop/);
   assert.match(html, /graphScrollTop:/);
   assert.match(html, /detailScrollTop:/);
   assert.match(html, /graphPanel\.addEventListener\("scroll"/);
   assert.match(html, /detailPanel\.addEventListener\("scroll"/);
   assert.match(html, /data-audit-panel/);
   assert.match(html, /data-audit-toggle/);
-  assert.match(html, /setAuditCollapsed/);
-  assert.match(html, /persistWorkflowScrollState\(\);\s+vscode\.postMessage/);
+  assert.match(html, /<details class="panel audit-panel" data-audit-panel>/);
+  assert.match(html, /class="audit-panel__body" data-audit-body/);
+  assert.match(html, /\.audit-panel__body \{[\s\S]*resize: vertical;/);
+  assert.match(html, /<details class="panel audit-panel" data-audit-panel/);
+  assert.match(html, /syncAuditUi/);
+  assert.match(html, /auditPanel\.addEventListener\("toggle"/);
+  assert.match(html, /persistWorkflowScrollState\(\);[\s\S]*vscode\.postMessage\(\{/);
 });

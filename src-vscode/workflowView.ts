@@ -1316,6 +1316,7 @@ export function buildWorkflowHtml(
     }
     .shell-body {
       min-height: 0;
+      height: 100%;
       overflow: hidden;
       padding-bottom: 6px;
     }
@@ -1796,7 +1797,7 @@ export function buildWorkflowHtml(
       display: grid;
       grid-template-rows: minmax(0, 1fr) auto;
       gap: 18px;
-      min-height: 100%;
+      min-height: 0;
       height: 100%;
     }
     .layout-main {
@@ -1804,6 +1805,13 @@ export function buildWorkflowHtml(
       grid-template-columns: minmax(420px, 1.15fr) minmax(420px, 1fr);
       gap: 18px;
       min-height: 0;
+      height: 100%;
+      align-items: stretch;
+      overflow: hidden;
+    }
+    .layout-main > * {
+      min-height: 0;
+      height: 100%;
     }
     .graph-panel {
       padding: 22px;
@@ -2391,12 +2399,15 @@ export function buildWorkflowHtml(
     }
     .detail-panel {
       padding: 22px;
-      display: grid;
-      gap: 18px;
-      align-content: start;
+      display: block;
       min-height: 0;
+      height: 100%;
+      min-width: 0;
       overflow-y: auto;
       overscroll-behavior: contain;
+    }
+    .detail-panel > * + * {
+      margin-top: 18px;
     }
     .audit-panel {
       padding: 20px 22px 22px;
@@ -2404,12 +2415,23 @@ export function buildWorkflowHtml(
       gap: 14px;
       align-content: start;
     }
+    .audit-panel:not([open]) {
+      padding-bottom: 16px;
+    }
+    .audit-panel:not([open]) .audit-panel__body {
+      display: none;
+    }
     .audit-panel__header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
       flex-wrap: wrap;
+      cursor: pointer;
+      list-style: none;
+    }
+    .audit-panel__header::-webkit-details-marker {
+      display: none;
     }
     .audit-panel__toggle {
       display: inline-flex;
@@ -2435,8 +2457,17 @@ export function buildWorkflowHtml(
       transform: rotate(-135deg) translateY(-1px);
       transition: transform 140ms ease;
     }
-    .audit-panel[data-collapsed="true"] .audit-panel__toggle-caret {
+    .audit-panel:not([open]) .audit-panel__toggle-caret {
       transform: rotate(45deg) translateY(-1px);
+    }
+    .audit-panel__body {
+      min-height: 132px;
+      height: 180px;
+      max-height: 38vh;
+      overflow: auto;
+      resize: vertical;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 14px;
     }
     .detail-card-shell {
       position: relative;
@@ -3369,9 +3400,7 @@ export function buildWorkflowHtml(
       display: flex;
       flex-direction: column;
       gap: 12px;
-      max-height: 320px;
-      overflow: auto;
-      overscroll-behavior: contain;
+      min-height: 100%;
       padding-right: 4px;
     }
     .audit-row {
@@ -3718,70 +3747,187 @@ export function buildWorkflowHtml(
           </section>
         </main>
         </div>
-        <section class="panel audit-panel" data-audit-panel data-collapsed="${state.auditCollapsed ? "true" : "false"}">
-          <div class="audit-panel__header">
+        <details class="panel audit-panel" data-audit-panel${state.auditCollapsed !== false ? "" : " open"}>
+          <summary class="audit-panel__header" data-audit-toggle>
             <div>
               <h2 class="panel-title">Audit Stream</h2>
               <p class="panel-copy">Workflow-level execution history, detached from the currently selected phase detail.</p>
             </div>
-            <button class="audit-panel__toggle" type="button" data-audit-toggle aria-expanded="${state.auditCollapsed ? "false" : "true"}">
-              <span data-audit-toggle-label>${state.auditCollapsed ? "Show Audit Stream" : "Hide Audit Stream"}</span>
+            <span class="audit-panel__toggle" aria-hidden="true">
+              <span data-audit-toggle-label>${state.auditCollapsed !== false ? "Show Audit Stream" : "Hide Audit Stream"}</span>
               <span class="audit-panel__toggle-caret" aria-hidden="true"></span>
-            </button>
-          </div>
-          <div data-audit-body${state.auditCollapsed ? " hidden" : ""}>
+            </span>
+          </summary>
+          <div class="audit-panel__body" data-audit-body>
             <div class="audit-stream">${auditRows}</div>
           </div>
-        </section>
+        </details>
       </section>
     </div>
   </div>
   <script>
     const vscode = acquireVsCodeApi();
+    window.addEventListener("error", (event) => {
+      try {
+        vscode.postMessage({
+          command: "webviewClientError",
+          detail: "error:" + (event.message ?? "unknown")
+        });
+      } catch {
+        // Ignore reporting failures inside the error reporter itself.
+      }
+    });
+    window.addEventListener("unhandledrejection", (event) => {
+      try {
+        const reason = event.reason instanceof Error
+          ? event.reason.message
+          : String(event.reason ?? "unknown");
+        vscode.postMessage({
+          command: "webviewClientError",
+          detail: "unhandledrejection:" + reason
+        });
+      } catch {
+        // Ignore reporting failures inside the rejection reporter itself.
+      }
+    });
     const viewState = vscode.getState() ?? {};
     const workflowShell = document.querySelector("[data-workflow-shell]");
     const shellBody = document.querySelector(".shell-body");
-    const graphPanel = document.querySelector("[data-panel-scroll=\"graph\"]");
-    const detailPanel = document.querySelector("[data-panel-scroll=\"detail\"]");
+    const graphPanel = document.querySelector('[data-panel-scroll="graph"]');
+    const detailPanel = document.querySelector('[data-panel-scroll="detail"]');
     const auditPanel = document.querySelector("[data-audit-panel]");
     const auditToggle = document.querySelector("[data-audit-toggle]");
     const auditToggleLabel = document.querySelector("[data-audit-toggle-label]");
     const auditBody = document.querySelector("[data-audit-body]");
+    const selectedPhaseNode = document.querySelector(".phase-node.selected");
     const currentPhaseNode = document.querySelector(".phase-node.phase-node--current");
-    const currentPhaseId = currentPhaseNode instanceof HTMLElement
-      ? currentPhaseNode.dataset.phaseId ?? ""
+    const focusedPhaseNode = selectedPhaseNode instanceof HTMLElement
+      ? selectedPhaseNode
+      : currentPhaseNode instanceof HTMLElement
+        ? currentPhaseNode
+        : null;
+    const focusedPhaseId = focusedPhaseNode instanceof HTMLElement
+      ? focusedPhaseNode.dataset.phaseId ?? ""
       : "";
+    const centerFocusedPhaseInGraph = () => {
+      if (!(graphPanel instanceof HTMLElement) || !(focusedPhaseNode instanceof HTMLElement) || !focusedPhaseId) {
+        return;
+      }
+
+      const targetTop = focusedPhaseNode.offsetTop - ((graphPanel.clientHeight - focusedPhaseNode.offsetHeight) / 2);
+      const targetLeft = focusedPhaseNode.offsetLeft - ((graphPanel.clientWidth - focusedPhaseNode.offsetWidth) / 2);
+      graphPanel.scrollTop = Math.max(0, targetTop);
+      graphPanel.scrollLeft = Math.max(0, targetLeft);
+    };
     const autoScrollStateKey = workflowShell instanceof HTMLElement
       ? "specforge-ai:auto-scroll-phase:" + (workflowShell.dataset.usId ?? "")
       : "";
-    if (currentPhaseNode instanceof HTMLElement && currentPhaseId && autoScrollStateKey) {
+    if (focusedPhaseNode instanceof HTMLElement && focusedPhaseId && autoScrollStateKey) {
       try {
         const previousPhaseId = window.sessionStorage.getItem(autoScrollStateKey) ?? "";
-        const bounds = currentPhaseNode.getBoundingClientRect();
-        const outsideComfortZone = bounds.top < window.innerHeight * 0.14 || bounds.bottom > window.innerHeight * 0.82;
-        if (previousPhaseId !== currentPhaseId && outsideComfortZone) {
+        const bounds = focusedPhaseNode.getBoundingClientRect();
+        const panelBounds = graphPanel instanceof HTMLElement ? graphPanel.getBoundingClientRect() : null;
+        const outsideComfortZone = panelBounds
+          ? bounds.top < panelBounds.top + (panelBounds.height * 0.14) || bounds.bottom > panelBounds.bottom - (panelBounds.height * 0.18)
+          : bounds.top < window.innerHeight * 0.14 || bounds.bottom > window.innerHeight * 0.82;
+        if (previousPhaseId !== focusedPhaseId && outsideComfortZone) {
           window.requestAnimationFrame(() => {
-            currentPhaseNode.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-              inline: "nearest"
-            });
+            centerFocusedPhaseInGraph();
           });
         }
-        window.sessionStorage.setItem(autoScrollStateKey, currentPhaseId);
+        window.requestAnimationFrame(() => centerFocusedPhaseInGraph());
+        window.setTimeout(() => centerFocusedPhaseInGraph(), 80);
+        window.sessionStorage.setItem(autoScrollStateKey, focusedPhaseId);
       } catch {
         // Best effort only. The workflow view still works without persisted scroll state.
       }
     }
     const persistWorkflowScrollState = () => {
-      vscode.setState({
-        ...viewState,
-        workflowScrollTop: shellBody instanceof HTMLElement ? shellBody.scrollTop : 0,
-        graphScrollTop: graphPanel instanceof HTMLElement ? graphPanel.scrollTop : 0,
-        detailScrollTop: detailPanel instanceof HTMLElement ? detailPanel.scrollTop : 0,
-        auditCollapsed: auditPanel instanceof HTMLElement ? auditPanel.dataset.collapsed === "true" : false
-      });
+      try {
+        vscode.setState({
+          ...viewState,
+          workflowScrollTop: shellBody instanceof HTMLElement ? shellBody.scrollTop : 0,
+          graphScrollTop: graphPanel instanceof HTMLElement ? graphPanel.scrollTop : 0,
+          detailScrollTop: detailPanel instanceof HTMLElement ? detailPanel.scrollTop : 0,
+          auditCollapsed: auditPanel instanceof HTMLElement ? !auditPanel.hasAttribute("open") : false
+        });
+      } catch {
+        // Do not let view-state persistence break workflow interaction.
+      }
     };
+    const postCommand = (element) => {
+      try {
+        persistWorkflowScrollState();
+      } catch {
+        // Ignore persistence issues and still dispatch the command.
+      }
+
+      try {
+        vscode.postMessage({
+          command: "webviewDispatch",
+          detail: "command=" + (element.dataset.command ?? "") + ",phase=" + (element.dataset.phaseId ?? "")
+        });
+        vscode.postMessage({
+          command: element.dataset.command,
+          phaseId: element.dataset.phaseId,
+          path: element.dataset.path,
+          kind: element.dataset.kind
+        });
+      } catch {
+        // Last-resort swallow to avoid breaking the webview script.
+      }
+    };
+    document.addEventListener("click", (event) => {
+      const commandElement = event.target instanceof Element
+        ? event.target.closest("[data-command]")
+        : null;
+      if (!(commandElement instanceof HTMLElement) || commandElement.dataset.command === "approve") {
+        return;
+      }
+
+      postCommand(commandElement);
+    }, true);
+    document.addEventListener("keydown", (event) => {
+      const commandElement = event.target instanceof Element
+        ? event.target.closest('[data-command="selectPhase"]')
+        : null;
+      if (!(commandElement instanceof HTMLElement)) {
+        return;
+      }
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+
+      event.preventDefault();
+      postCommand(commandElement);
+    });
+    for (const element of document.querySelectorAll("[data-command]")) {
+      if (!(element instanceof HTMLElement) || element.dataset.command === "approve") {
+        continue;
+      }
+
+      element.addEventListener("click", () => {
+        postCommand(element);
+      });
+      if (element.dataset.command === "selectPhase") {
+        element.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") {
+            return;
+          }
+
+          event.preventDefault();
+          postCommand(element);
+        });
+      }
+    }
+    try {
+      vscode.postMessage({
+        command: "webviewReady",
+        detail: "workflow interactive script initialized"
+      });
+    } catch {
+      // Ignore ready-report failures.
+    }
     if (graphPanel instanceof HTMLElement) {
       const restoredGraphScrollTop = typeof viewState.graphScrollTop === "number" ? viewState.graphScrollTop : null;
       if (restoredGraphScrollTop !== null && restoredGraphScrollTop > 0) {
@@ -3804,13 +3950,12 @@ export function buildWorkflowHtml(
         persistWorkflowScrollState();
       }, { passive: true });
     }
-    const setAuditCollapsed = (collapsed) => {
-      if (!(auditPanel instanceof HTMLElement) || !(auditToggle instanceof HTMLButtonElement) || !(auditBody instanceof HTMLElement)) {
+    const syncAuditUi = () => {
+      if (!(auditPanel instanceof HTMLElement) || !(auditToggle instanceof HTMLElement) || !(auditBody instanceof HTMLElement)) {
         return;
       }
 
-      auditPanel.dataset.collapsed = collapsed ? "true" : "false";
-      auditToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      const collapsed = !auditPanel.hasAttribute("open");
       if (auditToggleLabel instanceof HTMLElement) {
         auditToggleLabel.textContent = collapsed ? "Show Audit Stream" : "Hide Audit Stream";
       }
@@ -3818,10 +3963,10 @@ export function buildWorkflowHtml(
       viewState.auditCollapsed = collapsed;
       persistWorkflowScrollState();
     };
-    if (auditPanel instanceof HTMLElement && auditToggle instanceof HTMLButtonElement && auditBody instanceof HTMLElement) {
-      setAuditCollapsed(Boolean(viewState.auditCollapsed));
-      auditToggle.addEventListener("click", () => {
-        setAuditCollapsed(auditPanel.dataset.collapsed !== "true");
+    if (auditPanel instanceof HTMLElement && auditToggle instanceof HTMLElement && auditBody instanceof HTMLElement) {
+      syncAuditUi();
+      auditPanel.addEventListener("toggle", () => {
+        syncAuditUi();
       });
     }
 
@@ -3839,42 +3984,6 @@ export function buildWorkflowHtml(
       const copied = document.execCommand("copy");
       document.body.removeChild(textarea);
       return copied;
-    }
-    const postCommand = (element) => {
-      persistWorkflowScrollState();
-      vscode.postMessage({
-        command: element.dataset.command,
-        phaseId: element.dataset.phaseId,
-        path: element.dataset.path,
-        kind: element.dataset.kind
-      });
-    };
-    for (const element of document.querySelectorAll("[data-command]")) {
-      if (!(element instanceof HTMLElement) || element.dataset.command === "approve") {
-        continue;
-      }
-
-      element.addEventListener("click", (event) => {
-        const nestedCommand = event.target instanceof Element
-          ? event.target.closest("[data-command]")
-          : null;
-        if (nestedCommand && nestedCommand !== element) {
-          return;
-        }
-
-        postCommand(element);
-      });
-
-      if (element.dataset.command === "selectPhase") {
-        element.addEventListener("keydown", (event) => {
-          if (event.key !== "Enter" && event.key !== " ") {
-            return;
-          }
-
-          event.preventDefault();
-          postCommand(element);
-        });
-      }
     }
     for (const element of document.querySelectorAll("[data-copy-text]")) {
       if (!(element instanceof HTMLButtonElement)) {

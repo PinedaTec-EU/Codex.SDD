@@ -780,7 +780,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
             ? `<button class="workflow-action-button workflow-action-button--danger" type="button" data-open-review-regression-modal${reviewRegressionActionDisabled ? " disabled" : ""}>Send Back To Implementation</button>`
             : ""}
         ${shouldRenderApproveReviewAnywayAction
-            ? `<button class="workflow-action-button workflow-action-button--approve" type="button" data-open-review-approve-anyway-modal>Approve Anyway</button>`
+            ? `<button class="workflow-action-button workflow-action-button--attention" type="button" data-open-review-approve-anyway-modal>Approve Anyway</button>`
             : ""}
         ${workflow.controls.canContinue
             ? `<button class="workflow-action-button workflow-action-button--progress" data-command="continue"${playDisabled ? " disabled" : ""}>${continueActionLabel}</button>`
@@ -984,9 +984,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     </div>
   `;
     const playbackButtons = `
-    <button class="icon-button" data-command="rewind" data-phase-id="${(0, htmlEscape_1.escapeHtmlAttr)(selectedPhase.phaseId)}" aria-label="Rewind workflow to selected phase"${canRewindSelectedPhase ? "" : " disabled"}>
-      ${(0, icons_1.rewindIcon)()}
-    </button>
     <button class="icon-button icon-button--primary${shouldPulsePlay ? " icon-button--pulse" : ""}" data-command="play" aria-label="Play workflow"${playDisabled ? " disabled" : ""}>
       ${(0, icons_1.playIcon)()}
     </button>
@@ -997,9 +994,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       ${(0, icons_1.stopIcon)()}
     </button>
   `;
-    const debugResetButton = state.debugMode
-        ? `<button class="workflow-action-button workflow-action-button--danger" type="button" data-command="debugResetToCapture">Reset to Capture</button>`
-        : "";
+    const debugResetButton = "";
     const auditRows = workflow.events.length > 0
         ? workflow.events.map((event) => `
       <div class="audit-row">
@@ -1090,8 +1085,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .shell-body {
       min-height: 0;
-      overflow-y: auto;
-      overscroll-behavior: contain;
+      height: 100%;
+      overflow: hidden;
       padding-bottom: 6px;
     }
     .panel {
@@ -1569,14 +1564,30 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .layout {
       display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 18px;
+      min-height: 0;
+      height: 100%;
+    }
+    .layout-main {
+      display: grid;
       grid-template-columns: minmax(420px, 1.15fr) minmax(420px, 1fr);
       gap: 18px;
+      min-height: 0;
+      height: 100%;
+      align-items: stretch;
+      overflow: hidden;
+    }
+    .layout-main > * {
+      min-height: 0;
+      height: 100%;
     }
     .graph-panel {
       padding: 22px;
-      min-height: 720px;
+      min-height: 0;
       position: relative;
       overflow: auto;
+      overscroll-behavior: contain;
       background:
         linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
@@ -2058,6 +2069,11 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       color: rgba(255, 232, 152, 0.98);
       box-shadow: 0 0 0 8px rgba(255, 213, 90, 0.1);
     }
+    .phase-pause-toggle--rewind {
+      border-color: rgba(92, 181, 255, 0.3);
+      background: rgba(40, 92, 194, 0.22);
+      color: rgba(208, 226, 255, 0.96);
+    }
     .phase-node.phase-tone-active .phase-pause-toggle,
     .phase-node.phase-tone-paused .phase-pause-toggle {
       border-color: rgba(92, 181, 255, 0.3);
@@ -2152,9 +2168,75 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .detail-panel {
       padding: 22px;
+      display: block;
+      min-height: 0;
+      height: 100%;
+      min-width: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    .detail-panel > * + * {
+      margin-top: 18px;
+    }
+    .audit-panel {
+      padding: 20px 22px 22px;
       display: grid;
-      gap: 18px;
+      gap: 14px;
       align-content: start;
+    }
+    .audit-panel:not([open]) {
+      padding-bottom: 16px;
+    }
+    .audit-panel:not([open]) .audit-panel__body {
+      display: none;
+    }
+    .audit-panel__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      cursor: pointer;
+      list-style: none;
+    }
+    .audit-panel__header::-webkit-details-marker {
+      display: none;
+    }
+    .audit-panel__toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid rgba(92, 181, 255, 0.2);
+      background: rgba(255, 255, 255, 0.03);
+      color: #d7eaff;
+      border-radius: 999px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .audit-panel__toggle:hover {
+      border-color: rgba(92, 181, 255, 0.34);
+      background: rgba(92, 181, 255, 0.08);
+    }
+    .audit-panel__toggle-caret {
+      width: 10px;
+      height: 10px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(-135deg) translateY(-1px);
+      transition: transform 140ms ease;
+    }
+    .audit-panel:not([open]) .audit-panel__toggle-caret {
+      transform: rotate(45deg) translateY(-1px);
+    }
+    .audit-panel__body {
+      min-height: 132px;
+      height: 180px;
+      max-height: 38vh;
+      overflow: auto;
+      resize: vertical;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 14px;
     }
     .detail-card-shell {
       position: relative;
@@ -2820,6 +2902,17 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       background: var(--action-progress-bg-hover);
       box-shadow: 0 10px 24px var(--action-progress-shadow);
     }
+    .workflow-action-button.workflow-action-button--attention {
+      border-color: rgba(255, 213, 90, 0.34);
+      background: linear-gradient(180deg, rgba(110, 82, 19, 0.96), rgba(46, 33, 10, 0.98));
+      color: #ffe6a3;
+      box-shadow: 0 10px 22px rgba(70, 49, 10, 0.28);
+    }
+    .workflow-action-button.workflow-action-button--attention:hover {
+      border-color: rgba(255, 213, 90, 0.5);
+      background: linear-gradient(180deg, rgba(132, 98, 22, 0.98), rgba(58, 42, 12, 1));
+      box-shadow: 0 14px 28px rgba(85, 60, 12, 0.34);
+    }
     .workflow-action-button.workflow-action-button--danger {
       border-color: rgba(255, 139, 139, 0.3);
       background: linear-gradient(180deg, rgba(255, 139, 139, 0.2), rgba(54, 22, 22, 0.96));
@@ -3076,8 +3169,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       display: flex;
       flex-direction: column;
       gap: 12px;
-      max-height: 360px;
-      overflow: auto;
+      min-height: 100%;
       padding-right: 4px;
     }
     .audit-row {
@@ -3168,7 +3260,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       }
     }
     @media (max-width: 1160px) {
-      .layout {
+      .layout-main {
         grid-template-columns: 1fr;
       }
       .graph-panel {
@@ -3186,7 +3278,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       .shell-body {
         padding-bottom: 2px;
       }
-      .hero, .graph-panel, .detail-panel {
+      .hero, .graph-panel, .detail-panel, .audit-panel {
         padding: 16px;
       }
       .detail-metrics {
@@ -3352,7 +3444,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
           placeholder="Explain why the user is explicitly overriding the review gate and accepting release-approval risk."></textarea>
         <div class="detail-actions detail-actions--phase-input">
           <button class="workflow-action-button workflow-action-button--document" type="button" data-close-review-approve-anyway-modal>Cancel</button>
-          <button class="workflow-action-button workflow-action-button--approve" type="button" data-submit-review-approve-anyway disabled>Approve Anyway</button>
+          <button class="workflow-action-button workflow-action-button--attention" type="button" data-submit-review-approve-anyway disabled>Approve Anyway</button>
         </div>
       </div>
     </div>
@@ -3386,7 +3478,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     </section>
     <div class="shell-body">
       <section class="layout">
-        <aside class="panel graph-panel">
+        <div class="layout-main">
+        <aside class="panel graph-panel" data-panel-scroll="graph">
           <h2 class="panel-title">Workflow Constellation</h2>
           <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and audit context.</p>
           <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}${playbackState === "playing" || playbackState === "stopping" ? " graph-stage--overlay-blocking" : ""}">
@@ -3394,7 +3487,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
             ${phaseGraph}
           </div>
         </aside>
-        <main class="panel detail-panel">
+        <main class="panel detail-panel" data-panel-scroll="detail">
           <div class="detail-card-shell">
             ${detailActions}
             <section class="detail-card detail-card--phase-overview">
@@ -3421,68 +3514,229 @@ function buildWorkflowHtml(workflow, state, playbackState) {
             <h3>Phase Prompts</h3>
             ${promptSection}
           </section>
-          <section class="detail-card">
-            <h3>Audit Stream</h3>
-            <div class="audit-stream">${auditRows}</div>
-          </section>
         </main>
+        </div>
+        <details class="panel audit-panel" data-audit-panel${state.auditCollapsed !== false ? "" : " open"}>
+          <summary class="audit-panel__header" data-audit-toggle>
+            <div>
+              <h2 class="panel-title">Audit Stream</h2>
+              <p class="panel-copy">Workflow-level execution history, detached from the currently selected phase detail.</p>
+            </div>
+            <span class="audit-panel__toggle" aria-hidden="true">
+              <span data-audit-toggle-label>${state.auditCollapsed !== false ? "Show Audit Stream" : "Hide Audit Stream"}</span>
+              <span class="audit-panel__toggle-caret" aria-hidden="true"></span>
+            </span>
+          </summary>
+          <div class="audit-panel__body" data-audit-body>
+            <div class="audit-stream">${auditRows}</div>
+          </div>
+        </details>
       </section>
     </div>
   </div>
   <script>
     const vscode = acquireVsCodeApi();
+    window.addEventListener("error", (event) => {
+      try {
+        vscode.postMessage({
+          command: "webviewClientError",
+          detail: "error:" + (event.message ?? "unknown")
+        });
+      } catch {
+        // Ignore reporting failures inside the error reporter itself.
+      }
+    });
+    window.addEventListener("unhandledrejection", (event) => {
+      try {
+        const reason = event.reason instanceof Error
+          ? event.reason.message
+          : String(event.reason ?? "unknown");
+        vscode.postMessage({
+          command: "webviewClientError",
+          detail: "unhandledrejection:" + reason
+        });
+      } catch {
+        // Ignore reporting failures inside the rejection reporter itself.
+      }
+    });
     const viewState = vscode.getState() ?? {};
     const workflowShell = document.querySelector("[data-workflow-shell]");
     const shellBody = document.querySelector(".shell-body");
+    const graphPanel = document.querySelector('[data-panel-scroll="graph"]');
+    const detailPanel = document.querySelector('[data-panel-scroll="detail"]');
+    const auditPanel = document.querySelector("[data-audit-panel]");
+    const auditToggle = document.querySelector("[data-audit-toggle]");
+    const auditToggleLabel = document.querySelector("[data-audit-toggle-label]");
+    const auditBody = document.querySelector("[data-audit-body]");
+    const selectedPhaseNode = document.querySelector(".phase-node.selected");
     const currentPhaseNode = document.querySelector(".phase-node.phase-node--current");
-    const currentPhaseId = currentPhaseNode instanceof HTMLElement
-      ? currentPhaseNode.dataset.phaseId ?? ""
+    const focusedPhaseNode = selectedPhaseNode instanceof HTMLElement
+      ? selectedPhaseNode
+      : currentPhaseNode instanceof HTMLElement
+        ? currentPhaseNode
+        : null;
+    const focusedPhaseId = focusedPhaseNode instanceof HTMLElement
+      ? focusedPhaseNode.dataset.phaseId ?? ""
       : "";
+    const centerFocusedPhaseInGraph = () => {
+      if (!(graphPanel instanceof HTMLElement) || !(focusedPhaseNode instanceof HTMLElement) || !focusedPhaseId) {
+        return;
+      }
+
+      const targetTop = focusedPhaseNode.offsetTop - ((graphPanel.clientHeight - focusedPhaseNode.offsetHeight) / 2);
+      const targetLeft = focusedPhaseNode.offsetLeft - ((graphPanel.clientWidth - focusedPhaseNode.offsetWidth) / 2);
+      graphPanel.scrollTop = Math.max(0, targetTop);
+      graphPanel.scrollLeft = Math.max(0, targetLeft);
+    };
     const autoScrollStateKey = workflowShell instanceof HTMLElement
       ? "specforge-ai:auto-scroll-phase:" + (workflowShell.dataset.usId ?? "")
       : "";
-    if (currentPhaseNode instanceof HTMLElement && currentPhaseId && autoScrollStateKey) {
+    if (focusedPhaseNode instanceof HTMLElement && focusedPhaseId && autoScrollStateKey) {
       try {
         const previousPhaseId = window.sessionStorage.getItem(autoScrollStateKey) ?? "";
-        const bounds = currentPhaseNode.getBoundingClientRect();
-        const outsideComfortZone = bounds.top < window.innerHeight * 0.14 || bounds.bottom > window.innerHeight * 0.82;
-        if (previousPhaseId !== currentPhaseId && outsideComfortZone) {
+        const bounds = focusedPhaseNode.getBoundingClientRect();
+        const panelBounds = graphPanel instanceof HTMLElement ? graphPanel.getBoundingClientRect() : null;
+        const outsideComfortZone = panelBounds
+          ? bounds.top < panelBounds.top + (panelBounds.height * 0.14) || bounds.bottom > panelBounds.bottom - (panelBounds.height * 0.18)
+          : bounds.top < window.innerHeight * 0.14 || bounds.bottom > window.innerHeight * 0.82;
+        if (previousPhaseId !== focusedPhaseId && outsideComfortZone) {
           window.requestAnimationFrame(() => {
-            currentPhaseNode.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-              inline: "nearest"
-            });
+            centerFocusedPhaseInGraph();
           });
         }
-        window.sessionStorage.setItem(autoScrollStateKey, currentPhaseId);
+        window.requestAnimationFrame(() => centerFocusedPhaseInGraph());
+        window.setTimeout(() => centerFocusedPhaseInGraph(), 80);
+        window.sessionStorage.setItem(autoScrollStateKey, focusedPhaseId);
       } catch {
         // Best effort only. The workflow view still works without persisted scroll state.
       }
     }
     const persistWorkflowScrollState = () => {
-      if (!(shellBody instanceof HTMLElement)) {
+      try {
+        vscode.setState({
+          ...viewState,
+          workflowScrollTop: shellBody instanceof HTMLElement ? shellBody.scrollTop : 0,
+          graphScrollTop: graphPanel instanceof HTMLElement ? graphPanel.scrollTop : 0,
+          detailScrollTop: detailPanel instanceof HTMLElement ? detailPanel.scrollTop : 0,
+          auditCollapsed: auditPanel instanceof HTMLElement ? !auditPanel.hasAttribute("open") : false
+        });
+      } catch {
+        // Do not let view-state persistence break workflow interaction.
+      }
+    };
+    const postCommand = (element) => {
+      try {
+        persistWorkflowScrollState();
+      } catch {
+        // Ignore persistence issues and still dispatch the command.
+      }
+
+      try {
+        vscode.postMessage({
+          command: "webviewDispatch",
+          detail: "command=" + (element.dataset.command ?? "") + ",phase=" + (element.dataset.phaseId ?? "")
+        });
+        vscode.postMessage({
+          command: element.dataset.command,
+          phaseId: element.dataset.phaseId,
+          path: element.dataset.path,
+          kind: element.dataset.kind
+        });
+      } catch {
+        // Last-resort swallow to avoid breaking the webview script.
+      }
+    };
+    document.addEventListener("click", (event) => {
+      const commandElement = event.target instanceof Element
+        ? event.target.closest("[data-command]")
+        : null;
+      if (!(commandElement instanceof HTMLElement) || commandElement.dataset.command === "approve") {
         return;
       }
 
-      viewState.workflowScrollTop = shellBody.scrollTop;
-      vscode.setState({
-        ...viewState,
-        workflowScrollTop: shellBody.scrollTop
-      });
-    };
-    if (shellBody instanceof HTMLElement) {
-      const restoredWorkflowScrollTop = typeof viewState.workflowScrollTop === "number"
-        ? viewState.workflowScrollTop
+      postCommand(commandElement);
+    }, true);
+    document.addEventListener("keydown", (event) => {
+      const commandElement = event.target instanceof Element
+        ? event.target.closest('[data-command="selectPhase"]')
         : null;
-      if (restoredWorkflowScrollTop !== null && restoredWorkflowScrollTop > 0) {
-        window.requestAnimationFrame(() => {
-          shellBody.scrollTop = restoredWorkflowScrollTop;
+      if (!(commandElement instanceof HTMLElement)) {
+        return;
+      }
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+
+      event.preventDefault();
+      postCommand(commandElement);
+    });
+    for (const element of document.querySelectorAll("[data-command]")) {
+      if (!(element instanceof HTMLElement) || element.dataset.command === "approve") {
+        continue;
+      }
+
+      element.addEventListener("click", () => {
+        postCommand(element);
+      });
+      if (element.dataset.command === "selectPhase") {
+        element.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") {
+            return;
+          }
+
+          event.preventDefault();
+          postCommand(element);
         });
       }
-      shellBody.addEventListener("scroll", () => {
+    }
+    try {
+      vscode.postMessage({
+        command: "webviewReady",
+        detail: "workflow interactive script initialized"
+      });
+    } catch {
+      // Ignore ready-report failures.
+    }
+    if (graphPanel instanceof HTMLElement) {
+      const restoredGraphScrollTop = typeof viewState.graphScrollTop === "number" ? viewState.graphScrollTop : null;
+      if (restoredGraphScrollTop !== null && restoredGraphScrollTop > 0) {
+        window.requestAnimationFrame(() => {
+          graphPanel.scrollTop = restoredGraphScrollTop;
+        });
+      }
+      graphPanel.addEventListener("scroll", () => {
         persistWorkflowScrollState();
       }, { passive: true });
+    }
+    if (detailPanel instanceof HTMLElement) {
+      const restoredDetailScrollTop = typeof viewState.detailScrollTop === "number" ? viewState.detailScrollTop : null;
+      if (restoredDetailScrollTop !== null && restoredDetailScrollTop > 0) {
+        window.requestAnimationFrame(() => {
+          detailPanel.scrollTop = restoredDetailScrollTop;
+        });
+      }
+      detailPanel.addEventListener("scroll", () => {
+        persistWorkflowScrollState();
+      }, { passive: true });
+    }
+    const syncAuditUi = () => {
+      if (!(auditPanel instanceof HTMLElement) || !(auditToggle instanceof HTMLElement) || !(auditBody instanceof HTMLElement)) {
+        return;
+      }
+
+      const collapsed = !auditPanel.hasAttribute("open");
+      if (auditToggleLabel instanceof HTMLElement) {
+        auditToggleLabel.textContent = collapsed ? "Show Audit Stream" : "Hide Audit Stream";
+      }
+      auditBody.hidden = collapsed;
+      viewState.auditCollapsed = collapsed;
+      persistWorkflowScrollState();
+    };
+    if (auditPanel instanceof HTMLElement && auditToggle instanceof HTMLElement && auditBody instanceof HTMLElement) {
+      syncAuditUi();
+      auditPanel.addEventListener("toggle", () => {
+        syncAuditUi();
+      });
     }
 
     function copyPlainText(text) {
@@ -3499,42 +3753,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       const copied = document.execCommand("copy");
       document.body.removeChild(textarea);
       return copied;
-    }
-    const postCommand = (element) => {
-      persistWorkflowScrollState();
-      vscode.postMessage({
-        command: element.dataset.command,
-        phaseId: element.dataset.phaseId,
-        path: element.dataset.path,
-        kind: element.dataset.kind
-      });
-    };
-    for (const element of document.querySelectorAll("[data-command]")) {
-      if (!(element instanceof HTMLElement) || element.dataset.command === "approve") {
-        continue;
-      }
-
-      element.addEventListener("click", (event) => {
-        const nestedCommand = event.target instanceof Element
-          ? event.target.closest("[data-command]")
-          : null;
-        if (nestedCommand && nestedCommand !== element) {
-          return;
-        }
-
-        postCommand(element);
-      });
-
-      if (element.dataset.command === "selectPhase") {
-        element.addEventListener("keydown", (event) => {
-          if (event.key !== "Enter" && event.key !== " ") {
-            return;
-          }
-
-          event.preventDefault();
-          postCommand(element);
-        });
-      }
     }
     for (const element of document.querySelectorAll("[data-copy-text]")) {
       if (!(element instanceof HTMLButtonElement)) {
@@ -4502,6 +4720,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         ?? workflow.phases[0];
     const pausedPhaseIds = new Set(state.pausedPhaseIds ?? []);
     const completedPhaseIds = new Set(state.completedPhaseIds ?? []);
+    const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
     const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);
     const visiblePhases = workflow.phases.filter((phase) => shouldShowPhase(phase.phaseId, clarificationVisible, currentPhase.phaseId, executionPhaseId));
     const layoutPhases = visiblePhases.map((phase) => ({
@@ -4522,9 +4741,13 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         const pauseArmed = pausedPhaseIds.has(phase.phaseId);
         const phaseIsCurrent = phase.phaseId === displayedCurrentPhaseId;
         const phaseIsSelected = phase.phaseId === selectedPhaseId;
+        const canRewindPhase = canRenderPhaseRewindAction(workflow, phase, displayedCurrentPhaseId, rewindablePhaseIds);
         const pauseButtonLabel = pauseArmed
             ? `Remove pause before ${phase.title}`
             : `Pause before ${phase.title}`;
+        const rewindButtonLabel = phase.phaseId === "capture"
+            ? "Reset workflow to Capture"
+            : `Rewind workflow to ${phase.title}`;
         return `
     <div
       class="phase-node ${(0, htmlEscape_1.escapeHtmlAttr)(phase.phaseId)} phase-tone-${(0, htmlEscape_1.escapeHtmlAttr)(visualTone)}${phaseIsSelected ? " selected" : ""}${phaseIsCurrent ? " phase-node--current" : ""}"
@@ -4541,8 +4764,19 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
             <span class="phase-index">${index + 1}</span>
             ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
           </div>
-          ${canPausePhase
+          ${canRewindPhase
             ? `<button
+                class="phase-pause-toggle phase-pause-toggle--rewind"
+                type="button"
+                data-command="rewind"
+                data-phase-id="${(0, htmlEscape_1.escapeHtmlAttr)(phase.phaseId)}"
+                data-phase-rewind-button
+                aria-label="${(0, htmlEscape_1.escapeHtmlAttr)(rewindButtonLabel)}"
+                title="${(0, htmlEscape_1.escapeHtmlAttr)(rewindButtonLabel)}">
+                ${phase.phaseId === "capture" ? (0, icons_1.firstPhaseRewindIcon)() : (0, icons_1.rewindIcon)()}
+              </button>`
+            : canPausePhase
+                ? `<button
                 class="phase-pause-toggle${pauseArmed ? " phase-pause-toggle--armed" : ""}"
                 type="button"
                 data-command="togglePhasePause"
@@ -4553,7 +4787,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
                 title="${(0, htmlEscape_1.escapeHtmlAttr)(pauseButtonLabel)}">
                 ${(0, icons_1.pauseIcon)()}
               </button>`
-            : ""}
+                : ""}
         </div>
         <h3>${(0, htmlEscape_1.escapeHtml)(phase.title)}</h3>
         <div class="phase-slug">${(0, htmlEscape_1.escapeHtml)(phaseSecondaryLabel(phase))}</div>
@@ -4645,6 +4879,19 @@ function shouldShowPhase(phaseId, clarificationVisible, currentPhaseId, executio
         || clarificationVisible
         || currentPhaseId === "clarification"
         || executionPhaseId === "clarification";
+}
+function canRenderPhaseRewindAction(workflow, phase, displayedCurrentPhaseId, rewindablePhaseIds) {
+    if (phase.phaseId === displayedCurrentPhaseId) {
+        return false;
+    }
+    const currentPhaseOrder = workflow.phases.find((candidate) => candidate.phaseId === displayedCurrentPhaseId)?.order ?? Number.MAX_SAFE_INTEGER;
+    if (phase.order >= currentPhaseOrder) {
+        return false;
+    }
+    if (phase.phaseId === "capture") {
+        return workflow.controls.canRestartFromSource;
+    }
+    return rewindablePhaseIds.has(phase.phaseId);
 }
 function graphPath(fromPhaseId, toPhaseId, positions, nodeWidth) {
     const fromPosition = positions[fromPhaseId];
