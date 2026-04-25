@@ -2329,7 +2329,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .phase-node h3 {
       margin: 10px 0 4px;
-      font-size: 0.92rem;
+      font-size: 0.98rem;
       position: relative;
       z-index: 1;
     }
@@ -2351,7 +2351,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .phase-slug {
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
-      font-size: 0.72rem;
+      font-size: 0.78rem;
       opacity: 0.66;
       position: relative;
       z-index: 1;
