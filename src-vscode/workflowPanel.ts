@@ -20,6 +20,9 @@ import { readUserWorkspacePreferences, setPausedWorkflowPhaseIds } from "./userW
 import { asErrorMessage, getNextAttachmentPathAsync } from "./utils";
 
 type WorkflowPanelCommand =
+  | { readonly command: "webviewReady"; readonly detail?: string }
+  | { readonly command: "webviewClientError"; readonly detail?: string }
+  | { readonly command: "webviewDispatch"; readonly detail?: string }
   | { readonly command: "selectPhase"; readonly phaseId?: string }
   | { readonly command: "selectIteration"; readonly path?: string }
   | { readonly command: "openArtifact"; readonly path?: string }
@@ -221,6 +224,15 @@ class WorkflowPanelController {
 
   private async handleMessageAsync(message: WorkflowPanelCommand): Promise<void> {
     switch (message.command) {
+      case "webviewReady":
+        appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' webview ready.${message.detail ? ` ${message.detail}` : ""}`);
+        return;
+      case "webviewClientError":
+        appendSpecForgeLog(`Workflow '${this.summary.usId}' webview client error: ${message.detail ?? "unknown error"}`);
+        return;
+      case "webviewDispatch":
+        appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' webview dispatch.${message.detail ? ` ${message.detail}` : ""}`);
+        return;
       case "selectPhase":
         if (message.phaseId) {
           this.selectedPhaseId = message.phaseId;

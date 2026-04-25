@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.playIcon = playIcon;
 exports.rewindIcon = rewindIcon;
+exports.firstPhaseRewindIcon = firstPhaseRewindIcon;
 exports.pauseIcon = pauseIcon;
 exports.stopIcon = stopIcon;
 exports.fileIcon = fileIcon;
@@ -16,6 +17,13 @@ function rewindIcon() {
     return `
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M11.14 6.47a1 1 0 0 1 0 1.41L7.01 12l4.13 4.12a1 1 0 1 1-1.42 1.42l-4.83-4.83a1 1 0 0 1 0-1.42l4.83-4.83a1 1 0 0 1 1.42 0Zm8 0a1 1 0 0 1 0 1.41L15.01 12l4.13 4.12a1 1 0 1 1-1.42 1.42l-4.83-4.83a1 1 0 0 1 0-1.42l4.83-4.83a1 1 0 0 1 1.42 0Z"></path>
+    </svg>
+  `;
+}
+function firstPhaseRewindIcon() {
+    return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M6 5.25A1.25 1.25 0 0 1 7.25 4h.5A1.25 1.25 0 0 1 9 5.25v13.5A1.25 1.25 0 0 1 7.75 20h-.5A1.25 1.25 0 0 1 6 18.75V5.25Zm13.14 1.22a1 1 0 0 1 0 1.41L15.01 12l4.13 4.12a1 1 0 1 1-1.42 1.42l-4.83-4.83a1 1 0 0 1 0-1.42l4.83-4.83a1 1 0 0 1 1.42 0Z"></path>
     </svg>
   `;
 }

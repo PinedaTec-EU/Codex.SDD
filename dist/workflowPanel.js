@@ -178,6 +178,15 @@ class WorkflowPanelController {
     }
     async handleMessageAsync(message) {
         switch (message.command) {
+            case "webviewReady":
+                (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' webview ready.${message.detail ? ` ${message.detail}` : ""}`);
+                return;
+            case "webviewClientError":
+                (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' webview client error: ${message.detail ?? "unknown error"}`);
+                return;
+            case "webviewDispatch":
+                (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' webview dispatch.${message.detail ? ` ${message.detail}` : ""}`);
+                return;
             case "selectPhase":
                 if (message.phaseId) {
                     this.selectedPhaseId = message.phaseId;
@@ -697,6 +706,10 @@ class WorkflowPanelController {
         await this.refreshAsync("restartCurrentWorkflowAsync");
     }
     async rewindWorkflowAsync(targetPhase) {
+        if (targetPhase === "capture") {
+            await this.debugResetToCaptureAsync();
+            return;
+        }
         const previousPhase = this.summary.currentPhase;
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
         const destructiveRewindEnabled = settings.destructiveRewindEnabled;
