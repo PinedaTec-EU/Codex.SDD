@@ -2420,6 +2420,58 @@ export function buildWorkflowHtml(
         radial-gradient(circle at top left, rgba(92, 181, 255, 0.08), transparent 26%),
         linear-gradient(180deg, rgba(14, 19, 27, 0.94), rgba(10, 14, 20, 0.98));
     }
+    .detail-card--review-regression {
+      border-color: rgba(92, 181, 255, 0.18);
+      background:
+        radial-gradient(circle at top right, rgba(92, 181, 255, 0.1), transparent 28%),
+        linear-gradient(180deg, rgba(13, 20, 29, 0.96), rgba(10, 14, 20, 0.98));
+    }
+    .review-regression {
+      display: grid;
+      gap: 18px;
+    }
+    .review-regression__header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+    }
+    .review-regression__copy {
+      display: grid;
+      gap: 10px;
+    }
+    .review-regression__copy h3 {
+      margin: 0;
+    }
+    .review-regression__stat {
+      min-width: 132px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(92, 181, 255, 0.16);
+      background: rgba(255, 255, 255, 0.04);
+      display: grid;
+      gap: 6px;
+      justify-items: end;
+    }
+    .review-regression__stat-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(189, 219, 246, 0.72);
+    }
+    .review-regression__stat-value {
+      font-size: 2rem;
+      line-height: 1;
+      color: #f4f7fb;
+    }
+    .review-regression__body {
+      display: grid;
+      gap: 12px;
+      padding: 16px 18px 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.025);
+    }
     .approval-branch__copy h3 {
       margin: 0 0 8px;
     }
@@ -2855,8 +2907,16 @@ export function buildWorkflowHtml(
       border-color: rgba(92, 181, 255, 0.42);
       box-shadow: 0 0 0 3px rgba(92, 181, 255, 0.08);
     }
+    .phase-input-textarea--review-regression {
+      min-height: 168px;
+    }
     .detail-actions--phase-input {
       justify-content: space-between;
+    }
+    .detail-actions--review-regression {
+      justify-content: flex-start;
+      margin: 0;
+      padding-top: 4px;
     }
     .phase-input-log {
       display: grid;
@@ -3315,6 +3375,12 @@ export function buildWorkflowHtml(
       }
       .detail-actions--artifact {
         grid-template-columns: 1fr;
+      }
+      .review-regression__header {
+        grid-template-columns: 1fr;
+      }
+      .review-regression__stat {
+        justify-items: start;
       }
       .phase-node {
         left: var(--phase-left-mobile);
