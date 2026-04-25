@@ -4352,9 +4352,9 @@ function resolveAnchors(from, to) {
         return { fromAnchor: "exit-right", toAnchor: "entry-right" };
     }
     if (deltaX > 0) {
-        return { fromAnchor: "exit-right", toAnchor: "entry-right" };
+        return { fromAnchor: "exit-right", toAnchor: "entry-left" };
     }
-    return { fromAnchor: "exit-left", toAnchor: "entry-left" };
+    return { fromAnchor: "exit-left", toAnchor: "entry-right" };
 }
 function getAnchorPoint(position, anchor, nodeWidth) {
     switch (anchor) {

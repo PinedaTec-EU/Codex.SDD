@@ -4685,10 +4685,10 @@ function resolveAnchors(from: PhasePosition, to: PhasePosition): { fromAnchor: G
   }
 
   if (deltaX > 0) {
-    return { fromAnchor: "exit-right", toAnchor: "entry-right" };
+    return { fromAnchor: "exit-right", toAnchor: "entry-left" };
   }
 
-  return { fromAnchor: "exit-left", toAnchor: "entry-left" };
+  return { fromAnchor: "exit-left", toAnchor: "entry-right" };
 }
 
 function getAnchorPoint(position: PhasePosition, anchor: GraphAnchor, nodeWidth: number): { x: number; y: number } {
