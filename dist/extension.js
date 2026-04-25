@@ -44,6 +44,7 @@ const extensionSettings_1 = require("./extensionSettings");
 const outputChannel_1 = require("./outputChannel");
 const runtimeVersion_1 = require("./runtimeVersion");
 const workflowPanel_1 = require("./workflowPanel");
+const workflowAuditView_1 = require("./workflowAuditView");
 const sidebarView_1 = require("./sidebarView");
 const repoPromptsStatus_1 = require("./repoPromptsStatus");
 const specsExplorer_1 = require("./specsExplorer");
@@ -60,9 +61,10 @@ function activate(context) {
     const sidebarProvider = new sidebarView_1.SidebarViewProvider(context.extensionUri, async () => {
         await refreshWorkspaceUiAsync("sidebar:onDidCreateUserStory");
     });
+    const workflowAuditProvider = new workflowAuditView_1.WorkflowAuditViewProvider(context.extensionUri);
     const refreshableProvider = { refresh: () => sidebarProvider.refresh() };
     const mcpProvider = new SpecForgeMcpServerDefinitionProvider(context.extensionUri.fsPath, manifestVersion);
-    (0, extensionRuntime_1.activateExtension)(context, createVsCodeHost(), refreshableProvider, createExtensionActions(refreshableProvider, sidebarProvider, mcpProvider));
+    (0, extensionRuntime_1.activateExtension)(context, createVsCodeHost(), refreshableProvider, createExtensionActions(refreshableProvider, sidebarProvider, workflowAuditProvider, mcpProvider));
     const refreshWorkspaceUiAsync = async (reason) => {
         if (reason.startsWith("watcher:") && (0, workflowPanel_1.hasActiveWorkflowPlayback)()) {
             (0, outputChannel_1.appendSpecForgeDebugLog)(`Skipping workspace UI refresh while workflow playback is active. reason='${reason}'.`);
@@ -73,7 +75,7 @@ function activate(context) {
         await (0, workflowPanel_1.refreshWorkflowViews)(reason);
         await notifyAttentionChangesAsync();
     };
-    context.subscriptions.push(vscode.window.registerWebviewViewProvider("specForge.userStories", sidebarProvider), vscode.lm.registerMcpServerDefinitionProvider("specForge.workspaceMcp", mcpProvider), vscode.commands.registerCommand("specForge.openExecutionSettings", async () => {
+    context.subscriptions.push(vscode.window.registerWebviewViewProvider("specForge.userStories", sidebarProvider), vscode.window.registerWebviewViewProvider("specForge.auditStream", workflowAuditProvider), vscode.lm.registerMcpServerDefinitionProvider("specForge.workspaceMcp", mcpProvider), vscode.commands.registerCommand("specForge.openExecutionSettings", async () => {
         await (0, executionSettingsPanel_1.openExecutionSettingsPanelAsync)(context.extensionUri, async () => {
             await refreshWorkspaceUiAsync("executionSettingsSaved");
             const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -106,7 +108,7 @@ function activate(context) {
         void refreshWorkspaceUiAsync("configurationChanged");
     }));
     void ensureRepoPromptsInitializedAsync();
-    void autoOpenStarredUserStoryAsync(sidebarProvider, mcpProvider);
+    void autoOpenStarredUserStoryAsync(sidebarProvider, workflowAuditProvider, mcpProvider);
 }
 function deactivate() {
     (0, extensionRuntime_1.deactivateExtension)({
@@ -189,7 +191,7 @@ function readManifestVersion(context) {
         ? rawVersion.trim()
         : "unknown";
 }
-function createExtensionActions(explorerProvider, sidebarProvider, mcpProvider) {
+function createExtensionActions(explorerProvider, sidebarProvider, workflowAuditProvider, mcpProvider) {
     return {
         createUserStoryFromInput: specsExplorer_1.createUserStoryFromInput,
         importUserStoryFromMarkdown: specsExplorer_1.importUserStoryFromMarkdown,
@@ -207,6 +209,12 @@ function createExtensionActions(explorerProvider, sidebarProvider, mcpProvider) 
                 },
                 setActiveWorkflowUsId: (usId) => {
                     sidebarProvider.setActiveWorkflowUsId(usId);
+                },
+                showWorkflowAudit: (usId, workflow, state) => {
+                    workflowAuditProvider.showWorkflowAudit(usId, workflow, state);
+                },
+                clearWorkflowAudit: (usId) => {
+                    workflowAuditProvider.clearWorkflowAudit(usId);
                 },
                 notifyAttention: (message) => {
                     if ((0, extensionSettings_1.getSpecForgeSettings)().attentionNotificationsEnabled) {
@@ -305,7 +313,7 @@ function createWorkspaceWatcher(onChange) {
         }
     });
 }
-async function autoOpenStarredUserStoryAsync(sidebarProvider, mcpProvider) {
+async function autoOpenStarredUserStoryAsync(sidebarProvider, workflowAuditProvider, mcpProvider) {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!workspaceRoot) {
         return;
@@ -323,6 +331,12 @@ async function autoOpenStarredUserStoryAsync(sidebarProvider, mcpProvider) {
             },
             setActiveWorkflowUsId: (usId) => {
                 sidebarProvider.setActiveWorkflowUsId(usId);
+            },
+            showWorkflowAudit: (usId, workflow, state) => {
+                workflowAuditProvider.showWorkflowAudit(usId, workflow, state);
+            },
+            clearWorkflowAudit: (usId) => {
+                workflowAuditProvider.clearWorkflowAudit(usId);
             },
             notifyAttention: (message) => {
                 if ((0, extensionSettings_1.getSpecForgeSettings)().attentionNotificationsEnabled) {

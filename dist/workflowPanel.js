@@ -100,6 +100,7 @@ class WorkflowPanelController {
     transientCompletedPhaseIds = [];
     pausedPhaseIds = new Set();
     refinementApprovalBaseBranchProposal = "main";
+    lastRenderedViewState = null;
     constructor(workspaceRoot, summary, getBackendClient, callbacks) {
         this.workspaceRoot = workspaceRoot;
         this.summary = summary;
@@ -112,11 +113,15 @@ class WorkflowPanelController {
         });
         this.panel.onDidDispose(() => {
             this.callbacks.setActiveWorkflowUsId(null);
+            this.callbacks.clearWorkflowAudit(this.summary.usId);
             panels.delete(this.key);
         });
         this.panel.onDidChangeViewState((event) => {
             if (event.webviewPanel.active) {
                 this.callbacks.setActiveWorkflowUsId(this.summary.usId);
+                if (this.lastWorkflow && this.lastRenderedViewState) {
+                    this.callbacks.showWorkflowAudit(this.summary.usId, this.lastWorkflow, this.lastRenderedViewState);
+                }
             }
         });
         this.panel.webview.onDidReceiveMessage(async (message) => {
@@ -946,8 +951,7 @@ class WorkflowPanelController {
             ? await (0, contextSuggestions_1.suggestContextFiles)(this.workspaceRoot, workflow, sourceText)
             : [];
         const runtimeVersion = await (0, runtimeVersion_1.readRuntimeVersionAsync)();
-        this.panel.title = `${workflow.usId} workflow`;
-        this.panel.webview.html = (0, workflowView_1.buildWorkflowHtml)(workflow, {
+        const viewState = {
             selectedPhaseId: this.selectedPhaseId,
             selectedIterationArtifactPath: this.selectedIterationArtifactPath,
             selectedArtifactContent,
@@ -973,7 +977,13 @@ class WorkflowPanelController {
             approvalBaseBranchProposal: this.refinementApprovalBaseBranchProposal,
             approvalWorkBranchProposal: this.buildRefinementApprovalWorkBranchProposal(workflow),
             requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance
-        }, this.playbackState);
+        };
+        this.panel.title = `${workflow.usId} workflow`;
+        this.lastRenderedViewState = viewState;
+        this.panel.webview.html = (0, workflowView_1.buildWorkflowHtml)(workflow, viewState, this.playbackState);
+        if (this.panel.active) {
+            this.callbacks.showWorkflowAudit(this.summary.usId, workflow, viewState);
+        }
         return contextSuggestions.length;
     }
     buildRefinementApprovalWorkBranchProposal(workflow) {

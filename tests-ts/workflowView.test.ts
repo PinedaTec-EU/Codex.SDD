@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildWorkflowHtml } from "../src-vscode/workflowView";
+import { buildWorkflowAuditHtml, buildWorkflowHtml } from "../src-vscode/workflowView";
 
-test("buildWorkflowHtml renders phase detail and audit stream for the selected phase", () => {
+test("buildWorkflowHtml renders phase detail for the selected phase", () => {
   const html = buildWorkflowHtml({
     usId: "US-0001",
     title: "Workflow view",
@@ -120,7 +120,6 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /<span class="token">spec<\/span>/);
   assert.match(html, /currentFlow/);
   assert.match(html, /currentPulse/);
-  assert.match(html, /Generated refinement artifact\./);
   assert.match(html, /<h2>Refinement<\/h2>/);
   assert.match(html, /Open Artifact/);
   assert.match(html, /Open Execute Prompt/);
@@ -179,8 +178,6 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /light \/ gpt-4\.1-mini/);
   assert.match(html, /Response Speed/);
   assert.match(html, /29\.5 tok\/s/);
-  assert.match(html, /phase_completed[^]*badge\">system</);
-  assert.match(html, /phase_completed[^]*badge\">refinement</);
   assert.doesNotMatch(html, /<h3>Workflow Files<\/h3>/);
   assert.match(html, /attachment-item--dragging/);
   assert.match(html, /command: "setFileKind"/);
@@ -197,6 +194,76 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /const selectedPhaseNode = document\.querySelector\("\.phase-node\.selected"\);/);
   assert.match(html, /focusedPhaseNode\.offsetTop/);
   assert.match(html, /graphPanel\.scrollTop = Math\.max\(0, targetTop\)/);
+  assert.doesNotMatch(html, /Audit Stream/);
+});
+
+test("buildWorkflowAuditHtml renders workflow audit content in a standalone panel view", () => {
+  const html = buildWorkflowAuditHtml({
+    usId: "US-0001",
+    title: "Workflow view",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us.US-0001",
+    workBranch: "feature/us-0001-workflow-view",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "refinement_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: [],
+      rewindTargets: []
+    },
+    clarification: null,
+    events: [
+      {
+        timestampUtc: "2026-04-18T10:00:00Z",
+        code: "phase_completed",
+        actor: "system",
+        phase: "refinement",
+        summary: "Generated refinement artifact.",
+        artifacts: ["/tmp/01-refinement.md"],
+        usage: {
+          inputTokens: 321,
+          outputTokens: 144,
+          totalTokens: 465
+        },
+        durationMs: 4876,
+        execution: {
+          providerKind: "openai-compatible",
+          model: "gpt-4.1-mini",
+          profileName: "light",
+          baseUrl: "https://api.example.test/v1"
+        }
+      }
+    ],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "refinement",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    modelProfiles: [
+      {
+        name: "light",
+        model: "gpt-4.1-mini"
+      }
+    ]
+  });
+
+  assert.match(html, /<div class="audit-stream">/);
+  assert.match(html, /Generated refinement artifact\./);
+  assert.match(html, /phase_completed[^]*badge\">system</);
+  assert.match(html, /phase_completed[^]*badge\">refinement</);
+  assert.match(html, /model light \/ gpt-4\.1-mini/);
+  assert.doesNotMatch(html, /Audit Stream<\/h2>/);
 });
 
 test("buildWorkflowHtml shows rewind on prior phase cards and pause only on later phases", () => {
@@ -3636,7 +3703,6 @@ test("buildWorkflowHtml keeps the hero header above a dedicated scrolling body",
   assert.match(html, /\.layout-main > \* \{[\s\S]*height: 100%;/);
   assert.match(html, /\.detail-panel \{[\s\S]*display: block;[\s\S]*height: 100%;[\s\S]*overflow-y: auto;/);
   assert.match(html, /\.hero \{[\s\S]*position: relative;[\s\S]*z-index: 30;/);
-  assert.match(html, /const shellBody = document\.querySelector\("\.shell-body"\);/);
   assert.match(html, /const graphPanel = document\.querySelector\(/);
   assert.match(html, /const detailPanel = document\.querySelector\(/);
   assert.match(html, /const centerFocusedPhaseInGraph = \(\) => \{/);
@@ -3645,13 +3711,8 @@ test("buildWorkflowHtml keeps the hero header above a dedicated scrolling body",
   assert.match(html, /detailScrollTop:/);
   assert.match(html, /graphPanel\.addEventListener\("scroll"/);
   assert.match(html, /detailPanel\.addEventListener\("scroll"/);
-  assert.match(html, /data-audit-panel/);
-  assert.match(html, /data-audit-toggle/);
-  assert.match(html, /<details class="panel audit-panel" data-audit-panel>/);
-  assert.match(html, /class="audit-panel__body" data-audit-body/);
-  assert.match(html, /\.audit-panel__body \{[\s\S]*resize: vertical;/);
-  assert.match(html, /<details class="panel audit-panel" data-audit-panel/);
-  assert.match(html, /syncAuditUi/);
-  assert.match(html, /auditPanel\.addEventListener\("toggle"/);
+  assert.doesNotMatch(html, /data-audit-panel/);
+  assert.doesNotMatch(html, /data-audit-toggle/);
+  assert.doesNotMatch(html, /audit-panel__body/);
   assert.match(html, /persistWorkflowScrollState\(\);[\s\S]*vscode\.postMessage\(\{/);
 });

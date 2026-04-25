@@ -13,6 +13,7 @@ import {
 } from "./outputChannel";
 import { readRuntimeVersionAsync } from "./runtimeVersion";
 import { hasActiveWorkflowPlayback, notifyWorkflowFileChanged, openWorkflowView, refreshWorkflowViews } from "./workflowPanel";
+import { WorkflowAuditViewProvider } from "./workflowAuditView";
 import { SidebarViewProvider } from "./sidebarView";
 import { getRepoPromptsStatusAsync } from "./repoPromptsStatus";
 import {
@@ -50,13 +51,14 @@ export function activate(context: vscode.ExtensionContext): void {
   const sidebarProvider = new SidebarViewProvider(context.extensionUri, async () => {
     await refreshWorkspaceUiAsync("sidebar:onDidCreateUserStory");
   });
+  const workflowAuditProvider = new WorkflowAuditViewProvider(context.extensionUri);
   const refreshableProvider = { refresh: () => sidebarProvider.refresh() };
   const mcpProvider = new SpecForgeMcpServerDefinitionProvider(context.extensionUri.fsPath, manifestVersion);
   activateExtension(
     context,
     createVsCodeHost(),
     refreshableProvider,
-    createExtensionActions(refreshableProvider, sidebarProvider, mcpProvider)
+    createExtensionActions(refreshableProvider, sidebarProvider, workflowAuditProvider, mcpProvider)
   );
   const refreshWorkspaceUiAsync = async (reason: string) => {
     if (reason.startsWith("watcher:") && hasActiveWorkflowPlayback()) {
@@ -72,6 +74,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("specForge.userStories", sidebarProvider),
+    vscode.window.registerWebviewViewProvider("specForge.auditStream", workflowAuditProvider),
     vscode.lm.registerMcpServerDefinitionProvider("specForge.workspaceMcp", mcpProvider),
     vscode.commands.registerCommand("specForge.openExecutionSettings", async () => {
       await openExecutionSettingsPanelAsync(context.extensionUri, async () => {
@@ -120,7 +123,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   void ensureRepoPromptsInitializedAsync();
-  void autoOpenStarredUserStoryAsync(sidebarProvider, mcpProvider);
+  void autoOpenStarredUserStoryAsync(sidebarProvider, workflowAuditProvider, mcpProvider);
 }
 
 export function deactivate(): void {
@@ -237,6 +240,7 @@ function readManifestVersion(context: vscode.ExtensionContext): string {
 function createExtensionActions(
   explorerProvider: { refresh(): void },
   sidebarProvider: SidebarViewProvider,
+  workflowAuditProvider: WorkflowAuditViewProvider,
   mcpProvider: SpecForgeMcpServerDefinitionProvider
 ): ExtensionActions {
   return {
@@ -261,6 +265,12 @@ function createExtensionActions(
           },
           setActiveWorkflowUsId: (usId) => {
             sidebarProvider.setActiveWorkflowUsId(usId);
+          },
+          showWorkflowAudit: (usId, workflow, state) => {
+            workflowAuditProvider.showWorkflowAudit(usId, workflow, state);
+          },
+          clearWorkflowAudit: (usId) => {
+            workflowAuditProvider.clearWorkflowAudit(usId);
           },
           notifyAttention: (message) => {
             if (getSpecForgeSettings().attentionNotificationsEnabled) {
@@ -378,6 +388,7 @@ function createWorkspaceWatcher(onChange: (reason: string) => Promise<void>): vs
 
 async function autoOpenStarredUserStoryAsync(
   sidebarProvider: SidebarViewProvider,
+  workflowAuditProvider: WorkflowAuditViewProvider,
   mcpProvider: SpecForgeMcpServerDefinitionProvider
 ): Promise<void> {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -403,6 +414,12 @@ async function autoOpenStarredUserStoryAsync(
         },
         setActiveWorkflowUsId: (usId) => {
           sidebarProvider.setActiveWorkflowUsId(usId);
+        },
+        showWorkflowAudit: (usId, workflow, state) => {
+          workflowAuditProvider.showWorkflowAudit(usId, workflow, state);
+        },
+        clearWorkflowAudit: (usId) => {
+          workflowAuditProvider.clearWorkflowAudit(usId);
         },
         notifyAttention: (message) => {
           if (getSpecForgeSettings().attentionNotificationsEnabled) {

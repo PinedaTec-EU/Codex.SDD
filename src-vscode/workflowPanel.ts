@@ -16,6 +16,7 @@ import {
 import { buildWorkBranchProposal } from "./workflowBranchName";
 import { resolveWorkflowRejectPlan } from "./workflowRejectPlan";
 import { buildWorkflowHtml } from "./workflowView";
+import type { WorkflowViewState } from "./workflow-view/models";
 import { readUserWorkspacePreferences, setPausedWorkflowPhaseIds } from "./userWorkspacePreferences";
 import { asErrorMessage, getNextAttachmentPathAsync } from "./utils";
 
@@ -63,6 +64,8 @@ export interface WorkflowPanelCallbacks {
   notifyAttention(message: string): void;
   stopBackend(workspaceRoot: string): void;
   setActiveWorkflowUsId(usId: string | null): void;
+  showWorkflowAudit(usId: string, workflow: UserStoryWorkflowDetails, state: WorkflowViewState): void;
+  clearWorkflowAudit(usId?: string): void;
   applyPendingExecutionSettings(workspaceRoot: string): boolean;
   hasPendingExecutionSettings(workspaceRoot: string): boolean;
 }
@@ -121,6 +124,7 @@ class WorkflowPanelController {
   private transientCompletedPhaseIds: readonly string[] = [];
   private readonly pausedPhaseIds = new Set<string>();
   private readonly refinementApprovalBaseBranchProposal = "main";
+  private lastRenderedViewState: WorkflowViewState | null = null;
 
   public constructor(
     private readonly workspaceRoot: string,
@@ -141,11 +145,15 @@ class WorkflowPanelController {
 
     this.panel.onDidDispose(() => {
       this.callbacks.setActiveWorkflowUsId(null);
+      this.callbacks.clearWorkflowAudit(this.summary.usId);
       panels.delete(this.key);
     });
     this.panel.onDidChangeViewState((event) => {
       if (event.webviewPanel.active) {
         this.callbacks.setActiveWorkflowUsId(this.summary.usId);
+        if (this.lastWorkflow && this.lastRenderedViewState) {
+          this.callbacks.showWorkflowAudit(this.summary.usId, this.lastWorkflow, this.lastRenderedViewState);
+        }
       }
     });
 
@@ -1236,8 +1244,7 @@ class WorkflowPanelController {
       ? await suggestContextFiles(this.workspaceRoot, workflow, sourceText)
       : [];
     const runtimeVersion = await readRuntimeVersionAsync();
-    this.panel.title = `${workflow.usId} workflow`;
-    this.panel.webview.html = buildWorkflowHtml(workflow, {
+    const viewState: WorkflowViewState = {
       selectedPhaseId: this.selectedPhaseId,
       selectedIterationArtifactPath: this.selectedIterationArtifactPath,
       selectedArtifactContent,
@@ -1263,7 +1270,13 @@ class WorkflowPanelController {
       approvalBaseBranchProposal: this.refinementApprovalBaseBranchProposal,
       approvalWorkBranchProposal: this.buildRefinementApprovalWorkBranchProposal(workflow),
       requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance
-    }, this.playbackState);
+    };
+    this.panel.title = `${workflow.usId} workflow`;
+    this.lastRenderedViewState = viewState;
+    this.panel.webview.html = buildWorkflowHtml(workflow, viewState, this.playbackState);
+    if (this.panel.active) {
+      this.callbacks.showWorkflowAudit(this.summary.usId, workflow, viewState);
+    }
     return contextSuggestions.length;
   }
 

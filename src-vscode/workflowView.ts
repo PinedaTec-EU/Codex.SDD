@@ -864,6 +864,143 @@ function buildArtifactPreviewSection(
   `;
 }
 
+function buildWorkflowAuditRowsHtml(
+  workflow: UserStoryWorkflowDetails,
+  state: WorkflowViewState
+): string {
+  return workflow.events.length > 0
+    ? workflow.events.map((event) => {
+      const executionLabel = formatExecutionLabel(event.execution, {
+        actor: event.actor,
+        configuredModel: findConfiguredModelForProfile(state, event.execution?.profileName)
+      });
+      return `
+      <div class="audit-row">
+        <div class="audit-head">
+          <span>${escapeHtml(event.timestampUtc)} · ${escapeHtml(event.code)}</span>
+          <div class="audit-head__meta">
+            ${event.actor ? `<span class="badge">${escapeHtml(event.actor)}</span>` : ""}
+            ${event.phase ? `<span class="badge">${escapeHtml(event.phase)}</span>` : ""}
+          </div>
+        </div>
+        <div class="audit-body">${escapeHtml(event.summary ?? "")}</div>
+        ${event.usage || event.durationMs !== null || event.execution
+          ? `<div class="audit-metrics">
+              ${executionLabel ? `<span class="badge">model ${escapeHtml(executionLabel)}</span>` : ""}
+              ${event.usage ? `<span class="badge">in/out ${escapeHtml(`${formatMetricNumber(event.usage.inputTokens)}/${formatMetricNumber(event.usage.outputTokens)}`)}</span>` : ""}
+              ${event.usage ? `<span class="badge">total ${escapeHtml(formatMetricNumber(event.usage.totalTokens))}</span>` : ""}
+              ${event.durationMs !== null ? `<span class="badge">${escapeHtml(formatDuration(event.durationMs))}</span>` : ""}
+              ${event.usage && event.durationMs !== null ? `<span class="badge">${escapeHtml(formatTokensPerSecond(event.usage.outputTokens, event.durationMs))}</span>` : ""}
+            </div>`
+          : ""}
+      </div>
+    `;
+    }).join("")
+    : `<pre class="audit-log">${escapeHtml(workflow.rawTimeline)}</pre>`;
+}
+
+export function buildWorkflowAuditHtml(
+  workflow: UserStoryWorkflowDetails,
+  state: WorkflowViewState
+): string {
+  const auditRows = buildWorkflowAuditRowsHtml(workflow, state);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: "Avenir Next", "Segoe UI", ui-sans-serif, sans-serif;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
+      color: var(--vscode-editor-foreground);
+      background:
+        radial-gradient(circle at 8% 10%, rgba(114, 241, 184, 0.08), transparent 20%),
+        radial-gradient(circle at 88% 18%, rgba(72, 131, 255, 0.09), transparent 24%),
+        linear-gradient(180deg, rgba(10, 20, 24, 0.96), rgba(10, 14, 20, 1));
+    }
+    .audit-stream {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 100vh;
+      height: 100vh;
+      overflow: auto;
+      padding: 12px;
+    }
+    .audit-row {
+      display: grid;
+      gap: 10px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(114, 241, 184, 0.14);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.01)),
+        rgba(12, 18, 24, 0.92);
+    }
+    .audit-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      font-size: 0.82rem;
+      color: rgba(255, 255, 255, 0.74);
+    }
+    .audit-head__meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .audit-body {
+      font-size: 0.92rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .audit-metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .audit-log {
+      margin: 0;
+      min-height: 100%;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(0, 0, 0, 0.24);
+      overflow: auto;
+      font-size: 0.84rem;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .badge {
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 0.78rem;
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(8px);
+    }
+  </style>
+</head>
+<body>
+  <div class="audit-stream">${auditRows}</div>
+</body>
+</html>`;
+}
+
 export function buildWorkflowHtml(
   workflow: UserStoryWorkflowDetails,
   state: WorkflowViewState,
@@ -1224,36 +1361,6 @@ export function buildWorkflowHtml(
     </button>
   `;
   const debugResetButton = "";
-
-  const auditRows = workflow.events.length > 0
-    ? workflow.events.map((event) => `
-      <div class="audit-row">
-        <div class="audit-head">
-          <span>${escapeHtml(event.timestampUtc)} · ${escapeHtml(event.code)}</span>
-          <div class="audit-head__meta">
-            ${event.actor ? `<span class="badge">${escapeHtml(event.actor)}</span>` : ""}
-            ${event.phase ? `<span class="badge">${escapeHtml(event.phase)}</span>` : ""}
-          </div>
-        </div>
-        <div class="audit-body">${escapeHtml(event.summary ?? "")}</div>
-        ${event.usage || event.durationMs !== null || event.execution
-          ? `<div class="audit-metrics">
-              ${formatExecutionLabel(event.execution, {
-                actor: event.actor,
-                configuredModel: findConfiguredModelForProfile(state, event.execution?.profileName)
-              }) ? `<span class="badge">model ${escapeHtml(formatExecutionLabel(event.execution, {
-                actor: event.actor,
-                configuredModel: findConfiguredModelForProfile(state, event.execution?.profileName)
-              }) ?? "")}</span>` : ""}
-              ${event.usage ? `<span class="badge">in/out ${escapeHtml(`${formatMetricNumber(event.usage.inputTokens)}/${formatMetricNumber(event.usage.outputTokens)}`)}</span>` : ""}
-              ${event.usage ? `<span class="badge">total ${escapeHtml(formatMetricNumber(event.usage.totalTokens))}</span>` : ""}
-              ${event.durationMs !== null ? `<span class="badge">${escapeHtml(formatDuration(event.durationMs))}</span>` : ""}
-              ${event.usage && event.durationMs !== null ? `<span class="badge">${escapeHtml(formatTokensPerSecond(event.usage.outputTokens, event.durationMs))}</span>` : ""}
-            </div>`
-          : ""}
-      </div>
-    `).join("")
-    : `<pre class="audit-log">${escapeHtml(workflow.rawTimeline)}</pre>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -2409,66 +2516,6 @@ export function buildWorkflowHtml(
     .detail-panel > * + * {
       margin-top: 18px;
     }
-    .audit-panel {
-      padding: 20px 22px 22px;
-      display: grid;
-      gap: 14px;
-      align-content: start;
-    }
-    .audit-panel:not([open]) {
-      padding-bottom: 16px;
-    }
-    .audit-panel:not([open]) .audit-panel__body {
-      display: none;
-    }
-    .audit-panel__header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      cursor: pointer;
-      list-style: none;
-    }
-    .audit-panel__header::-webkit-details-marker {
-      display: none;
-    }
-    .audit-panel__toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      border: 1px solid rgba(92, 181, 255, 0.2);
-      background: rgba(255, 255, 255, 0.03);
-      color: #d7eaff;
-      border-radius: 999px;
-      padding: 10px 14px;
-      cursor: pointer;
-      font: inherit;
-    }
-    .audit-panel__toggle:hover {
-      border-color: rgba(92, 181, 255, 0.34);
-      background: rgba(92, 181, 255, 0.08);
-    }
-    .audit-panel__toggle-caret {
-      width: 10px;
-      height: 10px;
-      border-right: 2px solid currentColor;
-      border-bottom: 2px solid currentColor;
-      transform: rotate(-135deg) translateY(-1px);
-      transition: transform 140ms ease;
-    }
-    .audit-panel:not([open]) .audit-panel__toggle-caret {
-      transform: rotate(45deg) translateY(-1px);
-    }
-    .audit-panel__body {
-      min-height: 132px;
-      height: 180px;
-      max-height: 38vh;
-      overflow: auto;
-      resize: vertical;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-      padding-top: 14px;
-    }
     .detail-card-shell {
       position: relative;
       padding-top: 18px;
@@ -3509,7 +3556,7 @@ export function buildWorkflowHtml(
       .shell-body {
         padding-bottom: 2px;
       }
-      .hero, .graph-panel, .detail-panel, .audit-panel {
+      .hero, .graph-panel, .detail-panel {
         padding: 16px;
       }
       .detail-metrics {
@@ -3712,7 +3759,7 @@ export function buildWorkflowHtml(
         <div class="layout-main">
         <aside class="panel graph-panel" data-panel-scroll="graph">
           <h2 class="panel-title">Workflow Constellation</h2>
-          <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and audit context.</p>
+          <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and phase context.</p>
           <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}${playbackState === "playing" || playbackState === "stopping" ? " graph-stage--overlay-blocking" : ""}">
             ${executionOverlay}
             ${phaseGraph}
@@ -3747,21 +3794,6 @@ export function buildWorkflowHtml(
           </section>
         </main>
         </div>
-        <details class="panel audit-panel" data-audit-panel${state.auditCollapsed !== false ? "" : " open"}>
-          <summary class="audit-panel__header" data-audit-toggle>
-            <div>
-              <h2 class="panel-title">Audit Stream</h2>
-              <p class="panel-copy">Workflow-level execution history, detached from the currently selected phase detail.</p>
-            </div>
-            <span class="audit-panel__toggle" aria-hidden="true">
-              <span data-audit-toggle-label>${state.auditCollapsed !== false ? "Show Audit Stream" : "Hide Audit Stream"}</span>
-              <span class="audit-panel__toggle-caret" aria-hidden="true"></span>
-            </span>
-          </summary>
-          <div class="audit-panel__body" data-audit-body>
-            <div class="audit-stream">${auditRows}</div>
-          </div>
-        </details>
       </section>
     </div>
   </div>
@@ -3792,13 +3824,8 @@ export function buildWorkflowHtml(
     });
     const viewState = vscode.getState() ?? {};
     const workflowShell = document.querySelector("[data-workflow-shell]");
-    const shellBody = document.querySelector(".shell-body");
     const graphPanel = document.querySelector('[data-panel-scroll="graph"]');
     const detailPanel = document.querySelector('[data-panel-scroll="detail"]');
-    const auditPanel = document.querySelector("[data-audit-panel]");
-    const auditToggle = document.querySelector("[data-audit-toggle]");
-    const auditToggleLabel = document.querySelector("[data-audit-toggle-label]");
-    const auditBody = document.querySelector("[data-audit-body]");
     const selectedPhaseNode = document.querySelector(".phase-node.selected");
     const currentPhaseNode = document.querySelector(".phase-node.phase-node--current");
     const focusedPhaseNode = selectedPhaseNode instanceof HTMLElement
@@ -3846,10 +3873,8 @@ export function buildWorkflowHtml(
       try {
         vscode.setState({
           ...viewState,
-          workflowScrollTop: shellBody instanceof HTMLElement ? shellBody.scrollTop : 0,
           graphScrollTop: graphPanel instanceof HTMLElement ? graphPanel.scrollTop : 0,
-          detailScrollTop: detailPanel instanceof HTMLElement ? detailPanel.scrollTop : 0,
-          auditCollapsed: auditPanel instanceof HTMLElement ? !auditPanel.hasAttribute("open") : false
+          detailScrollTop: detailPanel instanceof HTMLElement ? detailPanel.scrollTop : 0
         });
       } catch {
         // Do not let view-state persistence break workflow interaction.
@@ -3950,26 +3975,6 @@ export function buildWorkflowHtml(
         persistWorkflowScrollState();
       }, { passive: true });
     }
-    const syncAuditUi = () => {
-      if (!(auditPanel instanceof HTMLElement) || !(auditToggle instanceof HTMLElement) || !(auditBody instanceof HTMLElement)) {
-        return;
-      }
-
-      const collapsed = !auditPanel.hasAttribute("open");
-      if (auditToggleLabel instanceof HTMLElement) {
-        auditToggleLabel.textContent = collapsed ? "Show Audit Stream" : "Hide Audit Stream";
-      }
-      auditBody.hidden = collapsed;
-      viewState.auditCollapsed = collapsed;
-      persistWorkflowScrollState();
-    };
-    if (auditPanel instanceof HTMLElement && auditToggle instanceof HTMLElement && auditBody instanceof HTMLElement) {
-      syncAuditUi();
-      auditPanel.addEventListener("toggle", () => {
-        syncAuditUi();
-      });
-    }
-
     function copyPlainText(text) {
       const textarea = document.createElement("textarea");
       textarea.value = text;

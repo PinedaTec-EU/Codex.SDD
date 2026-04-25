@@ -31,7 +31,6 @@ export interface WorkflowViewState {
   readonly executionSettingsPending?: boolean;
   readonly executionSettingsPendingMessage?: string | null;
   readonly debugMode?: boolean;
-  readonly auditCollapsed?: boolean;
   readonly graphScrollTop?: number;
   readonly detailScrollTop?: number;
   readonly approvalBaseBranchProposal?: string | null;
