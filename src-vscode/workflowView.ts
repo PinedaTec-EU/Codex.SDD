@@ -4635,20 +4635,21 @@ function buildSameColumnGraphPath(
   to: { x: number; y: number },
   nodeWidth: number
 ): string {
+  const verticalGap = Math.abs(to.y - from.y);
   const laneOffset = Math.max(34, nodeWidth * 0.16);
-  const laneX = fromAnchor === "exit-left" || toAnchor === "entry-left"
-    ? fromPosition.left - laneOffset
-    : fromPosition.left + nodeWidth + laneOffset;
-  const verticalSpread = Math.max(34, Math.abs(to.y - from.y) * 0.24);
   const exitPull = projectAwayFromNode(fromPosition, fromAnchor, from, laneOffset);
   const entryPull = projectAwayFromNode(toPosition, toAnchor, to, laneOffset);
 
-  return [
-    `M ${from.x} ${from.y}`,
-    `C ${exitPull.x} ${from.y + verticalSpread * 0.18}, ${laneX} ${from.y + verticalSpread}, ${laneX} ${from.y + verticalSpread * 1.35}`,
-    `S ${laneX} ${to.y - verticalSpread}, ${entryPull.x} ${to.y - verticalSpread * 0.2}`,
-    `S ${to.x} ${to.y}, ${to.x} ${to.y}`
-  ].join(" ");
+  if (to.y > from.y) {
+    const verticalSpread = Math.max(36, verticalGap * 0.32);
+    return `M ${from.x} ${from.y} C ${from.x} ${from.y + verticalSpread}, ${to.x} ${to.y - verticalSpread}, ${to.x} ${to.y}`;
+  }
+
+  const laneX = fromAnchor === "exit-left" || toAnchor === "entry-left"
+    ? fromPosition.left - laneOffset
+    : fromPosition.left + nodeWidth + laneOffset;
+  const verticalSpread = Math.max(36, verticalGap * 0.28);
+  return `M ${from.x} ${from.y} C ${exitPull.x} ${from.y}, ${laneX} ${from.y - verticalSpread * 0.1}, ${laneX} ${from.y - verticalSpread} S ${laneX} ${to.y + verticalSpread}, ${entryPull.x} ${to.y} S ${to.x} ${to.y}, ${to.x} ${to.y}`;
 }
 
 function buildCrossColumnGraphPath(
@@ -4663,48 +4664,51 @@ function buildCrossColumnGraphPath(
   const channelOffset = Math.max(30, nodeWidth * 0.14);
   const exitPull = projectAwayFromNode(fromPosition, fromAnchor, from, channelOffset);
   const entryPull = projectAwayFromNode(toPosition, toAnchor, to, channelOffset);
-  const horizontalSpread = Math.max(52, Math.abs(to.x - from.x) * 0.34);
-  const verticalBias = Math.max(16, Math.abs(to.y - from.y) * 0.12);
+  const laneX = fromAnchor === "exit-bottom-left" || toAnchor === "entry-left"
+    ? Math.min(exitPull.x, entryPull.x) - Math.max(24, nodeWidth * 0.08)
+    : Math.max(exitPull.x, entryPull.x) + Math.max(24, nodeWidth * 0.08);
+  const verticalBias = Math.max(22, Math.abs(to.y - from.y) * 0.16);
 
-  return `M ${from.x} ${from.y} C ${exitPull.x + horizontalSpread * 0.22} ${exitPull.y}, ${entryPull.x - horizontalSpread * 0.28} ${entryPull.y - verticalBias}, ${to.x} ${to.y}`;
+  return `M ${from.x} ${from.y} C ${exitPull.x} ${from.y + verticalBias * 0.45}, ${laneX} ${from.y + verticalBias}, ${laneX} ${from.y + verticalBias * 1.1} S ${laneX} ${to.y - verticalBias}, ${entryPull.x} ${to.y} S ${to.x} ${to.y}, ${to.x} ${to.y}`;
 }
 
 function resolveAnchors(from: PhasePosition, to: PhasePosition): { fromAnchor: GraphAnchor; toAnchor: GraphAnchor } {
   const deltaX = to.left - from.left;
+  const deltaY = to.top - from.top;
 
   if (deltaX === 0) {
-    const leftLane = from.left <= desktopLayoutConfig.columns.left + 40;
-    return {
-      fromAnchor: leftLane ? "exit-right" : "exit-left",
-      toAnchor: leftLane ? "entry-right" : "entry-left"
-    };
+    if (deltaY >= 0) {
+      return { fromAnchor: "exit-bottom-mid", toAnchor: "entry-top" };
+    }
+
+    return { fromAnchor: "exit-right", toAnchor: "entry-right" };
   }
 
   if (deltaX > 0) {
-    return { fromAnchor: "exit-right", toAnchor: "entry-left" };
+    return { fromAnchor: "exit-right", toAnchor: "entry-right" };
   }
 
-  return { fromAnchor: "exit-left", toAnchor: "entry-right" };
+  return { fromAnchor: "exit-left", toAnchor: "entry-left" };
 }
 
 function getAnchorPoint(position: PhasePosition, anchor: GraphAnchor, nodeWidth: number): { x: number; y: number } {
   switch (anchor) {
     case "entry-top":
-      return { x: position.left + nodeWidth * 0.18, y: position.top };
+      return { x: position.left + nodeWidth * 0.24, y: position.top };
     case "entry-left":
-      return { x: position.left, y: position.top + phaseNodeHeight * 0.34 };
+      return { x: position.left, y: position.top + phaseNodeHeight * 0.36 };
     case "entry-right":
-      return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.31 };
+      return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.34 };
     case "exit-right":
-      return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.74 };
+      return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.78 };
     case "exit-left":
-      return { x: position.left, y: position.top + phaseNodeHeight * 0.72 };
+      return { x: position.left, y: position.top + phaseNodeHeight * 0.78 };
     case "exit-bottom-left":
-      return { x: position.left + nodeWidth * 0.14, y: position.top + phaseNodeHeight };
+      return { x: position.left + nodeWidth * 0.1, y: position.top + phaseNodeHeight * 0.96 };
     case "exit-bottom-mid":
-      return { x: position.left + nodeWidth * 0.58, y: position.top + phaseNodeHeight };
+      return { x: position.left + nodeWidth * 0.62, y: position.top + phaseNodeHeight };
     case "exit-bottom-right":
-      return { x: position.left + nodeWidth * 0.86, y: position.top + phaseNodeHeight };
+      return { x: position.left + nodeWidth * 0.9, y: position.top + phaseNodeHeight * 0.96 };
   }
 }
 
