@@ -491,6 +491,11 @@ test("buildWorkflowHtml shows touches even when a phase has no token usage", () 
   assert.match(html, /Total/);
   assert.match(html, />2</);
   assert.match(html, /Rewinds Here/);
+  assert.match(html, /Tokens/);
+  assert.match(html, /Input \/ Output/);
+  assert.match(html, />n\/a</);
+  assert.match(html, /Iterations/);
+  assert.match(html, />1</);
 });
 
 test("buildWorkflowHtml shows rewind on prior phase cards and pause only on later phases", () => {

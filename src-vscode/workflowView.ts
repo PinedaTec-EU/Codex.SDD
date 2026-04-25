@@ -1183,7 +1183,13 @@ export function buildWorkflowHtml(
     0
   );
   const selectedPhaseIterationCount = selectedPhaseMetricEvents.length;
+  const selectedPhaseRecordedIterationCount = phaseIterations.length;
   const selectedPhaseExecutionLabel = findLatestPhaseExecutionLabel(workflow, selectedPhase.phaseId, state);
+  const hasTokenTelemetry = selectedPhaseMetricEvents.some((event) => event.usage);
+  const shouldRenderTokenSummary = hasTokenTelemetry
+    || selectedPhaseRecordedIterationCount > 0
+    || selectedPhaseTouches.total > 0
+    || Boolean(selectedPhaseExecutionLabel);
   const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
   const canRewindSelectedPhase = rewindablePhaseIds.has(selectedPhase.phaseId);
   const phaseSpecificSections = buildPhaseSpecificSections(
@@ -1277,18 +1283,22 @@ export function buildWorkflowHtml(
       </div>
     `
     : "";
-  const tokenSummary = selectedPhaseMetricEvents.some((event) => event.usage)
+  const tokenSummary = shouldRenderTokenSummary
     ? `
       <div class="token-summary token-summary--wide">
         <div class="token-summary__header">Tokens</div>
         <div class="token-summary__rows">
-          ${renderTokenSummaryRow("Input / Output", `${formatMetricNumber(selectedPhaseUsageAggregate.inputTokens)} / ${formatMetricNumber(selectedPhaseUsageAggregate.outputTokens)}`)}
-          ${renderTokenSummaryRow("Total", formatMetricNumber(selectedPhaseUsageAggregate.totalTokens))}
+          ${renderTokenSummaryRow("Input / Output", hasTokenTelemetry
+            ? `${formatMetricNumber(selectedPhaseUsageAggregate.inputTokens)} / ${formatMetricNumber(selectedPhaseUsageAggregate.outputTokens)}`
+            : "n/a")}
+          ${renderTokenSummaryRow("Total", hasTokenTelemetry
+            ? formatMetricNumber(selectedPhaseUsageAggregate.totalTokens)
+            : "n/a")}
           ${selectedPhaseExecutionLabel ? renderTokenSummaryRow("Model", selectedPhaseExecutionLabel) : ""}
-          ${selectedPhaseDurationAggregate > 0
+          ${hasTokenTelemetry && selectedPhaseDurationAggregate > 0
             ? renderTokenSummaryRow("Response Speed", formatTokensPerSecond(selectedPhaseUsageAggregate.outputTokens, selectedPhaseDurationAggregate))
             : ""}
-          ${selectedPhaseIterationCount > 0 ? renderTokenSummaryRow("Iterations", String(selectedPhaseIterationCount)) : ""}
+          ${selectedPhaseRecordedIterationCount > 0 ? renderTokenSummaryRow("Iterations", String(selectedPhaseRecordedIterationCount)) : ""}
         </div>
       </div>
     `
