@@ -5,6 +5,7 @@ const workflowAutomation_1 = require("../workflowAutomation");
 function buildReviewPhaseSections(args) {
     const implementationAttempts = (0, workflowAutomation_1.countImplementationAttempts)(args.workflow);
     const currentPhaseIsReview = args.selectedPhase.isCurrent && args.selectedPhase.phaseId === "review";
+    const includeReviewArtifact = args.state.reviewRegressionIncludeArtifact !== false;
     if (!currentPhaseIsReview) {
         return { beforeArtifact: [], afterArtifact: [] };
     }
@@ -30,19 +31,29 @@ function buildReviewPhaseSections(args) {
           </div>
           <div class="review-regression__body">
             <label class="phase-input-shell" for="review-regression-textarea">
+              <span class="phase-input-label">Implementation context source</span>
+              <label class="review-regression__toggle">
+                <input
+                  id="review-regression-include-artifact"
+                  type="checkbox"
+                  ${includeReviewArtifact ? "checked" : ""} />
+                <span>Send the generated review artifact to implementation as corrective context</span>
+              </label>
               <span class="phase-input-label">Correction context</span>
               <p class="phase-input-copy">
-                Summarize what failed in review, what must change now, and what constraints the next implementation pass must preserve.
+                ${includeReviewArtifact
+                ? "Optional. Add only the extra constraints or steering that should accompany the review artifact when implementation runs again."
+                : "Required when the review artifact is not sent. Explain what failed, what must change now, and what constraints the next implementation pass must preserve."}
               </p>
               <textarea
                 id="review-regression-textarea"
                 class="phase-input-textarea phase-input-textarea--review-regression"
                 rows="6"
-                placeholder="Example: the implementation fixes the API contract but still breaks the empty state. Preserve the current loading flow and update only the review findings listed above."></textarea>
+                placeholder="${includeReviewArtifact
+                ? "Optional example: preserve the current loading flow and only address the accessibility findings from the review."
+                : "Required example: the implementation must rebuild the empty state behavior from the review findings, preserve the current loading flow, and avoid expanding scope."}"></textarea>
             </label>
-            <div class="detail-actions detail-actions--review-regression">
-              <button class="workflow-action-button workflow-action-button--document" id="submit-review-regression">Send To Implementation</button>
-            </div>
+            <p class="review-regression__audit-note">The user decision, selected context mode, regression reason, and resulting implementation operation are all recorded in the workflow audit trail.</p>
           </div>
         </div>
       </section>

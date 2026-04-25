@@ -180,12 +180,13 @@ class StdioMcpBackendClient {
             ...(actor && actor.trim().length > 0 ? { actor } : {})
         });
     }
-    async operateCurrentPhaseArtifact(usId, prompt, actor) {
+    async operateCurrentPhaseArtifact(usId, prompt, actor, includeReviewArtifactInContext) {
         return this.callTool("operate_current_phase_artifact", {
             workspaceRoot: this.workspaceRoot,
             usId,
             prompt,
-            ...(actor && actor.trim().length > 0 ? { actor } : {})
+            ...(actor && actor.trim().length > 0 ? { actor } : {}),
+            ...(includeReviewArtifactInContext === false ? { includeReviewArtifactInContext: false } : {})
         });
     }
     isBusy() {

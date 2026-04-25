@@ -40,7 +40,7 @@ type WorkflowPanelCommand =
   | { readonly command: "submitClarificationAnswers"; readonly answers?: string[] }
   | { readonly command: "submitApprovalAnswer"; readonly question?: string; readonly answer?: string }
   | { readonly command: "submitPhaseInput"; readonly prompt?: string }
-  | { readonly command: "sendReviewToImplementation"; readonly prompt?: string }
+  | { readonly command: "sendReviewToImplementation"; readonly prompt?: string; readonly includeReviewArtifactInContext?: boolean }
   | { readonly command: "play" }
   | { readonly command: "pause" }
   | { readonly command: "togglePhasePause"; readonly phaseId?: string }
@@ -298,9 +298,7 @@ class WorkflowPanelController {
         }
         return;
       case "sendReviewToImplementation":
-        if (message.prompt) {
-          await this.sendReviewToImplementationAsync(message.prompt);
-        }
+        await this.sendReviewToImplementationAsync(message.prompt, message.includeReviewArtifactInContext !== false);
         return;
       case "play":
         await this.requestWorkflowExecutionAsync("command:play", "play");
@@ -486,15 +484,23 @@ class WorkflowPanelController {
     await this.maybeAutoReviewAfterImplementationAsync("phase input");
   }
 
-  private async sendReviewToImplementationAsync(prompt: string): Promise<void> {
-    const normalizedPrompt = prompt.trim();
-    if (normalizedPrompt.length === 0) {
-      return;
+  private async sendReviewToImplementationAsync(prompt: string | undefined, includeReviewArtifactInContext: boolean): Promise<void> {
+    const normalizedPrompt = prompt?.trim() ?? "";
+    if (!includeReviewArtifactInContext && normalizedPrompt.length === 0) {
+      throw new Error("A correction prompt is required when the review artifact is not sent to implementation.");
     }
 
     const previousPhase = this.summary.currentPhase;
     await this.focusPhaseForAction("implementation", "sendReviewToImplementationAsync:focus");
-    const regressionReason = normalizedPrompt.split(/\r?\n/, 1)[0]?.trim() || "Review requested an implementation correction.";
+    const regressionReasonParts = [
+      includeReviewArtifactInContext
+        ? "User approved review regression to implementation with the generated review artifact attached."
+        : "User approved review regression to implementation without attaching the generated review artifact."
+    ];
+    if (normalizedPrompt.length > 0) {
+      regressionReasonParts.push(`Correction note: ${normalizedPrompt.split(/\r?\n/, 1)[0]?.trim() ?? normalizedPrompt}`);
+    }
+    const regressionReason = regressionReasonParts.join(" ");
     const regression = await this.getBackendClient().requestRegression(
       this.summary.usId,
       "implementation",
@@ -503,7 +509,7 @@ class WorkflowPanelController {
       getSpecForgeSettings().destructiveRewindEnabled
     );
     appendSpecForgeLog(
-      `Workflow '${this.summary.usId}' regressed from review to implementation for a model-applied correction.`
+      `Workflow '${this.summary.usId}' regressed from review to implementation by explicit user decision. reviewArtifactIncluded=${includeReviewArtifactInContext}.`
     );
     this.summary = {
       ...this.summary,
@@ -511,15 +517,27 @@ class WorkflowPanelController {
       status: regression.status
     };
 
-    const operationPrompt = [
-      "Apply the following review feedback to the current implementation artifact.",
-      "Use the latest review artifact as corrective context and preserve approved scope unless the feedback explicitly changes it.",
-      "",
-      normalizedPrompt
-    ].join("\n");
-    const operation = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, operationPrompt, getCurrentActor());
+    const operationPrompt = includeReviewArtifactInContext
+      ? [
+        "Apply the approved review feedback to the current implementation artifact.",
+        "Use the latest review artifact as corrective context and preserve approved scope unless the feedback explicitly changes it.",
+        ...(normalizedPrompt.length > 0 ? ["", "Additional user guidance:", normalizedPrompt] : [])
+      ].join("\n")
+      : [
+        "Apply the approved review correction note to the current implementation artifact.",
+        "Do not use the latest review artifact as corrective context for this implementation pass.",
+        "Preserve approved scope unless the user guidance explicitly changes it.",
+        "",
+        normalizedPrompt
+      ].join("\n");
+    const operation = await this.getBackendClient().operateCurrentPhaseArtifact(
+      this.summary.usId,
+      operationPrompt,
+      getCurrentActor(),
+      includeReviewArtifactInContext
+    );
     appendSpecForgeLog(
-      `Workflow '${this.summary.usId}' applied review feedback over implementation.${this.formatExecutionSummary(operation.execution)}`
+      `Workflow '${this.summary.usId}' applied the approved review regression over implementation. reviewArtifactIncluded=${includeReviewArtifactInContext}.${this.formatExecutionSummary(operation.execution)}`
     );
     this.logExecutionWarnings(operation.execution);
     this.summary = {

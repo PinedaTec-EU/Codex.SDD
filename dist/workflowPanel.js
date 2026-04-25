@@ -256,9 +256,7 @@ class WorkflowPanelController {
                 }
                 return;
             case "sendReviewToImplementation":
-                if (message.prompt) {
-                    await this.sendReviewToImplementationAsync(message.prompt);
-                }
+                await this.sendReviewToImplementationAsync(message.prompt, message.includeReviewArtifactInContext !== false);
                 return;
             case "play":
                 await this.requestWorkflowExecutionAsync("command:play", "play");
@@ -407,29 +405,44 @@ class WorkflowPanelController {
         await this.refreshAsync("submitPhaseInputAsync");
         await this.maybeAutoReviewAfterImplementationAsync("phase input");
     }
-    async sendReviewToImplementationAsync(prompt) {
-        const normalizedPrompt = prompt.trim();
-        if (normalizedPrompt.length === 0) {
-            return;
+    async sendReviewToImplementationAsync(prompt, includeReviewArtifactInContext) {
+        const normalizedPrompt = prompt?.trim() ?? "";
+        if (!includeReviewArtifactInContext && normalizedPrompt.length === 0) {
+            throw new Error("A correction prompt is required when the review artifact is not sent to implementation.");
         }
         const previousPhase = this.summary.currentPhase;
         await this.focusPhaseForAction("implementation", "sendReviewToImplementationAsync:focus");
-        const regressionReason = normalizedPrompt.split(/\r?\n/, 1)[0]?.trim() || "Review requested an implementation correction.";
+        const regressionReasonParts = [
+            includeReviewArtifactInContext
+                ? "User approved review regression to implementation with the generated review artifact attached."
+                : "User approved review regression to implementation without attaching the generated review artifact."
+        ];
+        if (normalizedPrompt.length > 0) {
+            regressionReasonParts.push(`Correction note: ${normalizedPrompt.split(/\r?\n/, 1)[0]?.trim() ?? normalizedPrompt}`);
+        }
+        const regressionReason = regressionReasonParts.join(" ");
         const regression = await this.getBackendClient().requestRegression(this.summary.usId, "implementation", regressionReason, (0, userActor_1.getCurrentActor)(), (0, extensionSettings_1.getSpecForgeSettings)().destructiveRewindEnabled);
-        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regressed from review to implementation for a model-applied correction.`);
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regressed from review to implementation by explicit user decision. reviewArtifactIncluded=${includeReviewArtifactInContext}.`);
         this.summary = {
             ...this.summary,
             currentPhase: regression.currentPhase,
             status: regression.status
         };
-        const operationPrompt = [
-            "Apply the following review feedback to the current implementation artifact.",
-            "Use the latest review artifact as corrective context and preserve approved scope unless the feedback explicitly changes it.",
-            "",
-            normalizedPrompt
-        ].join("\n");
-        const operation = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, operationPrompt, (0, userActor_1.getCurrentActor)());
-        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' applied review feedback over implementation.${this.formatExecutionSummary(operation.execution)}`);
+        const operationPrompt = includeReviewArtifactInContext
+            ? [
+                "Apply the approved review feedback to the current implementation artifact.",
+                "Use the latest review artifact as corrective context and preserve approved scope unless the feedback explicitly changes it.",
+                ...(normalizedPrompt.length > 0 ? ["", "Additional user guidance:", normalizedPrompt] : [])
+            ].join("\n")
+            : [
+                "Apply the approved review correction note to the current implementation artifact.",
+                "Do not use the latest review artifact as corrective context for this implementation pass.",
+                "Preserve approved scope unless the user guidance explicitly changes it.",
+                "",
+                normalizedPrompt
+            ].join("\n");
+        const operation = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, operationPrompt, (0, userActor_1.getCurrentActor)(), includeReviewArtifactInContext);
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' applied the approved review regression over implementation. reviewArtifactIncluded=${includeReviewArtifactInContext}.${this.formatExecutionSummary(operation.execution)}`);
         this.logExecutionWarnings(operation.execution);
         this.summary = {
             ...this.summary,

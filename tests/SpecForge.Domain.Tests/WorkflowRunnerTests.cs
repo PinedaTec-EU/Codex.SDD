@@ -144,7 +144,7 @@ public sealed class WorkflowRunnerTests : IDisposable
             workspaceRoot,
             "US-0001",
             "Do not expand scope into roadmap work. Keep the export columns fixed.",
-            "bob");
+            actor: "bob");
 
         Assert.Equal("US-0001", result.UsId);
         Assert.Equal("refinement", result.CurrentPhase);
@@ -711,6 +711,67 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal(paths.GetPhaseArtifactPath(PhaseId.Implementation), provider.LastImplementationOperationContext.CurrentArtifactPath);
         Assert.True(provider.LastImplementationOperationContext.PreviousArtifactPaths.TryGetValue(PhaseId.Review, out var capturedReviewArtifactPath));
         Assert.Equal(reviewArtifactPath, capturedReviewArtifactPath);
+    }
+
+    [Fact]
+    public async Task OperateCurrentPhaseArtifactAsync_AfterReviewRegression_CanExcludeReviewArtifactFromImplementationContext()
+    {
+        await InitializeGitWorkspaceAsync(workspaceRoot);
+        await RunGitAsync(workspaceRoot, "checkout", "-b", "main");
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "README.md"), "seed");
+        await RunGitAsync(workspaceRoot, "add", "README.md");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "seed");
+
+        var provider = new ImplementationOperationCapturingPhaseExecutionProvider();
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            provider,
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Review correction context", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        await runner.RequestRegressionAsync(workspaceRoot, "US-0001", PhaseId.Implementation, "User approved a manual correction path without passing the review artifact");
+        const string correctionPrompt = "Rebuild the missing validation logic from the explicit correction note only.";
+        await runner.OperateCurrentPhaseArtifactAsync(workspaceRoot, "US-0001", correctionPrompt, includeReviewArtifactInContext: false);
+
+        Assert.NotNull(provider.LastImplementationOperationContext);
+        Assert.Equal(PhaseId.Implementation, provider.LastImplementationOperationContext!.PhaseId);
+        Assert.Equal(correctionPrompt, provider.LastImplementationOperationContext.OperationPrompt);
+        Assert.False(provider.LastImplementationOperationContext.PreviousArtifactPaths.ContainsKey(PhaseId.Review));
+    }
+
+    [Fact]
+    public async Task OperateCurrentPhaseArtifactAsync_WithoutReviewArtifactStillRequiresPrompt()
+    {
+        await InitializeGitWorkspaceAsync(workspaceRoot);
+        await RunGitAsync(workspaceRoot, "checkout", "-b", "main");
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "README.md"), "seed");
+        await RunGitAsync(workspaceRoot, "add", "README.md");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "seed");
+
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new ImplementationOperationCapturingPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Review correction context", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.RequestRegressionAsync(workspaceRoot, "US-0001", PhaseId.Implementation, "Regression ready");
+
+        var act = () => runner.OperateCurrentPhaseArtifactAsync(workspaceRoot, "US-0001", "", includeReviewArtifactInContext: false);
+
+        await Assert.ThrowsAsync<ArgumentException>(act);
     }
 
     [Fact]

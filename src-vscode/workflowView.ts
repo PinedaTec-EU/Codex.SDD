@@ -355,7 +355,8 @@ function buildPhaseSpecificSections(
     case "review":
       return buildReviewPhaseSections({
         workflow,
-        selectedPhase
+        selectedPhase,
+        state
       });
     case "release-approval":
       return buildReleaseApprovalPhaseSections();
@@ -973,17 +974,30 @@ export function buildWorkflowHtml(
   const continueActionLabel = selectedPhaseIsCurrent ? "Continue" : "Continue Current Phase";
   const rerunReviewActionLabel = "Rerun Review";
   const approveActionLabel = selectedPhaseIsCurrent ? "Approve" : "Approve Current Phase";
+  const reviewRegressionIncludeArtifact = state.reviewRegressionIncludeArtifact !== false;
+  const reviewRegressionDraft = typeof state.reviewRegressionDraft === "string"
+    ? state.reviewRegressionDraft.trim()
+    : "";
+  const reviewRegressionRequiresPrompt = selectedPhaseIsCurrent
+    && selectedPhase.phaseId === "review"
+    && !reviewRegressionIncludeArtifact;
+  const reviewRegressionActionDisabled = reviewRegressionRequiresPrompt && reviewRegressionDraft.length === 0;
   const shouldRenderApproveAction = selectedPhaseIsCurrent
     && selectedPhase.requiresApproval;
   const shouldRenderRerunReviewAction = canRerunCurrentReview(workflow, selectedPhase, playbackState);
+  const shouldRenderReviewRegressionAction = selectedPhaseIsCurrent && selectedPhase.phaseId === "review";
   const detailActions = (selectedPhaseIsCurrent && (workflow.controls.canApprove || shouldRenderApproveAction || rejectPlan))
     || canRewindSelectedPhase
     || workflow.controls.canContinue
     || shouldRenderRerunReviewAction
+    || shouldRenderReviewRegressionAction
     || workflow.controls.canApprove
     || shouldRenderApproveAction
     ? `
       <div class="detail-actions detail-actions--phase-header">
+        ${shouldRenderReviewRegressionAction
+            ? `<button class="workflow-action-button workflow-action-button--danger" type="button" data-open-review-regression-modal${reviewRegressionActionDisabled ? " disabled" : ""}>Send Back To Implementation</button>`
+            : ""}
         ${workflow.controls.canContinue
             ? `<button class="workflow-action-button workflow-action-button--progress" data-command="continue"${playDisabled ? " disabled" : ""}>${continueActionLabel}</button>`
             : ""}
@@ -2472,6 +2486,43 @@ export function buildWorkflowHtml(
       border: 1px solid rgba(255, 255, 255, 0.06);
       background: rgba(255, 255, 255, 0.025);
     }
+    .review-regression__toggle {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(92, 181, 255, 0.16);
+      background: rgba(255, 255, 255, 0.03);
+      color: rgba(241, 246, 255, 0.92);
+      cursor: pointer;
+    }
+    .review-regression__toggle input {
+      margin-top: 2px;
+      accent-color: #5cb5ff;
+    }
+    .review-regression__audit-note {
+      margin: 0;
+      font-size: 0.82rem;
+      line-height: 1.55;
+      color: rgba(189, 219, 246, 0.76);
+    }
+    .review-regression-confirmation {
+      display: grid;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(92, 181, 255, 0.14);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .review-regression-confirmation__row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      flex-wrap: wrap;
+    }
     .approval-branch__copy h3 {
       margin: 0 0 8px;
     }
@@ -3476,6 +3527,37 @@ export function buildWorkflowHtml(
       </div>
     </div>
   </div>
+  <div class="workflow-files-overlay" data-review-regression-overlay hidden>
+    <div class="workflow-files-dialog workflow-files-dialog--reject panel" role="dialog" aria-modal="true" aria-labelledby="workflow-review-regression-title">
+      <div class="workflow-files-dialog__head">
+        <div>
+          <p class="eyebrow">Review Decision</p>
+          <h2 id="workflow-review-regression-title">Send Review Back To Implementation</h2>
+          <p data-review-regression-helper>Confirm the human decision before SpecForge regresses the workflow and starts the next implementation pass.</p>
+        </div>
+        <button class="workflow-files-dialog__close" type="button" data-close-review-regression-modal aria-label="Close review regression dialog">
+          Close
+        </button>
+      </div>
+      <div class="workflow-files-shell workflow-files-shell--reject">
+        <div class="review-regression-confirmation">
+          <div class="review-regression-confirmation__row">
+            <span class="phase-input-label">Review artifact context</span>
+            <strong data-review-regression-context-mode>Include generated review artifact</strong>
+          </div>
+          <div class="review-regression-confirmation__row">
+            <span class="phase-input-label">Extra correction note</span>
+            <strong data-review-regression-prompt-mode>Optional</strong>
+          </div>
+          <p class="panel-copy" data-review-regression-prompt-preview>No additional correction note will be sent.</p>
+        </div>
+        <div class="detail-actions detail-actions--phase-input">
+          <button class="workflow-action-button workflow-action-button--document" type="button" data-close-review-regression-modal>Cancel</button>
+          <button class="workflow-action-button workflow-action-button--danger" type="button" data-submit-review-regression-modal>Confirm And Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="shell" data-workflow-shell data-us-id="${escapeHtmlAttribute(workflow.usId)}">
     <section class="panel hero">
       <div class="hero-head">
@@ -3876,11 +3958,16 @@ export function buildWorkflowHtml(
 
     const workflowFilesOverlay = document.querySelector("[data-workflow-files-overlay]");
     const rejectOverlay = document.querySelector("[data-reject-overlay]");
+    const reviewRegressionOverlay = document.querySelector("[data-review-regression-overlay]");
     const rejectTextarea = document.querySelector("#workflow-reject-textarea");
     const rejectTitle = document.querySelector("#workflow-reject-title");
     const rejectPromptCopy = document.querySelector("[data-reject-prompt-copy]");
     const rejectHelperCopy = document.querySelector("[data-reject-helper-copy]");
     const rejectSubmitButton = document.querySelector("[data-submit-reject]");
+    const reviewRegressionContextMode = document.querySelector("[data-review-regression-context-mode]");
+    const reviewRegressionPromptMode = document.querySelector("[data-review-regression-prompt-mode]");
+    const reviewRegressionPromptPreview = document.querySelector("[data-review-regression-prompt-preview]");
+    const reviewRegressionSubmitButton = document.querySelector("[data-submit-review-regression-modal]");
     let rejectModalState = {
       targetPhaseId: "",
       mode: "",
@@ -3929,6 +4016,7 @@ export function buildWorkflowHtml(
       if (event.key === "Escape") {
         toggleWorkflowFiles(false);
         toggleRejectModal(false);
+        toggleReviewRegressionModal(false);
       }
     });
 
@@ -3985,6 +4073,48 @@ export function buildWorkflowHtml(
       }
     };
 
+    const syncReviewRegressionModal = () => {
+      const includeReviewArtifact = reviewRegressionIncludeArtifact instanceof HTMLInputElement
+        ? reviewRegressionIncludeArtifact.checked
+        : true;
+      const prompt = reviewRegressionTextarea instanceof HTMLTextAreaElement
+        ? reviewRegressionTextarea.value.trim()
+        : "";
+      if (reviewRegressionContextMode instanceof HTMLElement) {
+        reviewRegressionContextMode.textContent = includeReviewArtifact
+          ? "Include generated review artifact"
+          : "Do not send generated review artifact";
+      }
+      if (reviewRegressionPromptMode instanceof HTMLElement) {
+        reviewRegressionPromptMode.textContent = includeReviewArtifact
+          ? (prompt.length > 0 ? "Optional note provided" : "Optional")
+          : "Required";
+      }
+      if (reviewRegressionPromptPreview instanceof HTMLElement) {
+        reviewRegressionPromptPreview.textContent = prompt.length > 0
+          ? prompt
+          : includeReviewArtifact
+            ? "No additional correction note will be sent."
+            : "A correction note is required because the review artifact will not be sent.";
+      }
+      if (reviewRegressionSubmitButton instanceof HTMLButtonElement) {
+        reviewRegressionSubmitButton.disabled = !includeReviewArtifact && prompt.length === 0;
+      }
+    };
+
+    const toggleReviewRegressionModal = (open) => {
+      if (!(reviewRegressionOverlay instanceof HTMLElement)) {
+        return;
+      }
+
+      reviewRegressionOverlay.hidden = !open;
+      reviewRegressionOverlay.classList.toggle("is-open", open);
+      if (workflowShell instanceof HTMLElement) {
+        workflowShell.classList.toggle("shell--interaction-locked", open);
+      }
+      syncReviewRegressionModal();
+    };
+
     for (const element of document.querySelectorAll("[data-open-reject-modal]")) {
       element.addEventListener("click", () => {
         toggleRejectModal(true, {
@@ -4008,6 +4138,26 @@ export function buildWorkflowHtml(
       rejectOverlay.addEventListener("click", (event) => {
         if (event.target === rejectOverlay) {
           toggleRejectModal(false);
+        }
+      });
+    }
+
+    for (const element of document.querySelectorAll("[data-open-review-regression-modal]")) {
+      element.addEventListener("click", () => {
+        toggleReviewRegressionModal(true);
+      });
+    }
+
+    for (const element of document.querySelectorAll("[data-close-review-regression-modal]")) {
+      element.addEventListener("click", () => {
+        toggleReviewRegressionModal(false);
+      });
+    }
+
+    if (reviewRegressionOverlay instanceof HTMLElement) {
+      reviewRegressionOverlay.addEventListener("click", (event) => {
+        if (event.target === reviewRegressionOverlay) {
+          toggleReviewRegressionModal(false);
         }
       });
     }
@@ -4174,36 +4324,59 @@ export function buildWorkflowHtml(
       });
     }
 
+    const reviewRegressionIncludeArtifact = document.getElementById("review-regression-include-artifact");
     const reviewRegressionTextarea = document.getElementById("review-regression-textarea");
+    if (reviewRegressionIncludeArtifact instanceof HTMLInputElement) {
+      reviewRegressionIncludeArtifact.checked = viewState.reviewRegressionIncludeArtifact !== false;
+      reviewRegressionIncludeArtifact.addEventListener("input", () => {
+        vscode.setState({
+          ...viewState,
+          workflowFilesOpen: Boolean(viewState.workflowFilesOpen),
+          reviewRegressionDraft: reviewRegressionTextarea instanceof HTMLTextAreaElement ? reviewRegressionTextarea.value : "",
+          reviewRegressionIncludeArtifact: reviewRegressionIncludeArtifact.checked
+        });
+        syncReviewRegressionModal();
+      });
+    }
     if (reviewRegressionTextarea instanceof HTMLTextAreaElement) {
       reviewRegressionTextarea.value = typeof viewState.reviewRegressionDraft === "string" ? viewState.reviewRegressionDraft : "";
       reviewRegressionTextarea.addEventListener("input", () => {
         vscode.setState({
           ...viewState,
           workflowFilesOpen: Boolean(viewState.workflowFilesOpen),
-          reviewRegressionDraft: reviewRegressionTextarea.value
+          reviewRegressionDraft: reviewRegressionTextarea.value,
+          reviewRegressionIncludeArtifact: reviewRegressionIncludeArtifact instanceof HTMLInputElement
+            ? reviewRegressionIncludeArtifact.checked
+            : true
         });
+        syncReviewRegressionModal();
       });
     }
 
-    const submitReviewRegression = document.getElementById("submit-review-regression");
-    if (submitReviewRegression && reviewRegressionTextarea instanceof HTMLTextAreaElement) {
-      submitReviewRegression.addEventListener("click", () => {
+    if (reviewRegressionSubmitButton instanceof HTMLButtonElement && reviewRegressionTextarea instanceof HTMLTextAreaElement) {
+      reviewRegressionSubmitButton.addEventListener("click", () => {
         const prompt = reviewRegressionTextarea.value.trim();
-        if (!prompt) {
+        const includeReviewArtifactInContext = reviewRegressionIncludeArtifact instanceof HTMLInputElement
+          ? reviewRegressionIncludeArtifact.checked
+          : true;
+        if (!includeReviewArtifactInContext && !prompt) {
+          syncReviewRegressionModal();
           return;
         }
 
+        toggleReviewRegressionModal(false);
         vscode.postMessage({
           command: "sendReviewToImplementation",
-          prompt
+          prompt,
+          includeReviewArtifactInContext
         });
-        reviewRegressionTextarea.value = "";
         vscode.setState({
           ...viewState,
           workflowFilesOpen: Boolean(viewState.workflowFilesOpen),
-          reviewRegressionDraft: ""
+          reviewRegressionDraft: "",
+          reviewRegressionIncludeArtifact: includeReviewArtifactInContext
         });
+        reviewRegressionTextarea.value = "";
       });
     }
 

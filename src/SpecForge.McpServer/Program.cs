@@ -180,6 +180,7 @@ static async Task<JsonNode> HandleToolCallAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
                 usId: GetRequired(arguments, "usId"),
                 prompt: GetRequired(arguments, "prompt"),
+                includeReviewArtifactInContext: GetOptionalBoolean(arguments, "includeReviewArtifactInContext", defaultValue: true),
                 actor: GetOptional(arguments, "actor") ?? "user"),
             "list_user_story_files" => await applicationService.ListUserStoryFilesAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
@@ -373,6 +374,7 @@ static JsonObject BuildToolsList()
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
                         ("usId",          Prop("string", "User story identifier.")),
                         ("prompt",        Prop("string", "Instruction describing what to change or verify in the current artifact.")),
+                        ("includeReviewArtifactInContext", Prop("boolean", "Whether implementation operations may include the generated review artifact as previous context. Defaults to true.")),
                         ("actor",         Prop("string", "Actor requesting the operation. Defaults to 'user'."))))),
 
             Tool("list_user_story_files", "List context files and user-story info files for a user story.",
@@ -468,10 +470,10 @@ static string? GetOptional(JsonObject arguments, string key)
     return string.IsNullOrWhiteSpace(value) ? null : value;
 }
 
-static bool GetOptionalBoolean(JsonObject arguments, string key)
+static bool GetOptionalBoolean(JsonObject arguments, string key, bool defaultValue = false)
 {
     var value = arguments[key];
-    return value is not null && value.GetValue<bool>();
+    return value is not null ? value.GetValue<bool>() : defaultValue;
 }
 
 static string[] GetStringArray(JsonObject arguments, string key)

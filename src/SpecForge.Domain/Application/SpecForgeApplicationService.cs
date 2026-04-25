@@ -488,9 +488,10 @@ public sealed class SpecForgeApplicationService
         string workspaceRoot,
         string usId,
         string prompt,
+        bool includeReviewArtifactInContext = true,
         string actor = "user",
         CancellationToken cancellationToken = default) =>
-        workflowRunner.OperateCurrentPhaseArtifactAsync(workspaceRoot, usId, prompt, actor, cancellationToken);
+        workflowRunner.OperateCurrentPhaseArtifactAsync(workspaceRoot, usId, prompt, includeReviewArtifactInContext, actor, cancellationToken);
 
     public Task<UserStoryFilesResult> ListUserStoryFilesAsync(
         string workspaceRoot,

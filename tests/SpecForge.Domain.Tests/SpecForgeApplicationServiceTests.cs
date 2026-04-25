@@ -229,7 +229,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         await promptInitializer.InitializeAsync(workspaceRoot);
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
-        await runner.OperateCurrentPhaseArtifactAsync(workspaceRoot, "US-0001", "Keep the spec implementation-only.", "alice");
+        await runner.OperateCurrentPhaseArtifactAsync(workspaceRoot, "US-0001", "Keep the spec implementation-only.", actor: "alice");
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         Directory.CreateDirectory(paths.ContextDirectoryPath);
         await File.WriteAllTextAsync(Path.Combine(paths.ContextDirectoryPath, "service.cs"), "Context");

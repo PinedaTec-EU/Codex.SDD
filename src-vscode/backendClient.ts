@@ -256,7 +256,12 @@ export interface SpecForgeBackendClient {
   resetUserStoryToCapture(usId: string): Promise<ResetUserStoryResult>;
   submitClarificationAnswers(usId: string, answers: readonly string[], actor?: string): Promise<void>;
   submitApprovalAnswer(usId: string, question: string, answer: string, actor?: string): Promise<SubmitApprovalAnswerResult>;
-  operateCurrentPhaseArtifact(usId: string, prompt: string, actor?: string): Promise<OperateCurrentPhaseArtifactResult>;
+  operateCurrentPhaseArtifact(
+    usId: string,
+    prompt: string,
+    actor?: string,
+    includeReviewArtifactInContext?: boolean
+  ): Promise<OperateCurrentPhaseArtifactResult>;
   isBusy(): boolean;
   cancelActiveOperations(): void;
   dispose(): void;
@@ -444,12 +449,18 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     });
   }
 
-  public async operateCurrentPhaseArtifact(usId: string, prompt: string, actor?: string): Promise<OperateCurrentPhaseArtifactResult> {
+  public async operateCurrentPhaseArtifact(
+    usId: string,
+    prompt: string,
+    actor?: string,
+    includeReviewArtifactInContext?: boolean
+  ): Promise<OperateCurrentPhaseArtifactResult> {
     return this.callTool<OperateCurrentPhaseArtifactResult>("operate_current_phase_artifact", {
       workspaceRoot: this.workspaceRoot,
       usId,
       prompt,
-      ...(actor && actor.trim().length > 0 ? { actor } : {})
+      ...(actor && actor.trim().length > 0 ? { actor } : {}),
+      ...(includeReviewArtifactInContext === false ? { includeReviewArtifactInContext: false } : {})
     });
   }
 

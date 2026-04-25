@@ -472,6 +472,7 @@ public sealed class WorkflowRunner
                 workflowRun,
                 currentArtifactPath: null,
                 operationPrompt: null,
+                includeReviewArtifactInContext: true,
                 cancellationToken);
             await AppendTimelineEventAsync(
                 paths.TimelineFilePath,
@@ -514,7 +515,7 @@ public sealed class WorkflowRunner
         PhaseExecutionMetadata? execution = null;
         if (HasArtifact(workflowRun.CurrentPhase))
         {
-            var generation = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
+            var generation = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, includeReviewArtifactInContext: true, cancellationToken);
             artifactPath = generation.ArtifactPath;
             usage = generation.Usage;
             durationMs = generation.DurationMs;
@@ -612,6 +613,7 @@ public sealed class WorkflowRunner
         string workspaceRoot,
         string usId,
         string prompt,
+        bool includeReviewArtifactInContext = true,
         string actor = "user",
         CancellationToken cancellationToken = default)
     {
@@ -632,6 +634,7 @@ public sealed class WorkflowRunner
             workflowRun,
             sourceArtifactPath,
             prompt,
+            includeReviewArtifactInContext,
             cancellationToken);
         var operationLogPath = paths.GetPhaseOperationLogPath(workflowRun.CurrentPhase);
         await AppendArtifactOperationEntryAsync(
@@ -648,7 +651,7 @@ public sealed class WorkflowRunner
             "artifact_operated",
             normalizedActor,
             workflowRun.CurrentPhase,
-            $"Operated current artifact `{Path.GetFileName(sourceArtifactPath)}` and produced `{Path.GetFileName(generation.ArtifactPath)}`.",
+            $"Operated current artifact `{Path.GetFileName(sourceArtifactPath)}` and produced `{Path.GetFileName(generation.ArtifactPath)}`. Review artifact context {(includeReviewArtifactInContext ? "included when available" : "excluded by user decision")}.",
             cancellationToken,
             operationLogPath,
             generation.Usage,
@@ -678,7 +681,7 @@ public sealed class WorkflowRunner
             workflowRun.GenerateNextPhase();
         }
 
-        var clarificationGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
+        var clarificationGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, includeReviewArtifactInContext: true, cancellationToken);
         var clarification = ParseClarificationArtifact(await File.ReadAllTextAsync(clarificationGeneration.ArtifactPath, cancellationToken));
         await UpdateClarificationLogAsync(paths, clarification, this.captureTolerance, cancellationToken);
         await AppendTimelineEventAsync(
@@ -715,7 +718,7 @@ public sealed class WorkflowRunner
         }
 
         workflowRun.GenerateNextPhase();
-        var refinementGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
+        var refinementGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, includeReviewArtifactInContext: true, cancellationToken);
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             "phase_completed",
@@ -753,7 +756,7 @@ public sealed class WorkflowRunner
             workflowRun.UsId,
             PhaseId.Clarification,
             paths.MainArtifactPath,
-            BuildPreviousArtifactMap(paths, PhaseId.Clarification),
+            BuildPreviousArtifactMap(paths, PhaseId.Clarification, includeReviewArtifactInContext: true),
             BuildContextFilePaths(paths, PhaseId.Clarification),
             paths.ClarificationFilePath,
             null);
@@ -823,7 +826,7 @@ public sealed class WorkflowRunner
             autoAnswers.Execution);
 
         workflowRun.RestoreState(PhaseId.Clarification, UserStoryStatus.Active);
-        var retryGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
+        var retryGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, includeReviewArtifactInContext: true, cancellationToken);
         var retryClarification = ParseClarificationArtifact(await File.ReadAllTextAsync(retryGeneration.ArtifactPath, cancellationToken));
         await UpdateClarificationLogAsync(paths, retryClarification, this.captureTolerance, cancellationToken);
         await AppendTimelineEventAsync(
@@ -851,7 +854,7 @@ public sealed class WorkflowRunner
         }
 
         workflowRun.GenerateNextPhase();
-        var refinementGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, cancellationToken);
+        var refinementGeneration = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, includeReviewArtifactInContext: true, cancellationToken);
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
             "phase_completed",
@@ -877,6 +880,7 @@ public sealed class WorkflowRunner
         WorkflowRun workflowRun,
         string? currentArtifactPath,
         string? operationPrompt,
+        bool includeReviewArtifactInContext,
         CancellationToken cancellationToken)
     {
         await using var diagnostics = SpecForgeDiagnostics.StartProgressScope(
@@ -894,7 +898,7 @@ public sealed class WorkflowRunner
             workflowRun.UsId,
             workflowRun.CurrentPhase,
             paths.MainArtifactPath,
-            BuildPreviousArtifactMap(paths, workflowRun.CurrentPhase),
+            BuildPreviousArtifactMap(paths, workflowRun.CurrentPhase, includeReviewArtifactInContext),
             BuildContextFilePaths(paths, workflowRun.CurrentPhase),
             currentArtifactPath,
             operationPrompt);
@@ -1103,12 +1107,20 @@ public sealed class WorkflowRunner
             ReviewArtifactJson.Serialize(document));
     }
 
-    private static IReadOnlyDictionary<PhaseId, string> BuildPreviousArtifactMap(UserStoryFilePaths paths, PhaseId currentPhase)
+    private static IReadOnlyDictionary<PhaseId, string> BuildPreviousArtifactMap(
+        UserStoryFilePaths paths,
+        PhaseId currentPhase,
+        bool includeReviewArtifactInContext)
     {
         var result = new Dictionary<PhaseId, string>();
         foreach (var phaseId in new[] { PhaseId.Refinement, PhaseId.TechnicalDesign, PhaseId.Implementation, PhaseId.Review })
         {
             if (phaseId == currentPhase)
+            {
+                continue;
+            }
+
+            if (!includeReviewArtifactInContext && currentPhase == PhaseId.Implementation && phaseId == PhaseId.Review)
             {
                 continue;
             }
