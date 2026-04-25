@@ -675,10 +675,21 @@ function canRerunCurrentReview(workflow, selectedPhase, playbackState) {
 function phaseSecondaryLabel(phase) {
     switch (phase.phaseId) {
         case "capture":
+            return "Capture story intent";
         case "clarification":
-            return "US";
+            return "Resolve open questions";
         case "refinement":
-            return "spec";
+            return "Shape approved scope";
+        case "technical-design":
+            return "Define technical approach";
+        case "implementation":
+            return "Build the solution";
+        case "review":
+            return "Validate shipped changes";
+        case "release-approval":
+            return "Approve release readiness";
+        case "pr-preparation":
+            return "Prepare branch handoff";
         default:
             return phase.phaseId;
     }
@@ -2353,6 +2364,12 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
       font-size: 0.78rem;
       opacity: 0.66;
+      line-height: 1.25;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-wrap: balance;
       position: relative;
       z-index: 1;
     }
