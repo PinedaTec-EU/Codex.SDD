@@ -2027,15 +2027,22 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       stroke: rgba(255, 255, 255, 0.1);
     }
     .graph-links path.reverse {
-      stroke: rgba(92, 181, 255, 0.34);
+      stroke: rgba(174, 182, 193, 0.42);
       stroke-dasharray: 10 10;
       stroke-width: 3;
+      filter: none;
     }
     .graph-links path.reverse-active {
       stroke: rgba(92, 181, 255, 0.86);
       stroke-dasharray: 14 8;
       stroke-width: 3.5;
       filter: drop-shadow(0 0 14px rgba(92, 181, 255, 0.34));
+    }
+    .graph-links path.reverse-completed {
+      stroke: rgba(114, 241, 184, 0.76);
+      stroke-dasharray: 12 8;
+      stroke-width: 3.5;
+      filter: drop-shadow(0 0 12px rgba(114, 241, 184, 0.24));
     }
     .graph-links path.disabled {
       stroke: rgba(255, 255, 255, 0.08);
@@ -4948,8 +4955,8 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
     }));
     const desktopLayout = buildPhaseLayout(layoutPhases, desktopLayoutConfig, phaseNodeWidth);
     const mobileLayout = buildPhaseLayout(layoutPhases, mobileLayoutConfig, mobilePhaseNodeWidth);
-    const links = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopLayout.positions, phaseNodeWidth);
-    const mobileLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileLayout.positions, mobilePhaseNodeWidth);
+    const links = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopLayout.positions, phaseNodeWidth);
+    const mobileLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileLayout.positions, mobilePhaseNodeWidth);
     const nodes = visiblePhases.map((phase, index) => {
         const disabled = false;
         const visualTone = resolvePhaseVisualTone(workflow.status, workflow, playbackState, phase, disabled, executionPhaseId, pausedExecutionPhaseId, completedPhaseIds);
@@ -5057,7 +5064,7 @@ function resolveDisplayedCurrentPhaseId(workflow, effectiveExecutionPhaseId, pau
     }
     return workflow.currentPhase;
 }
-function buildGraphLinks(visiblePhases, executingTargetPhaseId, currentPhaseId, completedPhaseIds, positions, nodeWidth) {
+function buildGraphLinks(workflow, visiblePhases, executingTargetPhaseId, currentPhaseId, completedPhaseIds, positions, nodeWidth) {
     const edges = [];
     for (let index = 0; index < visiblePhases.length - 1; index++) {
         const fromPhase = visiblePhases[index];
@@ -5073,12 +5080,26 @@ function buildGraphLinks(visiblePhases, executingTargetPhaseId, currentPhaseId, 
         edges.push({
             fromPhaseId: "review",
             toPhaseId: "implementation",
-            className: currentPhaseId === "review" ? "reverse-active" : "reverse"
+            className: reverseLinkClass(workflow, completedPhaseIds)
         });
     }
     return edges
         .map((edge) => `<path class="${edge.className}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth)}"></path>`)
         .join("");
+}
+function reverseLinkClass(workflow, completedPhaseIds) {
+    const reviewRegressionOpen = workflow.currentPhase === "review"
+        && (workflow.controls.blockingReason === "review_failed"
+            || workflow.controls.blockingReason === "review_result_missing"
+            || workflow.controls.blockingReason === "review_missing_artifact");
+    if (reviewRegressionOpen) {
+        return "reverse-active";
+    }
+    const hasRegressionHistory = (workflow.phaseIterations ?? []).some((iteration) => (iteration.phaseId === "implementation" || iteration.phaseId === "review") && iteration.attempt > 1);
+    if (hasRegressionHistory && (completedPhaseIds.has("review") || workflow.currentPhase === "release-approval" || workflow.currentPhase === "pr-preparation")) {
+        return "reverse-completed";
+    }
+    return "reverse";
 }
 function shouldShowClarificationPhase(_workflow, _executionPhaseId) {
     return true;
