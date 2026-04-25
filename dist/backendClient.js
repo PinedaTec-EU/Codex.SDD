@@ -145,6 +145,14 @@ class StdioMcpBackendClient {
             ...(actor && actor.trim().length > 0 ? { actor } : {})
         });
     }
+    async approveReviewAnyway(usId, reason, actor) {
+        return this.callTool("approve_review_anyway", {
+            workspaceRoot: this.workspaceRoot,
+            usId,
+            reason,
+            ...(actor && actor.trim().length > 0 ? { actor } : {})
+        });
+    }
     async approveCurrentPhase(usId, baseBranch, workBranch, actor) {
         return this.callTool("approve_phase", (0, backendClientModel_1.buildApprovePhaseArguments)(this.workspaceRoot, usId, baseBranch, workBranch, actor));
     }

@@ -138,6 +138,11 @@ static async Task<JsonNode> HandleToolCallAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
                 usId: GetRequired(arguments, "usId"),
                 actor: GetOptional(arguments, "actor") ?? "user"),
+            "approve_review_anyway" => await applicationService.ApproveReviewAnywayAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                reason: GetRequired(arguments, "reason"),
+                actor: GetOptional(arguments, "actor") ?? "user"),
             "approve_phase" => await applicationService.ApprovePhaseAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
                 usId: GetRequired(arguments, "usId"),
@@ -310,6 +315,15 @@ static JsonObject BuildToolsList()
                         ("baseBranch",    Prop("string", "Base branch name for the work branch. Optional.")),
                         ("workBranch",    Prop("string", "Override for the work branch name. Optional.")),
                         ("actor",         Prop("string", "Actor performing the approval. Defaults to 'user'."))))),
+
+            Tool("approve_review_anyway", "Force the workflow to leave review and enter release approval by explicit human decision.",
+                Schema(
+                    required: ["workspaceRoot", "usId", "reason"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier.")),
+                        ("reason",        Prop("string", "Audit reason for overriding the review gate.")),
+                        ("actor",         Prop("string", "Actor performing the override. Defaults to 'user'."))))),
 
             Tool("request_regression", "Regress a user story to an earlier valid phase.",
                 Schema(

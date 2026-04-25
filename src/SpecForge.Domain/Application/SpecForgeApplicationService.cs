@@ -441,6 +441,14 @@ public sealed class SpecForgeApplicationService
         return workflowRunner.RequestRegressionAsync(workspaceRoot, usId, phaseId, reason, destructive, actor, cancellationToken);
     }
 
+    public Task<ContinuePhaseResult> ApproveReviewAnywayAsync(
+        string workspaceRoot,
+        string usId,
+        string reason,
+        string actor = "user",
+        CancellationToken cancellationToken = default) =>
+        workflowRunner.ApproveReviewAnywayAsync(workspaceRoot, usId, reason, actor, cancellationToken);
+
     public Task<RestartUserStoryResult> RestartUserStoryFromSourceAsync(
         string workspaceRoot,
         string usId,

@@ -249,6 +249,7 @@ export interface SpecForgeBackendClient {
   importUserStory(usId: string, sourcePath: string, title: string, kind: string, category: string, actor?: string): Promise<CreateOrImportUserStoryResult>;
   initializeRepoPrompts(overwrite?: boolean): Promise<InitializeRepoPromptsResult>;
   continuePhase(usId: string, actor?: string): Promise<ContinuePhaseResult>;
+  approveReviewAnyway(usId: string, reason: string, actor?: string): Promise<ContinuePhaseResult>;
   approveCurrentPhase(usId: string, baseBranch?: string, workBranch?: string, actor?: string): Promise<UserStorySummary>;
   requestRegression(usId: string, targetPhase: string, reason?: string, actor?: string, destructive?: boolean): Promise<RequestRegressionResult>;
   restartUserStoryFromSource(usId: string, reason?: string, actor?: string): Promise<RestartUserStoryResult>;
@@ -391,6 +392,15 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     return this.callTool<ContinuePhaseResult>("generate_next_phase", {
       workspaceRoot: this.workspaceRoot,
       usId,
+      ...(actor && actor.trim().length > 0 ? { actor } : {})
+    });
+  }
+
+  public async approveReviewAnyway(usId: string, reason: string, actor?: string): Promise<ContinuePhaseResult> {
+    return this.callTool<ContinuePhaseResult>("approve_review_anyway", {
+      workspaceRoot: this.workspaceRoot,
+      usId,
+      reason,
       ...(actor && actor.trim().length > 0 ? { actor } : {})
     });
   }

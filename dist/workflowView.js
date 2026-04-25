@@ -766,6 +766,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         && selectedPhase.requiresApproval;
     const shouldRenderRerunReviewAction = canRerunCurrentReview(workflow, selectedPhase, playbackState);
     const shouldRenderReviewRegressionAction = selectedPhaseIsCurrent && selectedPhase.phaseId === "review";
+    const shouldRenderApproveReviewAnywayAction = selectedPhaseIsCurrent && selectedPhase.phaseId === "review";
     const detailActions = (selectedPhaseIsCurrent && (workflow.controls.canApprove || shouldRenderApproveAction || rejectPlan))
         || canRewindSelectedPhase
         || workflow.controls.canContinue
@@ -777,6 +778,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       <div class="detail-actions detail-actions--phase-header">
         ${shouldRenderReviewRegressionAction
             ? `<button class="workflow-action-button workflow-action-button--danger" type="button" data-open-review-regression-modal${reviewRegressionActionDisabled ? " disabled" : ""}>Send Back To Implementation</button>`
+            : ""}
+        ${shouldRenderApproveReviewAnywayAction
+            ? `<button class="workflow-action-button workflow-action-button--approve" type="button" data-open-review-approve-anyway-modal>Approve Anyway</button>`
             : ""}
         ${workflow.controls.canContinue
             ? `<button class="workflow-action-button workflow-action-button--progress" data-command="continue"${playDisabled ? " disabled" : ""}>${continueActionLabel}</button>`
@@ -3327,6 +3331,32 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       </div>
     </div>
   </div>
+  <div class="workflow-files-overlay" data-review-approve-anyway-overlay hidden>
+    <div class="workflow-files-dialog workflow-files-dialog--reject panel" role="dialog" aria-modal="true" aria-labelledby="workflow-review-approve-anyway-title">
+      <div class="workflow-files-dialog__head">
+        <div>
+          <p class="eyebrow">Force Approval</p>
+          <h2 id="workflow-review-approve-anyway-title">Approve Review Anyway</h2>
+          <p>Confirm that the user accepts moving forward to release approval even if the review has not passed normally.</p>
+        </div>
+        <button class="workflow-files-dialog__close" type="button" data-close-review-approve-anyway-modal aria-label="Close approve anyway dialog">
+          Close
+        </button>
+      </div>
+      <div class="workflow-files-shell workflow-files-shell--reject">
+        <label class="phase-input-label" for="workflow-review-approve-anyway-textarea">Audit reason</label>
+        <textarea
+          id="workflow-review-approve-anyway-textarea"
+          class="phase-input-textarea phase-input-textarea--reject"
+          rows="8"
+          placeholder="Explain why the user is explicitly overriding the review gate and accepting release-approval risk."></textarea>
+        <div class="detail-actions detail-actions--phase-input">
+          <button class="workflow-action-button workflow-action-button--document" type="button" data-close-review-approve-anyway-modal>Cancel</button>
+          <button class="workflow-action-button workflow-action-button--approve" type="button" data-submit-review-approve-anyway disabled>Approve Anyway</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="shell" data-workflow-shell data-us-id="${(0, htmlEscape_1.escapeHtmlAttr)(workflow.usId)}">
     <section class="panel hero">
       <div class="hero-head">
@@ -3728,7 +3758,9 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     const workflowFilesOverlay = document.querySelector("[data-workflow-files-overlay]");
     const rejectOverlay = document.querySelector("[data-reject-overlay]");
     const reviewRegressionOverlay = document.querySelector("[data-review-regression-overlay]");
+    const reviewApproveAnywayOverlay = document.querySelector("[data-review-approve-anyway-overlay]");
     const rejectTextarea = document.querySelector("#workflow-reject-textarea");
+    const reviewApproveAnywayTextarea = document.querySelector("#workflow-review-approve-anyway-textarea");
     const rejectTitle = document.querySelector("#workflow-reject-title");
     const rejectPromptCopy = document.querySelector("[data-reject-prompt-copy]");
     const rejectHelperCopy = document.querySelector("[data-reject-helper-copy]");
@@ -3737,6 +3769,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     const reviewRegressionPromptMode = document.querySelector("[data-review-regression-prompt-mode]");
     const reviewRegressionPromptPreview = document.querySelector("[data-review-regression-prompt-preview]");
     const reviewRegressionSubmitButton = document.querySelector("[data-submit-review-regression-modal]");
+    const reviewApproveAnywaySubmitButton = document.querySelector("[data-submit-review-approve-anyway]");
     let rejectModalState = {
       targetPhaseId: "",
       mode: "",
@@ -3786,6 +3819,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         toggleWorkflowFiles(false);
         toggleRejectModal(false);
         toggleReviewRegressionModal(false);
+        toggleReviewApproveAnywayModal(false);
       }
     });
 
@@ -3884,6 +3918,35 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       syncReviewRegressionModal();
     };
 
+    const syncReviewApproveAnywayUi = () => {
+      if (!(reviewApproveAnywaySubmitButton instanceof HTMLButtonElement) || !(reviewApproveAnywayTextarea instanceof HTMLTextAreaElement)) {
+        return;
+      }
+
+      reviewApproveAnywaySubmitButton.disabled = reviewApproveAnywayTextarea.value.trim().length === 0;
+    };
+
+    const toggleReviewApproveAnywayModal = (open) => {
+      if (!(reviewApproveAnywayOverlay instanceof HTMLElement)) {
+        return;
+      }
+
+      reviewApproveAnywayOverlay.hidden = !open;
+      reviewApproveAnywayOverlay.classList.toggle("is-open", open);
+      if (workflowShell instanceof HTMLElement) {
+        workflowShell.classList.toggle("shell--interaction-locked", open);
+      }
+      if (open && reviewApproveAnywayTextarea instanceof HTMLTextAreaElement) {
+        reviewApproveAnywayTextarea.value = "";
+        syncReviewApproveAnywayUi();
+        window.setTimeout(() => {
+          reviewApproveAnywayTextarea.focus();
+        }, 0);
+      } else {
+        syncReviewApproveAnywayUi();
+      }
+    };
+
     for (const element of document.querySelectorAll("[data-open-reject-modal]")) {
       element.addEventListener("click", () => {
         toggleRejectModal(true, {
@@ -3928,6 +3991,48 @@ function buildWorkflowHtml(workflow, state, playbackState) {
         if (event.target === reviewRegressionOverlay) {
           toggleReviewRegressionModal(false);
         }
+      });
+    }
+
+    for (const element of document.querySelectorAll("[data-open-review-approve-anyway-modal]")) {
+      element.addEventListener("click", () => {
+        toggleReviewApproveAnywayModal(true);
+      });
+    }
+
+    for (const element of document.querySelectorAll("[data-close-review-approve-anyway-modal]")) {
+      element.addEventListener("click", () => {
+        toggleReviewApproveAnywayModal(false);
+      });
+    }
+
+    if (reviewApproveAnywayOverlay instanceof HTMLElement) {
+      reviewApproveAnywayOverlay.addEventListener("click", (event) => {
+        if (event.target === reviewApproveAnywayOverlay) {
+          toggleReviewApproveAnywayModal(false);
+        }
+      });
+    }
+
+    if (reviewApproveAnywayTextarea instanceof HTMLTextAreaElement) {
+      reviewApproveAnywayTextarea.addEventListener("input", () => {
+        syncReviewApproveAnywayUi();
+      });
+    }
+
+    if (reviewApproveAnywaySubmitButton instanceof HTMLButtonElement && reviewApproveAnywayTextarea instanceof HTMLTextAreaElement) {
+      reviewApproveAnywaySubmitButton.addEventListener("click", () => {
+        const reason = reviewApproveAnywayTextarea.value.trim();
+        if (!reason) {
+          syncReviewApproveAnywayUi();
+          return;
+        }
+
+        toggleReviewApproveAnywayModal(false);
+        vscode.postMessage({
+          command: "approveReviewAnyway",
+          reason
+        });
       });
     }
 

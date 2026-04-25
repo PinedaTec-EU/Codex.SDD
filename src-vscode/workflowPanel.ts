@@ -41,6 +41,7 @@ type WorkflowPanelCommand =
   | { readonly command: "submitApprovalAnswer"; readonly question?: string; readonly answer?: string }
   | { readonly command: "submitPhaseInput"; readonly prompt?: string }
   | { readonly command: "sendReviewToImplementation"; readonly prompt?: string; readonly includeReviewArtifactInContext?: boolean }
+  | { readonly command: "approveReviewAnyway"; readonly reason?: string }
   | { readonly command: "play" }
   | { readonly command: "pause" }
   | { readonly command: "togglePhasePause"; readonly phaseId?: string }
@@ -300,6 +301,11 @@ class WorkflowPanelController {
       case "sendReviewToImplementation":
         await this.sendReviewToImplementationAsync(message.prompt, message.includeReviewArtifactInContext !== false);
         return;
+      case "approveReviewAnyway":
+        if (message.reason) {
+          await this.approveReviewAnywayAsync(message.reason);
+        }
+        return;
       case "play":
         await this.requestWorkflowExecutionAsync("command:play", "play");
         return;
@@ -553,6 +559,36 @@ class WorkflowPanelController {
     await this.callbacks.refreshExplorer();
     await this.refreshAsync("sendReviewToImplementationAsync");
     await this.maybeAutoReviewAfterImplementationAsync("review correction");
+  }
+
+  private async approveReviewAnywayAsync(reason: string): Promise<void> {
+    const normalizedReason = reason.trim();
+    if (normalizedReason.length === 0) {
+      return;
+    }
+
+    const previousPhase = this.summary.currentPhase;
+    await this.focusPhaseForAction("release-approval", "approveReviewAnywayAsync:focus");
+    const result = await this.getBackendClient().approveReviewAnyway(
+      this.summary.usId,
+      normalizedReason,
+      getCurrentActor()
+    );
+    appendSpecForgeLog(
+      `Workflow '${this.summary.usId}' was force-approved from review to release-approval by explicit user decision.`
+    );
+    this.summary = {
+      ...this.summary,
+      currentPhase: result.currentPhase,
+      status: result.status
+    };
+    this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
+    this.clearTransientExecutionPhase();
+    this.selectedPhaseId = result.currentPhase;
+    this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, result.currentPhase, "approve-review-anyway");
+    appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' approveReviewAnywayAsync requested explorer refresh.`);
+    await this.callbacks.refreshExplorer();
+    await this.refreshAsync("approveReviewAnywayAsync");
   }
 
   private async submitApprovalAnswerAsync(question: string, answer: string): Promise<void> {

@@ -262,6 +262,40 @@ public sealed class WorkflowRunner
             WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase));
     }
 
+    public async Task<ContinuePhaseResult> ApproveReviewAnywayAsync(
+        string workspaceRoot,
+        string usId,
+        string reason,
+        string actor = "user",
+        CancellationToken cancellationToken = default)
+    {
+        ValidateRequired(reason, nameof(reason));
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
+        var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        if (workflowRun.CurrentPhase != PhaseId.Review)
+        {
+            throw new WorkflowDomainException("Approve anyway is only supported while the workflow is in the review phase.");
+        }
+
+        workflowRun.GenerateNextPhase();
+        await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "review_force_approved",
+            NormalizeActor(actor),
+            workflowRun.CurrentPhase,
+            $"User forced the workflow past review into `release-approval`. Reason: {reason.Trim()}.",
+            cancellationToken);
+
+        return new ContinuePhaseResult(
+            workflowRun.UsId,
+            workflowRun.CurrentPhase,
+            workflowRun.Status,
+            GeneratedArtifactPath: null,
+            Usage: null,
+            Execution: null);
+    }
+
     public async Task<RestartUserStoryResult> RestartUserStoryFromSourceAsync(
         string workspaceRoot,
         string usId,
