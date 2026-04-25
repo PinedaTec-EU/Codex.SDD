@@ -266,6 +266,116 @@ test("buildWorkflowAuditHtml renders workflow audit content in a standalone pane
   assert.doesNotMatch(html, /Audit Stream<\/h2>/);
 });
 
+test("buildWorkflowHtml renders iteration lineage with input and output artifacts", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0200",
+    title: "Iteration lineage",
+    category: "workflow",
+    status: "active",
+    currentPhase: "implementation",
+    directoryPath: "/tmp/us.US-0200",
+    workBranch: "feature/us-0200-lineage",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "implementation",
+        title: "Implementation",
+        order: 4,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/03-implementation.v02.md",
+        operationLogPath: "/tmp/03-implementation.ops.md",
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: true,
+      regressionTargets: [],
+      rewindTargets: []
+    },
+    clarification: null,
+    events: [],
+    phaseIterations: [
+      {
+        attempt: 1,
+        phaseId: "implementation",
+        timestampUtc: "2026-04-25T10:00:00Z",
+        code: "phase_completed",
+        actor: "system",
+        summary: "Generated implementation artifact.",
+        outputArtifactPath: "/tmp/03-implementation.md",
+        inputArtifactPath: "/tmp/02-technical-design.md",
+        contextArtifactPaths: [],
+        operationLogPath: null,
+        operationPrompt: null,
+        usage: null,
+        durationMs: 1000,
+        execution: null
+      },
+      {
+        attempt: 2,
+        phaseId: "implementation",
+        timestampUtc: "2026-04-25T11:00:00Z",
+        code: "artifact_operated",
+        actor: "alice",
+        summary: "Applied failed review corrections.",
+        outputArtifactPath: "/tmp/03-implementation.v02.md",
+        inputArtifactPath: "/tmp/03-implementation.md",
+        contextArtifactPaths: ["/tmp/04-review.md"],
+        operationLogPath: "/tmp/03-implementation.ops.md",
+        operationPrompt: "Apply the failed review corrections.",
+        usage: {
+          inputTokens: 10,
+          outputTokens: 20,
+          totalTokens: 30
+        },
+        durationMs: 1200,
+        execution: {
+          providerKind: "openai-compatible",
+          model: "gpt-4.1-mini",
+          profileName: "light",
+          baseUrl: "https://api.example.test/v1"
+        }
+      }
+    ],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "implementation",
+    selectedIterationArtifactPath: "/tmp/03-implementation.v02.md",
+    selectedArtifactContent: "# impl v2",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    modelProfiles: [
+      {
+        name: "light",
+        model: "gpt-4.1-mini"
+      }
+    ]
+  }, "idle");
+
+  assert.match(html, /Iteration 2 ·/);
+  assert.match(html, /Input Artifact/);
+  assert.match(html, /Output Artifact/);
+  assert.match(html, /Open Input/);
+  assert.match(html, /Open Output/);
+  assert.match(html, /Open Operation Log/);
+  assert.match(html, /Context Artifacts/);
+  assert.match(html, /04-review\.md/);
+  assert.match(html, /Apply the failed review corrections\./);
+});
+
 test("buildWorkflowHtml shows rewind on prior phase cards and pause only on later phases", () => {
   const html = buildWorkflowHtml({
     usId: "US-0100",

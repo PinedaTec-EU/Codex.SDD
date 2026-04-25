@@ -17,6 +17,7 @@ public sealed record UserStoryWorkflowDetails(
     ClarificationSessionDetails? Clarification,
     IReadOnlyCollection<ApprovalQuestionDetails> ApprovalQuestions,
     IReadOnlyCollection<TimelineEventDetails> Events,
+    IReadOnlyCollection<PhaseIterationDetails> PhaseIterations,
     string ContextFilesDirectoryPath,
     IReadOnlyCollection<UserStoryFileDetails> ContextFiles,
     string AttachmentsDirectoryPath,
@@ -57,6 +58,22 @@ public sealed record TimelineEventDetails(
     string? Phase,
     string? Summary,
     IReadOnlyCollection<string> Artifacts,
+    TokenUsage? Usage,
+    long? DurationMs,
+    PhaseExecutionMetadata? Execution);
+
+public sealed record PhaseIterationDetails(
+    int Attempt,
+    string PhaseId,
+    string TimestampUtc,
+    string Code,
+    string? Actor,
+    string? Summary,
+    string OutputArtifactPath,
+    string? InputArtifactPath,
+    IReadOnlyCollection<string> ContextArtifactPaths,
+    string? OperationLogPath,
+    string? OperationPrompt,
     TokenUsage? Usage,
     long? DurationMs,
     PhaseExecutionMetadata? Execution);

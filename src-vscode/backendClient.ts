@@ -212,6 +212,23 @@ export interface TimelineEventDetails {
   readonly execution?: PhaseExecutionMetadata | null;
 }
 
+export interface PhaseIterationDetails {
+  readonly attempt: number;
+  readonly phaseId: string;
+  readonly timestampUtc: string;
+  readonly code: string;
+  readonly actor: string | null;
+  readonly summary: string | null;
+  readonly outputArtifactPath: string;
+  readonly inputArtifactPath: string | null;
+  readonly contextArtifactPaths: readonly string[];
+  readonly operationLogPath: string | null;
+  readonly operationPrompt: string | null;
+  readonly usage: TokenUsage | null;
+  readonly durationMs: number | null;
+  readonly execution?: PhaseExecutionMetadata | null;
+}
+
 export interface UserStoryFileDetails {
   readonly name: string;
   readonly path: string;
@@ -234,6 +251,7 @@ export interface UserStoryWorkflowDetails {
   readonly clarification: ClarificationSessionDetails | null;
   readonly approvalQuestions?: readonly ApprovalQuestionDetails[];
   readonly events: readonly TimelineEventDetails[];
+  readonly phaseIterations?: readonly PhaseIterationDetails[];
   readonly contextFilesDirectoryPath?: string;
   readonly contextFiles?: readonly UserStoryFileDetails[];
   readonly attachmentsDirectoryPath: string;

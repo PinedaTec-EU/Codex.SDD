@@ -117,6 +117,7 @@ public sealed class SpecForgeApplicationService
         var approvalQuestions = await ReadApprovalQuestionsAsync(paths, cancellationToken);
         var currentPhase = await GetCurrentPhaseAsync(workspaceRoot, usId, cancellationToken);
 
+        var timelineEvents = TimelineMarkdownParser.ParseEvents(rawTimeline);
         return new UserStoryWorkflowDetails(
             workflowRun.UsId,
             title,
@@ -148,7 +149,8 @@ public sealed class SpecForgeApplicationService
                     clarification.Reason,
                     clarification.Items.Select(item => new ClarificationQuestionAnswerDetails(item.Index, item.Question, item.Answer)).ToArray()),
             approvalQuestions,
-            TimelineMarkdownParser.ParseEvents(rawTimeline),
+            timelineEvents,
+            WorkflowIterationDetailsBuilder.Build(paths, timelineEvents),
             paths.ContextDirectoryPath,
             BuildFileDetails(paths.ContextDirectoryPath),
             paths.AttachmentsDirectoryPath,

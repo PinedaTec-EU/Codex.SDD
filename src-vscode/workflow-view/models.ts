@@ -50,11 +50,17 @@ export interface ApprovalQuestionItem {
 }
 
 export interface PhaseIterationItem {
+  readonly attempt: number;
+  readonly phaseId: string;
   readonly timestampUtc: string;
   readonly code: string;
   readonly actor: string | null;
   readonly summary: string | null;
-  readonly artifactPath: string;
+  readonly inputArtifactPath: string | null;
+  readonly contextArtifactPaths: readonly string[];
+  readonly outputArtifactPath: string;
+  readonly operationLogPath: string | null;
+  readonly operationPrompt: string | null;
   readonly usage: { inputTokens: number; outputTokens: number; totalTokens: number } | null;
   readonly durationMs: number | null;
   readonly execution?: {

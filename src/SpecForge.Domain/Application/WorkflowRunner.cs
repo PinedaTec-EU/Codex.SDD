@@ -671,6 +671,7 @@ public sealed class WorkflowRunner
             includeReviewArtifactInContext,
             cancellationToken);
         var operationLogPath = paths.GetPhaseOperationLogPath(workflowRun.CurrentPhase);
+        var contextArtifactPaths = ResolveOperationContextArtifactPaths(paths, workflowRun.CurrentPhase, includeReviewArtifactInContext);
         await AppendArtifactOperationEntryAsync(
             operationLogPath,
             workflowRun.CurrentPhase,
@@ -678,6 +679,7 @@ public sealed class WorkflowRunner
             sourceArtifactPath,
             prompt,
             generation.ArtifactPath,
+            contextArtifactPaths,
             cancellationToken);
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
         await AppendTimelineEventAsync(
@@ -1738,6 +1740,7 @@ public sealed class WorkflowRunner
         string sourceArtifactPath,
         string prompt,
         string generatedArtifactPath,
+        IReadOnlyCollection<string> contextArtifactPaths,
         CancellationToken cancellationToken)
     {
         var normalizedPrompt = prompt.Trim();
@@ -1766,13 +1769,39 @@ public sealed class WorkflowRunner
             .AppendLine($"## {timestamp} · `{actor}`")
             .AppendLine()
             .AppendLine($"- Source Artifact: `{sourceArtifactPath.Replace('\\', '/')}`")
-            .AppendLine($"- Result Artifact: `{generatedArtifactPath.Replace('\\', '/')}`")
-            .AppendLine("- Prompt:")
+            .AppendLine($"- Result Artifact: `{generatedArtifactPath.Replace('\\', '/')}`");
+
+        if (contextArtifactPaths.Count > 0)
+        {
+            builder.AppendLine("- Context Artifacts:");
+            foreach (var contextArtifactPath in contextArtifactPaths)
+            {
+                builder.AppendLine($"  - `{contextArtifactPath.Replace('\\', '/')}`");
+            }
+        }
+
+        builder.AppendLine("- Prompt:")
             .AppendLine("```text")
             .AppendLine(normalizedPrompt)
             .AppendLine("```");
 
         await File.AppendAllTextAsync(operationLogPath, builder.ToString(), cancellationToken);
+    }
+
+    private static IReadOnlyCollection<string> ResolveOperationContextArtifactPaths(
+        UserStoryFilePaths paths,
+        PhaseId phaseId,
+        bool includeReviewArtifactInContext)
+    {
+        if (phaseId != PhaseId.Implementation || !includeReviewArtifactInContext)
+        {
+            return [];
+        }
+
+        var reviewArtifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Review);
+        return string.IsNullOrWhiteSpace(reviewArtifactPath)
+            ? []
+            : [reviewArtifactPath];
     }
 
     private static async Task EnsureCurrentPhaseIsApprovableAsync(

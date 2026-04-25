@@ -200,6 +200,28 @@ function renderTokenSummaryRow(label: string, value: string): string {
 }
 
 function buildPhaseIterations(workflow: UserStoryWorkflowDetails, phaseId: string): PhaseIterationItem[] {
+  if (workflow.phaseIterations && workflow.phaseIterations.length > 0) {
+    return [...workflow.phaseIterations]
+      .filter((iteration) => iteration.phaseId === phaseId)
+      .sort((left, right) => right.attempt - left.attempt)
+      .map((iteration) => ({
+        attempt: iteration.attempt,
+        phaseId: iteration.phaseId,
+        timestampUtc: iteration.timestampUtc,
+        code: iteration.code,
+        actor: iteration.actor,
+        summary: iteration.summary,
+        inputArtifactPath: iteration.inputArtifactPath,
+        contextArtifactPaths: iteration.contextArtifactPaths,
+        outputArtifactPath: iteration.outputArtifactPath,
+        operationLogPath: iteration.operationLogPath,
+        operationPrompt: iteration.operationPrompt,
+        usage: iteration.usage,
+        durationMs: iteration.durationMs,
+        execution: iteration.execution
+      }));
+  }
+
   const seen = new Set<string>();
   const iterations: PhaseIterationItem[] = [];
   for (const event of [...workflow.events].reverse()) {
@@ -214,11 +236,17 @@ function buildPhaseIterations(workflow: UserStoryWorkflowDetails, phaseId: strin
 
     seen.add(artifactPath);
     iterations.push({
+      attempt: iterations.length + 1,
+      phaseId,
       timestampUtc: event.timestampUtc,
       code: event.code,
       actor: event.actor,
       summary: event.summary,
-      artifactPath,
+      inputArtifactPath: null,
+      contextArtifactPaths: [],
+      outputArtifactPath: artifactPath,
+      operationLogPath: null,
+      operationPrompt: null,
       usage: event.usage,
       durationMs: event.durationMs,
       execution: event.execution
@@ -1077,7 +1105,7 @@ export function buildWorkflowHtml(
     : [];
   const unresolvedApprovalQuestionCount = refinementApprovalQuestions.filter((item) => !item.resolved).length;
   const phaseIterations = buildPhaseIterations(workflow, selectedPhase.phaseId);
-  const selectedIteration = phaseIterations.find((iteration) => iteration.artifactPath === state.selectedIterationArtifactPath)
+  const selectedIteration = phaseIterations.find((iteration) => iteration.outputArtifactPath === state.selectedIterationArtifactPath)
     ?? phaseIterations[0]
     ?? null;
   const selectedPhaseEvents = workflow.events.filter((event) => event.phase === selectedPhase.phaseId);
@@ -1196,15 +1224,15 @@ export function buildWorkflowHtml(
         <h3>Phase Iterations</h3>
         <p class="panel-copy">Newest first. Select any prior iteration to inspect its readonly artifact, metrics, and recorded question and answer state.</p>
         <div class="iteration-rail">
-          ${phaseIterations.map((iteration, index) => `
+          ${phaseIterations.map((iteration) => `
             <button
               type="button"
-              class="iteration-rail__item${selectedIteration?.artifactPath === iteration.artifactPath ? " iteration-rail__item--selected" : ""}"
+              class="iteration-rail__item${selectedIteration?.outputArtifactPath === iteration.outputArtifactPath ? " iteration-rail__item--selected" : ""}"
               data-command="selectIteration"
-              data-path="${escapeHtmlAttribute(iteration.artifactPath)}">
+              data-path="${escapeHtmlAttribute(iteration.outputArtifactPath)}">
               <span class="iteration-rail__stem" aria-hidden="true"></span>
               <span class="iteration-rail__body">
-                <span class="iteration-rail__title">#${index + 1} · ${escapeHtml(formatUtcTimestamp(iteration.timestampUtc))}</span>
+                <span class="iteration-rail__title">Iteration ${iteration.attempt} · ${escapeHtml(formatUtcTimestamp(iteration.timestampUtc))}</span>
                 <span class="iteration-rail__meta">
                   ${escapeHtml(iteration.code)}
                   ${iteration.actor ? ` · ${escapeHtml(iteration.actor)}` : ""}
@@ -1231,6 +1259,7 @@ export function buildWorkflowHtml(
       <section class="detail-card detail-card--iteration-detail">
         <h3>Selected Iteration</h3>
         <div class="iteration-detail__meta">
+          <span class="badge">iteration ${escapeHtml(String(selectedIteration.attempt))}</span>
           <span class="badge">${escapeHtml(selectedIteration.code)}</span>
           <span class="badge">${escapeHtml(formatUtcTimestamp(selectedIteration.timestampUtc))}</span>
           ${selectedIteration.actor ? `<span class="badge">${escapeHtml(selectedIteration.actor)}</span>` : ""}
@@ -1247,16 +1276,39 @@ export function buildWorkflowHtml(
           ${selectedIteration.usage && selectedIteration.durationMs !== null ? `<span class="badge">${escapeHtml(formatTokensPerSecond(selectedIteration.usage.outputTokens, selectedIteration.durationMs))}</span>` : ""}
         </div>
         ${selectedIteration.summary ? `<p class="panel-copy">${escapeHtml(selectedIteration.summary)}</p>` : ""}
-        <div class="detail-actions">
-          <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedIteration.artifactPath)}">Open This Iteration</button>
+        ${selectedIteration.operationPrompt ? `<pre class="artifact-preview artifact-preview--raw-artifact">${escapeHtml(selectedIteration.operationPrompt)}</pre>` : ""}
+        <div class="iteration-lineage-grid">
+          <div class="iteration-lineage-card">
+            <h4>Input Artifact</h4>
+            <p class="muted">${selectedIteration.inputArtifactPath ? escapeHtml(fileNameFromPath(selectedIteration.inputArtifactPath)) : "No explicit input artifact recorded for this iteration."}</p>
+            ${selectedIteration.inputArtifactPath
+              ? `<div class="detail-actions"><button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedIteration.inputArtifactPath)}">Open Input</button></div>`
+              : ""}
+          </div>
+          <div class="iteration-lineage-card">
+            <h4>Output Artifact</h4>
+            <p class="muted">${escapeHtml(fileNameFromPath(selectedIteration.outputArtifactPath))}</p>
+            <div class="detail-actions">
+              <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedIteration.outputArtifactPath)}">Open Output</button>
+              ${selectedIteration.operationLogPath ? `<button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedIteration.operationLogPath)}">Open Operation Log</button>` : ""}
+            </div>
+          </div>
         </div>
+        ${selectedIteration.contextArtifactPaths.length > 0
+          ? `<div class="iteration-context-list">
+              <h4>Context Artifacts</h4>
+              <div class="detail-actions">
+                ${selectedIteration.contextArtifactPaths.map((artifactPath) => `<button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(artifactPath)}">${escapeHtml(fileNameFromPath(artifactPath))}</button>`).join("")}
+              </div>
+            </div>`
+          : ""}
       </section>
     `
     : "";
   const artifactSection = selectedPhase.artifactPath
     ? isClarificationDetail
       ? buildArtifactPreviewSection(
-        selectedIteration?.artifactPath ?? selectedPhase.artifactPath,
+        selectedIteration?.outputArtifactPath ?? selectedPhase.artifactPath,
         artifactPreviewHtml,
         state.selectedArtifactContent ?? "Artifact content unavailable.",
         {
@@ -1265,7 +1317,7 @@ export function buildWorkflowHtml(
         }
       )
       : buildArtifactPreviewSection(
-        selectedIteration?.artifactPath ?? selectedPhase.artifactPath,
+        selectedIteration?.outputArtifactPath ?? selectedPhase.artifactPath,
         artifactPreviewHtml,
         state.selectedArtifactContent ?? "Artifact content unavailable."
       )
@@ -2810,6 +2862,24 @@ export function buildWorkflowHtml(
       gap: 8px;
       flex-wrap: wrap;
     }
+    .iteration-lineage-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .iteration-lineage-card,
+    .iteration-context-list {
+      display: grid;
+      gap: 10px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(92, 181, 255, 0.14);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .iteration-lineage-card h4,
+    .iteration-context-list h4 {
+      margin: 0;
+    }
     .approval-question-item {
       display: grid;
       gap: 10px;
@@ -3560,6 +3630,9 @@ export function buildWorkflowHtml(
         padding: 16px;
       }
       .detail-metrics {
+        grid-template-columns: 1fr;
+      }
+      .iteration-lineage-grid {
         grid-template-columns: 1fr;
       }
       .detail-actions--phase-header {

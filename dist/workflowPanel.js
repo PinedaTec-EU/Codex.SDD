@@ -927,10 +927,9 @@ class WorkflowPanelController {
             ?? workflow.phases.find((phase) => phase.isCurrent)
             ?? workflow.phases[0];
         this.selectedPhaseId = selectedPhase.phaseId;
-        const iterationArtifactPaths = workflow.events
-            .filter((event) => event.phase === selectedPhase.phaseId)
-            .flatMap((event) => event.artifacts)
-            .filter((artifactPath) => artifactPath.toLowerCase().endsWith(".md"));
+        const iterationArtifactPaths = (workflow.phaseIterations ?? [])
+            .filter((iteration) => iteration.phaseId === selectedPhase.phaseId)
+            .map((iteration) => iteration.outputArtifactPath);
         const selectedArtifactPath = this.selectedIterationArtifactPath && iterationArtifactPaths.includes(this.selectedIterationArtifactPath)
             ? this.selectedIterationArtifactPath
             : selectedPhase.phaseId === "capture"
