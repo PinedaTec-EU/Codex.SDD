@@ -795,7 +795,7 @@ function buildWorkflowAuditHtml(workflow, state) {
     :root {
       color-scheme: light dark;
       font-family: var(--vscode-font-family, "Segoe UI", ui-sans-serif, sans-serif);
-      font-size: calc(var(--vscode-font-size, 13px) * 0.96);
+      font-size: calc(var(--vscode-font-size, 13px) * 0.98);
     }
     * {
       box-sizing: border-box;
@@ -1390,7 +1390,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     h1 {
       margin: 0;
-      font-size: clamp(1.4rem, 2.2vw, 1.9rem);
+      font-size: clamp(1.48rem, 2.3vw, 2rem);
       line-height: 1.05;
       max-width: none;
       text-wrap: balance;
@@ -1590,7 +1590,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .token, .badge {
       border-radius: 999px;
       padding: 6px 12px;
-      font-size: 0.82rem;
+      font-size: 0.86rem;
       background: rgba(255, 255, 255, 0.06);
       color: rgba(255, 255, 255, 0.9);
       border: 1px solid rgba(255, 255, 255, 0.06);
@@ -2339,7 +2339,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .phase-node h3 {
       margin: 12px 0 4px;
-      font-size: 0.88rem;
+      font-size: 0.94rem;
       position: relative;
       z-index: 1;
     }
@@ -2361,7 +2361,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     .phase-slug {
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
-      font-size: 0.68rem;
+      font-size: 0.72rem;
       opacity: 0.66;
       position: relative;
       z-index: 1;
@@ -2377,7 +2377,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     .phase-tag {
       border-radius: 999px;
       padding: 3px 8px;
-      font-size: 0.64rem;
+      font-size: 0.68rem;
       background: rgba(255, 255, 255, 0.07);
       color: rgba(255, 255, 255, 0.84);
     }
@@ -3486,7 +3486,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     @media (max-width: 1160px) {
       :root {
-        font-size: calc(var(--vscode-font-size, 13px) * 0.92);
+        font-size: calc(var(--vscode-font-size, 13px) * 0.95);
       }
       .layout-main {
         grid-template-columns: 1fr;
@@ -3501,7 +3501,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     }
     @media (max-width: 1500px) and (min-width: 761px) {
       :root {
-        font-size: calc(var(--vscode-font-size, 13px) * 0.93);
+        font-size: calc(var(--vscode-font-size, 13px) * 0.96);
       }
       .hero, .graph-panel, .detail-panel {
         padding: 18px;
