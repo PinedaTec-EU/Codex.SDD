@@ -166,6 +166,8 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Contains("`artifact_operated`", timeline);
         Assert.Contains("- Actor: `alice`", timeline);
         Assert.Contains("- Actor: `bob`", timeline);
+        Assert.Contains(Path.GetFileName(result.OperationLogPath), timeline);
+        Assert.Contains(Path.GetFileName(result.GeneratedArtifactPath), timeline);
     }
 
     [Fact]
@@ -521,6 +523,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal("refinement", timelineEvent.Phase);
         Assert.Equal("Phase `refinement` approved.", timelineEvent.Summary);
         Assert.Single(timelineEvent.Artifacts);
+        Assert.Equal(".specs/us/workflow/US-0001/branch.yaml", timelineEvent.Artifacts.First());
     }
 
     [Fact]
@@ -552,6 +555,8 @@ public sealed class WorkflowRunnerTests : IDisposable
         var events = TimelineMarkdownParser.ParseEvents(timeline);
 
         var timelineEvent = Assert.Single(events);
+        Assert.Single(timelineEvent.Artifacts);
+        Assert.Equal(".specs/us/workflow/US-0001/phases/01-spec.md", timelineEvent.Artifacts.First());
         Assert.NotNull(timelineEvent.Usage);
         Assert.Equal(486, timelineEvent.Usage!.InputTokens);
         Assert.Equal(1644, timelineEvent.Usage.OutputTokens);

@@ -266,6 +266,13 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         Assert.Contains("`artifact_operated`", workflow.RawTimeline);
         Assert.Contains(workflow.Events, timelineEvent => timelineEvent.Code == "phase_completed");
         Assert.Contains(workflow.Events, timelineEvent => timelineEvent.Code == "artifact_operated" && timelineEvent.Actor == "alice");
+        var refinementIterations = workflow.PhaseIterations
+            .Where(iteration => iteration.PhaseId == "refinement")
+            .OrderBy(iteration => iteration.Attempt)
+            .ToArray();
+        Assert.Equal(2, refinementIterations.Length);
+        Assert.EndsWith(".ops.md", refinementIterations[1].OperationLogPath, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(".md", refinementIterations[1].OutputArtifactPath, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

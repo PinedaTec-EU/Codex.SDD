@@ -689,7 +689,7 @@ public sealed class WorkflowRunner
             workflowRun.CurrentPhase,
             $"Operated current artifact `{Path.GetFileName(sourceArtifactPath)}` and produced `{Path.GetFileName(generation.ArtifactPath)}`. Review artifact context {(includeReviewArtifactInContext ? "included when available" : "excluded by user decision")}.",
             cancellationToken,
-            operationLogPath,
+            [operationLogPath, generation.ArtifactPath],
             generation.Usage,
             generation.DurationMs,
             generation.Execution);
@@ -1533,6 +1533,31 @@ public sealed class WorkflowRunner
         long? durationMs = null,
         PhaseExecutionMetadata? execution = null)
     {
+        await AppendTimelineEventAsync(
+            timelinePath,
+            eventCode,
+            actor,
+            phaseId,
+            summary,
+            cancellationToken,
+            string.IsNullOrWhiteSpace(artifactPath) ? null : [artifactPath],
+            usage,
+            durationMs,
+            execution);
+    }
+
+    private static async Task AppendTimelineEventAsync(
+        string timelinePath,
+        string eventCode,
+        string actor,
+        PhaseId phaseId,
+        string summary,
+        CancellationToken cancellationToken,
+        IReadOnlyCollection<string>? artifactPaths,
+        TokenUsage? usage = null,
+        long? durationMs = null,
+        PhaseExecutionMetadata? execution = null)
+    {
         var timestamp = DateTimeOffset.UtcNow.ToString("O");
         var builder = new StringBuilder()
             .AppendLine()
@@ -1542,10 +1567,18 @@ public sealed class WorkflowRunner
             .AppendLine($"- Phase: `{WorkflowPresentation.ToPhaseSlug(phaseId)}`")
             .AppendLine($"- Summary: {summary}");
 
-        if (!string.IsNullOrWhiteSpace(artifactPath))
+        var normalizedArtifactPaths = artifactPaths?
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Select(static path => path.Replace('\\', '/'))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (normalizedArtifactPaths is { Length: > 0 })
         {
-            builder.AppendLine("- Artifacts:")
-                .AppendLine($"  - `{artifactPath.Replace('\\', '/')}`");
+            builder.AppendLine("- Artifacts:");
+            foreach (var path in normalizedArtifactPaths)
+            {
+                builder.AppendLine($"  - `{path}`");
+            }
         }
 
         if (usage is not null)

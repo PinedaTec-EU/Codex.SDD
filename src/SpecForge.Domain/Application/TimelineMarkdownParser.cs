@@ -107,7 +107,8 @@ public static partial class TimelineMarkdownParser
                 var artifactLine = trimmed.Trim();
                 if (artifactLine.StartsWith("- ", StringComparison.Ordinal))
                 {
-                    artifacts.Add(artifactLine[2..].Trim());
+                    var artifactContent = artifactLine[2..].Trim();
+                    artifacts.Add(ExtractInlineCode(artifactContent) ?? artifactContent);
                     continue;
                 }
 
