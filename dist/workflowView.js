@@ -1028,10 +1028,10 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       <div class="token-summary__rows">
         ${renderTokenSummaryRow("Total", String(selectedPhaseTouches.total))}
         ${renderTokenSummaryRow("Generated", String(selectedPhaseTouches.generated))}
-        ${selectedPhaseTouches.operated > 0 ? renderTokenSummaryRow("Operated", String(selectedPhaseTouches.operated)) : ""}
-        ${selectedPhaseTouches.started > 0 ? renderTokenSummaryRow("Started", String(selectedPhaseTouches.started)) : ""}
-        ${selectedPhaseTouches.rewound > 0 ? renderTokenSummaryRow("Rewinds Here", String(selectedPhaseTouches.rewound)) : ""}
-        ${selectedPhaseTouches.regressed > 0 ? renderTokenSummaryRow("Regressions Here", String(selectedPhaseTouches.regressed)) : ""}
+        ${renderTokenSummaryRow("Operated", String(selectedPhaseTouches.operated))}
+        ${renderTokenSummaryRow("Started", String(selectedPhaseTouches.started))}
+        ${renderTokenSummaryRow("Rewinds Here", String(selectedPhaseTouches.rewound))}
+        ${renderTokenSummaryRow("Regressions Here", String(selectedPhaseTouches.regressed))}
       </div>
     </div>
   `;

@@ -571,6 +571,10 @@ test("buildWorkflowHtml always shows duration touches and tokens for visual cons
   assert.match(html, /Tokens/);
   assert.match(html, />n\/a</);
   assert.match(html, /<span class="token-summary__value">0<\/span>/);
+  assert.match(html, /Operated/);
+  assert.match(html, /Started/);
+  assert.match(html, /Rewinds Here/);
+  assert.match(html, /Regressions Here/);
 });
 
 test("buildWorkflowHtml shows rewind on prior phase cards and pause only on later phases", () => {
