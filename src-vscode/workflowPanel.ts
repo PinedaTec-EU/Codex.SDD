@@ -26,6 +26,7 @@ type WorkflowPanelCommand =
   | { readonly command: "webviewDispatch"; readonly detail?: string }
   | { readonly command: "selectPhase"; readonly phaseId?: string }
   | { readonly command: "selectIteration"; readonly iterationKey?: string }
+  | { readonly command: "togglePhaseIterations"; readonly phaseId?: string }
   | { readonly command: "openArtifact"; readonly path?: string }
   | { readonly command: "openPrompt"; readonly path?: string }
   | { readonly command: "openAttachment"; readonly path?: string }
@@ -116,6 +117,7 @@ class WorkflowPanelController {
   private readonly panel: vscode.WebviewPanel;
   private selectedPhaseId: string;
   private selectedIterationKey: string | null = null;
+  private readonly expandedIterationPhaseIds = new Set<string>();
   private playbackState: "idle" | "playing" | "paused" | "stopping" = "idle";
   private playbackStartedAtMs: number | null = null;
   private autoplayPromise: Promise<void> | null = null;
@@ -251,6 +253,22 @@ class WorkflowPanelController {
       case "selectIteration":
         this.selectedIterationKey = message.iterationKey?.trim() || null;
         await this.renderCachedWorkflowAsync("command:selectIteration");
+        return;
+      case "togglePhaseIterations":
+        if (message.phaseId) {
+          if (this.expandedIterationPhaseIds.has(message.phaseId)) {
+            this.expandedIterationPhaseIds.delete(message.phaseId);
+            if (this.lastWorkflow && this.selectedPhaseId === message.phaseId) {
+              const latestIteration = (this.lastWorkflow.phaseIterations ?? [])
+                .filter((iteration) => iteration.phaseId === message.phaseId)
+                .sort((left, right) => right.attempt - left.attempt)[0];
+              this.selectedIterationKey = latestIteration?.iterationKey ?? null;
+            }
+          } else {
+            this.expandedIterationPhaseIds.add(message.phaseId);
+          }
+          await this.renderCachedWorkflowAsync("command:togglePhaseIterations");
+        }
         return;
       case "openArtifact":
       case "openPrompt":
@@ -1252,6 +1270,7 @@ class WorkflowPanelController {
     const viewState: WorkflowViewState = {
       selectedPhaseId: this.selectedPhaseId,
       selectedIterationKey: this.selectedIterationKey,
+      expandedIterationPhaseIds: [...this.expandedIterationPhaseIds],
       selectedArtifactContent,
       selectedOperationContent,
       contextSuggestions,

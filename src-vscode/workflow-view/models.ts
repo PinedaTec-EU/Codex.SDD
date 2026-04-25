@@ -3,6 +3,7 @@ import type { SuggestedContextFile } from "../contextSuggestions";
 export interface WorkflowViewState {
   readonly selectedPhaseId: string;
   readonly selectedIterationKey?: string | null;
+  readonly expandedIterationPhaseIds?: readonly string[];
   readonly selectedArtifactContent: string | null;
   readonly selectedOperationContent?: string | null;
   readonly contextSuggestions: readonly SuggestedContextFile[];

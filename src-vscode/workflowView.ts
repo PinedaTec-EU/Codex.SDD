@@ -1167,7 +1167,11 @@ export function buildWorkflowHtml(
     : [];
   const unresolvedApprovalQuestionCount = refinementApprovalQuestions.filter((item) => !item.resolved).length;
   const phaseIterations = buildPhaseIterations(workflow, selectedPhase.phaseId);
-  const selectedIteration = phaseIterations.find((iteration) => iteration.iterationKey === state.selectedIterationKey)
+  const expandedIterationPhaseIds = new Set(state.expandedIterationPhaseIds ?? []);
+  const isIterationRailExpanded = expandedIterationPhaseIds.has(selectedPhase.phaseId);
+  const selectedIteration = (isIterationRailExpanded
+    ? phaseIterations.find((iteration) => iteration.iterationKey === state.selectedIterationKey)
+    : null)
     ?? phaseIterations[0]
     ?? null;
   const selectedPhaseTouches = summarizePhaseTouches(workflow, selectedPhase.phaseId);
@@ -1294,13 +1298,33 @@ export function buildWorkflowHtml(
     </div>
   `;
   const selectedPhaseMetrics = `${durationMetric}${touchSummary}${tokenSummary}`;
-  const iterationRail = phaseIterations.length > 1
+  const latestIteration = phaseIterations[0] ?? null;
+  const visibleIterations = isIterationRailExpanded
+    ? phaseIterations
+    : latestIteration
+      ? [latestIteration]
+      : [];
+  const iterationRail = phaseIterations.length > 0
     ? `
       <section class="detail-card detail-card--phase-iterations">
-        <h3>Phase Iterations</h3>
-        <p class="panel-copy">Newest first. Select any prior iteration to inspect its readonly artifact, metrics, and recorded question and answer state.</p>
-        <div class="iteration-rail">
-          ${phaseIterations.map((iteration) => `
+        <div class="detail-card__header detail-card__header--iterations">
+          <div>
+            <h3>Phase Iterations</h3>
+            <p class="panel-copy">${isIterationRailExpanded
+              ? "Newest first. Select any iteration to inspect its readonly artifact, metrics, and recorded context."
+              : "Collapsed by default. The latest iteration stays selected until you expand the full history."}</p>
+          </div>
+          <button
+            type="button"
+            class="workflow-action-button workflow-action-button--document workflow-action-button--compact"
+            data-command="togglePhaseIterations"
+            data-phase-id="${escapeHtmlAttribute(selectedPhase.phaseId)}">
+            ${isIterationRailExpanded ? "Collapse" : "Expand"}
+          </button>
+        </div>
+        <div class="iteration-rail${isIterationRailExpanded ? " iteration-rail--expanded" : " iteration-rail--collapsed"}">
+          <span class="iteration-rail__line" aria-hidden="true"></span>
+          ${visibleIterations.map((iteration) => `
             <button
               type="button"
               class="iteration-rail__item${selectedIteration?.iterationKey === iteration.iterationKey ? " iteration-rail__item--selected" : ""}"
@@ -2698,6 +2722,15 @@ export function buildWorkflowHtml(
         radial-gradient(circle at top left, rgba(92, 181, 255, 0.08), transparent 26%),
         linear-gradient(180deg, rgba(14, 19, 27, 0.94), rgba(10, 14, 20, 0.98));
     }
+    .detail-card__header--iterations {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+    }
+    .detail-card__header--iterations .panel-copy {
+      margin-bottom: 0;
+    }
     .detail-card--review-regression {
       border-color: rgba(92, 181, 255, 0.18);
       background:
@@ -2854,6 +2887,20 @@ export function buildWorkflowHtml(
     .iteration-rail {
       display: grid;
       gap: 10px;
+      position: relative;
+      padding-left: 10px;
+    }
+    .iteration-rail--collapsed {
+      gap: 0;
+    }
+    .iteration-rail__line {
+      position: absolute;
+      left: 18px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(180deg, rgba(92, 181, 255, 0.5), rgba(92, 181, 255, 0.12));
+      border-radius: 999px;
     }
     .iteration-rail__item {
       display: grid;
@@ -2872,15 +2919,6 @@ export function buildWorkflowHtml(
       position: relative;
       width: 20px;
     }
-    .iteration-rail__stem::before {
-      content: "";
-      position: absolute;
-      left: 8px;
-      top: 0;
-      bottom: -10px;
-      width: 2px;
-      background: linear-gradient(180deg, rgba(92, 181, 255, 0.5), rgba(92, 181, 255, 0.12));
-    }
     .iteration-rail__stem::after {
       content: "";
       position: absolute;
@@ -2892,9 +2930,6 @@ export function buildWorkflowHtml(
       background: rgba(92, 181, 255, 0.18);
       border: 1px solid rgba(92, 181, 255, 0.38);
       box-shadow: 0 0 0 6px rgba(92, 181, 255, 0.05);
-    }
-    .iteration-rail__item:last-child .iteration-rail__stem::before {
-      bottom: 14px;
     }
     .iteration-rail__body {
       display: grid;
@@ -2935,6 +2970,11 @@ export function buildWorkflowHtml(
       font-size: 0.82rem;
       line-height: 1.45;
       color: rgba(226, 232, 242, 0.84);
+    }
+    .workflow-action-button--compact {
+      min-height: 36px;
+      padding: 8px 14px;
+      align-self: center;
     }
     .iteration-detail__meta {
       display: flex;

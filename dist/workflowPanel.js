@@ -92,6 +92,7 @@ class WorkflowPanelController {
     panel;
     selectedPhaseId;
     selectedIterationKey = null;
+    expandedIterationPhaseIds = new Set();
     playbackState = "idle";
     playbackStartedAtMs = null;
     autoplayPromise = null;
@@ -202,6 +203,23 @@ class WorkflowPanelController {
             case "selectIteration":
                 this.selectedIterationKey = message.iterationKey?.trim() || null;
                 await this.renderCachedWorkflowAsync("command:selectIteration");
+                return;
+            case "togglePhaseIterations":
+                if (message.phaseId) {
+                    if (this.expandedIterationPhaseIds.has(message.phaseId)) {
+                        this.expandedIterationPhaseIds.delete(message.phaseId);
+                        if (this.lastWorkflow && this.selectedPhaseId === message.phaseId) {
+                            const latestIteration = (this.lastWorkflow.phaseIterations ?? [])
+                                .filter((iteration) => iteration.phaseId === message.phaseId)
+                                .sort((left, right) => right.attempt - left.attempt)[0];
+                            this.selectedIterationKey = latestIteration?.iterationKey ?? null;
+                        }
+                    }
+                    else {
+                        this.expandedIterationPhaseIds.add(message.phaseId);
+                    }
+                    await this.renderCachedWorkflowAsync("command:togglePhaseIterations");
+                }
                 return;
             case "openArtifact":
             case "openPrompt":
@@ -959,6 +977,7 @@ class WorkflowPanelController {
         const viewState = {
             selectedPhaseId: this.selectedPhaseId,
             selectedIterationKey: this.selectedIterationKey,
+            expandedIterationPhaseIds: [...this.expandedIterationPhaseIds],
             selectedArtifactContent,
             selectedOperationContent,
             contextSuggestions,

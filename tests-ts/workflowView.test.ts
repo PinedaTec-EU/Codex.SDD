@@ -355,6 +355,7 @@ test("buildWorkflowHtml renders iteration lineage with input and output artifact
   }, {
     selectedPhaseId: "implementation",
     selectedIterationKey: "implementation:2:2026-04-25T11:00:00Z:artifact_operated",
+    expandedIterationPhaseIds: [],
     selectedArtifactContent: "# impl v2",
     contextSuggestions: [],
     settingsConfigured: true,
@@ -367,7 +368,10 @@ test("buildWorkflowHtml renders iteration lineage with input and output artifact
     ]
   }, "idle");
 
+  assert.match(html, /Expand/);
+  assert.match(html, /iteration-rail--collapsed/);
   assert.match(html, /Iteration 2 ·/);
+  assert.doesNotMatch(html, /Iteration 1 · 2026-04-25T10:00:00Z/);
   assert.match(html, /Input Artifact/);
   assert.match(html, /Output Artifact/);
   assert.match(html, /Open Input/);
@@ -376,6 +380,103 @@ test("buildWorkflowHtml renders iteration lineage with input and output artifact
   assert.match(html, /Context Artifacts/);
   assert.match(html, /04-review\.md/);
   assert.match(html, /Apply the failed review corrections\./);
+});
+
+test("buildWorkflowHtml expands phase iteration tree when the phase is opened", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0003",
+    title: "Expanded iterations",
+    kind: "feature",
+    category: "prompts",
+    status: "active",
+    currentPhase: "review",
+    directoryPath: "/tmp/us-0003",
+    workBranch: null,
+    mainArtifactPath: "/tmp/US-0003.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "",
+    phases: [
+      {
+        phaseId: "review",
+        title: "Review",
+        order: 5,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/04-review.v02.md",
+        operationLogPath: "/tmp/04-review.ops.md",
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: true,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: ["implementation"],
+      rewindTargets: []
+    },
+    clarification: null,
+    approvalQuestions: [],
+    events: [],
+    phaseIterations: [
+      {
+        iterationKey: "review:1:2026-04-25T10:00:00Z:phase_completed",
+        attempt: 1,
+        phaseId: "review",
+        timestampUtc: "2026-04-25T10:00:00Z",
+        code: "phase_completed",
+        actor: "system",
+        summary: "Initial review.",
+        outputArtifactPath: "/tmp/04-review.md",
+        inputArtifactPath: "/tmp/03-implementation.md",
+        contextArtifactPaths: [],
+        operationLogPath: null,
+        operationPrompt: null,
+        usage: null,
+        durationMs: 1000,
+        execution: null
+      },
+      {
+        iterationKey: "review:2:2026-04-25T11:00:00Z:phase_completed",
+        attempt: 2,
+        phaseId: "review",
+        timestampUtc: "2026-04-25T11:00:00Z",
+        code: "phase_completed",
+        actor: "system",
+        summary: "Corrected review.",
+        outputArtifactPath: "/tmp/04-review.v02.md",
+        inputArtifactPath: "/tmp/03-implementation.v02.md",
+        contextArtifactPaths: [],
+        operationLogPath: null,
+        operationPrompt: null,
+        usage: null,
+        durationMs: 1100,
+        execution: null
+      }
+    ],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "review",
+    selectedIterationKey: "review:1:2026-04-25T10:00:00Z:phase_completed",
+    expandedIterationPhaseIds: ["review"],
+    selectedArtifactContent: "# review",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /Collapse/);
+  assert.match(html, /iteration-rail--expanded/);
+  assert.match(html, /Iteration 2 · 2026-04-25T11:00:00Z/);
+  assert.match(html, /Iteration 1 · 2026-04-25T10:00:00Z/);
 });
 
 test("buildWorkflowHtml shows touches even when a phase has no token usage", () => {
