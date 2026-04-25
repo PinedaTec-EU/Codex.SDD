@@ -53,9 +53,9 @@ type PhaseLayoutConfig = {
   readonly bottomPadding: number;
 };
 
-const phaseNodeWidth = 220;
-const phaseNodeHeight = 180;
-const mobilePhaseNodeWidth = 188;
+const phaseNodeWidth = 196;
+const phaseNodeHeight = 154;
+const mobilePhaseNodeWidth = 172;
 const desktopLayoutConfig: PhaseLayoutConfig = {
   columns: { left: 38, right: 400 },
   topOffset: 40,
@@ -2306,9 +2306,9 @@ export function buildWorkflowHtml(
       top: var(--phase-top-desktop);
       width: ${phaseNodeWidth}px;
       min-height: ${phaseNodeHeight}px;
-      border-radius: 26px;
+      border-radius: 22px;
       border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 14px 16px;
+      padding: 12px 14px;
       color: inherit;
       background: linear-gradient(180deg, rgba(22, 28, 38, 0.94), rgba(10, 14, 20, 0.98));
       text-align: left;
@@ -2448,15 +2448,15 @@ export function buildWorkflowHtml(
     }
     .phase-current-rail {
       position: absolute;
-      top: 22px;
-      bottom: 22px;
-      left: -42px;
-      right: -16px;
+      top: 18px;
+      bottom: 18px;
+      left: -34px;
+      right: -14px;
       display: flex;
       align-items: center;
       justify-content: flex-start;
       padding-left: 0;
-      border-radius: 18px;
+      border-radius: 16px;
       border-right: 1px solid rgba(92, 181, 255, 0.12);
       background: linear-gradient(180deg, rgba(74, 156, 229, 0.94), rgba(14, 42, 76, 0.98));
       box-shadow:
@@ -2469,7 +2469,7 @@ export function buildWorkflowHtml(
       display: inline-block;
       transform: rotate(-90deg);
       transform-origin: center;
-      margin-left: -12px;
+      margin-left: -10px;
       color: rgba(245, 250, 255, 0.98);
       text-shadow: 0 1px 2px rgba(7, 17, 28, 0.34);
       font-size: 0.72rem;
@@ -2481,15 +2481,15 @@ export function buildWorkflowHtml(
     }
     .phase-viewing-rail {
       position: absolute;
-      top: 22px;
-      bottom: 22px;
-      left: -16px;
-      right: -42px;
+      top: 18px;
+      bottom: 18px;
+      left: -14px;
+      right: -34px;
       display: flex;
       align-items: center;
       justify-content: flex-end;
       padding-right: 0;
-      border-radius: 18px;
+      border-radius: 16px;
       border-left: 1px solid rgba(216, 223, 232, 0.18);
       background: linear-gradient(180deg, rgba(97, 106, 120, 0.96), rgba(48, 56, 68, 0.98));
       box-shadow:
@@ -2499,14 +2499,14 @@ export function buildWorkflowHtml(
       pointer-events: none;
     }
     .phase-viewing-rail--current {
-      left: 22px;
-      right: -32px;
+      left: 18px;
+      right: -28px;
     }
     .phase-viewing-rail__label {
       display: inline-block;
       transform: rotate(-90deg);
       transform-origin: center;
-      margin-right: -12px;
+      margin-right: -10px;
       color: rgba(245, 248, 252, 0.94);
       text-shadow: 0 1px 2px rgba(7, 17, 28, 0.28);
       font-size: 0.68rem;
@@ -2519,7 +2519,7 @@ export function buildWorkflowHtml(
     .phase-index {
       width: 30px;
       height: 30px;
-      border-radius: 12px;
+      border-radius: 10px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -2532,7 +2532,7 @@ export function buildWorkflowHtml(
       height: 30px;
       margin-top: 2px;
       border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 12px;
+      border-radius: 10px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -2588,16 +2588,16 @@ export function buildWorkflowHtml(
       box-shadow: none;
     }
     .phase-node h3 {
-      margin: 14px 0 4px;
-      font-size: 0.92rem;
+      margin: 12px 0 4px;
+      font-size: 0.88rem;
       position: relative;
       z-index: 1;
     }
     .phase-priority-tags {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
-      margin-top: 12px;
+      margin-top: 10px;
       position: relative;
       z-index: 1;
     }
@@ -2611,23 +2611,23 @@ export function buildWorkflowHtml(
     }
     .phase-slug {
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       opacity: 0.66;
       position: relative;
       z-index: 1;
     }
     .phase-tags {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
-      margin-top: 14px;
+      margin-top: 10px;
       position: relative;
       z-index: 1;
     }
     .phase-tag {
       border-radius: 999px;
-      padding: 4px 8px;
-      font-size: 0.68rem;
+      padding: 3px 8px;
+      font-size: 0.64rem;
       background: rgba(255, 255, 255, 0.07);
       color: rgba(255, 255, 255, 0.84);
     }
