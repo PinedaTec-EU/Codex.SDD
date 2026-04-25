@@ -145,6 +145,7 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.doesNotMatch(html, /action-btn--approve/);
   assert.doesNotMatch(html, /action-btn--reject/);
   assert.match(html, /data-open-workflow-files/);
+  assert.doesNotMatch(html, /aria-label="Rewind workflow to selected phase"/);
   assert.doesNotMatch(html, />Reset</);
   assert.doesNotMatch(html, /debugResetToCapture/);
   assert.match(html, /Workflow-level files are grouped here instead of repeating them in every phase detail\./);
@@ -193,6 +194,103 @@ test("buildWorkflowHtml renders phase detail and audit stream for the selected p
   assert.match(html, /data-submit-reject/);
   assert.match(html, /specforge-ai:auto-scroll-phase:/);
   assert.match(html, /scrollIntoView/);
+});
+
+test("buildWorkflowHtml shows rewind on prior phase cards and pause only on later phases", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0100",
+    title: "Phase card controls",
+    category: "workflow",
+    status: "active",
+    currentPhase: "technical-design",
+    directoryPath: "/tmp/us.US-0100",
+    workBranch: "feature/us-0100-phase-controls",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 2,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: true,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: "/tmp/01-refinement.md",
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "technical-design",
+        title: "Technical Design",
+        order: 3,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/02-technical-design.md",
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "implementation",
+        title: "Implementation",
+        order: 4,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: true,
+      regressionTargets: [],
+      rewindTargets: ["refinement"]
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: [],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: []
+  }, {
+    selectedPhaseId: "technical-design",
+    selectedArtifactContent: "## Technical Design",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /data-phase-id="capture"[\s\S]*data-phase-rewind-button/);
+  assert.match(html, /data-phase-id="refinement"[\s\S]*data-phase-rewind-button/);
+  assert.doesNotMatch(html, /data-phase-id="technical-design"[\s\S]*data-phase-rewind-button/);
+  assert.match(html, /data-phase-id="implementation"[\s\S]*data-phase-pause-button/);
+  assert.doesNotMatch(html, /aria-label="Rewind workflow to selected phase"/);
+  assert.doesNotMatch(html, /debugResetToCapture/);
 });
 
 test("buildWorkflowHtml shows ready instead of executing when the current phase is idle", () => {
@@ -1000,7 +1098,7 @@ test("buildWorkflowHtml uses US as the secondary label for capture and clarifica
   assert.match(html, /<span class="token">US<\/span>/);
 });
 
-test("buildWorkflowHtml shows the debug reset action only in debug mode", () => {
+test("buildWorkflowHtml does not render the legacy debug reset action", () => {
   const html = buildWorkflowHtml({
     usId: "US-0099",
     title: "Debug workflow",
@@ -1046,9 +1144,8 @@ test("buildWorkflowHtml shows the debug reset action only in debug mode", () => 
     debugMode: true
   }, "idle");
 
-  assert.match(html, /Reset to Capture/);
-  assert.match(html, /workflow-action-button--danger" type="button" data-command="debugResetToCapture"/);
-  assert.match(html, /data-command="debugResetToCapture"/);
+  assert.doesNotMatch(html, /Reset to Capture/);
+  assert.doesNotMatch(html, /data-command="debugResetToCapture"/);
 });
 
 test("buildWorkflowHtml disables execution controls when settings are incomplete without duplicating the sidebar warning", () => {

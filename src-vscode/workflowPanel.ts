@@ -888,6 +888,11 @@ class WorkflowPanelController {
   }
 
   private async rewindWorkflowAsync(targetPhase: string): Promise<void> {
+    if (targetPhase === "capture") {
+      await this.debugResetToCaptureAsync();
+      return;
+    }
+
     const previousPhase = this.summary.currentPhase;
     const settings = getSpecForgeSettings();
     const destructiveRewindEnabled = settings.destructiveRewindEnabled;

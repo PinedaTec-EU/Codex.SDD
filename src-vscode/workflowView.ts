@@ -1213,9 +1213,6 @@ export function buildWorkflowHtml(
     </div>
   `;
   const playbackButtons = `
-    <button class="icon-button" data-command="rewind" data-phase-id="${escapeHtmlAttribute(selectedPhase.phaseId)}" aria-label="Rewind workflow to selected phase"${canRewindSelectedPhase ? "" : " disabled"}>
-      ${rewindIcon()}
-    </button>
     <button class="icon-button icon-button--primary${shouldPulsePlay ? " icon-button--pulse" : ""}" data-command="play" aria-label="Play workflow"${playDisabled ? " disabled" : ""}>
       ${playIcon()}
     </button>
@@ -1226,9 +1223,7 @@ export function buildWorkflowHtml(
       ${stopIcon()}
     </button>
   `;
-  const debugResetButton = state.debugMode
-    ? `<button class="workflow-action-button workflow-action-button--danger" type="button" data-command="debugResetToCapture">Reset to Capture</button>`
-    : "";
+  const debugResetButton = "";
 
   const auditRows = workflow.events.length > 0
     ? workflow.events.map((event) => `
@@ -2288,6 +2283,11 @@ export function buildWorkflowHtml(
       background: rgba(255, 213, 90, 0.18);
       color: rgba(255, 232, 152, 0.98);
       box-shadow: 0 0 0 8px rgba(255, 213, 90, 0.1);
+    }
+    .phase-pause-toggle--rewind {
+      border-color: rgba(92, 181, 255, 0.3);
+      background: rgba(40, 92, 194, 0.22);
+      color: rgba(208, 226, 255, 0.96);
     }
     .phase-node.phase-tone-active .phase-pause-toggle,
     .phase-node.phase-tone-paused .phase-pause-toggle {
@@ -4740,6 +4740,7 @@ function buildPhaseGraph(
     ?? workflow.phases[0];
   const pausedPhaseIds = new Set(state.pausedPhaseIds ?? []);
   const completedPhaseIds = new Set(state.completedPhaseIds ?? []);
+  const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
   const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);
   const visiblePhases = workflow.phases.filter((phase) =>
     shouldShowPhase(phase.phaseId, clarificationVisible, currentPhase.phaseId, executionPhaseId));
@@ -4770,9 +4771,13 @@ function buildPhaseGraph(
     const pauseArmed = pausedPhaseIds.has(phase.phaseId);
     const phaseIsCurrent = phase.phaseId === displayedCurrentPhaseId;
     const phaseIsSelected = phase.phaseId === selectedPhaseId;
+    const canRewindPhase = canRenderPhaseRewindAction(workflow, phase, displayedCurrentPhaseId, rewindablePhaseIds);
     const pauseButtonLabel = pauseArmed
       ? `Remove pause before ${phase.title}`
       : `Pause before ${phase.title}`;
+    const rewindButtonLabel = phase.phaseId === "capture"
+      ? "Reset workflow to Capture"
+      : `Rewind workflow to ${phase.title}`;
     return `
     <div
       class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phaseIsSelected ? " selected" : ""}${phaseIsCurrent ? " phase-node--current" : ""}"
@@ -4789,7 +4794,18 @@ function buildPhaseGraph(
             <span class="phase-index">${index + 1}</span>
             ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
           </div>
-          ${canPausePhase
+          ${canRewindPhase
+            ? `<button
+                class="phase-pause-toggle phase-pause-toggle--rewind"
+                type="button"
+                data-command="rewind"
+                data-phase-id="${escapeHtmlAttribute(phase.phaseId)}"
+                data-phase-rewind-button
+                aria-label="${escapeHtmlAttribute(rewindButtonLabel)}"
+                title="${escapeHtmlAttribute(rewindButtonLabel)}">
+                ${rewindIcon()}
+              </button>`
+            : canPausePhase
             ? `<button
                 class="phase-pause-toggle${pauseArmed ? " phase-pause-toggle--armed" : ""}"
                 type="button"
@@ -4945,6 +4961,28 @@ function shouldShowPhase(
     || clarificationVisible
     || currentPhaseId === "clarification"
     || executionPhaseId === "clarification";
+}
+
+function canRenderPhaseRewindAction(
+  workflow: UserStoryWorkflowDetails,
+  phase: WorkflowPhaseDetails,
+  displayedCurrentPhaseId: string,
+  rewindablePhaseIds: ReadonlySet<string>
+): boolean {
+  if (phase.phaseId === displayedCurrentPhaseId) {
+    return false;
+  }
+
+  const currentPhaseOrder = workflow.phases.find((candidate) => candidate.phaseId === displayedCurrentPhaseId)?.order ?? Number.MAX_SAFE_INTEGER;
+  if (phase.order >= currentPhaseOrder) {
+    return false;
+  }
+
+  if (phase.phaseId === "capture") {
+    return workflow.controls.canRestartFromSource;
+  }
+
+  return rewindablePhaseIds.has(phase.phaseId);
 }
 
 function graphPath(
