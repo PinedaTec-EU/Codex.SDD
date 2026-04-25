@@ -53,9 +53,9 @@ type PhaseLayoutConfig = {
   readonly bottomPadding: number;
 };
 
-const phaseNodeWidth = 196;
-const phaseNodeHeight = 154;
-const mobilePhaseNodeWidth = 172;
+const phaseNodeWidth = 188;
+const phaseNodeHeight = 146;
+const mobilePhaseNodeWidth = 166;
 const desktopLayoutConfig: PhaseLayoutConfig = {
   columns: { left: 38, right: 400 },
   topOffset: 40,
@@ -861,17 +861,6 @@ function phaseSecondaryLabel(phase: WorkflowPhaseDetails): string {
       return "spec";
     default:
       return phase.phaseId;
-  }
-}
-
-function phaseModelLaneLabel(phase: WorkflowPhaseDetails): string {
-  switch (phase.phaseId) {
-    case "implementation":
-      return "top lane";
-    case "review":
-      return "review lane";
-    default:
-      return "light lane";
   }
 }
 
@@ -2588,8 +2577,8 @@ export function buildWorkflowHtml(
       box-shadow: none;
     }
     .phase-node h3 {
-      margin: 12px 0 4px;
-      font-size: 0.94rem;
+      margin: 10px 0 4px;
+      font-size: 0.92rem;
       position: relative;
       z-index: 1;
     }
@@ -2597,7 +2586,7 @@ export function buildWorkflowHtml(
       display: flex;
       gap: 6px;
       flex-wrap: wrap;
-      margin-top: 10px;
+      margin-top: 8px;
       position: relative;
       z-index: 1;
     }
@@ -2620,7 +2609,7 @@ export function buildWorkflowHtml(
       display: flex;
       gap: 6px;
       flex-wrap: wrap;
-      margin-top: 10px;
+      margin-top: 8px;
       position: relative;
       z-index: 1;
     }
@@ -5215,7 +5204,6 @@ function buildPhaseGraph(
       completedPhaseIds);
     const desktopPosition = desktopLayout.positions[phase.phaseId] ?? { left: desktopLayoutConfig.columns.left, top: desktopLayoutConfig.topOffset };
     const mobilePosition = mobileLayout.positions[phase.phaseId] ?? { left: mobileLayoutConfig.columns.left, top: mobileLayoutConfig.topOffset };
-    const displayState = phaseToneLabel(visualTone, phase.state, playbackState, phase.isCurrent);
     const canPausePhase = canPauseWorkflowExecutionPhase(phase.phaseId) && phase.state === "pending";
     const pauseArmed = pausedPhaseIds.has(phase.phaseId);
     const phaseIsCurrent = phase.phaseId === displayedCurrentPhaseId;
@@ -5270,11 +5258,11 @@ function buildPhaseGraph(
         </div>
         <h3>${escapeHtml(phase.title)}</h3>
         <div class="phase-slug">${escapeHtml(phaseSecondaryLabel(phase))}</div>
-        <div class="phase-tags">
-          <span class="phase-tag phase-tag--${escapeHtmlAttribute(visualTone)}">${escapeHtml(displayState)}</span>
-          <span class="phase-tag">${escapeHtml(phaseModelLaneLabel(phase))}</span>
-          ${phase.isApproved ? `<span class="phase-tag">approved</span>` : ""}
-        </div>
+        ${phase.isApproved
+          ? `<div class="phase-tags">
+              <span class="phase-tag">approved</span>
+            </div>`
+          : ""}
       </div>
     </div>
   `;

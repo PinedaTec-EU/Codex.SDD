@@ -17,9 +17,9 @@ const refinementPhaseView_1 = require("./workflow-view/refinementPhaseView");
 const releaseApprovalPhaseView_1 = require("./workflow-view/releaseApprovalPhaseView");
 const reviewPhaseView_1 = require("./workflow-view/reviewPhaseView");
 const technicalDesignPhaseView_1 = require("./workflow-view/technicalDesignPhaseView");
-const phaseNodeWidth = 196;
-const phaseNodeHeight = 154;
-const mobilePhaseNodeWidth = 172;
+const phaseNodeWidth = 188;
+const phaseNodeHeight = 146;
+const mobilePhaseNodeWidth = 166;
 const desktopLayoutConfig = {
     columns: { left: 38, right: 400 },
     topOffset: 40,
@@ -681,16 +681,6 @@ function phaseSecondaryLabel(phase) {
             return "spec";
         default:
             return phase.phaseId;
-    }
-}
-function phaseModelLaneLabel(phase) {
-    switch (phase.phaseId) {
-        case "implementation":
-            return "top lane";
-        case "review":
-            return "review lane";
-        default:
-            return "light lane";
     }
 }
 function phaseModelProfileLabel(phase, state) {
@@ -2338,8 +2328,8 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       box-shadow: none;
     }
     .phase-node h3 {
-      margin: 12px 0 4px;
-      font-size: 0.94rem;
+      margin: 10px 0 4px;
+      font-size: 0.92rem;
       position: relative;
       z-index: 1;
     }
@@ -2347,7 +2337,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       display: flex;
       gap: 6px;
       flex-wrap: wrap;
-      margin-top: 10px;
+      margin-top: 8px;
       position: relative;
       z-index: 1;
     }
@@ -2370,7 +2360,7 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       display: flex;
       gap: 6px;
       flex-wrap: wrap;
-      margin-top: 10px;
+      margin-top: 8px;
       position: relative;
       z-index: 1;
     }
@@ -4948,7 +4938,6 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         const visualTone = resolvePhaseVisualTone(workflow.status, workflow, playbackState, phase, disabled, executionPhaseId, pausedExecutionPhaseId, completedPhaseIds);
         const desktopPosition = desktopLayout.positions[phase.phaseId] ?? { left: desktopLayoutConfig.columns.left, top: desktopLayoutConfig.topOffset };
         const mobilePosition = mobileLayout.positions[phase.phaseId] ?? { left: mobileLayoutConfig.columns.left, top: mobileLayoutConfig.topOffset };
-        const displayState = phaseToneLabel(visualTone, phase.state, playbackState, phase.isCurrent);
         const canPausePhase = (0, workflowPlaybackState_1.canPauseWorkflowExecutionPhase)(phase.phaseId) && phase.state === "pending";
         const pauseArmed = pausedPhaseIds.has(phase.phaseId);
         const phaseIsCurrent = phase.phaseId === displayedCurrentPhaseId;
@@ -5003,11 +4992,11 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         </div>
         <h3>${(0, htmlEscape_1.escapeHtml)(phase.title)}</h3>
         <div class="phase-slug">${(0, htmlEscape_1.escapeHtml)(phaseSecondaryLabel(phase))}</div>
-        <div class="phase-tags">
-          <span class="phase-tag phase-tag--${(0, htmlEscape_1.escapeHtmlAttr)(visualTone)}">${(0, htmlEscape_1.escapeHtml)(displayState)}</span>
-          <span class="phase-tag">${(0, htmlEscape_1.escapeHtml)(phaseModelLaneLabel(phase))}</span>
-          ${phase.isApproved ? `<span class="phase-tag">approved</span>` : ""}
-        </div>
+        ${phase.isApproved
+            ? `<div class="phase-tags">
+              <span class="phase-tag">approved</span>
+            </div>`
+            : ""}
       </div>
     </div>
   `;
