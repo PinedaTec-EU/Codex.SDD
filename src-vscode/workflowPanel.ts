@@ -518,24 +518,24 @@ class WorkflowPanelController {
 
     const previousPhase = this.summary.currentPhase;
     await this.focusPhaseForAction("implementation", "sendReviewToImplementationAsync:focus");
-    const regressionReasonParts = [
+    const correctionReasonParts = [
       includeReviewArtifactInContext
-        ? "User approved review regression to implementation with the generated review artifact attached."
-        : "User approved review regression to implementation without attaching the generated review artifact."
+        ? "User returned implementation for a corrective pass with the generated review artifact attached."
+        : "User returned implementation for a corrective pass without attaching the generated review artifact."
     ];
     if (normalizedPrompt.length > 0) {
-      regressionReasonParts.push(`Correction note: ${normalizedPrompt.split(/\r?\n/, 1)[0]?.trim() ?? normalizedPrompt}`);
+      correctionReasonParts.push(`Correction note: ${normalizedPrompt.split(/\r?\n/, 1)[0]?.trim() ?? normalizedPrompt}`);
     }
-    const regressionReason = regressionReasonParts.join(" ");
+    const correctionReason = correctionReasonParts.join(" ");
     const regression = await this.getBackendClient().requestRegression(
       this.summary.usId,
       "implementation",
-      regressionReason,
+      correctionReason,
       getCurrentActor(),
-      getSpecForgeSettings().destructiveRewindEnabled
+      false
     );
     appendSpecForgeLog(
-      `Workflow '${this.summary.usId}' regressed from review to implementation by explicit user decision. reviewArtifactIncluded=${includeReviewArtifactInContext}.`
+      `Workflow '${this.summary.usId}' returned implementation to the review correction loop by explicit user decision. reviewArtifactIncluded=${includeReviewArtifactInContext}.`
     );
     this.summary = {
       ...this.summary,
@@ -546,12 +546,15 @@ class WorkflowPanelController {
     const operationPrompt = includeReviewArtifactInContext
       ? [
         "Apply the approved review feedback to the current implementation artifact.",
-        "Use the latest review artifact as corrective context and preserve approved scope unless the feedback explicitly changes it.",
+        "Treat this as a corrective implementation pass, not a restart.",
+        "Use the latest review artifact as corrective context and preserve the existing implementation unless the feedback explicitly requires changing it.",
+        "Only fix what the review found and keep approved scope intact unless the feedback explicitly changes it.",
         ...(normalizedPrompt.length > 0 ? ["", "Additional user guidance:", normalizedPrompt] : [])
       ].join("\n")
       : [
         "Apply the approved review correction note to the current implementation artifact.",
         "Do not use the latest review artifact as corrective context for this implementation pass.",
+        "Treat this as a corrective implementation pass over the existing implementation, not a restart.",
         "Preserve approved scope unless the user guidance explicitly changes it.",
         "",
         normalizedPrompt
@@ -563,7 +566,7 @@ class WorkflowPanelController {
       includeReviewArtifactInContext
     );
     appendSpecForgeLog(
-      `Workflow '${this.summary.usId}' applied the approved review regression over implementation. reviewArtifactIncluded=${includeReviewArtifactInContext}.${this.formatExecutionSummary(operation.execution)}`
+      `Workflow '${this.summary.usId}' applied the approved review correction pass over implementation. reviewArtifactIncluded=${includeReviewArtifactInContext}.${this.formatExecutionSummary(operation.execution)}`
     );
     this.logExecutionWarnings(operation.execution);
     this.summary = {

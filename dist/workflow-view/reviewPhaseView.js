@@ -20,8 +20,8 @@ function buildReviewPhaseSections(args) {
               <h3>Send Back To Implementation</h3>
               <p class="panel-copy">
                 Use this only when the review found concrete issues that require another implementation pass.
-                SpecForge will move the workflow back to <code>implementation</code>, keep the review artifact as context,
-                and apply your note directly over the implementation artifact.
+                SpecForge will return the workflow to the <code>implementation</code> correction loop, preserve the current review artifact as context,
+                and apply your note directly over the existing implementation artifact instead of starting from scratch.
               </p>
             </div>
             <div class="review-regression__stat" aria-label="Implementation attempts so far">
