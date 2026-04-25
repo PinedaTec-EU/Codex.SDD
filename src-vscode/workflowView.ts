@@ -1606,12 +1606,15 @@ export function buildWorkflowHtml(
       pointer-events: none;
     }
     .hero-head {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 18px;
-      flex-wrap: wrap;
+      align-items: start;
       position: relative;
       z-index: 1;
+    }
+    .hero-main {
+      min-width: 0;
     }
     .eyebrow {
       margin: 0 0 10px;
@@ -1639,7 +1642,8 @@ export function buildWorkflowHtml(
       margin: 0;
       font-size: clamp(1.4rem, 2.2vw, 1.9rem);
       line-height: 1.05;
-      max-width: 820px;
+      max-width: none;
+      text-wrap: balance;
     }
     .hero-meta, .control-strip, .detail-meta {
       display: flex;
@@ -1931,6 +1935,8 @@ export function buildWorkflowHtml(
       border-color: rgba(255, 120, 120, 0.26);
     }
     .control-strip {
+      justify-self: end;
+      align-self: start;
       align-content: flex-start;
       justify-content: flex-end;
       max-width: 540px;
@@ -3759,6 +3765,9 @@ export function buildWorkflowHtml(
       }
     }
     @media (max-width: 760px) {
+      .hero-head {
+        grid-template-columns: 1fr;
+      }
       .shell {
         padding: 12px;
       }
@@ -3767,6 +3776,10 @@ export function buildWorkflowHtml(
       }
       .hero, .graph-panel, .detail-panel {
         padding: 16px;
+      }
+      .control-strip {
+        justify-self: stretch;
+        justify-content: flex-start;
       }
       .detail-metrics {
         grid-template-columns: 1fr;
@@ -3942,7 +3955,7 @@ export function buildWorkflowHtml(
   <div class="shell" data-workflow-shell data-us-id="${escapeHtmlAttribute(workflow.usId)}">
     <section class="panel hero">
       <div class="hero-head">
-        <div>
+        <div class="hero-main">
           <div class="hero-caption">
             <p class="eyebrow">SpecForge.AI Workflow Graph</p>
             ${state.runtimeVersion ? `<span class="runtime-version">v.${escapeHtml(state.runtimeVersion)}</span>` : ""}
