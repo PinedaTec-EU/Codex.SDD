@@ -286,6 +286,7 @@ test("buildWorkflowHtml shows rewind on prior phase cards and pause only on late
   }, "idle");
 
   assert.match(html, /data-phase-id="capture"[\s\S]*data-phase-rewind-button/);
+  assert.match(html, /data-phase-id="capture"[\s\S]*A1\.25 1\.25 0 0 1 7\.25 4/);
   assert.match(html, /data-phase-id="refinement"[\s\S]*data-phase-rewind-button/);
   assert.doesNotMatch(html, /data-phase-id="technical-design"[\s\S]*data-phase-rewind-button/);
   assert.match(html, /data-phase-id="implementation"[\s\S]*data-phase-pause-button/);
@@ -2871,6 +2872,7 @@ test("buildWorkflowHtml renders rerun review action when review failed and the w
   assert.match(html, /data-command="continue"[^>]*>Rerun Review</);
   assert.doesNotMatch(html, /data-command="continue"[^>]*disabled[^>]*>Rerun Review</);
   assert.match(html, /token token--blocked">blocked</);
+  assert.match(html, /workflow-action-button workflow-action-button--attention" type="button" data-open-review-approve-anyway-modal>Approve Anyway</);
 });
 
 test("buildWorkflowHtml shows active execution state while rerunning a failed review", () => {
@@ -3626,12 +3628,18 @@ test("buildWorkflowHtml keeps the hero header above a dedicated scrolling body",
 
   assert.match(html, /body \{[\s\S]*height: 100vh;[\s\S]*overflow: hidden;/);
   assert.match(html, /\.shell \{[\s\S]*grid-template-rows: auto minmax\(0, 1fr\);[\s\S]*overflow: hidden;/);
-  assert.match(html, /\.shell-body \{[\s\S]*overflow-y: auto;[\s\S]*overscroll-behavior: contain;/);
-  assert.match(html, /<div class="shell-body">[\s\S]*<section class="layout">/);
+  assert.match(html, /\.shell-body \{[\s\S]*overflow: hidden;/);
+  assert.match(html, /<div class="shell-body">[\s\S]*<section class="layout">[\s\S]*<div class="layout-main">/);
   assert.match(html, /\.hero \{[\s\S]*position: relative;[\s\S]*z-index: 30;/);
   assert.match(html, /const shellBody = document\.querySelector\("\.shell-body"\);/);
-  assert.match(html, /viewState\.workflowScrollTop = shellBody\.scrollTop/);
-  assert.match(html, /shellBody\.scrollTop = restoredWorkflowScrollTop/);
-  assert.match(html, /shellBody\.addEventListener\("scroll"/);
+  assert.match(html, /const graphPanel = document\.querySelector\(/);
+  assert.match(html, /const detailPanel = document\.querySelector\(/);
+  assert.match(html, /graphScrollTop:/);
+  assert.match(html, /detailScrollTop:/);
+  assert.match(html, /graphPanel\.addEventListener\("scroll"/);
+  assert.match(html, /detailPanel\.addEventListener\("scroll"/);
+  assert.match(html, /data-audit-panel/);
+  assert.match(html, /data-audit-toggle/);
+  assert.match(html, /setAuditCollapsed/);
   assert.match(html, /persistWorkflowScrollState\(\);\s+vscode\.postMessage/);
 });
