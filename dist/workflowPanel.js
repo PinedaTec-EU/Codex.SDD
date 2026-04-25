@@ -91,7 +91,7 @@ class WorkflowPanelController {
     callbacks;
     panel;
     selectedPhaseId;
-    selectedIterationArtifactPath = null;
+    selectedIterationKey = null;
     playbackState = "idle";
     playbackStartedAtMs = null;
     autoplayPromise = null;
@@ -195,12 +195,12 @@ class WorkflowPanelController {
             case "selectPhase":
                 if (message.phaseId) {
                     this.selectedPhaseId = message.phaseId;
-                    this.selectedIterationArtifactPath = null;
+                    this.selectedIterationKey = null;
                     await this.refreshAsync("command:selectPhase");
                 }
                 return;
             case "selectIteration":
-                this.selectedIterationArtifactPath = message.path?.trim() || null;
+                this.selectedIterationKey = message.iterationKey?.trim() || null;
                 await this.renderCachedWorkflowAsync("command:selectIteration");
                 return;
             case "openArtifact":
@@ -740,7 +740,7 @@ class WorkflowPanelController {
         this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
         this.clearTransientExecutionPhase();
         this.selectedPhaseId = result.currentPhase;
-        this.selectedIterationArtifactPath = null;
+        this.selectedIterationKey = null;
         this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, result.currentPhase, "rewind");
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' rewindWorkflowAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
@@ -927,16 +927,19 @@ class WorkflowPanelController {
             ?? workflow.phases.find((phase) => phase.isCurrent)
             ?? workflow.phases[0];
         this.selectedPhaseId = selectedPhase.phaseId;
-        const iterationArtifactPaths = (workflow.phaseIterations ?? [])
-            .filter((iteration) => iteration.phaseId === selectedPhase.phaseId)
-            .map((iteration) => iteration.outputArtifactPath);
-        const selectedArtifactPath = this.selectedIterationArtifactPath && iterationArtifactPaths.includes(this.selectedIterationArtifactPath)
-            ? this.selectedIterationArtifactPath
-            : selectedPhase.phaseId === "capture"
+        const phaseIterations = (workflow.phaseIterations ?? [])
+            .filter((iteration) => iteration.phaseId === selectedPhase.phaseId);
+        const iterationKeys = phaseIterations
+            .map((iteration) => iteration.iterationKey);
+        const selectedIteration = this.selectedIterationKey && iterationKeys.includes(this.selectedIterationKey)
+            ? phaseIterations.find((iteration) => iteration.iterationKey === this.selectedIterationKey) ?? null
+            : phaseIterations[0] ?? null;
+        const selectedArtifactPath = selectedIteration?.outputArtifactPath
+            ?? (selectedPhase.phaseId === "capture"
                 ? workflow.mainArtifactPath
-                : selectedPhase.artifactPath;
-        if (selectedArtifactPath !== this.selectedIterationArtifactPath) {
-            this.selectedIterationArtifactPath = selectedArtifactPath ?? null;
+                : selectedPhase.artifactPath);
+        if (selectedIteration?.iterationKey !== this.selectedIterationKey) {
+            this.selectedIterationKey = selectedIteration?.iterationKey ?? null;
         }
         const selectedArtifactContent = await readArtifactContentAsync(selectedArtifactPath);
         const selectedOperationContent = await readArtifactContentAsync(selectedPhase.operationLogPath);
@@ -952,7 +955,7 @@ class WorkflowPanelController {
         const runtimeVersion = await (0, runtimeVersion_1.readRuntimeVersionAsync)();
         const viewState = {
             selectedPhaseId: this.selectedPhaseId,
-            selectedIterationArtifactPath: this.selectedIterationArtifactPath,
+            selectedIterationKey: this.selectedIterationKey,
             selectedArtifactContent,
             selectedOperationContent,
             contextSuggestions,
@@ -999,7 +1002,7 @@ class WorkflowPanelController {
             return;
         }
         this.selectedPhaseId = phaseId;
-        this.selectedIterationArtifactPath = null;
+        this.selectedIterationKey = null;
         await this.renderCachedWorkflowAsync(reason);
     }
     async renderCachedWorkflowAsync(reason) {

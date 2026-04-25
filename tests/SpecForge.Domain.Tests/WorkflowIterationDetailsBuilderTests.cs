@@ -86,6 +86,7 @@ public sealed class WorkflowIterationDetailsBuilderTests : IDisposable
             .ToArray();
 
         Assert.Equal(2, implementationIterations.Length);
+        Assert.NotEqual(implementationIterations[0].IterationKey, implementationIterations[1].IterationKey);
         Assert.Equal(paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign), implementationIterations[0].InputArtifactPath);
         Assert.Equal("/tmp/source/03-implementation.md", implementationIterations[1].InputArtifactPath);
         Assert.Equal(["/tmp/source/04-review.md"], implementationIterations[1].ContextArtifactPaths);

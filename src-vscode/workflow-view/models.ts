@@ -2,7 +2,7 @@ import type { SuggestedContextFile } from "../contextSuggestions";
 
 export interface WorkflowViewState {
   readonly selectedPhaseId: string;
-  readonly selectedIterationArtifactPath?: string | null;
+  readonly selectedIterationKey?: string | null;
   readonly selectedArtifactContent: string | null;
   readonly selectedOperationContent?: string | null;
   readonly contextSuggestions: readonly SuggestedContextFile[];
@@ -50,6 +50,7 @@ export interface ApprovalQuestionItem {
 }
 
 export interface PhaseIterationItem {
+  readonly iterationKey: string;
   readonly attempt: number;
   readonly phaseId: string;
   readonly timestampUtc: string;

@@ -63,6 +63,7 @@ public sealed record TimelineEventDetails(
     PhaseExecutionMetadata? Execution);
 
 public sealed record PhaseIterationDetails(
+    string IterationKey,
     int Attempt,
     string PhaseId,
     string TimestampUtc,

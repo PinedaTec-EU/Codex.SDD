@@ -307,6 +307,7 @@ test("buildWorkflowHtml renders iteration lineage with input and output artifact
     events: [],
     phaseIterations: [
       {
+        iterationKey: "implementation:1:2026-04-25T10:00:00Z:phase_completed",
         attempt: 1,
         phaseId: "implementation",
         timestampUtc: "2026-04-25T10:00:00Z",
@@ -323,6 +324,7 @@ test("buildWorkflowHtml renders iteration lineage with input and output artifact
         execution: null
       },
       {
+        iterationKey: "implementation:2:2026-04-25T11:00:00Z:artifact_operated",
         attempt: 2,
         phaseId: "implementation",
         timestampUtc: "2026-04-25T11:00:00Z",
@@ -352,7 +354,7 @@ test("buildWorkflowHtml renders iteration lineage with input and output artifact
     attachments: []
   }, {
     selectedPhaseId: "implementation",
-    selectedIterationArtifactPath: "/tmp/03-implementation.v02.md",
+    selectedIterationKey: "implementation:2:2026-04-25T11:00:00Z:artifact_operated",
     selectedArtifactContent: "# impl v2",
     contextSuggestions: [],
     settingsConfigured: true,
@@ -374,6 +376,121 @@ test("buildWorkflowHtml renders iteration lineage with input and output artifact
   assert.match(html, /Context Artifacts/);
   assert.match(html, /04-review\.md/);
   assert.match(html, /Apply the failed review corrections\./);
+});
+
+test("buildWorkflowHtml shows touches even when a phase has no token usage", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0001",
+    title: "Touch visibility",
+    kind: "feature",
+    category: "prompts",
+    status: "active",
+    currentPhase: "technical-design",
+    directoryPath: "/tmp/us-0001",
+    workBranch: null,
+    mainArtifactPath: "/tmp/US-0001.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: true,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: "/tmp/US-0001.md",
+        operationLogPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "technical-design",
+        title: "Technical Design",
+        order: 3,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/02-technical-design.md",
+        operationLogPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: [],
+      rewindTargets: []
+    },
+    clarification: null,
+    approvalQuestions: [],
+    events: [
+      {
+        timestampUtc: "2026-04-25T10:00:00Z",
+        code: "workflow_rewound",
+        actor: "alice",
+        phase: "technical-design",
+        summary: "Rewound here.",
+        artifacts: [],
+        usage: null,
+        durationMs: null,
+        execution: null
+      },
+      {
+        timestampUtc: "2026-04-25T10:10:00Z",
+        code: "phase_completed",
+        actor: "system",
+        phase: "technical-design",
+        summary: "Generated technical design.",
+        artifacts: ["/tmp/02-technical-design.md"],
+        usage: null,
+        durationMs: 900,
+        execution: null
+      }
+    ],
+    phaseIterations: [
+      {
+        iterationKey: "technical-design:1:2026-04-25T10:10:00Z:phase_completed",
+        attempt: 1,
+        phaseId: "technical-design",
+        timestampUtc: "2026-04-25T10:10:00Z",
+        code: "phase_completed",
+        actor: "system",
+        summary: "Generated technical design.",
+        outputArtifactPath: "/tmp/02-technical-design.md",
+        inputArtifactPath: "/tmp/01-refinement.md",
+        contextArtifactPaths: [],
+        operationLogPath: null,
+        operationPrompt: null,
+        usage: null,
+        durationMs: 900,
+        execution: null
+      }
+    ],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "technical-design",
+    selectedArtifactContent: "# td",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /Touches/);
+  assert.match(html, /Total/);
+  assert.match(html, />2</);
+  assert.match(html, /Rewinds Here/);
 });
 
 test("buildWorkflowHtml shows rewind on prior phase cards and pause only on later phases", () => {

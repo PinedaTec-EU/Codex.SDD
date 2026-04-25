@@ -213,6 +213,7 @@ export interface TimelineEventDetails {
 }
 
 export interface PhaseIterationDetails {
+  readonly iterationKey: string;
   readonly attempt: number;
   readonly phaseId: string;
   readonly timestampUtc: string;

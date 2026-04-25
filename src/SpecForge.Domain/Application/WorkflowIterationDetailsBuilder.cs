@@ -46,6 +46,7 @@ public static class WorkflowIterationDetailsBuilder
                 : null;
 
             iterations.Add(new PhaseIterationDetails(
+                BuildIterationKey(normalizedPhaseId, attempt, timelineEvent),
                 attempt,
                 normalizedPhaseId,
                 timelineEvent.TimestampUtc,
@@ -66,6 +67,11 @@ public static class WorkflowIterationDetailsBuilder
 
         return iterations;
     }
+
+    private static string BuildIterationKey(string phaseId, int attempt, TimelineEventDetails timelineEvent) =>
+        string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"{phaseId}:{attempt}:{timelineEvent.TimestampUtc}:{timelineEvent.Code}");
 
     private static Dictionary<string, ArtifactOperationLogEntry> BuildOperationEntriesByResult(UserStoryFilePaths paths)
     {

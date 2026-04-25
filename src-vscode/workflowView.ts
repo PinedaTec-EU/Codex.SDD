@@ -205,6 +205,7 @@ function buildPhaseIterations(workflow: UserStoryWorkflowDetails, phaseId: strin
       .filter((iteration) => iteration.phaseId === phaseId)
       .sort((left, right) => right.attempt - left.attempt)
       .map((iteration) => ({
+        iterationKey: iteration.iterationKey,
         attempt: iteration.attempt,
         phaseId: iteration.phaseId,
         timestampUtc: iteration.timestampUtc,
@@ -236,6 +237,7 @@ function buildPhaseIterations(workflow: UserStoryWorkflowDetails, phaseId: strin
 
     seen.add(artifactPath);
     iterations.push({
+      iterationKey: `${phaseId}:${iterations.length + 1}:${event.timestampUtc}:${event.code}`,
       attempt: iterations.length + 1,
       phaseId,
       timestampUtc: event.timestampUtc,
@@ -254,6 +256,66 @@ function buildPhaseIterations(workflow: UserStoryWorkflowDetails, phaseId: strin
   }
 
   return iterations;
+}
+
+function summarizePhaseTouches(
+  workflow: UserStoryWorkflowDetails,
+  phaseId: string
+): {
+  readonly total: number;
+  readonly generated: number;
+  readonly rewound: number;
+  readonly regressed: number;
+  readonly started: number;
+  readonly operated: number;
+} {
+  return workflow.events.reduce((summary, event) => {
+    if (event.phase !== phaseId) {
+      return summary;
+    }
+
+    switch (event.code) {
+      case "phase_completed":
+        return {
+          ...summary,
+          total: summary.total + 1,
+          generated: summary.generated + 1
+        };
+      case "artifact_operated":
+        return {
+          ...summary,
+          total: summary.total + 1,
+          operated: summary.operated + 1
+        };
+      case "phase_started":
+        return {
+          ...summary,
+          total: summary.total + 1,
+          started: summary.started + 1
+        };
+      case "workflow_rewound":
+        return {
+          ...summary,
+          total: summary.total + 1,
+          rewound: summary.rewound + 1
+        };
+      case "phase_regressed":
+        return {
+          ...summary,
+          total: summary.total + 1,
+          regressed: summary.regressed + 1
+        };
+      default:
+        return summary;
+    }
+  }, {
+    total: 0,
+    generated: 0,
+    rewound: 0,
+    regressed: 0,
+    started: 0,
+    operated: 0
+  });
 }
 
 function normalizeExecutionIdentity(value: string | null | undefined): string {
@@ -1105,9 +1167,10 @@ export function buildWorkflowHtml(
     : [];
   const unresolvedApprovalQuestionCount = refinementApprovalQuestions.filter((item) => !item.resolved).length;
   const phaseIterations = buildPhaseIterations(workflow, selectedPhase.phaseId);
-  const selectedIteration = phaseIterations.find((iteration) => iteration.outputArtifactPath === state.selectedIterationArtifactPath)
+  const selectedIteration = phaseIterations.find((iteration) => iteration.iterationKey === state.selectedIterationKey)
     ?? phaseIterations[0]
     ?? null;
+  const selectedPhaseTouches = summarizePhaseTouches(workflow, selectedPhase.phaseId);
   const selectedPhaseEvents = workflow.events.filter((event) => event.phase === selectedPhase.phaseId);
   const selectedPhaseMetricEvents = selectedPhaseEvents.filter((event) => event.usage || event.durationMs !== null);
   const selectedPhaseUsageAggregate = sumTokenUsage(
@@ -1199,6 +1262,21 @@ export function buildWorkflowHtml(
       </div>
     `
     : "";
+  const touchSummary = selectedPhaseTouches.total > 0
+    ? `
+      <div class="token-summary">
+        <div class="token-summary__header">Touches</div>
+        <div class="token-summary__rows">
+          ${renderTokenSummaryRow("Total", String(selectedPhaseTouches.total))}
+          ${renderTokenSummaryRow("Generated", String(selectedPhaseTouches.generated))}
+          ${selectedPhaseTouches.operated > 0 ? renderTokenSummaryRow("Operated", String(selectedPhaseTouches.operated)) : ""}
+          ${selectedPhaseTouches.started > 0 ? renderTokenSummaryRow("Started", String(selectedPhaseTouches.started)) : ""}
+          ${selectedPhaseTouches.rewound > 0 ? renderTokenSummaryRow("Rewinds Here", String(selectedPhaseTouches.rewound)) : ""}
+          ${selectedPhaseTouches.regressed > 0 ? renderTokenSummaryRow("Regressions Here", String(selectedPhaseTouches.regressed)) : ""}
+        </div>
+      </div>
+    `
+    : "";
   const tokenSummary = selectedPhaseMetricEvents.some((event) => event.usage)
     ? `
       <div class="token-summary">
@@ -1215,8 +1293,8 @@ export function buildWorkflowHtml(
       </div>
     `
     : "";
-  const selectedPhaseMetrics = durationMetric || tokenSummary
-    ? `${durationMetric}${tokenSummary}`
+  const selectedPhaseMetrics = durationMetric || touchSummary || tokenSummary
+    ? `${durationMetric}${touchSummary}${tokenSummary}`
     : "";
   const iterationRail = phaseIterations.length > 1
     ? `
@@ -1227,9 +1305,9 @@ export function buildWorkflowHtml(
           ${phaseIterations.map((iteration) => `
             <button
               type="button"
-              class="iteration-rail__item${selectedIteration?.outputArtifactPath === iteration.outputArtifactPath ? " iteration-rail__item--selected" : ""}"
+              class="iteration-rail__item${selectedIteration?.iterationKey === iteration.iterationKey ? " iteration-rail__item--selected" : ""}"
               data-command="selectIteration"
-              data-path="${escapeHtmlAttribute(iteration.outputArtifactPath)}">
+              data-iteration-key="${escapeHtmlAttribute(iteration.iterationKey)}">
               <span class="iteration-rail__stem" aria-hidden="true"></span>
               <span class="iteration-rail__body">
                 <span class="iteration-rail__title">Iteration ${iteration.attempt} · ${escapeHtml(formatUtcTimestamp(iteration.timestampUtc))}</span>
@@ -3968,6 +4046,7 @@ export function buildWorkflowHtml(
         vscode.postMessage({
           command: element.dataset.command,
           phaseId: element.dataset.phaseId,
+          iterationKey: element.dataset.iterationKey,
           path: element.dataset.path,
           kind: element.dataset.kind
         });
