@@ -498,6 +498,81 @@ test("buildWorkflowHtml shows touches even when a phase has no token usage", () 
   assert.match(html, />1</);
 });
 
+test("buildWorkflowHtml always shows duration touches and tokens for visual consistency", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0002",
+    title: "Consistent phase metrics",
+    kind: "feature",
+    category: "prompts",
+    status: "active",
+    currentPhase: "refinement",
+    directoryPath: "/tmp/us-0002",
+    workBranch: null,
+    mainArtifactPath: "/tmp/US-0002.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: true,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: "/tmp/US-0002.md",
+        operationLogPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 2,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/01-refinement.md",
+        operationLogPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: true,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: [],
+      rewindTargets: []
+    },
+    clarification: null,
+    approvalQuestions: [],
+    events: [],
+    phaseIterations: [],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "refinement",
+    selectedArtifactContent: "# refinement",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /Duration/);
+  assert.match(html, /Touches/);
+  assert.match(html, /Tokens/);
+  assert.match(html, />n\/a</);
+  assert.match(html, /<span class="token-summary__value">0<\/span>/);
+});
+
 test("buildWorkflowHtml shows rewind on prior phase cards and pause only on later phases", () => {
   const html = buildWorkflowHtml({
     usId: "US-0100",

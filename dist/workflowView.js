@@ -954,10 +954,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
     const selectedPhaseRecordedIterationCount = phaseIterations.length;
     const selectedPhaseExecutionLabel = findLatestPhaseExecutionLabel(workflow, selectedPhase.phaseId, state);
     const hasTokenTelemetry = selectedPhaseMetricEvents.some((event) => event.usage);
-    const shouldRenderTokenSummary = hasTokenTelemetry
-        || selectedPhaseRecordedIterationCount > 0
-        || selectedPhaseTouches.total > 0
-        || Boolean(selectedPhaseExecutionLabel);
     const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
     const canRewindSelectedPhase = rewindablePhaseIds.has(selectedPhase.phaseId);
     const phaseSpecificSections = buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPreviewHtml, artifactQuestionBlock, refinementApprovalQuestions, unresolvedApprovalQuestionCount);
@@ -1010,62 +1006,54 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       </div>
     `
         : "";
-    const durationMetric = selectedPhaseDurationAggregate > 0
-        ? `
-      <div class="phase-duration-pill" role="status" aria-label="Phase duration">
-        <div class="phase-duration-pill__clock" aria-hidden="true">
-          <span class="phase-duration-pill__tick phase-duration-pill__tick--a"></span>
-          <span class="phase-duration-pill__tick phase-duration-pill__tick--b"></span>
-          <span class="phase-duration-pill__tick phase-duration-pill__tick--c"></span>
-          <span class="phase-duration-pill__tick phase-duration-pill__tick--d"></span>
-          <span class="phase-duration-pill__hand phase-duration-pill__hand--minute"></span>
-          <span class="phase-duration-pill__hand phase-duration-pill__hand--second"></span>
-        </div>
-        <div class="phase-duration-pill__body">
-          <span class="phase-duration-pill__label">Duration${selectedPhaseIterationCount > 1 ? ` · ${selectedPhaseIterationCount} runs` : ""}</span>
-          <span class="phase-duration-pill__value">${(0, htmlEscape_1.escapeHtml)(formatDuration(selectedPhaseDurationAggregate))}</span>
-        </div>
+    const durationMetric = `
+    <div class="phase-duration-pill" role="status" aria-label="Phase duration">
+      <div class="phase-duration-pill__clock" aria-hidden="true">
+        <span class="phase-duration-pill__tick phase-duration-pill__tick--a"></span>
+        <span class="phase-duration-pill__tick phase-duration-pill__tick--b"></span>
+        <span class="phase-duration-pill__tick phase-duration-pill__tick--c"></span>
+        <span class="phase-duration-pill__tick phase-duration-pill__tick--d"></span>
+        <span class="phase-duration-pill__hand phase-duration-pill__hand--minute"></span>
+        <span class="phase-duration-pill__hand phase-duration-pill__hand--second"></span>
       </div>
-    `
-        : "";
-    const touchSummary = selectedPhaseTouches.total > 0
-        ? `
-      <div class="token-summary token-summary--touches">
-        <div class="token-summary__header">Touches</div>
-        <div class="token-summary__rows">
-          ${renderTokenSummaryRow("Total", String(selectedPhaseTouches.total))}
-          ${renderTokenSummaryRow("Generated", String(selectedPhaseTouches.generated))}
-          ${selectedPhaseTouches.operated > 0 ? renderTokenSummaryRow("Operated", String(selectedPhaseTouches.operated)) : ""}
-          ${selectedPhaseTouches.started > 0 ? renderTokenSummaryRow("Started", String(selectedPhaseTouches.started)) : ""}
-          ${selectedPhaseTouches.rewound > 0 ? renderTokenSummaryRow("Rewinds Here", String(selectedPhaseTouches.rewound)) : ""}
-          ${selectedPhaseTouches.regressed > 0 ? renderTokenSummaryRow("Regressions Here", String(selectedPhaseTouches.regressed)) : ""}
-        </div>
+      <div class="phase-duration-pill__body">
+        <span class="phase-duration-pill__label">Duration${selectedPhaseIterationCount > 1 ? ` · ${selectedPhaseIterationCount} runs` : ""}</span>
+        <span class="phase-duration-pill__value">${(0, htmlEscape_1.escapeHtml)(selectedPhaseDurationAggregate > 0 ? formatDuration(selectedPhaseDurationAggregate) : "n/a")}</span>
       </div>
-    `
-        : "";
-    const tokenSummary = shouldRenderTokenSummary
-        ? `
-      <div class="token-summary token-summary--wide">
-        <div class="token-summary__header">Tokens</div>
-        <div class="token-summary__rows">
-          ${renderTokenSummaryRow("Input / Output", hasTokenTelemetry
-            ? `${formatMetricNumber(selectedPhaseUsageAggregate.inputTokens)} / ${formatMetricNumber(selectedPhaseUsageAggregate.outputTokens)}`
-            : "n/a")}
-          ${renderTokenSummaryRow("Total", hasTokenTelemetry
-            ? formatMetricNumber(selectedPhaseUsageAggregate.totalTokens)
-            : "n/a")}
-          ${selectedPhaseExecutionLabel ? renderTokenSummaryRow("Model", selectedPhaseExecutionLabel) : ""}
-          ${hasTokenTelemetry && selectedPhaseDurationAggregate > 0
-            ? renderTokenSummaryRow("Response Speed", formatTokensPerSecond(selectedPhaseUsageAggregate.outputTokens, selectedPhaseDurationAggregate))
-            : ""}
-          ${selectedPhaseRecordedIterationCount > 0 ? renderTokenSummaryRow("Iterations", String(selectedPhaseRecordedIterationCount)) : ""}
-        </div>
+    </div>
+  `;
+    const touchSummary = `
+    <div class="token-summary token-summary--touches">
+      <div class="token-summary__header">Touches</div>
+      <div class="token-summary__rows">
+        ${renderTokenSummaryRow("Total", String(selectedPhaseTouches.total))}
+        ${renderTokenSummaryRow("Generated", String(selectedPhaseTouches.generated))}
+        ${selectedPhaseTouches.operated > 0 ? renderTokenSummaryRow("Operated", String(selectedPhaseTouches.operated)) : ""}
+        ${selectedPhaseTouches.started > 0 ? renderTokenSummaryRow("Started", String(selectedPhaseTouches.started)) : ""}
+        ${selectedPhaseTouches.rewound > 0 ? renderTokenSummaryRow("Rewinds Here", String(selectedPhaseTouches.rewound)) : ""}
+        ${selectedPhaseTouches.regressed > 0 ? renderTokenSummaryRow("Regressions Here", String(selectedPhaseTouches.regressed)) : ""}
       </div>
-    `
-        : "";
-    const selectedPhaseMetrics = durationMetric || touchSummary || tokenSummary
-        ? `${durationMetric}${touchSummary}${tokenSummary}`
-        : "";
+    </div>
+  `;
+    const tokenSummary = `
+    <div class="token-summary token-summary--wide">
+      <div class="token-summary__header">Tokens</div>
+      <div class="token-summary__rows">
+        ${renderTokenSummaryRow("Input / Output", hasTokenTelemetry
+        ? `${formatMetricNumber(selectedPhaseUsageAggregate.inputTokens)} / ${formatMetricNumber(selectedPhaseUsageAggregate.outputTokens)}`
+        : "n/a")}
+        ${renderTokenSummaryRow("Total", hasTokenTelemetry
+        ? formatMetricNumber(selectedPhaseUsageAggregate.totalTokens)
+        : "n/a")}
+        ${renderTokenSummaryRow("Model", selectedPhaseExecutionLabel ?? "n/a")}
+        ${renderTokenSummaryRow("Iterations", String(selectedPhaseRecordedIterationCount))}
+        ${hasTokenTelemetry && selectedPhaseDurationAggregate > 0
+        ? renderTokenSummaryRow("Response Speed", formatTokensPerSecond(selectedPhaseUsageAggregate.outputTokens, selectedPhaseDurationAggregate))
+        : ""}
+      </div>
+    </div>
+  `;
+    const selectedPhaseMetrics = `${durationMetric}${touchSummary}${tokenSummary}`;
     const iterationRail = phaseIterations.length > 1
         ? `
       <section class="detail-card detail-card--phase-iterations">
