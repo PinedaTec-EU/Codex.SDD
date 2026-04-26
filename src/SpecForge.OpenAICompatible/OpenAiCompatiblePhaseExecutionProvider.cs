@@ -228,6 +228,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
 
         var canonicalJsonContent = NormalizePhaseJsonContent(context, content.Trim());
+        if (context.PhaseId == PhaseId.PrPreparation && !string.IsNullOrWhiteSpace(canonicalJsonContent))
+        {
+            var repaired = PrPreparationArtifactFactory.RepairIncomplete(
+                context,
+                PrPreparationArtifactJson.ParseCanonicalJson(canonicalJsonContent));
+            canonicalJsonContent = PrPreparationArtifactJson.Serialize(repaired).Trim();
+        }
+
         var normalizedContent = NormalizePhaseContent(context, canonicalJsonContent ?? content.Trim());
         return new PhaseExecutionResult(
             normalizedContent,

@@ -84,6 +84,66 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Contains("\"reasoning_effort\":\"high\"", handler.LastBody);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_PrPreparation_RepairsIncompleteStructuredPayloadFromHttpProvider()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var handler = new CapturingFakeHttpMessageHandler(
+            """
+            {
+              "state": "",
+              "basedOn": [],
+              "prTitle": "",
+              "prSummary": "",
+              "branchSummary": [],
+              "participants": [],
+              "changeNarrative": [],
+              "validationSummary": [],
+              "reviewerChecklist": [],
+              "risksAndFollowUps": [],
+              "prBody": []
+            }
+            """);
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            CreateOptions(model: "llama3.1"));
+        var reviewArtifactPath = Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "phases", "04-review.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(reviewArtifactPath)!);
+        await File.WriteAllTextAsync(reviewArtifactPath, "# Review");
+        var releaseApprovalPath = Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "phases", "05-release-approval.md");
+        await File.WriteAllTextAsync(releaseApprovalPath, "# Release Approval");
+        var timelinePath = Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "timeline.md");
+        await File.WriteAllTextAsync(
+            timelinePath,
+            """
+            - 2026-04-22T12:00:00Z | alice | refinement | Generated the approved refinement artifact.
+            - 2026-04-22T12:10:00Z | bob | implementation | Implemented the approved workflow changes.
+            """);
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.PrPreparation,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>
+            {
+                [PhaseId.Review] = reviewArtifactPath,
+                [PhaseId.ReleaseApproval] = releaseApprovalPath
+            },
+            ContextFilePaths: [timelinePath]);
+
+        var result = await provider.ExecuteAsync(context);
+        var artifact = PrPreparationArtifactJson.ParseCanonicalJson(result.StructuredJsonContent!);
+
+        Assert.Equal("ready_to_publish", artifact.State);
+        Assert.NotEmpty(artifact.BasedOn);
+        Assert.NotEmpty(artifact.ChangeNarrative);
+        Assert.NotEmpty(artifact.ValidationSummary);
+        Assert.NotEmpty(artifact.ReviewerChecklist);
+        Assert.NotEmpty(artifact.PrBody);
+        Assert.Contains("US-0001", artifact.PrTitle);
+        Assert.Contains("ready_to_publish", result.Content, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData("strict", 0.0d, "Be conservative. Ask for clarification whenever actor, trigger, business behavior, inputs, outputs, rules, or acceptance intent are materially ambiguous.")]
     [InlineData("balanced", 0.2d, "Use balanced judgment. Ask only for gaps that would block a credible refinement, but do not invent business-critical facts.")]
