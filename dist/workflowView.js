@@ -1515,7 +1515,8 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .phase-duration-pill__label {
       display: block;
-      font-size: 0.64rem;
+      font-size: 0.88rem;
+      font-weight: 700;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: rgba(214, 236, 252, 0.78);
@@ -1551,7 +1552,8 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .token-summary__header {
       margin-bottom: 10px;
-      font-size: 0.64rem;
+      font-size: 0.88rem;
+      font-weight: 700;
       letter-spacing: 0.14em;
       text-transform: uppercase;
       color: rgba(226, 232, 240, 0.72);
