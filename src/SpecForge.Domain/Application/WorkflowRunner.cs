@@ -938,8 +938,18 @@ public sealed class WorkflowRunner
             BuildContextFilePaths(paths, workflowRun.CurrentPhase),
             currentArtifactPath,
             operationPrompt);
+        var previousArtifactList = executionContext.PreviousArtifactPaths
+            .OrderBy(static item => item.Key)
+            .Select(static item => $"{WorkflowPresentation.ToPhaseSlug(item.Key)}='{item.Value}'")
+            .ToArray();
+        var contextFileList = executionContext.ContextFilePaths
+            .OrderBy(static path => path, StringComparer.Ordinal)
+            .Select(static path => $"'{path}'")
+            .ToArray();
         SpecForgeDiagnostics.Log(
             $"[runner.materialize] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} artifactPath='{artifactPath}' contextFiles={executionContext.ContextFilePaths.Count} previousArtifacts={executionContext.PreviousArtifactPaths.Count} currentArtifactPath='{currentArtifactPath ?? "(none)"}' operationPrompt={(string.IsNullOrWhiteSpace(operationPrompt) ? "no" : "yes")}");
+        SpecForgeDiagnostics.Log(
+            $"[runner.materialize.in] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} userStory='{executionContext.UserStoryPath}' previousArtifacts=[{string.Join(", ", previousArtifactList)}] contextFiles=[{string.Join(", ", contextFileList)}] currentArtifact='{currentArtifactPath ?? "(none)"}'");
         var implementationEvidenceBaseline = workflowRun.CurrentPhase == PhaseId.Implementation
             ? await ImplementationPhaseEvidence.CaptureWorkspaceSnapshotAsync(workspaceRoot, paths.RootDirectory, cancellationToken)
             : null;
@@ -1020,6 +1030,31 @@ public sealed class WorkflowRunner
         {
             await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
         }
+
+        var generatedFiles = new List<string> { artifactPath };
+        var generatedJsonPath = paths.GetLatestExistingPhaseArtifactJsonPath(workflowRun.CurrentPhase);
+        if (!string.IsNullOrWhiteSpace(generatedJsonPath) && File.Exists(generatedJsonPath))
+        {
+            generatedFiles.Add(generatedJsonPath);
+        }
+
+        if (workflowRun.CurrentPhase == PhaseId.Implementation)
+        {
+            var evidenceMarkdownPath = paths.GetLatestExistingPhaseEvidenceMarkdownPath(PhaseId.Implementation);
+            var evidenceJsonPath = paths.GetLatestExistingPhaseEvidenceJsonPath(PhaseId.Implementation);
+            if (!string.IsNullOrWhiteSpace(evidenceMarkdownPath) && File.Exists(evidenceMarkdownPath))
+            {
+                generatedFiles.Add(evidenceMarkdownPath);
+            }
+
+            if (!string.IsNullOrWhiteSpace(evidenceJsonPath) && File.Exists(evidenceJsonPath))
+            {
+                generatedFiles.Add(evidenceJsonPath);
+            }
+        }
+
+        SpecForgeDiagnostics.Log(
+            $"[runner.materialize.out] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} generatedFiles=[{string.Join(", ", generatedFiles.Select(static path => $"'{path}'"))}]");
 
         diagnostics.MarkCompleted($"artifactPath='{artifactPath}'");
         return new ArtifactGenerationResult(artifactPath, result.Usage, stopwatch.ElapsedMilliseconds, result.Execution);
