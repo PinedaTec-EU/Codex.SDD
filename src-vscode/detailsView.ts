@@ -1,5 +1,6 @@
 import type { UserStorySummary } from "./backendClient";
 import { escapeHtml } from "./htmlEscape";
+import { buildWebviewTypographyRootCss } from "./webviewTypography";
 
 export { escapeHtml };
 
@@ -27,15 +28,23 @@ export function buildUserStoryDetailsHtml(summary: UserStorySummary): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
-      color-scheme: light dark;
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      ${buildWebviewTypographyRootCss()}
+    }
+    * {
+      box-sizing: border-box;
     }
     body {
+      margin: 0;
       padding: 20px;
+      color: var(--vscode-editor-foreground);
+      background: var(--vscode-editor-background);
       line-height: 1.5;
     }
     h1, h2 {
       font-weight: 700;
+    }
+    h1 {
+      margin-top: 0;
     }
     ul {
       padding-left: 18px;
@@ -45,9 +54,12 @@ export function buildUserStoryDetailsHtml(summary: UserStorySummary): string {
     }
     .meta {
       margin-bottom: 16px;
+      display: grid;
+      gap: 6px;
     }
     code {
       font-size: 0.95em;
+      font-family: var(--specforge-mono-font-family);
     }
   </style>
 </head>

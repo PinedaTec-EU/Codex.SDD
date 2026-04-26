@@ -39,6 +39,7 @@ const vscode = __importStar(require("vscode"));
 const htmlEscape_1 = require("./htmlEscape");
 const executionSettingsModel_1 = require("./executionSettingsModel");
 const extensionSettings_1 = require("./extensionSettings");
+const webviewTypography_1 = require("./webviewTypography");
 let currentPanel = null;
 async function openExecutionSettingsPanelAsync(extensionUri, onDidSave) {
     if (currentPanel) {
@@ -99,7 +100,8 @@ class ExecutionSettingsPanelController {
             autoClarificationAnswersEnabled: settings.autoClarificationAnswersEnabled,
             autoClarificationAnswersProfile: settings.autoClarificationAnswersProfile,
             autoReviewEnabled: settings.autoReviewEnabled,
-            maxImplementationReviewCycles: settings.maxImplementationReviewCycles
+            maxImplementationReviewCycles: settings.maxImplementationReviewCycles,
+            typographyCssVars: (0, webviewTypography_1.getEditorTypographyCssVars)()
         });
     }
 }
@@ -123,8 +125,7 @@ function buildExecutionSettingsHtml(model) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
-      color-scheme: light dark;
-      font-family: "Avenir Next", "Segoe UI", ui-sans-serif, sans-serif;
+      ${(0, webviewTypography_1.buildWebviewTypographyRootCss)(model.typographyCssVars ?? "")}
     }
     * { box-sizing: border-box; }
     body {
@@ -307,7 +308,7 @@ function buildExecutionSettingsHtml(model) {
       color: rgba(255, 255, 255, 0.7);
     }
     code {
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-family: var(--specforge-mono-font-family);
     }
     @media (max-width: 720px) {
       body { padding: 16px; }

@@ -4,6 +4,7 @@ exports.escapeHtml = void 0;
 exports.buildUserStoryDetailsHtml = buildUserStoryDetailsHtml;
 const htmlEscape_1 = require("./htmlEscape");
 Object.defineProperty(exports, "escapeHtml", { enumerable: true, get: function () { return htmlEscape_1.escapeHtml; } });
+const webviewTypography_1 = require("./webviewTypography");
 const PHASES = [
     "capture",
     "clarification",
@@ -26,15 +27,23 @@ function buildUserStoryDetailsHtml(summary) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
-      color-scheme: light dark;
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      ${(0, webviewTypography_1.buildWebviewTypographyRootCss)()}
+    }
+    * {
+      box-sizing: border-box;
     }
     body {
+      margin: 0;
       padding: 20px;
+      color: var(--vscode-editor-foreground);
+      background: var(--vscode-editor-background);
       line-height: 1.5;
     }
     h1, h2 {
       font-weight: 700;
+    }
+    h1 {
+      margin-top: 0;
     }
     ul {
       padding-left: 18px;
@@ -44,9 +53,12 @@ function buildUserStoryDetailsHtml(summary) {
     }
     .meta {
       margin-bottom: 16px;
+      display: grid;
+      gap: 6px;
     }
     code {
       font-size: 0.95em;
+      font-family: var(--specforge-mono-font-family);
     }
   </style>
 </head>

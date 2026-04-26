@@ -22,6 +22,7 @@ import {
 } from "./userStoryIntake";
 import { readUserWorkspacePreferences, setStarredUserStory } from "./userWorkspacePreferences";
 import { asErrorMessage, getNextAttachmentPathAsync } from "./utils";
+import { getEditorTypographyCssVars } from "./webviewTypography";
 
 type SidebarMessage =
   | { readonly command: "showCreateForm" }
@@ -457,6 +458,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         createFileMode: this.createFileMode,
         createFiles: this.createFiles,
         createFormResetToken: this.createFormResetToken,
+        typographyCssVars: getEditorTypographyCssVars(),
         categories: [],
         userStories: []
       });
@@ -495,6 +497,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       createFileMode: this.createFileMode,
       createFiles: this.createFiles,
       createFormResetToken: this.createFormResetToken,
+      typographyCssVars: getEditorTypographyCssVars(),
       categories,
       userStories
     });
@@ -523,6 +526,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         createFileMode: this.createFileMode,
         createFiles: this.createFiles,
         createFormResetToken: this.createFormResetToken,
+        typographyCssVars: getEditorTypographyCssVars(),
         categories: [],
         userStories: []
       });

@@ -49,6 +49,7 @@ const userActor_1 = require("./userActor");
 const userStoryIntake_1 = require("./userStoryIntake");
 const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
 const utils_1 = require("./utils");
+const webviewTypography_1 = require("./webviewTypography");
 class SidebarViewProvider {
     extensionUri;
     onDidCreateUserStory;
@@ -388,6 +389,7 @@ class SidebarViewProvider {
                 createFileMode: this.createFileMode,
                 createFiles: this.createFiles,
                 createFormResetToken: this.createFormResetToken,
+                typographyCssVars: (0, webviewTypography_1.getEditorTypographyCssVars)(),
                 categories: [],
                 userStories: []
             });
@@ -425,6 +427,7 @@ class SidebarViewProvider {
             createFileMode: this.createFileMode,
             createFiles: this.createFiles,
             createFormResetToken: this.createFormResetToken,
+            typographyCssVars: (0, webviewTypography_1.getEditorTypographyCssVars)(),
             categories,
             userStories
         });
@@ -452,6 +455,7 @@ class SidebarViewProvider {
                 createFileMode: this.createFileMode,
                 createFiles: this.createFiles,
                 createFormResetToken: this.createFormResetToken,
+                typographyCssVars: (0, webviewTypography_1.getEditorTypographyCssVars)(),
                 categories: [],
                 userStories: []
             });

@@ -13,6 +13,7 @@ import { buildRefinementPhaseSections } from "./workflow-view/refinementPhaseVie
 import { buildReleaseApprovalPhaseSections } from "./workflow-view/releaseApprovalPhaseView";
 import { buildReviewPhaseSections } from "./workflow-view/reviewPhaseView";
 import { buildTechnicalDesignPhaseSections } from "./workflow-view/technicalDesignPhaseView";
+import { buildWebviewTypographyRootCss } from "./webviewTypography";
 
 export { escapeHtml };
 
@@ -1002,18 +1003,7 @@ export function buildWorkflowAuditHtml(
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
-      color-scheme: light dark;
-      --specforge-editor-font-family: var(--vscode-editor-font-family, var(--vscode-font-family, "Segoe UI", ui-sans-serif, sans-serif));
-      --specforge-editor-font-size: var(--vscode-editor-font-size, 13px);
-      --specforge-editor-line-height: var(--vscode-editor-line-height, 1.5);
-      --specforge-editor-font-feature-settings: normal;
-      --specforge-editor-font-variant-ligatures: normal;
-      ${typographyCssVars}
-      font-family: var(--specforge-editor-font-family);
-      font-size: var(--specforge-editor-font-size);
-      line-height: var(--specforge-editor-line-height);
-      font-feature-settings: var(--specforge-editor-font-feature-settings);
-      font-variant-ligatures: var(--specforge-editor-font-variant-ligatures);
+      ${buildWebviewTypographyRootCss(typographyCssVars)}
     }
     * {
       box-sizing: border-box;
@@ -1533,18 +1523,7 @@ export function buildWorkflowHtml(
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
-      color-scheme: light dark;
-      --specforge-editor-font-family: var(--vscode-editor-font-family, var(--vscode-font-family, "Segoe UI", ui-sans-serif, sans-serif));
-      --specforge-editor-font-size: var(--vscode-editor-font-size, 13px);
-      --specforge-editor-line-height: var(--vscode-editor-line-height, 1.5);
-      --specforge-editor-font-feature-settings: normal;
-      --specforge-editor-font-variant-ligatures: normal;
-      ${typographyCssVars}
-      font-family: var(--specforge-editor-font-family);
-      font-size: var(--specforge-editor-font-size);
-      line-height: var(--specforge-editor-line-height);
-      font-feature-settings: var(--specforge-editor-font-feature-settings);
-      font-variant-ligatures: var(--specforge-editor-font-variant-ligatures);
+      ${buildWebviewTypographyRootCss(typographyCssVars)}
       --accent: #72f1b8;
       --accent-strong: #1fd89b;
       --accent-soft: rgba(114, 241, 184, 0.16);
@@ -2231,7 +2210,7 @@ export function buildWorkflowHtml(
       background: rgba(255, 255, 255, 0.08);
       color: rgba(255, 255, 255, 0.92);
       font-size: 0.8rem;
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-family: var(--specforge-mono-font-family);
       flex: 0 0 auto;
     }
     .execution-overlay__phase-model {
@@ -2637,7 +2616,7 @@ export function buildWorkflowHtml(
       line-height: 1;
     }
     .phase-slug {
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-family: var(--specforge-mono-font-family);
       font-size: 0.78rem;
       opacity: 0.66;
       line-height: 1.25;
@@ -3005,7 +2984,7 @@ export function buildWorkflowHtml(
     .iteration-rail__meta {
       font-size: 0.76rem;
       color: rgba(189, 219, 246, 0.76);
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-family: var(--specforge-mono-font-family);
     }
     .iteration-rail__summary {
       font-size: 0.82rem;
@@ -3278,7 +3257,7 @@ export function buildWorkflowHtml(
     .attachment-item span {
       opacity: 0.62;
       font-size: 0.8rem;
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-family: var(--specforge-mono-font-family);
     }
     .file-kind-action {
       align-self: stretch;
@@ -3567,7 +3546,7 @@ export function buildWorkflowHtml(
       border: 1px solid rgba(255, 255, 255, 0.06);
       overflow: auto;
       white-space: pre-wrap;
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-family: var(--specforge-mono-font-family);
       max-height: 320px;
       min-width: 0;
       overflow-wrap: anywhere;
@@ -3617,7 +3596,7 @@ export function buildWorkflowHtml(
       margin-top: 0.28rem;
     }
     .markdown-preview code {
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-family: var(--specforge-mono-font-family);
       background: rgba(255, 255, 255, 0.08);
       padding: 0.14rem 0.36rem;
       border-radius: 6px;
@@ -3689,7 +3668,7 @@ export function buildWorkflowHtml(
       justify-content: space-between;
       gap: 12px;
       flex-wrap: wrap;
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-family: var(--specforge-mono-font-family);
       font-size: 0.8rem;
       color: rgba(255, 255, 255, 0.62);
     }

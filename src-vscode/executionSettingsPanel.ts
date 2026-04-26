@@ -6,6 +6,7 @@ import {
   type SpecForgeModelProfile,
   type SpecForgePhaseModelAssignments
 } from "./extensionSettings";
+import { buildWebviewTypographyRootCss, getEditorTypographyCssVars } from "./webviewTypography";
 
 type ExecutionSettingsMessage =
   | {
@@ -98,7 +99,8 @@ class ExecutionSettingsPanelController {
       autoClarificationAnswersEnabled: settings.autoClarificationAnswersEnabled,
       autoClarificationAnswersProfile: settings.autoClarificationAnswersProfile,
       autoReviewEnabled: settings.autoReviewEnabled,
-      maxImplementationReviewCycles: settings.maxImplementationReviewCycles
+      maxImplementationReviewCycles: settings.maxImplementationReviewCycles,
+      typographyCssVars: getEditorTypographyCssVars()
     });
   }
 }
@@ -110,6 +112,7 @@ type ExecutionSettingsViewModel = {
   readonly autoClarificationAnswersProfile: string | null;
   readonly autoReviewEnabled: boolean;
   readonly maxImplementationReviewCycles: number | null;
+  readonly typographyCssVars?: string;
 };
 
 const executionPhases: ReadonlyArray<{ key: keyof SpecForgePhaseModelAssignments; label: string; }> = [
@@ -133,8 +136,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
-      color-scheme: light dark;
-      font-family: "Avenir Next", "Segoe UI", ui-sans-serif, sans-serif;
+      ${buildWebviewTypographyRootCss(model.typographyCssVars ?? "")}
     }
     * { box-sizing: border-box; }
     body {
@@ -317,7 +319,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       color: rgba(255, 255, 255, 0.7);
     }
     code {
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-family: var(--specforge-mono-font-family);
     }
     @media (max-width: 720px) {
       body { padding: 16px; }

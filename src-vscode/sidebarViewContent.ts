@@ -1,5 +1,6 @@
 import type { UserStorySummary } from "./backendClient";
 import { escapeHtml, escapeHtmlAttr } from "./htmlEscape";
+import { buildWebviewTypographyRootCss } from "./webviewTypography";
 
 type DraftCreateFile = {
   readonly sourcePath: string;
@@ -22,6 +23,7 @@ export interface SidebarViewModel {
   readonly createFileMode?: "context" | "attachment";
   readonly createFiles?: readonly DraftCreateFile[];
   readonly createFormResetToken?: number;
+  readonly typographyCssVars?: string;
   readonly categories: readonly string[];
   readonly userStories: readonly UserStorySummary[];
 }
@@ -43,7 +45,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
         <h1>Open a workspace to start.</h1>
         <p class="copy">The sidebar needs a workspace folder to persist user stories under <code>.specs/</code>.</p>
       </section>
-    `, isBusy, model.createFormResetToken ?? 0);
+    `, isBusy, model.createFormResetToken ?? 0, model.typographyCssVars ?? "");
   }
 
   const promptsBootstrapMarkup = !model.promptsInitialized
@@ -55,7 +57,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
       ${busyIndicatorMarkup}
       ${buildSettingsWarningMarkup(model)}
       ${promptsBootstrapMarkup}
-    `, isBusy, model.createFormResetToken ?? 0);
+    `, isBusy, model.createFormResetToken ?? 0, model.typographyCssVars ?? "");
   }
 
   if (model.userStories.length === 0 && !model.showCreateForm && model.promptsInitialized) {
@@ -78,7 +80,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
         <p class="copy">No faded text-buttons, no scattered prompts. Start here and the sidebar opens the full intake form in place.</p>
         <button class="primary-action" data-command="showCreateForm">Create User Story</button>
       </section>
-    `, isBusy, model.createFormResetToken ?? 0);
+    `, isBusy, model.createFormResetToken ?? 0, model.typographyCssVars ?? "");
   }
 
   const storySections = model.viewMode === "phase"
@@ -307,7 +309,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
       </div>
       ${storiesMarkup || "<p class=\"copy story-list__empty\">Bootstrap the repo prompts to start creating user stories from the sidebar.</p>"}
     </section>
-  `, isBusy, model.createFormResetToken ?? 0);
+  `, isBusy, model.createFormResetToken ?? 0, model.typographyCssVars ?? "");
 }
 
 function buildSettingsWarningMarkup(model: SidebarViewModel): string {
@@ -446,7 +448,7 @@ function buildPromptsBootstrapMarkup(isFirstRun: boolean, promptsMessage: string
   `;
 }
 
-function wrapHtml(content: string, busy: boolean, createFormResetToken: number): string {
+function wrapHtml(content: string, busy: boolean, createFormResetToken: number, typographyCssVars: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -454,8 +456,7 @@ function wrapHtml(content: string, busy: boolean, createFormResetToken: number):
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
-      color-scheme: light dark;
-      font-family: "Avenir Next", "Segoe UI", ui-sans-serif, sans-serif;
+      ${buildWebviewTypographyRootCss(typographyCssVars)}
     }
     * { box-sizing: border-box; }
     body {
@@ -917,7 +918,7 @@ function wrapHtml(content: string, busy: boolean, createFormResetToken: number):
     .source-file-suggestion__content span {
       font-size: 0.76rem;
       color: rgba(255, 255, 255, 0.56);
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-family: var(--specforge-mono-font-family);
       word-break: break-all;
     }
     .form-files {
@@ -1011,7 +1012,7 @@ function wrapHtml(content: string, busy: boolean, createFormResetToken: number):
     .draft-file-item__content span {
       font-size: 0.76rem;
       color: rgba(255, 255, 255, 0.56);
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-family: var(--specforge-mono-font-family);
       word-break: break-all;
     }
     .draft-file-item__actions {
@@ -1229,7 +1230,7 @@ function wrapHtml(content: string, busy: boolean, createFormResetToken: number):
       background: rgba(255, 213, 90, 0.1) !important;
     }
     .story-card__id {
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-family: var(--specforge-mono-font-family);
       font-size: 0.76rem;
       color: rgba(255, 255, 255, 0.62);
     }
