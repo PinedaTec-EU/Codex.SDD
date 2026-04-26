@@ -648,6 +648,7 @@ class WorkflowPanelController {
         void vscode.window.showInformationMessage(`Moved ${path.basename(sourcePath)} to ${targetKind === "context" ? "context" : "user story info"} in ${this.summary.usId}.`);
     }
     async approveCurrentPhaseAsync(baseBranch, workBranch) {
+        const approvedPhase = this.summary.currentPhase;
         await this.focusPhaseForAction(this.summary.currentPhase, "approveCurrentPhaseAsync:focus");
         const normalizedBaseBranch = this.summary.currentPhase === "refinement"
             ? (baseBranch?.trim() || this.refinementApprovalBaseBranchProposal)
@@ -662,6 +663,17 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' approveCurrentPhaseAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("approveCurrentPhaseAsync");
+        if (approvedPhase === "release-approval") {
+            const autoContinued = await this.requestWorkflowExecutionAsync("autoContinue:releaseApproval", "automatic PR preparation after release approval", {
+                allowCurrentPhaseReplay: false,
+                openSettingsWhenUnconfigured: false,
+                notifyWhenBlocked: false
+            });
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' release approval auto-continue into PR preparation executed=${autoContinued}.`);
+            if (autoContinued) {
+                return;
+            }
+        }
         await this.maybeAutoPlayAfterManualContinuationAsync("approval");
     }
     async requestRegressionAsync(targetPhase) {

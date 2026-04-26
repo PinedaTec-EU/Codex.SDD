@@ -2682,7 +2682,9 @@ test("buildWorkflowHtml shows implementation loop limit banner and manual extra 
         actor: "system",
         phase: "implementation",
         summary: "Generated implementation artifact.",
-        artifacts: ["/tmp/03-implementation.md"]
+        artifacts: ["/tmp/03-implementation.md"],
+        usage: null,
+        durationMs: null
       },
       {
         timestampUtc: "2026-04-18T10:10:00Z",
@@ -2690,7 +2692,9 @@ test("buildWorkflowHtml shows implementation loop limit banner and manual extra 
         actor: "system",
         phase: "implementation",
         summary: "Applied implementation corrections.",
-        artifacts: ["/tmp/03-implementation.v02.md"]
+        artifacts: ["/tmp/03-implementation.v02.md"],
+        usage: null,
+        durationMs: null
       }
     ],
     attachmentsDirectoryPath: "/tmp/attachments",
@@ -2923,6 +2927,89 @@ test("buildWorkflowHtml uses phase routing instead of stale history for every ex
     assert.match(html, new RegExp(`execution-overlay__phase-model">${assignedProfile}<`));
     assert.doesNotMatch(html, /execution-overlay__phase-model">reviewer \/ qwen3\.6:27b</);
   }
+});
+
+test("buildWorkflowHtml prefers assigned phase model over stale execution history in selected phase metrics", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0099",
+    title: "Release approval metrics",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "release-approval",
+    directoryPath: "/tmp/us.US-0099",
+    workBranch: "feature/us-0099",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "release-approval",
+        title: "Release Approval",
+        order: 6,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/06-release-approval.md",
+        executePromptPath: null,
+        approvePromptPath: "/tmp/release-approval.approve.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "release-approval_pending_user_approval",
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    approvalQuestions: [],
+    events: [
+      {
+        timestampUtc: "2026-04-24T08:00:00Z",
+        code: "phase_completed",
+        actor: "system",
+        phase: "release-approval",
+        summary: "Recorded with stale runtime label.",
+        artifacts: ["/tmp/06-release-approval.md"],
+        usage: null,
+        durationMs: null,
+        execution: {
+          providerKind: "codex",
+          model: "codex-cli",
+          profileName: null,
+          baseUrl: null
+        }
+      }
+    ],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "release-approval",
+    selectedArtifactContent: "## Release Approval",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    modelProfiles: [
+      { name: "release-approval-runner", model: "gpt-5.5" }
+    ],
+    phaseModelAssignments: {
+      defaultProfileName: null,
+      captureProfileName: null,
+      clarificationProfileName: null,
+      refinementProfileName: null,
+      technicalDesignProfileName: null,
+      implementationProfileName: null,
+      reviewProfileName: null,
+      releaseApprovalProfileName: "release-approval-runner",
+      prPreparationProfileName: null
+    }
+  }, "idle");
+
+  assert.match(html, /token-summary__label">Model<\/span>\s*<span class="token-summary__value">release-approval-runner \/ gpt-5\.5<\/span>/);
+  assert.doesNotMatch(html, /token-summary__label">Model<\/span>\s*<span class="token-summary__value">codex-cli<\/span>/);
 });
 
 test("buildWorkflowHtml only shows phase pause buttons for unexecuted pending phases", () => {

@@ -722,6 +722,14 @@ function phaseModelProfileLabel(phase, state) {
             return assignments.defaultProfileName;
     }
 }
+function buildAssignedPhaseExecutionLabel(phase, state) {
+    const profileName = phaseModelProfileLabel(phase, state);
+    const configuredModel = findConfiguredModelForProfile(state, profileName);
+    if (!profileName && !configuredModel) {
+        return null;
+    }
+    return formatExecutionLabel(configuredModel ? { model: configuredModel, profileName } : { model: "", profileName }, { configuredModel }) ?? profileName ?? configuredModel;
+}
 function buildWorkflowHeroTitle(workflow) {
     const normalizedTitle = workflow.title.trim();
     if (normalizedTitle.startsWith(`${workflow.usId} ·`) || normalizedTitle === workflow.usId) {
@@ -1000,7 +1008,8 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     const selectedPhaseDurationAggregate = selectedPhaseMetricEvents.reduce((aggregate, event) => aggregate + (event.durationMs ?? 0), 0);
     const selectedPhaseIterationCount = selectedPhaseMetricEvents.length;
     const selectedPhaseRecordedIterationCount = phaseIterations.length;
-    const selectedPhaseExecutionLabel = findLatestPhaseExecutionLabel(workflow, selectedPhase.phaseId, state);
+    const selectedPhaseExecutionLabel = buildAssignedPhaseExecutionLabel(selectedPhase, state)
+        ?? findLatestPhaseExecutionLabel(workflow, selectedPhase.phaseId, state);
     const hasTokenTelemetry = selectedPhaseMetricEvents.some((event) => event.usage);
     const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
     const canRewindSelectedPhase = rewindablePhaseIds.has(selectedPhase.phaseId);
