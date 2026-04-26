@@ -23,15 +23,16 @@ public sealed class WorkflowRunner
     private readonly IPhaseExecutionProvider phaseExecutionProvider;
     private readonly RepositoryCategoryCatalog repositoryCategoryCatalog;
     private readonly IWorkBranchManager workBranchManager;
+    private readonly IPullRequestPublisher pullRequestPublisher;
     private readonly string captureTolerance;
 
     public WorkflowRunner()
-        : this(new UserStoryFileStore(), new DeterministicPhaseExecutionProvider(), new RepositoryCategoryCatalog(), new GitWorkBranchManager())
+        : this(new UserStoryFileStore(), new DeterministicPhaseExecutionProvider(), new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher())
     {
     }
 
     public WorkflowRunner(IPhaseExecutionProvider phaseExecutionProvider, string captureTolerance = "balanced")
-        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), captureTolerance)
+        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), captureTolerance)
     {
     }
 
@@ -40,12 +41,14 @@ public sealed class WorkflowRunner
         IPhaseExecutionProvider phaseExecutionProvider,
         RepositoryCategoryCatalog? repositoryCategoryCatalog = null,
         IWorkBranchManager? workBranchManager = null,
+        IPullRequestPublisher? pullRequestPublisher = null,
         string captureTolerance = "balanced")
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
         this.phaseExecutionProvider = phaseExecutionProvider ?? throw new ArgumentNullException(nameof(phaseExecutionProvider));
         this.repositoryCategoryCatalog = repositoryCategoryCatalog ?? new RepositoryCategoryCatalog();
         this.workBranchManager = workBranchManager ?? new GitWorkBranchManager();
+        this.pullRequestPublisher = pullRequestPublisher ?? new GitHubPullRequestPublisher();
         this.captureTolerance = captureTolerance is "strict" or "balanced" or "inferential" ? captureTolerance : "balanced";
     }
 
@@ -534,6 +537,21 @@ public sealed class WorkflowRunner
                 reviewGeneration.Execution);
         }
 
+        if (workflowRun.CurrentPhase == PhaseId.PrPreparation)
+        {
+            var publicationArtifactPath = await PublishPullRequestAsync(workspaceRoot, paths, workflowRun, normalizedActor, cancellationToken);
+            await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+            diagnostics.MarkCompleted(
+                $"phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} status={WorkflowPresentation.ToStatusSlug(workflowRun.Status)} artifact={publicationArtifactPath}");
+            return new ContinuePhaseResult(
+                workflowRun.UsId,
+                workflowRun.CurrentPhase,
+                workflowRun.Status,
+                publicationArtifactPath,
+                null,
+                null);
+        }
+
         EnsureNextPhaseExecutionIsReady(workflowRun);
         var sourcePhase = workflowRun.CurrentPhase;
         workflowRun.GenerateNextPhase();
@@ -581,6 +599,57 @@ public sealed class WorkflowRunner
         diagnostics.MarkCompleted(
             $"phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} status={WorkflowPresentation.ToStatusSlug(workflowRun.Status)} artifact={(artifactPath ?? "(none)")}");
         return new ContinuePhaseResult(workflowRun.UsId, workflowRun.CurrentPhase, workflowRun.Status, artifactPath, usage, execution);
+    }
+
+    private async Task<string> PublishPullRequestAsync(
+        string workspaceRoot,
+        UserStoryFilePaths paths,
+        WorkflowRun workflowRun,
+        string actor,
+        CancellationToken cancellationToken)
+    {
+        var artifactJsonPath = paths.GetLatestExistingPhaseArtifactJsonPath(PhaseId.PrPreparation)
+            ?? throw new WorkflowDomainException("PR preparation requires a generated JSON artifact before publication.");
+        if (!File.Exists(artifactJsonPath))
+        {
+            throw new WorkflowDomainException("PR preparation requires a generated JSON artifact before publication.");
+        }
+
+        var artifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.PrPreparation)
+            ?? throw new WorkflowDomainException("PR preparation requires a generated markdown artifact before publication.");
+        var document = PrPreparationArtifactJson.ParseCanonicalJson(await File.ReadAllTextAsync(artifactJsonPath, cancellationToken));
+        EnsurePrPreparationArtifactIsPublishable(document);
+
+        var branch = workflowRun.Branch
+            ?? throw new WorkflowDomainException("PR preparation requires branch metadata before publication.");
+        var publication = await pullRequestPublisher.PublishAsync(workspaceRoot, workflowRun.UsId, branch, document, cancellationToken);
+        branch.RecordPublishedPullRequest(
+            new PullRequestRecord(
+                publication.IsDraft ? "draft" : "published",
+                branch.BaseBranch,
+                document.PrTitle,
+                artifactPath,
+                publication.IsDraft,
+                publication.Number,
+                publication.Url,
+                publication.RemoteBranch,
+                publication.CommitSha,
+                DateTimeOffset.UtcNow));
+        workflowRun.CompleteCurrentWorkflow();
+
+        var summary = publication.Url is null
+            ? $"Published pull request for `{branch.WorkBranchName}`."
+            : $"Published pull request for `{branch.WorkBranchName}`: {publication.Url}";
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "pull_request_published",
+            actor,
+            workflowRun.CurrentPhase,
+            summary,
+            cancellationToken,
+            [artifactPath]);
+
+        return artifactPath;
     }
 
     private void EnsureNextPhaseExecutionIsReady(WorkflowRun workflowRun)
@@ -1020,11 +1089,27 @@ public sealed class WorkflowRunner
         else if (workflowRun.CurrentPhase is PhaseId.ReleaseApproval or PhaseId.PrPreparation)
         {
             var version = ExtractArtifactVersion(artifactPath);
-            await WriteStructuredJsonIfAvailableAsync(
-                paths.GetPhaseArtifactJsonPath(workflowRun.CurrentPhase, version),
-                result.StructuredJsonContent,
-                cancellationToken);
-            await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
+            if (workflowRun.CurrentPhase == PhaseId.PrPreparation)
+            {
+                var canonicalJson = result.StructuredJsonContent ?? result.Content;
+                var document = PrPreparationArtifactJson.ParseCanonicalJson(canonicalJson);
+                EnsurePrPreparationArtifactIsPublishable(document);
+                var renderedMarkdown = PrPreparationArtifactJson.RenderMarkdown(document, workflowRun.UsId, version);
+                await File.WriteAllTextAsync(
+                    paths.GetPhaseArtifactJsonPath(PhaseId.PrPreparation, version),
+                    PrPreparationArtifactJson.Serialize(document),
+                    cancellationToken);
+                await File.WriteAllTextAsync(artifactPath, renderedMarkdown, cancellationToken);
+                workflowRun.Branch?.RecordPreparedPullRequest(document.PrTitle, artifactPath);
+            }
+            else
+            {
+                await WriteStructuredJsonIfAvailableAsync(
+                    paths.GetPhaseArtifactJsonPath(workflowRun.CurrentPhase, version),
+                    result.StructuredJsonContent,
+                    cancellationToken);
+                await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
+            }
         }
         else
         {
@@ -1071,6 +1156,51 @@ public sealed class WorkflowRunner
         }
 
         await File.WriteAllTextAsync(artifactJsonPath, structuredJsonContent, cancellationToken);
+    }
+
+    private static void EnsurePrPreparationArtifactIsPublishable(PrPreparationArtifactDocument document)
+    {
+        var errors = new List<string>();
+        if (string.IsNullOrWhiteSpace(document.State) || document.State == "...")
+        {
+            errors.Add("state");
+        }
+
+        if (string.IsNullOrWhiteSpace(document.PrTitle) || document.PrTitle == "...")
+        {
+            errors.Add("prTitle");
+        }
+
+        if (string.IsNullOrWhiteSpace(document.PrSummary) || document.PrSummary == "...")
+        {
+            errors.Add("prSummary");
+        }
+
+        if (document.ChangeNarrative.Count == 0)
+        {
+            errors.Add("changeNarrative");
+        }
+
+        if (document.ValidationSummary.Count == 0)
+        {
+            errors.Add("validationSummary");
+        }
+
+        if (document.ReviewerChecklist.Count == 0)
+        {
+            errors.Add("reviewerChecklist");
+        }
+
+        if (document.PrBody.Count == 0 || document.PrBody.All(static line => string.IsNullOrWhiteSpace(line) || line.Trim() == "..."))
+        {
+            errors.Add("prBody");
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new WorkflowDomainException(
+                $"PR preparation artifact is incomplete. Missing or placeholder sections: {string.Join(", ", errors)}.");
+        }
     }
 
     private sealed record ReviewMaterialization(string Markdown, string Json);

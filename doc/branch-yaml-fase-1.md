@@ -25,9 +25,7 @@ Includes:
 
 Does not include:
 
-- remote GitHub synchronization
 - CI state
-- real PR URL
 - enrichment with external review metadata
 
 ## Relationship With Other Artifacts
@@ -144,12 +142,21 @@ Minimum fields:
 
 - `status`
 - `targetBaseBranch`
+- `title`
+- `artifactPath`
+- `draft`
+- `number`
+- `url`
+- `remoteBranch`
+- `headCommitSha`
+- `publishedAt`
 
 Initial `pullRequest.status` values:
 
 - `not_requested`
-- `ready_to_prepare`
 - `prepared`
+- `draft`
+- `published`
 
 ## Invariants
 

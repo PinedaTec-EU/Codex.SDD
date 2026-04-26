@@ -41,6 +41,18 @@ public sealed class UserStoryFileStoreTests : IDisposable
         Directory.CreateDirectory(tempDirectory);
         var store = new UserStoryFileStore();
         var savedRun = CreateApprovedRefinementRun();
+        savedRun.Branch!.RecordPublishedPullRequest(
+            new PullRequestRecord(
+                Status: "draft",
+                TargetBaseBranch: "main",
+                Title: "US-0001: prepare draft PR",
+                ArtifactPath: ".specs/us/workflow/US-0001/phases/06-pr-preparation.md",
+                IsDraft: true,
+                Number: 42,
+                Url: "https://github.com/acme/repo/pull/42",
+                RemoteBranch: "feature/us-0001-test-story",
+                HeadCommitSha: "abc123",
+                PublishedAtUtc: new DateTimeOffset(2026, 4, 26, 18, 0, 0, TimeSpan.Zero)));
         savedRun.GenerateNextPhase();
 
         await store.SaveAsync(savedRun, tempDirectory);
@@ -56,6 +68,10 @@ public sealed class UserStoryFileStoreTests : IDisposable
         Assert.Equal("main", loadedRun.Branch!.BaseBranch);
         Assert.Equal("feature", loadedRun.Branch.Kind);
         Assert.Equal("workflow", loadedRun.Branch.Category);
+        Assert.NotNull(loadedRun.Branch.PullRequest);
+        Assert.Equal("draft", loadedRun.Branch.PullRequest!.Status);
+        Assert.Equal(42, loadedRun.Branch.PullRequest.Number);
+        Assert.Equal("https://github.com/acme/repo/pull/42", loadedRun.Branch.PullRequest.Url);
     }
 
     [Fact]

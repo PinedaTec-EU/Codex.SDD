@@ -117,6 +117,18 @@ public sealed class WorkflowRunTests
         Assert.Equal(UserStoryStatus.WaitingUser, run.Status);
     }
 
+    [Fact]
+    public void CompleteCurrentWorkflow_FromPrPreparation_MarksRunAsCompleted()
+    {
+        var run = CreateRun();
+        AdvanceToPrPreparation(run);
+
+        run.CompleteCurrentWorkflow();
+
+        Assert.Equal(PhaseId.PrPreparation, run.CurrentPhase);
+        Assert.Equal(UserStoryStatus.Completed, run.Status);
+    }
+
     private static WorkflowRun CreateRun()
     {
         return new WorkflowRun("US-0001", "sha256:abc", WorkflowDefinition.CanonicalV1);
@@ -140,6 +152,13 @@ public sealed class WorkflowRunTests
     private static void AdvanceToReleaseApproval(WorkflowRun run)
     {
         AdvanceToReview(run);
+        run.GenerateNextPhase();
+    }
+
+    private static void AdvanceToPrPreparation(WorkflowRun run)
+    {
+        AdvanceToReleaseApproval(run);
+        run.ApproveCurrentPhase();
         run.GenerateNextPhase();
     }
 }

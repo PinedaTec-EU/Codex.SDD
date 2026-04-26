@@ -46,12 +46,6 @@ public sealed class WorkflowRun
     {
         EnsureNotCompleted();
 
-        if (CurrentPhase == PhaseId.PrPreparation)
-        {
-            Status = UserStoryStatus.Completed;
-            return;
-        }
-
         if (Definition.RequiresApproval(CurrentPhase) && !approvedPhases.Contains(CurrentPhase))
         {
             throw new WorkflowDomainException(
@@ -146,6 +140,17 @@ public sealed class WorkflowRun
         Status = Definition.RequiresApproval(targetPhase)
             ? UserStoryStatus.WaitingUser
             : UserStoryStatus.Active;
+    }
+
+    public void CompleteCurrentWorkflow()
+    {
+        if (CurrentPhase != PhaseId.PrPreparation)
+        {
+            throw new WorkflowDomainException("Only the final PR preparation phase can complete the workflow.");
+        }
+
+        EnsureNotCompleted();
+        Status = UserStoryStatus.Completed;
     }
 
     public void RewindToPhase(PhaseId targetPhase)

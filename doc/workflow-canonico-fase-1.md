@@ -262,14 +262,17 @@ Output:
 
 - prepared PR metadata
 - final change summary ready for publication
+- published draft PR metadata when repository publication succeeds
 
 Definition of Done:
 
 - a PR payload consistent with the user story and approved artifacts exists
+- the work branch has been committed and pushed
+- a draft PR exists or the workflow reports a publication error without silently completing
 
 Checkpoint:
 
-- not required in phase 1 because real GitHub integration is still postponed
+- not required; publication happens automatically from the prepared artifact and remains traceable through `branch.yaml` and timeline events
 
 ## Valid Transitions
 

@@ -398,6 +398,72 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ContinuePhaseAsync_FromPrPreparation_PublishesDraftPullRequestAndCompletesWorkflow()
+    {
+        var publisher = new RecordingPullRequestPublisher();
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new PassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager(),
+            publisher);
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal(PhaseId.PrPreparation, result.CurrentPhase);
+        Assert.Equal(UserStoryStatus.Completed, result.Status);
+        Assert.Equal("US-0001: deliver approved workflow scope", publisher.LastArtifact?.PrTitle);
+
+        var loadedRun = await new UserStoryFileStore().LoadAsync(
+            UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
+        Assert.Equal(UserStoryStatus.Completed, loadedRun.Status);
+        Assert.NotNull(loadedRun.Branch?.PullRequest);
+        Assert.Equal("draft", loadedRun.Branch!.PullRequest!.Status);
+        Assert.Equal("https://github.com/example/repo/pull/101", loadedRun.Branch.PullRequest.Url);
+
+        var timeline = await File.ReadAllTextAsync(UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath);
+        Assert.Contains("`pull_request_published`", timeline);
+        Assert.Contains("https://github.com/example/repo/pull/101", timeline);
+    }
+
+    [Fact]
+    public async Task ContinuePhaseAsync_PrPreparation_ThrowsWhenArtifactIsPlaceholderOnly()
+    {
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new PlaceholderPrPreparationPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager(),
+            new RecordingPullRequestPublisher());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
+
+        var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
+            runner.ContinuePhaseAsync(workspaceRoot, "US-0001"));
+
+        Assert.Contains("PR preparation artifact is incomplete", error.Message);
+        Assert.Contains("prTitle", error.Message);
+        Assert.Contains("prBody", error.Message);
+    }
+
+    [Fact]
     public async Task RestartUserStoryFromSourceAsync_WhenSourceChanged_ArchivesDerivedStateAndRegeneratesRefinement()
     {
         var runner = new WorkflowRunner();
@@ -1450,5 +1516,126 @@ public sealed class WorkflowRunnerTests : IDisposable
                 BranchCreated: false,
                 CurrentBranch: baseBranch,
                 UpstreamBranch: $"origin/{baseBranch}"));
+    }
+
+    private sealed class RecordingPullRequestPublisher : IPullRequestPublisher
+    {
+        public PrPreparationArtifactDocument? LastArtifact { get; private set; }
+
+        public Task<PullRequestPublicationResult> PublishAsync(
+            string workspaceRoot,
+            string usId,
+            WorkBranch branch,
+            PrPreparationArtifactDocument artifact,
+            CancellationToken cancellationToken = default)
+        {
+            LastArtifact = artifact;
+            return Task.FromResult(new PullRequestPublicationResult(
+                CommitCreated: true,
+                CommitSha: "abc123",
+                RemoteBranch: branch.WorkBranchName,
+                IsDraft: true,
+                Number: 101,
+                Url: "https://github.com/example/repo/pull/101"));
+        }
+    }
+
+    private sealed class PlaceholderPrPreparationPhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        private readonly PassingReviewPhaseExecutionProvider inner = new();
+
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) => inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<PhaseExecutionResult> ExecuteAsync(PhaseExecutionContext context, CancellationToken cancellationToken = default)
+        {
+            if (context.PhaseId == PhaseId.PrPreparation)
+            {
+                return Task.FromResult(new PhaseExecutionResult(
+                    """
+                    {
+                      "state": "",
+                      "basedOn": [],
+                      "prTitle": "",
+                      "prSummary": "",
+                      "branchSummary": [],
+                      "participants": [],
+                      "changeNarrative": [],
+                      "validationSummary": [],
+                      "reviewerChecklist": [],
+                      "risksAndFollowUps": [],
+                      "prBody": []
+                    }
+                    """,
+                    "test-double"));
+            }
+
+            return inner.ExecuteAsync(context, cancellationToken);
+        }
+
+        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+            PhaseExecutionContext context,
+            ClarificationSession session,
+            CancellationToken cancellationToken = default) =>
+            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+    }
+
+    private sealed class PassingReviewPhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        private readonly DeterministicPhaseExecutionProvider inner = new();
+
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) => inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+            PhaseExecutionContext context,
+            ClarificationSession session,
+            CancellationToken cancellationToken = default) =>
+            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+
+        public async Task<PhaseExecutionResult> ExecuteAsync(
+            PhaseExecutionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            if (context.PhaseId == PhaseId.Implementation)
+            {
+                var featurePath = Path.Combine(context.WorkspaceRoot, "src", "Feature.cs");
+                Directory.CreateDirectory(Path.GetDirectoryName(featurePath)!);
+                await File.WriteAllTextAsync(
+                    featurePath,
+                    "namespace SpecForge;\npublic static class Feature { public const int Enabled = 1; }\n",
+                    cancellationToken);
+            }
+
+            if (context.PhaseId == PhaseId.Review)
+            {
+                var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(context.WorkspaceRoot, context.UsId);
+                var validationItems = WorkflowRunner.ReadTechnicalDesignValidationStrategy(paths);
+                var checklist = validationItems.Select(item => $"- ✅ {item} Evidence: Validated in PR publication test.").ToArray();
+                var content = string.Join(
+                    Environment.NewLine,
+                    [
+                        $"# Review · {context.UsId} · v01",
+                        string.Empty,
+                        "## State",
+                        "- Result: `pass`",
+                        string.Empty,
+                        "## Validation Checklist",
+                        ..checklist,
+                        string.Empty,
+                        "## Findings",
+                        "- No findings.",
+                        string.Empty,
+                        "## Verdict",
+                        "- Final result: `pass`",
+                        "- Primary reason: Review passed.",
+                        string.Empty,
+                        "## Recommendation",
+                        "- Advance."
+                    ]) + Environment.NewLine;
+
+                return new PhaseExecutionResult(content, "test-double");
+            }
+
+            return await inner.ExecuteAsync(context, cancellationToken);
+        }
     }
 }
