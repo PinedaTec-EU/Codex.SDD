@@ -25,14 +25,20 @@ public sealed class WorkflowRunner
     private readonly IWorkBranchManager workBranchManager;
     private readonly IPullRequestPublisher pullRequestPublisher;
     private readonly string captureTolerance;
+    private readonly string? runtimeVersion;
 
     public WorkflowRunner()
-        : this(new UserStoryFileStore(), new DeterministicPhaseExecutionProvider(), new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher())
+        : this(new UserStoryFileStore(), new DeterministicPhaseExecutionProvider(), new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), null)
     {
     }
 
     public WorkflowRunner(IPhaseExecutionProvider phaseExecutionProvider, string captureTolerance = "balanced")
-        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), captureTolerance)
+        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), null, captureTolerance)
+    {
+    }
+
+    public WorkflowRunner(IPhaseExecutionProvider phaseExecutionProvider, string? runtimeVersion, string captureTolerance)
+        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), runtimeVersion, captureTolerance)
     {
     }
 
@@ -42,6 +48,7 @@ public sealed class WorkflowRunner
         RepositoryCategoryCatalog? repositoryCategoryCatalog = null,
         IWorkBranchManager? workBranchManager = null,
         IPullRequestPublisher? pullRequestPublisher = null,
+        string? runtimeVersion = null,
         string captureTolerance = "balanced")
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
@@ -49,6 +56,7 @@ public sealed class WorkflowRunner
         this.repositoryCategoryCatalog = repositoryCategoryCatalog ?? new RepositoryCategoryCatalog();
         this.workBranchManager = workBranchManager ?? new GitWorkBranchManager();
         this.pullRequestPublisher = pullRequestPublisher ?? new GitHubPullRequestPublisher();
+        this.runtimeVersion = string.IsNullOrWhiteSpace(runtimeVersion) ? null : runtimeVersion.Trim();
         this.captureTolerance = captureTolerance is "strict" or "balanced" or "inferential" ? captureTolerance : "balanced";
     }
 
@@ -79,10 +87,10 @@ public sealed class WorkflowRunner
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
         Directory.CreateDirectory(paths.AttachmentsDirectoryPath);
 
-        var workflowRun = new WorkflowRun(usId, ComputeSourceHash(sourceText), WorkflowDefinition.CanonicalV1);
+        var workflowRun = new WorkflowRun(usId, ComputeSourceHash(sourceText), WorkflowDefinition.CanonicalV1, runtimeVersion);
 
         await File.WriteAllTextAsync(paths.MainArtifactPath, BuildUserStoryMarkdown(usId, title, kind, category, sourceText), cancellationToken);
-        await File.WriteAllTextAsync(paths.TimelineFilePath, BuildInitialTimeline(usId, title, actor), cancellationToken);
+        await File.WriteAllTextAsync(paths.TimelineFilePath, BuildInitialTimeline(usId, title, actor, runtimeVersion), cancellationToken);
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
         return paths.RootDirectory;
     }
@@ -97,6 +105,7 @@ public sealed class WorkflowRunner
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        await TrackRuntimeVersionChangeAsync(paths, workflowRun, NormalizeActor(actor), workflowRun.CurrentPhase, cancellationToken);
         var branchWasMissing = workflowRun.Branch is null;
         await EnsureCurrentPhaseIsApprovableAsync(paths, workflowRun.CurrentPhase, cancellationToken);
         var metadata = await ReadUserStoryMetadataAsync(paths.MainArtifactPath, usId, cancellationToken);
@@ -229,6 +238,7 @@ public sealed class WorkflowRunner
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        await TrackRuntimeVersionChangeAsync(paths, workflowRun, NormalizeActor(actor), workflowRun.CurrentPhase, cancellationToken);
         var targetPhaseWasApproved = workflowRun.IsPhaseApproved(targetPhase);
         if (destructive)
         {
@@ -308,6 +318,7 @@ public sealed class WorkflowRunner
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var existingRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        await TrackRuntimeVersionChangeAsync(paths, existingRun, NormalizeActor(actor), existingRun.CurrentPhase, cancellationToken);
 
         if (existingRun.CurrentPhase == PhaseId.Capture)
         {
@@ -371,6 +382,7 @@ public sealed class WorkflowRunner
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var existingRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        await TrackRuntimeVersionChangeAsync(paths, existingRun, "system", existingRun.CurrentPhase, cancellationToken);
         var metadata = await ReadUserStoryMetadataAsync(paths.MainArtifactPath, usId, cancellationToken);
         var currentSourceText = await ReadSourceTextFromUserStoryAsync(paths.MainArtifactPath, cancellationToken);
         var currentSourceHash = ComputeSourceHash(currentSourceText);
@@ -380,7 +392,7 @@ public sealed class WorkflowRunner
         var cleanedUserStory = UserStoryClarificationMarkdown.Remove(
             await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken));
         await File.WriteAllTextAsync(paths.MainArtifactPath, cleanedUserStory, cancellationToken);
-        await File.WriteAllTextAsync(paths.TimelineFilePath, BuildInitialTimeline(usId, metadata.Title, "system"), cancellationToken);
+        await File.WriteAllTextAsync(paths.TimelineFilePath, BuildInitialTimeline(usId, metadata.Title, "system", runtimeVersion), cancellationToken);
 
         await AppendTimelineEventAsync(
             paths.TimelineFilePath,
@@ -419,6 +431,7 @@ public sealed class WorkflowRunner
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        await TrackRuntimeVersionChangeAsync(paths, workflowRun, NormalizeActor(actor), workflowRun.CurrentPhase, cancellationToken);
         ValidateRewindTarget(workflowRun, targetPhase);
         var targetPhaseWasApproved = workflowRun.IsPhaseApproved(targetPhase);
 
@@ -470,6 +483,7 @@ public sealed class WorkflowRunner
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
         var normalizedActor = NormalizeActor(actor);
+        await TrackRuntimeVersionChangeAsync(paths, workflowRun, normalizedActor, workflowRun.CurrentPhase, cancellationToken);
         SpecForgeDiagnostics.Log(
             $"[runner.continue_phase] usId={usId} loaded phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} status={WorkflowPresentation.ToStatusSlug(workflowRun.Status)}");
 
@@ -683,6 +697,7 @@ public sealed class WorkflowRunner
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        await TrackRuntimeVersionChangeAsync(paths, workflowRun, NormalizeActor(actor), workflowRun.CurrentPhase, cancellationToken);
         if (workflowRun.CurrentPhase != PhaseId.Clarification)
         {
             throw new WorkflowDomainException("Clarification answers can only be submitted while the workflow is in the clarification phase.");
@@ -723,6 +738,7 @@ public sealed class WorkflowRunner
         ValidateRequired(prompt, nameof(prompt));
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        await TrackRuntimeVersionChangeAsync(paths, workflowRun, NormalizeActor(actor), workflowRun.CurrentPhase, cancellationToken);
         if (!HasArtifact(workflowRun.CurrentPhase))
         {
             throw new WorkflowDomainException($"Phase '{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}' does not support direct artifact operations.");
@@ -1036,6 +1052,7 @@ public sealed class WorkflowRunner
         }
 
         stopwatch.Stop();
+        var executionMetadata = WithRuntimeVersion(result.Execution);
         SpecForgeDiagnostics.Log(
             $"[runner.materialize] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} providerReturned executionKind={result.ExecutionKind} durationMs={stopwatch.ElapsedMilliseconds}");
 
@@ -1142,8 +1159,13 @@ public sealed class WorkflowRunner
             $"[runner.materialize.out] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} generatedFiles=[{string.Join(", ", generatedFiles.Select(static path => $"'{path}'"))}]");
 
         diagnostics.MarkCompleted($"artifactPath='{artifactPath}'");
-        return new ArtifactGenerationResult(artifactPath, result.Usage, stopwatch.ElapsedMilliseconds, result.Execution);
+        return new ArtifactGenerationResult(artifactPath, result.Usage, stopwatch.ElapsedMilliseconds, executionMetadata);
     }
+
+    private PhaseExecutionMetadata? WithRuntimeVersion(PhaseExecutionMetadata? execution) =>
+        execution is null
+            ? null
+            : execution with { RuntimeVersion = execution.RuntimeVersion ?? runtimeVersion };
 
     private static async Task WriteStructuredJsonIfAvailableAsync(
         string artifactJsonPath,
@@ -1792,6 +1814,11 @@ public sealed class WorkflowRunner
                 builder.AppendLine($"  - base-url: `{execution.BaseUrl}`");
             }
 
+            if (!string.IsNullOrWhiteSpace(execution.RuntimeVersion))
+            {
+                builder.AppendLine($"  - runtime-version: `{execution.RuntimeVersion}`");
+            }
+
             if (execution.Warnings is { Count: > 0 })
             {
                 foreach (var warning in execution.Warnings)
@@ -1807,6 +1834,42 @@ public sealed class WorkflowRunner
         }
 
         await File.AppendAllTextAsync(timelinePath, builder.ToString(), cancellationToken);
+    }
+
+    private async Task TrackRuntimeVersionChangeAsync(
+        UserStoryFilePaths paths,
+        WorkflowRun workflowRun,
+        string actor,
+        PhaseId phaseId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(runtimeVersion))
+        {
+            return;
+        }
+
+        var previousVersion = workflowRun.LastRuntimeVersion;
+        workflowRun.UpdateRuntimeVersion(runtimeVersion);
+        if (string.Equals(previousVersion, workflowRun.LastRuntimeVersion, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+        var summary = string.IsNullOrWhiteSpace(previousVersion)
+            ? $"Registered runtime version `{workflowRun.LastRuntimeVersion}` for this workflow."
+            : $"Runtime version changed from `{previousVersion}` to `{workflowRun.LastRuntimeVersion}`.";
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "runtime_version_changed",
+            actor,
+            phaseId,
+            summary,
+            cancellationToken,
+            artifactPaths: null,
+            usage: null,
+            durationMs: null,
+            execution: new PhaseExecutionMetadata("specforge", "workflow", RuntimeVersion: workflowRun.LastRuntimeVersion));
     }
 
     private static void ValidateRewindTarget(WorkflowRun workflowRun, PhaseId targetPhase)
@@ -2058,31 +2121,38 @@ public sealed class WorkflowRunner
     private sealed record ClarificationAssessment(bool IsReady, string Reason, IReadOnlyCollection<string> Questions, string Summary);
     private sealed record CaptureTransitionResult(string ArtifactPath, TokenUsage? Usage, long DurationMs, PhaseExecutionMetadata? Execution);
 
-    private static string BuildInitialTimeline(string usId, string title, string actor)
+    private static string BuildInitialTimeline(string usId, string title, string actor, string? runtimeVersion)
     {
         var timestamp = DateTimeOffset.UtcNow.ToString("O");
-        return string.Join(
-                   Environment.NewLine,
-                   new[]
-                   {
-                       $"# Timeline · {usId} · {title}",
-                       string.Empty,
-                       "## Summary",
-                       string.Empty,
-                       "- Current status: `draft`",
-                       "- Current phase: `capture`",
-                       "- Active branch: `not created`",
-                       $"- Last updated: `{timestamp}`",
-                       string.Empty,
-                       "## Events",
-                       string.Empty,
-                       $"### {timestamp} · `us_created`",
-                       string.Empty,
-                       $"- Actor: `{NormalizeActor(actor)}`",
-                       "- Phase: `capture`",
-                       "- Summary: The initial user story was created and `us.md`, `state.yaml`, and `timeline.md` were persisted."
-                   }) +
-               Environment.NewLine;
+        var lines = new List<string>
+        {
+            $"# Timeline · {usId} · {title}",
+            string.Empty,
+            "## Summary",
+            string.Empty,
+            "- Current status: `draft`",
+            "- Current phase: `capture`",
+            "- Active branch: `not created`",
+            $"- Last updated: `{timestamp}`",
+            string.Empty,
+            "## Events",
+            string.Empty,
+            $"### {timestamp} · `us_created`",
+            string.Empty,
+            $"- Actor: `{NormalizeActor(actor)}`",
+            "- Phase: `capture`",
+            "- Summary: The initial user story was created and `us.md`, `state.yaml`, and `timeline.md` were persisted."
+        };
+
+        if (!string.IsNullOrWhiteSpace(runtimeVersion))
+        {
+            lines.Add("- Execution:");
+            lines.Add("  - provider: `specforge`");
+            lines.Add("  - model: `workflow`");
+            lines.Add($"  - runtime-version: `{runtimeVersion}`");
+        }
+
+        return string.Join(Environment.NewLine, lines) + Environment.NewLine;
     }
 
     private static string NormalizeActor(string? actor) =>

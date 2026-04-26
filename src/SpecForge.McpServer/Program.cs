@@ -14,8 +14,8 @@ var captureTolerance = Environment.GetEnvironmentVariable("SPECFORGE_CAPTURE_TOL
 captureTolerance = captureTolerance is "strict" or "balanced" or "inferential" ? captureTolerance : "balanced";
 
 var phaseExecutionProvider = PhaseExecutionProviderFactory.Create();
-var workflowRunner = new WorkflowRunner(phaseExecutionProvider, captureTolerance);
-var applicationService = new SpecForgeApplicationService(new UserStoryFileStore(), workflowRunner);
+var workflowRunner = new WorkflowRunner(phaseExecutionProvider, serverVersion, captureTolerance);
+var applicationService = new SpecForgeApplicationService(new UserStoryFileStore(), workflowRunner, runtimeVersion: serverVersion);
 var serializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 var stdin = Console.OpenStandardInput();
 var stdout = Console.OpenStandardOutput();

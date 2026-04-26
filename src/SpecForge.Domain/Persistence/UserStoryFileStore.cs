@@ -57,6 +57,9 @@ public sealed class UserStoryFileStore
         }
 
         workflowRun.RestoreState(stateDocument.CurrentPhase, stateDocument.Status);
+        workflowRun.RestoreRuntimeVersionMetadata(
+            stateDocument.CreatedWithRuntimeVersion,
+            stateDocument.LastRuntimeVersion);
 
         if (File.Exists(paths.BranchFilePath))
         {

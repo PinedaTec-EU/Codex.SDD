@@ -12,6 +12,8 @@ public sealed record UserStoryWorkflowDetails(
     string MainArtifactPath,
     string TimelinePath,
     string RawTimeline,
+    string? CreatedWithRuntimeVersion,
+    string? LastRuntimeVersion,
     IReadOnlyCollection<WorkflowPhaseDetails> Phases,
     CurrentPhaseControls Controls,
     ClarificationSessionDetails? Clarification,

@@ -249,6 +249,7 @@ public static partial class TimelineMarkdownParser
             "model" => execution with { Model = value },
             "profile" => execution with { ProfileName = value },
             "base-url" => execution with { BaseUrl = value },
+            "runtime-version" => execution with { RuntimeVersion = value },
             "warning" => execution with { Warnings = AppendWarning(execution.Warnings, value) },
             _ => execution
         };
@@ -259,6 +260,7 @@ public static partial class TimelineMarkdownParser
         line.StartsWith("model:", StringComparison.Ordinal) ||
         line.StartsWith("profile:", StringComparison.Ordinal) ||
         line.StartsWith("base-url:", StringComparison.Ordinal) ||
+        line.StartsWith("runtime-version:", StringComparison.Ordinal) ||
         line.StartsWith("warning:", StringComparison.Ordinal);
 
     private static IReadOnlyCollection<string> AppendWarning(IReadOnlyCollection<string>? warnings, string warning)

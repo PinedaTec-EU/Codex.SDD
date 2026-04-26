@@ -13,6 +13,8 @@ internal static class StateYamlSerializer
             $"status: {ToKebabCase(workflowRun.Status)}",
             $"currentPhase: {ToKebabCase(workflowRun.CurrentPhase)}",
             $"sourceHash: {workflowRun.SourceHash}",
+            $"createdWithRuntimeVersion: {workflowRun.CreatedWithRuntimeVersion ?? string.Empty}",
+            $"lastRuntimeVersion: {workflowRun.LastRuntimeVersion ?? string.Empty}",
             "approvedPhases:"
         };
 
@@ -40,7 +42,9 @@ internal static class StateYamlSerializer
             ParseUserStoryStatus(YamlMapParser.GetRequired(values, "status")),
             ParsePhaseId(YamlMapParser.GetRequired(values, "currentPhase")),
             YamlMapParser.GetRequired(values, "sourceHash"),
-            approvedPhases);
+            approvedPhases,
+            YamlMapParser.GetOptional(values, "createdWithRuntimeVersion"),
+            YamlMapParser.GetOptional(values, "lastRuntimeVersion"));
     }
 
     private static IReadOnlyList<string> ParseSequence(string yaml, string key)
@@ -141,4 +145,6 @@ internal sealed record StateDocument(
     UserStoryStatus Status,
     PhaseId CurrentPhase,
     string SourceHash,
-    IReadOnlyCollection<PhaseId> ApprovedPhases);
+    IReadOnlyCollection<PhaseId> ApprovedPhases,
+    string? CreatedWithRuntimeVersion,
+    string? LastRuntimeVersion);

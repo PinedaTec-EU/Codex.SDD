@@ -12,7 +12,7 @@ public sealed class UserStoryFileStoreTests : IDisposable
     {
         Directory.CreateDirectory(tempDirectory);
         var store = new UserStoryFileStore();
-        var run = CreateApprovedRefinementRun();
+        var run = CreateApprovedRefinementRun(runtimeVersion: "0.1.3.224");
 
         await store.SaveAsync(run, tempDirectory);
 
@@ -27,6 +27,8 @@ public sealed class UserStoryFileStoreTests : IDisposable
 
         Assert.Contains("usId: US-0001", stateContent);
         Assert.Contains("currentPhase: refinement", stateContent);
+        Assert.Contains("createdWithRuntimeVersion: 0.1.3.224", stateContent);
+        Assert.Contains("lastRuntimeVersion: 0.1.3.224", stateContent);
         Assert.Contains("approvedPhases:", stateContent);
         Assert.Contains("kind: feature", branchContent);
         Assert.Contains("category: workflow", branchContent);
@@ -40,7 +42,7 @@ public sealed class UserStoryFileStoreTests : IDisposable
     {
         Directory.CreateDirectory(tempDirectory);
         var store = new UserStoryFileStore();
-        var savedRun = CreateApprovedRefinementRun();
+        var savedRun = CreateApprovedRefinementRun(runtimeVersion: "0.1.3.224");
         savedRun.Branch!.RecordPublishedPullRequest(
             new PullRequestRecord(
                 Status: "draft",
@@ -63,6 +65,8 @@ public sealed class UserStoryFileStoreTests : IDisposable
         Assert.Equal(savedRun.SourceHash, loadedRun.SourceHash);
         Assert.Equal(savedRun.CurrentPhase, loadedRun.CurrentPhase);
         Assert.Equal(savedRun.Status, loadedRun.Status);
+        Assert.Equal("0.1.3.224", loadedRun.CreatedWithRuntimeVersion);
+        Assert.Equal("0.1.3.224", loadedRun.LastRuntimeVersion);
         Assert.True(loadedRun.IsPhaseApproved(PhaseId.Refinement));
         Assert.NotNull(loadedRun.Branch);
         Assert.Equal("main", loadedRun.Branch!.BaseBranch);
@@ -96,9 +100,9 @@ public sealed class UserStoryFileStoreTests : IDisposable
         }
     }
 
-    private static WorkflowRun CreateApprovedRefinementRun()
+    private static WorkflowRun CreateApprovedRefinementRun(string? runtimeVersion = null)
     {
-        var run = new WorkflowRun("US-0001", "sha256:abc", WorkflowDefinition.CanonicalV1);
+        var run = new WorkflowRun("US-0001", "sha256:abc", WorkflowDefinition.CanonicalV1, runtimeVersion);
         run.GenerateNextPhase();
         run.GenerateNextPhase();
         run.ApproveCurrentPhase(

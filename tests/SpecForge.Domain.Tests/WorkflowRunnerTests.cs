@@ -12,7 +12,7 @@ public sealed class WorkflowRunnerTests : IDisposable
     [Fact]
     public async Task CreateUserStoryAsync_CreatesSpecsStructureAndSeedFiles()
     {
-        var runner = new WorkflowRunner();
+        var runner = new WorkflowRunner(new DeterministicPhaseExecutionProvider(), "0.1.3.224", "balanced");
 
         var rootDirectory = await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
 
@@ -20,6 +20,8 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.True(File.Exists(Path.Combine(rootDirectory, "us.md")));
         Assert.True(File.Exists(Path.Combine(rootDirectory, "state.yaml")));
         Assert.True(File.Exists(Path.Combine(rootDirectory, "timeline.md")));
+        var timeline = await File.ReadAllTextAsync(Path.Combine(rootDirectory, "timeline.md"));
+        Assert.Contains("runtime-version: `0.1.3.224`", timeline);
     }
 
     [Fact]
@@ -637,7 +639,7 @@ public sealed class WorkflowRunnerTests : IDisposable
     [Fact]
     public async Task ContinuePhaseAsync_WithProviderUsage_PersistsTokenUsageInResultAndTimeline()
     {
-        var runner = new WorkflowRunner(new UsageCapturingPhaseExecutionProvider());
+        var runner = new WorkflowRunner(new UsageCapturingPhaseExecutionProvider(), "0.1.3.224", "balanced");
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
 
         var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
@@ -656,6 +658,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Contains("- Execution:", timeline);
         Assert.Contains("model: `stub-model`", timeline);
         Assert.Contains("profile: `test-profile`", timeline);
+        Assert.Contains("runtime-version: `0.1.3.224`", timeline);
         Assert.Contains("- Duration:", timeline);
     }
 

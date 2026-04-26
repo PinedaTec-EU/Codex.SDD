@@ -5,4 +5,5 @@ public sealed record PhaseExecutionMetadata(
     string Model,
     string? ProfileName = null,
     string? BaseUrl = null,
-    IReadOnlyCollection<string>? Warnings = null);
+    IReadOnlyCollection<string>? Warnings = null,
+    string? RuntimeVersion = null);

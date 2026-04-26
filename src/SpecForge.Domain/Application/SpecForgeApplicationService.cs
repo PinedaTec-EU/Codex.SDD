@@ -10,9 +10,10 @@ public sealed class SpecForgeApplicationService
     private readonly RepositoryPromptInitializer repositoryPromptInitializer;
     private readonly RepositoryCategoryCatalog repositoryCategoryCatalog;
     private readonly UserStoryRuntimeStatusStore runtimeStatusStore;
+    private readonly string? runtimeVersion;
 
     public SpecForgeApplicationService()
-        : this(new UserStoryFileStore(), new WorkflowRunner(), new RepositoryPromptInitializer(), new RepositoryCategoryCatalog(), new UserStoryRuntimeStatusStore())
+        : this(new UserStoryFileStore(), new WorkflowRunner(), new RepositoryPromptInitializer(), new RepositoryCategoryCatalog(), new UserStoryRuntimeStatusStore(), null)
     {
     }
 
@@ -21,13 +22,15 @@ public sealed class SpecForgeApplicationService
         WorkflowRunner workflowRunner,
         RepositoryPromptInitializer? repositoryPromptInitializer = null,
         RepositoryCategoryCatalog? repositoryCategoryCatalog = null,
-        UserStoryRuntimeStatusStore? runtimeStatusStore = null)
+        UserStoryRuntimeStatusStore? runtimeStatusStore = null,
+        string? runtimeVersion = null)
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
         this.workflowRunner = workflowRunner ?? throw new ArgumentNullException(nameof(workflowRunner));
         this.repositoryPromptInitializer = repositoryPromptInitializer ?? new RepositoryPromptInitializer();
         this.repositoryCategoryCatalog = repositoryCategoryCatalog ?? new RepositoryCategoryCatalog();
         this.runtimeStatusStore = runtimeStatusStore ?? new UserStoryRuntimeStatusStore();
+        this.runtimeVersion = string.IsNullOrWhiteSpace(runtimeVersion) ? null : runtimeVersion.Trim();
     }
 
     public Task<InitializeRepoPromptsResult> InitializeRepoPromptsAsync(
@@ -130,6 +133,8 @@ public sealed class SpecForgeApplicationService
             paths.MainArtifactPath,
             paths.TimelineFilePath,
             rawTimeline,
+            workflowRun.CreatedWithRuntimeVersion,
+            workflowRun.LastRuntimeVersion,
             BuildPhaseDetails(workflowRun, paths),
             new CurrentPhaseControls(
                 currentPhase.CanAdvance,

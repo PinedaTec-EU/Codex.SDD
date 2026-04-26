@@ -7,7 +7,8 @@ public sealed class WorkflowRun
     public WorkflowRun(
         string usId,
         string sourceHash,
-        WorkflowDefinition definition)
+        WorkflowDefinition definition,
+        string? runtimeVersion = null)
     {
         if (string.IsNullOrWhiteSpace(usId))
         {
@@ -24,6 +25,8 @@ public sealed class WorkflowRun
         SourceHash = sourceHash;
         CurrentPhase = PhaseId.Capture;
         Status = UserStoryStatus.Active;
+        CreatedWithRuntimeVersion = NormalizeRuntimeVersion(runtimeVersion);
+        LastRuntimeVersion = NormalizeRuntimeVersion(runtimeVersion);
     }
 
     public string UsId { get; }
@@ -37,6 +40,10 @@ public sealed class WorkflowRun
     public UserStoryStatus Status { get; private set; }
 
     public WorkBranch? Branch { get; private set; }
+
+    public string? CreatedWithRuntimeVersion { get; private set; }
+
+    public string? LastRuntimeVersion { get; private set; }
 
     public bool IsPhaseApproved(PhaseId phaseId) => approvedPhases.Contains(phaseId);
 
@@ -189,6 +196,24 @@ public sealed class WorkflowRun
         Status = status;
     }
 
+    public void UpdateRuntimeVersion(string? runtimeVersion)
+    {
+        var normalized = NormalizeRuntimeVersion(runtimeVersion);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return;
+        }
+
+        CreatedWithRuntimeVersion ??= normalized;
+        LastRuntimeVersion = normalized;
+    }
+
+    public void RestoreRuntimeVersionMetadata(string? createdWithRuntimeVersion, string? lastRuntimeVersion)
+    {
+        CreatedWithRuntimeVersion = NormalizeRuntimeVersion(createdWithRuntimeVersion);
+        LastRuntimeVersion = NormalizeRuntimeVersion(lastRuntimeVersion);
+    }
+
     private void EnsureNotCompleted()
     {
         if (Status == UserStoryStatus.Completed)
@@ -196,4 +221,7 @@ public sealed class WorkflowRun
             throw new WorkflowDomainException("Completed workflows cannot be modified.");
         }
     }
+
+    private static string? NormalizeRuntimeVersion(string? runtimeVersion) =>
+        string.IsNullOrWhiteSpace(runtimeVersion) ? null : runtimeVersion.Trim();
 }
