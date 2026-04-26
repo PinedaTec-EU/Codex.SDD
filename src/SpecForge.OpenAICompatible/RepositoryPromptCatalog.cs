@@ -28,7 +28,11 @@ internal sealed class RepositoryPromptCatalog
             paths.ImplementationExecutePromptPath,
             paths.ReviewExecuteSystemPromptPath,
             paths.ReviewExecutePromptPath,
+            paths.ReleaseApprovalExecuteSystemPromptPath,
+            paths.ReleaseApprovalExecutePromptPath,
             paths.ReleaseApprovalApproveSystemPromptPath,
+            paths.PrPreparationExecuteSystemPromptPath,
+            paths.PrPreparationExecutePromptPath,
             paths.AutoClarificationAnswersSystemPromptPath,
             paths.ReleaseApprovalApprovePromptPath
         };
@@ -54,6 +58,8 @@ internal sealed class RepositoryPromptCatalog
             PhaseId.TechnicalDesign => paths.TechnicalDesignExecutePromptPath,
             PhaseId.Implementation => paths.ImplementationExecutePromptPath,
             PhaseId.Review => paths.ReviewExecutePromptPath,
+            PhaseId.ReleaseApproval => paths.ReleaseApprovalExecutePromptPath,
+            PhaseId.PrPreparation => paths.PrPreparationExecutePromptPath,
             _ => throw new InvalidOperationException($"Phase '{phaseId}' does not have an execute prompt.")
         };
     }
@@ -69,6 +75,8 @@ internal sealed class RepositoryPromptCatalog
             PhaseId.TechnicalDesign => paths.TechnicalDesignExecuteSystemPromptPath,
             PhaseId.Implementation => paths.ImplementationExecuteSystemPromptPath,
             PhaseId.Review => paths.ReviewExecuteSystemPromptPath,
+            PhaseId.ReleaseApproval => paths.ReleaseApprovalExecuteSystemPromptPath,
+            PhaseId.PrPreparation => paths.PrPreparationExecuteSystemPromptPath,
             _ => throw new InvalidOperationException($"Phase '{phaseId}' does not have an execute system prompt.")
         };
     }

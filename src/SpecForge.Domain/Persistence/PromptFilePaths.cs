@@ -32,8 +32,12 @@ public sealed class PromptFilePaths
         ImplementationExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "implementation.execute.md");
         ReviewExecuteSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "review.execute.system.md");
         ReviewExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "review.execute.md");
+        ReleaseApprovalExecuteSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "release-approval.execute.system.md");
+        ReleaseApprovalExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "release-approval.execute.md");
         ReleaseApprovalApproveSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "release-approval.approve.system.md");
         ReleaseApprovalApprovePromptPath = Path.Combine(PhasePromptsDirectoryPath, "release-approval.approve.md");
+        PrPreparationExecuteSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "pr-preparation.execute.system.md");
+        PrPreparationExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "pr-preparation.execute.md");
         AutoClarificationAnswersSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "clarification.auto-answer.system.md");
     }
 
@@ -83,9 +87,17 @@ public sealed class PromptFilePaths
 
     public string ReviewExecutePromptPath { get; }
 
+    public string ReleaseApprovalExecuteSystemPromptPath { get; }
+
+    public string ReleaseApprovalExecutePromptPath { get; }
+
     public string ReleaseApprovalApproveSystemPromptPath { get; }
 
     public string ReleaseApprovalApprovePromptPath { get; }
+
+    public string PrPreparationExecuteSystemPromptPath { get; }
+
+    public string PrPreparationExecutePromptPath { get; }
 
     public string AutoClarificationAnswersSystemPromptPath { get; }
 }

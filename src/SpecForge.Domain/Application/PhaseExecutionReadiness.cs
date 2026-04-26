@@ -30,6 +30,8 @@ public static class PhaseExecutionBlockingReasons
     public const string TechnicalDesignRequiresRepositoryReadAccess = "technical_design_requires_repository_read_access";
     public const string ImplementationRequiresRepositoryWriteAccess = "implementation_requires_repository_write_access";
     public const string ReviewRequiresRepositoryWriteAccess = "review_requires_repository_write_access";
+    public const string ReleaseApprovalRequiresRepositoryReadAccess = "release_approval_requires_repository_read_access";
+    public const string PrPreparationRequiresRepositoryReadAccess = "pr_preparation_requires_repository_read_access";
     public const string CodexCliNotFound = "codex_cli_not_found";
     public const string ClaudeCliNotFound = "claude_cli_not_found";
     public const string CopilotCliNotFound = "copilot_cli_not_found";
@@ -45,6 +47,8 @@ public static class PhaseExecutionPermissionCatalog
             PhaseId.TechnicalDesign => new(ModelExecutionRequired: true, RepositoryAccess: "read", WorkspaceWriteAccess: false),
             PhaseId.Implementation => new(ModelExecutionRequired: true, RepositoryAccess: "read-write", WorkspaceWriteAccess: true),
             PhaseId.Review => new(ModelExecutionRequired: true, RepositoryAccess: "read-write", WorkspaceWriteAccess: true),
+            PhaseId.ReleaseApproval => new(ModelExecutionRequired: true, RepositoryAccess: "read", WorkspaceWriteAccess: false),
+            PhaseId.PrPreparation => new(ModelExecutionRequired: true, RepositoryAccess: "read", WorkspaceWriteAccess: false),
             _ => new(ModelExecutionRequired: false, RepositoryAccess: "none", WorkspaceWriteAccess: false)
         };
 
@@ -56,6 +60,8 @@ public static class PhaseExecutionPermissionCatalog
             PhaseId.TechnicalDesign => PhaseExecutionBlockingReasons.TechnicalDesignRequiresRepositoryReadAccess,
             PhaseId.Implementation => PhaseExecutionBlockingReasons.ImplementationRequiresRepositoryWriteAccess,
             PhaseId.Review => PhaseExecutionBlockingReasons.ReviewRequiresRepositoryWriteAccess,
+            PhaseId.ReleaseApproval => PhaseExecutionBlockingReasons.ReleaseApprovalRequiresRepositoryReadAccess,
+            PhaseId.PrPreparation => PhaseExecutionBlockingReasons.PrPreparationRequiresRepositoryReadAccess,
             _ => "phase_execution_not_ready"
         };
 }

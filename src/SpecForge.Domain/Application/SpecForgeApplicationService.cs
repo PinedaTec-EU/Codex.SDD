@@ -714,7 +714,7 @@ public sealed class SpecForgeApplicationService
 
     private static string? TryGetLatestArtifactPath(UserStoryFilePaths paths, Workflow.PhaseId phaseId)
     {
-        if (phaseId is Workflow.PhaseId.Capture or Workflow.PhaseId.ReleaseApproval or Workflow.PhaseId.PrPreparation)
+        if (phaseId is Workflow.PhaseId.Capture)
         {
             return null;
         }
@@ -724,7 +724,7 @@ public sealed class SpecForgeApplicationService
 
     private static string? TryGetLatestOperationLogPath(UserStoryFilePaths paths, Workflow.PhaseId phaseId)
     {
-        if (phaseId is Workflow.PhaseId.Capture or Workflow.PhaseId.Clarification or Workflow.PhaseId.ReleaseApproval or Workflow.PhaseId.PrPreparation)
+        if (phaseId is Workflow.PhaseId.Capture or Workflow.PhaseId.Clarification)
         {
             return null;
         }
@@ -742,6 +742,8 @@ public sealed class SpecForgeApplicationService
             Workflow.PhaseId.TechnicalDesign => promptPaths.TechnicalDesignExecutePromptPath,
             Workflow.PhaseId.Implementation => promptPaths.ImplementationExecutePromptPath,
             Workflow.PhaseId.Review => promptPaths.ReviewExecutePromptPath,
+            Workflow.PhaseId.ReleaseApproval => promptPaths.ReleaseApprovalExecutePromptPath,
+            Workflow.PhaseId.PrPreparation => promptPaths.PrPreparationExecutePromptPath,
             _ => null
         };
 
@@ -771,6 +773,8 @@ public sealed class SpecForgeApplicationService
             Workflow.PhaseId.TechnicalDesign => promptPaths.TechnicalDesignExecuteSystemPromptPath,
             Workflow.PhaseId.Implementation => promptPaths.ImplementationExecuteSystemPromptPath,
             Workflow.PhaseId.Review => promptPaths.ReviewExecuteSystemPromptPath,
+            Workflow.PhaseId.ReleaseApproval => promptPaths.ReleaseApprovalExecuteSystemPromptPath,
+            Workflow.PhaseId.PrPreparation => promptPaths.PrPreparationExecuteSystemPromptPath,
             _ => null
         };
 

@@ -53,6 +53,22 @@ public static class StructuredPhaseArtifactContracts
                 NormalizeContent: static (context, content) => ReviewArtifactJson.RenderMarkdown(
                     ReviewArtifactJson.ParseCanonicalJson(content),
                     context.UsId,
+                    version: 1)),
+            [PhaseId.ReleaseApproval] = new(
+                SchemaName: "release_approval_artifact",
+                JsonSchema: BuildReleaseApprovalSchema(),
+                NormalizeJsonContent: static content => ReleaseApprovalArtifactJson.Serialize(ReleaseApprovalArtifactJson.ParseCanonicalJson(content)),
+                NormalizeContent: static (context, content) => ReleaseApprovalArtifactJson.RenderMarkdown(
+                    ReleaseApprovalArtifactJson.ParseCanonicalJson(content),
+                    context.UsId,
+                    version: 1)),
+            [PhaseId.PrPreparation] = new(
+                SchemaName: "pr_preparation_artifact",
+                JsonSchema: BuildPrPreparationSchema(),
+                NormalizeJsonContent: static content => PrPreparationArtifactJson.Serialize(PrPreparationArtifactJson.ParseCanonicalJson(content)),
+                NormalizeContent: static (context, content) => PrPreparationArtifactJson.RenderMarkdown(
+                    PrPreparationArtifactJson.ParseCanonicalJson(content),
+                    context.UsId,
                     version: 1))
         };
 
@@ -196,6 +212,60 @@ public static class StructuredPhaseArtifactContracts
             },
             required: ["result", "validationChecklist", "findings", "primaryReason", "recommendation"]));
 
+    private static JsonElement BuildReleaseApprovalSchema() =>
+        ToJsonElement(ObjectSchema(
+            properties: new Dictionary<string, JsonNode?>
+            {
+                ["state"] = StringSchema(),
+                ["basedOn"] = ArraySchema(StringSchema()),
+                ["releaseSummary"] = StringSchema(),
+                ["implementedScope"] = ArraySchema(StringSchema()),
+                ["validationEvidence"] = ArraySchema(StringSchema()),
+                ["residualRisks"] = ArraySchema(StringSchema()),
+                ["approvalChecklist"] = ArraySchema(StringSchema()),
+                ["recommendation"] = StringSchema()
+            },
+            required:
+            [
+                "state",
+                "basedOn",
+                "releaseSummary",
+                "implementedScope",
+                "validationEvidence",
+                "residualRisks",
+                "approvalChecklist",
+                "recommendation"
+            ]));
+
+    private static JsonElement BuildPrPreparationSchema() =>
+        ToJsonElement(ObjectSchema(
+            properties: new Dictionary<string, JsonNode?>
+            {
+                ["state"] = StringSchema(),
+                ["basedOn"] = ArraySchema(StringSchema()),
+                ["prTitle"] = StringSchema(),
+                ["prSummary"] = StringSchema(),
+                ["branchSummary"] = ArraySchema(StringSchema()),
+                ["changeNarrative"] = ArraySchema(StringSchema()),
+                ["validationSummary"] = ArraySchema(StringSchema()),
+                ["reviewerChecklist"] = ArraySchema(StringSchema()),
+                ["risksAndFollowUps"] = ArraySchema(StringSchema()),
+                ["prBody"] = ArraySchema(StringSchema())
+            },
+            required:
+            [
+                "state",
+                "basedOn",
+                "prTitle",
+                "prSummary",
+                "branchSummary",
+                "changeNarrative",
+                "validationSummary",
+                "reviewerChecklist",
+                "risksAndFollowUps",
+                "prBody"
+            ]));
+
     private static JsonElement ToJsonElement(JsonObject schema)
     {
         using var document = JsonDocument.Parse(schema.ToJsonString());
@@ -284,6 +354,28 @@ public sealed record ReviewArtifactDocument(
     IReadOnlyList<string> Findings,
     string PrimaryReason,
     IReadOnlyList<string> Recommendation);
+
+public sealed record ReleaseApprovalArtifactDocument(
+    string State,
+    IReadOnlyList<string> BasedOn,
+    string ReleaseSummary,
+    IReadOnlyList<string> ImplementedScope,
+    IReadOnlyList<string> ValidationEvidence,
+    IReadOnlyList<string> ResidualRisks,
+    IReadOnlyList<string> ApprovalChecklist,
+    string Recommendation);
+
+public sealed record PrPreparationArtifactDocument(
+    string State,
+    IReadOnlyList<string> BasedOn,
+    string PrTitle,
+    string PrSummary,
+    IReadOnlyList<string> BranchSummary,
+    IReadOnlyList<string> ChangeNarrative,
+    IReadOnlyList<string> ValidationSummary,
+    IReadOnlyList<string> ReviewerChecklist,
+    IReadOnlyList<string> RisksAndFollowUps,
+    IReadOnlyList<string> PrBody);
 
 public sealed record ReviewValidationChecklistItem(
     string Status,
@@ -506,6 +598,126 @@ public static class ReviewArtifactJson
                 Evidence: StructuredPhaseArtifactJson.NormalizeScalar(item.Evidence)))
             .Where(static item => !string.IsNullOrWhiteSpace(item.Item))
             .ToArray();
+}
+
+public static class ReleaseApprovalArtifactJson
+{
+    public static ReleaseApprovalArtifactDocument ParseCanonicalJson(string json) =>
+        StructuredPhaseArtifactJson.DeserializeAndNormalize<ReleaseApprovalArtifactDocument>(
+            json,
+            normalize: Normalize);
+
+    public static string Serialize(ReleaseApprovalArtifactDocument document) =>
+        StructuredPhaseArtifactJson.Serialize(Normalize(document));
+
+    public static string RenderMarkdown(ReleaseApprovalArtifactDocument document, string usId, int version)
+    {
+        var normalized = Normalize(document);
+        var lines = new List<string>
+        {
+            $"# Release Approval · {usId} · v{version:00}",
+            string.Empty,
+            "## State",
+            $"- State: `{normalized.State}`",
+            string.Empty,
+            "## Based On"
+        };
+        lines.AddRange(StructuredPhaseArtifactMarkdown.RenderBulletSection(normalized.BasedOn));
+        lines.Add(string.Empty);
+        lines.Add("## Release Summary");
+        lines.Add(normalized.ReleaseSummary);
+        lines.Add(string.Empty);
+        lines.Add("## Implemented Scope");
+        lines.AddRange(StructuredPhaseArtifactMarkdown.RenderBulletSection(normalized.ImplementedScope));
+        lines.Add(string.Empty);
+        lines.Add("## Validation Evidence");
+        lines.AddRange(StructuredPhaseArtifactMarkdown.RenderBulletSection(normalized.ValidationEvidence));
+        lines.Add(string.Empty);
+        lines.Add("## Residual Risks");
+        lines.AddRange(StructuredPhaseArtifactMarkdown.RenderBulletSection(normalized.ResidualRisks));
+        lines.Add(string.Empty);
+        lines.Add("## Approval Checklist");
+        lines.AddRange(StructuredPhaseArtifactMarkdown.RenderChecklistSection(normalized.ApprovalChecklist));
+        lines.Add(string.Empty);
+        lines.Add("## Recommendation");
+        lines.Add(normalized.Recommendation);
+        return string.Join(Environment.NewLine, lines) + Environment.NewLine;
+    }
+
+    private static ReleaseApprovalArtifactDocument Normalize(ReleaseApprovalArtifactDocument document) =>
+        new(
+            State: StructuredPhaseArtifactJson.NormalizeScalar(document.State),
+            BasedOn: StructuredPhaseArtifactJson.NormalizeLines(document.BasedOn),
+            ReleaseSummary: StructuredPhaseArtifactJson.NormalizeScalar(document.ReleaseSummary),
+            ImplementedScope: StructuredPhaseArtifactJson.NormalizeLines(document.ImplementedScope),
+            ValidationEvidence: StructuredPhaseArtifactJson.NormalizeLines(document.ValidationEvidence),
+            ResidualRisks: StructuredPhaseArtifactJson.NormalizeLines(document.ResidualRisks),
+            ApprovalChecklist: StructuredPhaseArtifactJson.NormalizeLines(document.ApprovalChecklist),
+            Recommendation: StructuredPhaseArtifactJson.NormalizeScalar(document.Recommendation));
+}
+
+public static class PrPreparationArtifactJson
+{
+    public static PrPreparationArtifactDocument ParseCanonicalJson(string json) =>
+        StructuredPhaseArtifactJson.DeserializeAndNormalize<PrPreparationArtifactDocument>(
+            json,
+            normalize: Normalize);
+
+    public static string Serialize(PrPreparationArtifactDocument document) =>
+        StructuredPhaseArtifactJson.Serialize(Normalize(document));
+
+    public static string RenderMarkdown(PrPreparationArtifactDocument document, string usId, int version)
+    {
+        var normalized = Normalize(document);
+        var lines = new List<string>
+        {
+            $"# PR Preparation · {usId} · v{version:00}",
+            string.Empty,
+            "## State",
+            $"- State: `{normalized.State}`",
+            string.Empty,
+            "## Based On"
+        };
+        lines.AddRange(StructuredPhaseArtifactMarkdown.RenderBulletSection(normalized.BasedOn));
+        lines.Add(string.Empty);
+        lines.Add("## PR Title");
+        lines.Add(normalized.PrTitle);
+        lines.Add(string.Empty);
+        lines.Add("## PR Summary");
+        lines.Add(normalized.PrSummary);
+        lines.Add(string.Empty);
+        lines.Add("## Branch Summary");
+        lines.AddRange(StructuredPhaseArtifactMarkdown.RenderBulletSection(normalized.BranchSummary));
+        lines.Add(string.Empty);
+        lines.Add("## Change Narrative");
+        lines.AddRange(StructuredPhaseArtifactMarkdown.RenderBulletSection(normalized.ChangeNarrative));
+        lines.Add(string.Empty);
+        lines.Add("## Validation Summary");
+        lines.AddRange(StructuredPhaseArtifactMarkdown.RenderBulletSection(normalized.ValidationSummary));
+        lines.Add(string.Empty);
+        lines.Add("## Reviewer Checklist");
+        lines.AddRange(StructuredPhaseArtifactMarkdown.RenderChecklistSection(normalized.ReviewerChecklist));
+        lines.Add(string.Empty);
+        lines.Add("## Risks and Follow Ups");
+        lines.AddRange(StructuredPhaseArtifactMarkdown.RenderBulletSection(normalized.RisksAndFollowUps));
+        lines.Add(string.Empty);
+        lines.Add("## PR Body");
+        lines.AddRange(normalized.PrBody.Count == 0 ? ["..."] : normalized.PrBody);
+        return string.Join(Environment.NewLine, lines) + Environment.NewLine;
+    }
+
+    private static PrPreparationArtifactDocument Normalize(PrPreparationArtifactDocument document) =>
+        new(
+            State: StructuredPhaseArtifactJson.NormalizeScalar(document.State),
+            BasedOn: StructuredPhaseArtifactJson.NormalizeLines(document.BasedOn),
+            PrTitle: StructuredPhaseArtifactJson.NormalizeScalar(document.PrTitle),
+            PrSummary: StructuredPhaseArtifactJson.NormalizeScalar(document.PrSummary),
+            BranchSummary: StructuredPhaseArtifactJson.NormalizeLines(document.BranchSummary),
+            ChangeNarrative: StructuredPhaseArtifactJson.NormalizeLines(document.ChangeNarrative),
+            ValidationSummary: StructuredPhaseArtifactJson.NormalizeLines(document.ValidationSummary),
+            ReviewerChecklist: StructuredPhaseArtifactJson.NormalizeLines(document.ReviewerChecklist),
+            RisksAndFollowUps: StructuredPhaseArtifactJson.NormalizeLines(document.RisksAndFollowUps),
+            PrBody: StructuredPhaseArtifactJson.NormalizeLines(document.PrBody));
 }
 
 internal static class StructuredPhaseArtifactJson

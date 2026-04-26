@@ -62,6 +62,8 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
             PhaseId.TechnicalDesign => await ComposeTechnicalDesignAsync(context, cancellationToken),
             PhaseId.Implementation => await ComposeImplementationAsync(context, cancellationToken),
             PhaseId.Review => await ComposeReviewAsync(context, cancellationToken),
+            PhaseId.ReleaseApproval => await ComposeReleaseApprovalAsync(context, cancellationToken),
+            PhaseId.PrPreparation => await ComposePrPreparationAsync(context, cancellationToken),
             _ => throw new WorkflowDomainException($"Phase '{context.PhaseId}' has no materialized artifact.")
         };
 
@@ -354,6 +356,93 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                        $"- {recommendation}"
                    }) +
                Environment.NewLine);
+    }
+
+    private static async Task<string> ComposeReleaseApprovalAsync(
+        PhaseExecutionContext context,
+        CancellationToken cancellationToken)
+    {
+        var review = await File.ReadAllTextAsync(GetRequiredPath(context, PhaseId.Review), cancellationToken);
+        var reviewResult = MarkdownHelper.ReadSection(review, "## Verdict");
+
+        return ReleaseApprovalArtifactJson.Serialize(
+            new ReleaseApprovalArtifactDocument(
+                State: "pending_approval",
+                BasedOn: ["04-review.md", "03-implementation.md", "02-technical-design.md", "01-spec.md"],
+                ReleaseSummary: "This release approval artifact summarizes the implemented scope, the review outcome, and the remaining decision surface before PR preparation.",
+                ImplementedScope:
+                [
+                    "Implementation and review artifacts exist and can be traced back to the approved workflow.",
+                    "The release checkpoint is evaluating whether the reviewed scope is acceptable for PR handoff."
+                ],
+                ValidationEvidence:
+                [
+                    $"Review verdict section captured: {reviewResult}",
+                    "Workflow artifacts required by the deterministic provider are present."
+                ],
+                ResidualRisks:
+                [
+                    "Deterministic release approval does not inspect live repository diffs beyond the recorded workflow artifacts.",
+                    "Any operational or rollout concern not captured during review must still be surfaced by the approving human."
+                ],
+                ApprovalChecklist:
+                [
+                    "Reviewed scope matches what should enter the PR",
+                    "Validation evidence is credible enough for handoff",
+                    "Known risks are acceptable or explicitly tracked"
+                ],
+                Recommendation: "Approve only if the review artifact and implementation evidence tell a consistent story with no missing release blockers."));
+    }
+
+    private static Task<string> ComposePrPreparationAsync(
+        PhaseExecutionContext context,
+        CancellationToken cancellationToken)
+    {
+        var reviewArtifactPath = GetRequiredPath(context, PhaseId.Review);
+        var reviewArtifactName = Path.GetFileName(reviewArtifactPath);
+        return Task.FromResult(PrPreparationArtifactJson.Serialize(
+            new PrPreparationArtifactDocument(
+                State: "generated",
+                BasedOn: ["release-approval", reviewArtifactName, "03-implementation.md", "02-technical-design.md", "01-spec.md"],
+                PrTitle: $"{context.UsId}: deliver approved workflow scope",
+                PrSummary: "This PR preparation artifact packages the approved workflow outcome into a reviewer-ready handoff.",
+                BranchSummary:
+                [
+                    "Use the recorded workflow branch metadata as the source of truth for branch naming and target branch.",
+                    "Do not publish until the release approval checkpoint is satisfied."
+                ],
+                ChangeNarrative:
+                [
+                    "Summarize the scope approved in the workflow artifacts.",
+                    "Reference the implementation and review outputs directly when describing the delivered change."
+                ],
+                ValidationSummary:
+                [
+                    "Include the validations and evidence already captured in review and implementation artifacts.",
+                    "Name any checks that remain manual or pending."
+                ],
+                ReviewerChecklist:
+                [
+                    "Review scope against spec and technical design",
+                    "Verify claimed validation evidence",
+                    "Confirm residual risks and follow ups are acceptable"
+                ],
+                RisksAndFollowUps:
+                [
+                    "Document any residual risk that survived release approval.",
+                    "List concrete follow ups instead of vague future work."
+                ],
+                PrBody:
+                [
+                    "## Summary",
+                    "- Replace this deterministic placeholder with the repository-grounded PR summary generated by a model-capable provider.",
+                    "",
+                    "## Validation",
+                    $"- Review artifact: `{reviewArtifactName}`",
+                    "",
+                    "## Risks",
+                    "- Capture remaining risks from release approval."
+                ])));
     }
 
     private static string GetRequiredPath(PhaseExecutionContext context, PhaseId phaseId)

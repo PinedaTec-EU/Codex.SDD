@@ -11,7 +11,9 @@ const modelDrivenPhaseRequirements = [
     { assignmentKey: "refinementProfile", label: "Refinement", requiredRepositoryAccess: "read" },
     { assignmentKey: "technicalDesignProfile", label: "Technical Design", requiredRepositoryAccess: "read" },
     { assignmentKey: "implementationProfile", label: "Implementation", requiredRepositoryAccess: "read-write" },
-    { assignmentKey: "reviewProfile", label: "Review", requiredRepositoryAccess: "read-write" }
+    { assignmentKey: "reviewProfile", label: "Review", requiredRepositoryAccess: "read-write" },
+    { assignmentKey: "releaseApprovalProfile", label: "Release Approval", requiredRepositoryAccess: "read" },
+    { assignmentKey: "prPreparationProfile", label: "PR Preparation", requiredRepositoryAccess: "read" }
 ];
 function validatePhasePermissionAssignments(modelProfiles, phaseModelAssignments) {
     const profilesByName = new Map(modelProfiles

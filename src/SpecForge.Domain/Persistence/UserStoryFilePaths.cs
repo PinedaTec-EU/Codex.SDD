@@ -223,6 +223,8 @@ public sealed class UserStoryFilePaths
         PhaseId.TechnicalDesign => "02-technical-design",
         PhaseId.Implementation => "03-implementation",
         PhaseId.Review => "04-review",
+        PhaseId.ReleaseApproval => "05-release-approval",
+        PhaseId.PrPreparation => "06-pr-preparation",
         _ => throw new ArgumentOutOfRangeException(nameof(phaseId), phaseId, "No artifact path is defined for this phase.")
     };
 

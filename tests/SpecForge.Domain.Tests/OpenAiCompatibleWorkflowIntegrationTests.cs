@@ -493,6 +493,33 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
                 "Advance to `release_approval`."
               ]
             }
+            """,
+            """
+            {
+              "state": "pending_approval",
+              "basedOn": [
+                "04-review.md",
+                "03-implementation.md",
+                "02-technical-design.md",
+                "01-spec.md"
+              ],
+              "releaseSummary": "Sampling-control scope is ready for the final human checkpoint before PR preparation.",
+              "implementedScope": [
+                "Validation, persistence, and runtime propagation are covered by the workflow artifacts."
+              ],
+              "validationEvidence": [
+                "Review passed with the expected validation checklist."
+              ],
+              "residualRisks": [
+                "Human review should still confirm rollout expectations and residual operational concerns."
+              ],
+              "approvalChecklist": [
+                "Approved scope matches the intended PR handoff",
+                "Validation evidence is sufficient",
+                "Residual risks are understood"
+              ],
+              "recommendation": "Approve if the final release checkpoint agrees with the review evidence."
+            }
             """
         ]);
 
@@ -577,7 +604,7 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Contains("\"validationChecklist\"", reviewJson);
         Assert.Contains("Cover valid and invalid values in domain and API tests.", reviewJson);
 
-        Assert.Equal(7, modelStub.Requests.Count);
+        Assert.Equal(8, modelStub.Requests.Count);
         Assert.Equal(
             [
                 "clarification_artifact",
@@ -586,7 +613,8 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
                 "refinement_artifact",
                 "technical_design_artifact",
                 "implementation_artifact",
-                "review_artifact"
+                "review_artifact",
+                "release_approval_artifact"
             ],
             modelStub.Requests.Select(request => OpenAiCompatibleRequestJson.ReadResponseSchemaName(request.Body)).ToArray());
         Assert.Equal("stub-resolver", OpenAiCompatibleRequestJson.ReadModel(modelStub.Requests[1].Body));

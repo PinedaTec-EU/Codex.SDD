@@ -13,7 +13,9 @@ type ModelDrivenPhaseAssignmentKey =
   | "refinementProfile"
   | "technicalDesignProfile"
   | "implementationProfile"
-  | "reviewProfile";
+  | "reviewProfile"
+  | "releaseApprovalProfile"
+  | "prPreparationProfile";
 
 type PhasePermissionRequirement = {
   readonly assignmentKey: ModelDrivenPhaseAssignmentKey;
@@ -35,7 +37,9 @@ const modelDrivenPhaseRequirements: readonly PhasePermissionRequirement[] = [
   { assignmentKey: "refinementProfile", label: "Refinement", requiredRepositoryAccess: "read" },
   { assignmentKey: "technicalDesignProfile", label: "Technical Design", requiredRepositoryAccess: "read" },
   { assignmentKey: "implementationProfile", label: "Implementation", requiredRepositoryAccess: "read-write" },
-  { assignmentKey: "reviewProfile", label: "Review", requiredRepositoryAccess: "read-write" }
+  { assignmentKey: "reviewProfile", label: "Review", requiredRepositoryAccess: "read-write" },
+  { assignmentKey: "releaseApprovalProfile", label: "Release Approval", requiredRepositoryAccess: "read" },
+  { assignmentKey: "prPreparationProfile", label: "PR Preparation", requiredRepositoryAccess: "read" }
 ];
 
 export function validatePhasePermissionAssignments(

@@ -41,8 +41,12 @@ public sealed class RepositoryPromptInitializer
             [paths.ImplementationExecutePromptPath] = BuildImplementationExecutePrompt(),
             [paths.ReviewExecuteSystemPromptPath] = BuildReviewExecuteSystemPrompt(),
             [paths.ReviewExecutePromptPath] = BuildReviewExecutePrompt(),
+            [paths.ReleaseApprovalExecuteSystemPromptPath] = BuildReleaseApprovalExecuteSystemPrompt(),
+            [paths.ReleaseApprovalExecutePromptPath] = BuildReleaseApprovalExecutePrompt(),
             [paths.ReleaseApprovalApproveSystemPromptPath] = BuildReleaseApprovalApproveSystemPrompt(),
             [paths.ReleaseApprovalApprovePromptPath] = BuildReleaseApprovalApprovePrompt(),
+            [paths.PrPreparationExecuteSystemPromptPath] = BuildPrPreparationExecuteSystemPrompt(),
+            [paths.PrPreparationExecutePromptPath] = BuildPrPreparationExecutePrompt(),
             [paths.AutoClarificationAnswersSystemPromptPath] = BuildAutoClarificationAnswersSystemPrompt()
         };
 
@@ -126,9 +130,16 @@ public sealed class RepositoryPromptInitializer
               system: .specs/prompts/phases/review.execute.system.md
               user: .specs/prompts/phases/review.execute.md
           release_approval:
+            execute:
+              system: .specs/prompts/phases/release-approval.execute.system.md
+              user: .specs/prompts/phases/release-approval.execute.md
             approve:
               system: .specs/prompts/phases/release-approval.approve.system.md
               user: .specs/prompts/phases/release-approval.approve.md
+          pr_preparation:
+            execute:
+              system: .specs/prompts/phases/pr-preparation.execute.system.md
+              user: .specs/prompts/phases/pr-preparation.execute.md
         internalCalls:
           autoClarificationAnswers:
             system: .specs/prompts/phases/clarification.auto-answer.system.md
@@ -203,6 +214,23 @@ public sealed class RepositoryPromptInitializer
 
         Judge release readiness from evidence, operational risk, and unresolved findings.
         Do not approve when the evidence is incomplete or materially contradictory.
+        """;
+
+    private static string BuildReleaseApprovalExecuteSystemPrompt() =>
+        """
+        This is the system prompt for the release approval execute template.
+
+        Produce a final release-readiness brief from repository evidence and prior workflow artifacts.
+        Summarize only what can be grounded in the user story, implementation evidence, review result, and recorded workflow outputs.
+        Do not fabricate validations, changed files, or merged scope.
+        """;
+
+    private static string BuildPrPreparationExecuteSystemPrompt() =>
+        """
+        This is the system prompt for the PR preparation execute template.
+
+        Produce a complete pull-request handoff artifact that another engineer could use directly.
+        Keep it repository-grounded, explicit about validation and risk, and detailed enough to survive async review.
         """;
 
     private static string BuildAutoClarificationAnswersSystemPrompt() =>
@@ -364,5 +392,47 @@ public sealed class RepositoryPromptInitializer
         Goal:
         - summarize readiness, residual risks, and what the user is being asked to approve
         - help the final human checkpoint before PR preparation
+        """;
+
+    private static string BuildReleaseApprovalExecutePrompt() =>
+        """
+        Role: release readiness summarizer.
+
+        Goal:
+        - synthesize the approved scope, implementation evidence, and review outcome
+        - prepare a concise but complete brief for the human release checkpoint
+        - make explicit what was validated, what remains risky, and what is being approved
+
+        Required sections:
+        - State
+        - Based On
+        - Release Summary
+        - Implemented Scope
+        - Validation Evidence
+        - Residual Risks
+        - Approval Checklist
+        - Recommendation
+        """;
+
+    private static string BuildPrPreparationExecutePrompt() =>
+        """
+        Role: pull request preparation assistant.
+
+        Goal:
+        - prepare a complete PR handoff from the approved workflow artifacts
+        - summarize the delivered scope, validation, risks, and reviewer guidance
+        - produce a PR body that is detailed enough to publish with minimal manual rewriting
+
+        Required sections:
+        - State
+        - Based On
+        - PR Title
+        - PR Summary
+        - Branch Summary
+        - Change Narrative
+        - Validation Summary
+        - Reviewer Checklist
+        - Risks and Follow Ups
+        - PR Body
         """;
 }

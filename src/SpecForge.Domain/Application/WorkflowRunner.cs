@@ -1007,6 +1007,15 @@ public sealed class WorkflowRunner
                 cancellationToken);
             await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
         }
+        else if (workflowRun.CurrentPhase is PhaseId.ReleaseApproval or PhaseId.PrPreparation)
+        {
+            var version = ExtractArtifactVersion(artifactPath);
+            await WriteStructuredJsonIfAvailableAsync(
+                paths.GetPhaseArtifactJsonPath(workflowRun.CurrentPhase, version),
+                result.StructuredJsonContent,
+                cancellationToken);
+            await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
+        }
         else
         {
             await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
@@ -1149,7 +1158,7 @@ public sealed class WorkflowRunner
         bool includeReviewArtifactInContext)
     {
         var result = new Dictionary<PhaseId, string>();
-        foreach (var phaseId in new[] { PhaseId.Refinement, PhaseId.TechnicalDesign, PhaseId.Implementation, PhaseId.Review })
+        foreach (var phaseId in new[] { PhaseId.Refinement, PhaseId.TechnicalDesign, PhaseId.Implementation, PhaseId.Review, PhaseId.ReleaseApproval })
         {
             if (phaseId == currentPhase)
             {
@@ -1187,6 +1196,19 @@ public sealed class WorkflowRunner
             if (!string.IsNullOrWhiteSpace(implementationEvidencePath))
             {
                 contextFilePaths.Add(implementationEvidencePath);
+            }
+        }
+
+        if (phaseId is PhaseId.ReleaseApproval or PhaseId.PrPreparation)
+        {
+            if (File.Exists(paths.BranchFilePath))
+            {
+                contextFilePaths.Add(paths.BranchFilePath);
+            }
+
+            if (File.Exists(paths.TimelineFilePath))
+            {
+                contextFilePaths.Add(paths.TimelineFilePath);
             }
         }
 
@@ -1398,7 +1420,7 @@ public sealed class WorkflowRunner
     }
 
     private static bool HasArtifact(PhaseId phaseId) =>
-        phaseId is PhaseId.Refinement or PhaseId.TechnicalDesign or PhaseId.Implementation or PhaseId.Review;
+        phaseId is PhaseId.Refinement or PhaseId.TechnicalDesign or PhaseId.Implementation or PhaseId.Review or PhaseId.ReleaseApproval or PhaseId.PrPreparation;
 
     private static async Task<string> ReadSourceTextFromUserStoryAsync(string userStoryPath, CancellationToken cancellationToken)
     {
@@ -1719,7 +1741,7 @@ public sealed class WorkflowRunner
             yield break;
         }
 
-        if (phaseId is not (PhaseId.Refinement or PhaseId.TechnicalDesign or PhaseId.Implementation or PhaseId.Review))
+        if (phaseId is not (PhaseId.Refinement or PhaseId.TechnicalDesign or PhaseId.Implementation or PhaseId.Review or PhaseId.ReleaseApproval or PhaseId.PrPreparation))
         {
             yield break;
         }
@@ -1745,6 +1767,8 @@ public sealed class WorkflowRunner
         PhaseId.TechnicalDesign => ["02-technical-design"],
         PhaseId.Implementation => ["03-implementation"],
         PhaseId.Review => ["04-review"],
+        PhaseId.ReleaseApproval => ["05-release-approval"],
+        PhaseId.PrPreparation => ["06-pr-preparation"],
         _ => []
     };
 
@@ -1754,7 +1778,7 @@ public sealed class WorkflowRunner
         bool destructive,
         bool targetPhaseWasApproved)
     {
-        if (destructive || !targetPhaseWasApproved)
+        if (destructive || !targetPhaseWasApproved || targetPhase == PhaseId.ReleaseApproval)
         {
             return;
         }

@@ -28,8 +28,12 @@ export async function getRepoPromptsStatusAsync(workspaceRoot: string): Promise<
     path.join(workspaceRoot, ".specs", "prompts", "phases", "implementation.execute.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "review.execute.system.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "review.execute.md"),
+    path.join(workspaceRoot, ".specs", "prompts", "phases", "release-approval.execute.system.md"),
+    path.join(workspaceRoot, ".specs", "prompts", "phases", "release-approval.execute.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "release-approval.approve.system.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "release-approval.approve.md"),
+    path.join(workspaceRoot, ".specs", "prompts", "phases", "pr-preparation.execute.system.md"),
+    path.join(workspaceRoot, ".specs", "prompts", "phases", "pr-preparation.execute.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "clarification.auto-answer.system.md")
   ];
 

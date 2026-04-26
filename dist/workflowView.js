@@ -127,6 +127,52 @@ function sumTokenUsage(usages) {
         totalTokens: aggregate.totalTokens + usage.totalTokens
     }), { inputTokens: 0, outputTokens: 0, totalTokens: 0 });
 }
+function aggregateWorkflowUsage(events, state) {
+    const overall = { inputTokens: 0, outputTokens: 0, totalTokens: 0, durationMs: 0, events: 0 };
+    const byModel = new Map();
+    const byPhase = new Map();
+    for (const event of events) {
+        const hasMetrics = Boolean(event.usage) || event.durationMs !== null;
+        if (!hasMetrics) {
+            continue;
+        }
+        const usage = event.usage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+        const durationMs = event.durationMs ?? 0;
+        overall.inputTokens += usage.inputTokens;
+        overall.outputTokens += usage.outputTokens;
+        overall.totalTokens += usage.totalTokens;
+        overall.durationMs += durationMs;
+        overall.events += 1;
+        if (event.phase) {
+            const phaseAggregate = byPhase.get(event.phase) ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0, durationMs: 0, events: 0 };
+            phaseAggregate.inputTokens += usage.inputTokens;
+            phaseAggregate.outputTokens += usage.outputTokens;
+            phaseAggregate.totalTokens += usage.totalTokens;
+            phaseAggregate.durationMs += durationMs;
+            phaseAggregate.events += 1;
+            byPhase.set(event.phase, phaseAggregate);
+        }
+        const modelLabel = formatExecutionLabel(event.execution, {
+            configuredModel: findConfiguredModelForProfile(state, event.execution?.profileName)
+        }) ?? "unattributed";
+        const modelAggregate = byModel.get(modelLabel) ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0, durationMs: 0, events: 0 };
+        modelAggregate.inputTokens += usage.inputTokens;
+        modelAggregate.outputTokens += usage.outputTokens;
+        modelAggregate.totalTokens += usage.totalTokens;
+        modelAggregate.durationMs += durationMs;
+        modelAggregate.events += 1;
+        byModel.set(modelLabel, modelAggregate);
+    }
+    return {
+        overall,
+        byModel: [...byModel.entries()]
+            .map(([label, aggregate]) => ({ label, aggregate }))
+            .sort((left, right) => right.aggregate.totalTokens - left.aggregate.totalTokens),
+        byPhase: [...byPhase.entries()]
+            .map(([phaseId, aggregate]) => ({ phaseId, aggregate }))
+            .sort((left, right) => right.aggregate.totalTokens - left.aggregate.totalTokens)
+    };
+}
 function fileNameFromPath(filePath) {
     const normalized = filePath.replace(/\\/g, "/");
     const segments = normalized.split("/");
@@ -138,6 +184,23 @@ function renderTokenSummaryRow(label, value) {
       <span class="token-summary__label">${(0, htmlEscape_1.escapeHtml)(label)}</span>
       <span class="token-summary__value">${(0, htmlEscape_1.escapeHtml)(value)}</span>
     </div>
+  `;
+}
+function renderUsageDashboardTable(title, headers, rows) {
+    return `
+    <section class="detail-card detail-card--usage-table">
+      <h3>${(0, htmlEscape_1.escapeHtml)(title)}</h3>
+      <div class="usage-table-wrap">
+        <table class="usage-table">
+          <thead>
+            <tr>${headers.map((header) => `<th>${(0, htmlEscape_1.escapeHtml)(header)}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${rows.map((row) => `<tr>${row.map((cell) => `<td>${(0, htmlEscape_1.escapeHtml)(cell)}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </section>
   `;
 }
 function buildPhaseIterations(workflow, phaseId) {
@@ -1002,6 +1065,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     const selectedPhaseTouches = summarizePhaseTouches(workflow, selectedPhase.phaseId);
     const selectedPhaseEvents = workflow.events.filter((event) => event.phase === selectedPhase.phaseId);
     const selectedPhaseMetricEvents = selectedPhaseEvents.filter((event) => event.usage || event.durationMs !== null);
+    const workflowUsage = aggregateWorkflowUsage(workflow.events, state);
     const selectedPhaseUsageAggregate = sumTokenUsage(selectedPhaseMetricEvents
         .map((event) => event.usage)
         .filter((usage) => Boolean(usage)));
@@ -1111,6 +1175,58 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     </div>
   `;
     const selectedPhaseMetrics = `${durationMetric}${touchSummary}${tokenSummary}`;
+    const workflowUsageDashboard = `
+    <section class="detail-card detail-card--workflow-dashboard">
+      <div class="detail-card__header">
+        <div>
+          <h3>Workflow Dashboard</h3>
+          <p class="panel-copy">Global usage across the full user story lifecycle, not only the selected phase.</p>
+        </div>
+      </div>
+      <div class="token-summary-grid token-summary-grid--workflow">
+        <div class="token-summary">
+          <div class="token-summary__header">Totals</div>
+          <div class="token-summary__rows">
+            ${renderTokenSummaryRow("Input / Output", `${formatMetricNumber(workflowUsage.overall.inputTokens)} / ${formatMetricNumber(workflowUsage.overall.outputTokens)}`)}
+            ${renderTokenSummaryRow("Total Tokens", formatMetricNumber(workflowUsage.overall.totalTokens))}
+            ${renderTokenSummaryRow("Recorded Runs", String(workflowUsage.overall.events))}
+            ${renderTokenSummaryRow("Duration", workflowUsage.overall.durationMs > 0 ? formatDuration(workflowUsage.overall.durationMs) : "n/a")}
+            ${renderTokenSummaryRow("Response Speed", workflowUsage.overall.durationMs > 0 ? formatTokensPerSecond(workflowUsage.overall.outputTokens, workflowUsage.overall.durationMs) : "n/a")}
+          </div>
+        </div>
+        <div class="token-summary">
+          <div class="token-summary__header">Timeline</div>
+          <div class="token-summary__rows">
+            ${renderTokenSummaryRow("Events", String(workflow.events.length))}
+            ${renderTokenSummaryRow("Iterations", String(workflow.phaseIterations?.length ?? 0))}
+            ${renderTokenSummaryRow("Started", formatUtcTimestamp(workflow.events[0]?.timestampUtc ?? null))}
+            ${renderTokenSummaryRow("Last Event", formatUtcTimestamp(workflow.events[workflow.events.length - 1]?.timestampUtc ?? null))}
+            ${renderTokenSummaryRow("Current Phase", (workflow.phases.find((phase) => phase.isCurrent) ?? selectedPhase).title)}
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+    const modelUsageTable = renderUsageDashboardTable("Usage by Model", ["Model", "Runs", "Input", "Output", "Total", "Duration"], workflowUsage.byModel.length > 0
+        ? workflowUsage.byModel.map(({ label, aggregate }) => ([
+            label,
+            String(aggregate.events),
+            formatMetricNumber(aggregate.inputTokens),
+            formatMetricNumber(aggregate.outputTokens),
+            formatMetricNumber(aggregate.totalTokens),
+            aggregate.durationMs > 0 ? formatDuration(aggregate.durationMs) : "n/a"
+        ]))
+        : [["No recorded model usage yet.", "-", "-", "-", "-", "-"]]);
+    const phaseUsageTable = renderUsageDashboardTable("Usage by Phase", ["Phase", "Runs", "Input", "Output", "Total", "Duration"], workflowUsage.byPhase.length > 0
+        ? workflowUsage.byPhase.map(({ phaseId, aggregate }) => ([
+            phaseId,
+            String(aggregate.events),
+            formatMetricNumber(aggregate.inputTokens),
+            formatMetricNumber(aggregate.outputTokens),
+            formatMetricNumber(aggregate.totalTokens),
+            aggregate.durationMs > 0 ? formatDuration(aggregate.durationMs) : "n/a"
+        ]))
+        : [["No recorded phase usage yet.", "-", "-", "-", "-", "-"]]);
     const latestIteration = phaseIterations[0] ?? null;
     const visibleIterations = isIterationRailExpanded
         ? phaseIterations
@@ -1635,6 +1751,34 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       font-size: 1rem;
       font-weight: 700;
       color: #f4f7fb;
+    }
+    .token-summary-grid--workflow {
+      margin-top: 14px;
+    }
+    .usage-table-wrap {
+      overflow-x: auto;
+    }
+    .usage-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    .usage-table th,
+    .usage-table td {
+      text-align: left;
+      padding: 10px 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      white-space: nowrap;
+    }
+    .usage-table th {
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.66);
+      border-top: none;
+    }
+    .usage-table td {
+      color: rgba(244, 247, 251, 0.92);
     }
     .hero-meta {
       margin-top: 14px;
@@ -3854,6 +3998,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
             ${selectedPhaseMetrics ? `<div class="detail-metrics">${selectedPhaseMetrics}</div>` : ""}
             </section>
           </div>
+          ${workflowUsageDashboard}
+          ${modelUsageTable}
+          ${phaseUsageTable}
           ${buildPhaseSecuritySummary(selectedPhase.executionReadiness)}
           ${phaseSpecificSections.beforeArtifact.join("")}
           ${iterationRail}
