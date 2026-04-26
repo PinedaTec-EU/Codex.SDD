@@ -7,6 +7,7 @@ import { fileIcon, firstPhaseRewindIcon, pauseIcon, playIcon, rewindIcon, stopIc
 import { renderMarkdownToHtml } from "./workflow-view/markdownRenderer";
 import type { ApprovalQuestionItem, PhaseIterationItem, PhaseSectionFragments, WorkflowViewState } from "./workflow-view/models";
 import { buildPrPreparationPhaseSections } from "./workflow-view/prPreparationPhaseView";
+import { hasReachedImplementationReviewCycleLimit } from "./workflowAutomation";
 import { canPauseWorkflowExecutionPhase, resolveWorkflowExecutionPhaseId } from "./workflowPlaybackState";
 import { resolveWorkflowRejectPlan } from "./workflowRejectPlan";
 import { buildRefinementPhaseSections } from "./workflow-view/refinementPhaseView";
@@ -1212,10 +1213,26 @@ export function buildWorkflowHtml(
       </div>
     `
     : "";
-  const shouldPulsePlay = playbackState === "idle" && workflow.controls.canContinue;
+  const implementationReviewLimitReached = workflow.currentPhase === "implementation"
+    && hasReachedImplementationReviewCycleLimit(workflow, state.maxImplementationReviewCycles);
+  const implementationReviewLimitBanner = implementationReviewLimitReached
+    ? `
+      <div class="settings-warning settings-warning--attention" role="status">
+        <div class="settings-warning__icon">!</div>
+        <div>
+          <p class="eyebrow warning">Implementation Loop Paused</p>
+          <p class="warning-copy">Automatic review is stopped because the implementation/review loop reached the configured limit (${escapeHtml(String(state.maxImplementationReviewCycles ?? "?"))}). The workflow remains at implementation. Use the manual action below if you want one extra review pass.</p>
+          ${selectedPhaseIsCurrent && selectedPhase.phaseId === "implementation" && workflow.controls.canContinue
+            ? `<div class="detail-actions"><button class="workflow-action-button workflow-action-button--progress" data-command="continue">Run One Extra Review Pass</button></div>`
+            : ""}
+        </div>
+      </div>
+    `
+    : "";
+  const shouldPulsePlay = playbackState === "idle" && workflow.controls.canContinue && !implementationReviewLimitReached;
   const playDisabled = playbackState === "playing"
     || !state.settingsConfigured
-    || (playbackState === "idle" && !workflow.controls.canContinue);
+    || (playbackState === "idle" && (!workflow.controls.canContinue || implementationReviewLimitReached));
   const rerunReviewDisabled = playbackState === "playing"
     || !state.settingsConfigured;
   const isMarkdownArtifact = Boolean(selectedPhase.artifactPath?.toLowerCase().endsWith(".md"));
@@ -1955,6 +1972,12 @@ export function buildWorkflowHtml(
         linear-gradient(180deg, rgba(22, 42, 68, 0.96), rgba(10, 21, 36, 0.98)),
         rgba(12, 18, 24, 0.92);
     }
+    .settings-warning--attention {
+      border-color: rgba(255, 213, 90, 0.28);
+      background:
+        linear-gradient(180deg, rgba(82, 58, 12, 0.96), rgba(31, 24, 9, 0.98)),
+        rgba(12, 18, 24, 0.92);
+    }
     .settings-warning__icon {
       width: 46px;
       height: 46px;
@@ -1981,6 +2004,11 @@ export function buildWorkflowHtml(
       background: rgba(92, 181, 255, 0.18);
       color: #9cd7ff;
       box-shadow: 0 0 0 8px rgba(92, 181, 255, 0.06);
+    }
+    .settings-warning--attention .settings-warning__icon {
+      background: rgba(255, 213, 90, 0.18);
+      color: rgba(255, 241, 199, 0.92);
+      box-shadow: 0 0 0 8px rgba(255, 213, 90, 0.06);
     }
     .token.accent {
       background: rgba(114, 241, 184, 0.12);
@@ -4076,6 +4104,7 @@ export function buildWorkflowHtml(
         </div>
       </div>
       ${settingsBanner}
+      ${implementationReviewLimitBanner}
     </section>
     <div class="shell-body">
       <section class="layout">
@@ -5038,7 +5067,8 @@ export function buildWorkflowHtml(
       const overlayKey = buildExecutionOverlayStateKey(
         executionOverlay.dataset.usId ?? "",
         executionOverlay.dataset.phaseId ?? "",
-        executionOverlay.dataset.tone ?? ""
+        executionOverlay.dataset.tone ?? "",
+        executionOverlay.dataset.startedAtMs ?? ""
       );
       const dismissKey = overlayKey + ":dismissed";
       const overlayTone = executionOverlay.dataset.tone ?? "";
@@ -5182,8 +5212,8 @@ export function buildWorkflowHtml(
       return minutes + ":" + seconds;
     }
 
-    function buildExecutionOverlayStateKey(usId, phaseId, tone) {
-      return "specforge-ai:execution-overlay:" + usId + ":" + phaseId + ":" + tone;
+    function buildExecutionOverlayStateKey(usId, phaseId, tone, startedAtMs) {
+      return "specforge-ai:execution-overlay:" + usId + ":" + phaseId + ":" + tone + ":" + startedAtMs;
     }
 
     function restoreExecutionOverlayState(key, messageCatalog) {

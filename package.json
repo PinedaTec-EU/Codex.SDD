@@ -313,7 +313,7 @@
         "specForge.features.maxImplementationReviewCycles": {
           "type": "integer",
           "minimum": 1,
-          "default": 2,
+          "default": 5,
           "description": "Maximum implementation attempts allowed in the implementation/review loop before automatic continuation stops."
         },
         "specForge.features.destructiveRewindEnabled": {

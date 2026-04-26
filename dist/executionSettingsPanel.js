@@ -393,7 +393,7 @@ function buildExecutionSettingsHtml(model) {
         </label>
         <label class="phase-field">
           <span>Max implementation/review cycles</span>
-          <input type="number" min="1" step="1" data-max-implementation-review-cycles value="${(0, htmlEscape_1.escapeHtmlAttr)(String(model.maxImplementationReviewCycles ?? 2))}" />
+          <input type="number" min="1" step="1" data-max-implementation-review-cycles value="${(0, htmlEscape_1.escapeHtmlAttr)(String(model.maxImplementationReviewCycles ?? 5))}" />
           <span class="phase-field__hint">Automatic review stops when this many implementation attempts have been recorded.</span>
         </label>
       </div>
@@ -419,7 +419,7 @@ function buildExecutionSettingsHtml(model) {
       autoClarificationAnswersEnabled: ${JSON.stringify(model.autoClarificationAnswersEnabled)},
       autoClarificationAnswersProfile: ${JSON.stringify(model.autoClarificationAnswersProfile)},
       autoReviewEnabled: ${JSON.stringify(model.autoReviewEnabled)},
-      maxImplementationReviewCycles: ${JSON.stringify(model.maxImplementationReviewCycles ?? 2)},
+      maxImplementationReviewCycles: ${JSON.stringify(model.maxImplementationReviewCycles ?? 5)},
       initialPermissionIssues: ${JSON.stringify(permissionIssues)}
     };
 
@@ -606,10 +606,10 @@ function buildExecutionSettingsHtml(model) {
       }
 
       if (maxImplementationReviewCycles instanceof HTMLInputElement) {
-        maxImplementationReviewCycles.value = String(state.maxImplementationReviewCycles || 2);
+        maxImplementationReviewCycles.value = String(state.maxImplementationReviewCycles || 5);
         const syncMaxCycles = () => {
           const parsed = Number.parseInt(maxImplementationReviewCycles.value, 10);
-          state.maxImplementationReviewCycles = Number.isFinite(parsed) && parsed > 0 ? parsed : 2;
+          state.maxImplementationReviewCycles = Number.isFinite(parsed) && parsed > 0 ? parsed : 5;
           maxImplementationReviewCycles.value = String(state.maxImplementationReviewCycles);
         };
         maxImplementationReviewCycles.addEventListener("input", syncMaxCycles);
@@ -865,7 +865,7 @@ async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, 
     await configuration.update("features.autoClarificationAnswersEnabled", autoClarificationAnswersEnabled, vscode.ConfigurationTarget.Workspace);
     await configuration.update("execution.autoClarificationAnswersProfile", normalizeOptionalAssignment(autoClarificationAnswersProfile), vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.autoReviewEnabled", autoReviewEnabled, vscode.ConfigurationTarget.Workspace);
-    await configuration.update("features.maxImplementationReviewCycles", normalizePositiveInteger(maxImplementationReviewCycles) ?? 2, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("features.maxImplementationReviewCycles", normalizePositiveInteger(maxImplementationReviewCycles) ?? 5, vscode.ConfigurationTarget.Workspace);
 }
 function normalizeOptionalAssignment(value) {
     const trimmed = value?.trim();

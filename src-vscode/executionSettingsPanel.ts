@@ -404,7 +404,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         </label>
         <label class="phase-field">
           <span>Max implementation/review cycles</span>
-          <input type="number" min="1" step="1" data-max-implementation-review-cycles value="${escapeHtmlAttr(String(model.maxImplementationReviewCycles ?? 2))}" />
+          <input type="number" min="1" step="1" data-max-implementation-review-cycles value="${escapeHtmlAttr(String(model.maxImplementationReviewCycles ?? 5))}" />
           <span class="phase-field__hint">Automatic review stops when this many implementation attempts have been recorded.</span>
         </label>
       </div>
@@ -430,7 +430,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       autoClarificationAnswersEnabled: ${JSON.stringify(model.autoClarificationAnswersEnabled)},
       autoClarificationAnswersProfile: ${JSON.stringify(model.autoClarificationAnswersProfile)},
       autoReviewEnabled: ${JSON.stringify(model.autoReviewEnabled)},
-      maxImplementationReviewCycles: ${JSON.stringify(model.maxImplementationReviewCycles ?? 2)},
+      maxImplementationReviewCycles: ${JSON.stringify(model.maxImplementationReviewCycles ?? 5)},
       initialPermissionIssues: ${JSON.stringify(permissionIssues)}
     };
 
@@ -617,10 +617,10 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       }
 
       if (maxImplementationReviewCycles instanceof HTMLInputElement) {
-        maxImplementationReviewCycles.value = String(state.maxImplementationReviewCycles || 2);
+        maxImplementationReviewCycles.value = String(state.maxImplementationReviewCycles || 5);
         const syncMaxCycles = () => {
           const parsed = Number.parseInt(maxImplementationReviewCycles.value, 10);
-          state.maxImplementationReviewCycles = Number.isFinite(parsed) && parsed > 0 ? parsed : 2;
+          state.maxImplementationReviewCycles = Number.isFinite(parsed) && parsed > 0 ? parsed : 5;
           maxImplementationReviewCycles.value = String(state.maxImplementationReviewCycles);
         };
         maxImplementationReviewCycles.addEventListener("input", syncMaxCycles);
@@ -892,7 +892,7 @@ async function saveExecutionSettingsAsync(
   await configuration.update("features.autoReviewEnabled", autoReviewEnabled, vscode.ConfigurationTarget.Workspace);
   await configuration.update(
     "features.maxImplementationReviewCycles",
-    normalizePositiveInteger(maxImplementationReviewCycles) ?? 2,
+    normalizePositiveInteger(maxImplementationReviewCycles) ?? 5,
     vscode.ConfigurationTarget.Workspace);
 }
 

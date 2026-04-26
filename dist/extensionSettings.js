@@ -27,7 +27,7 @@ function readSpecForgeSettings(configuration) {
         autoClarificationAnswersEnabled: configuration.get("features.autoClarificationAnswersEnabled", false),
         autoPlayEnabled: configuration.get("features.autoPlayEnabled", false),
         autoReviewEnabled: configuration.get("features.autoReviewEnabled", false),
-        maxImplementationReviewCycles: normalizeOptionalPositiveInteger(configuration.get("features.maxImplementationReviewCycles")),
+        maxImplementationReviewCycles: normalizeOptionalPositiveInteger(configuration.get("features.maxImplementationReviewCycles", 5)),
         destructiveRewindEnabled: configuration.get("features.destructiveRewindEnabled", false),
         pauseOnFailedReview: configuration.get("features.pauseOnFailedReview", false)
     };

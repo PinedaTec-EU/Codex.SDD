@@ -820,7 +820,9 @@ class WorkflowPanelController {
                     && (0, workflowAutomation_1.hasReachedImplementationReviewCycleLimit)(workflow, settings.maxImplementationReviewCycles)) {
                     this.playbackState = "paused";
                     this.setTransientExecutionPhase("implementation");
+                    this.selectedPhaseId = workflow.currentPhase;
                     (0, outputChannel_1.appendSpecForgeLog)(`Autoplay paused for '${workflow.usId}' because the implementation/review loop reached the configured limit (${settings.maxImplementationReviewCycles}).`);
+                    this.callbacks.notifyAttention(`${workflow.usId} reached the implementation/review loop limit (${settings.maxImplementationReviewCycles}) and remains at implementation.`);
                     await this.refreshAsync("autoplay:implementationReviewLimit");
                     return;
                 }
@@ -1018,6 +1020,7 @@ class WorkflowPanelController {
             executionSettingsPendingMessage: this.callbacks.hasPendingExecutionSettings(this.workspaceRoot)
                 ? "Execution settings changed while this phase was running. SpecForge.AI will reload the setup after the workflow enters the next phase."
                 : null,
+            maxImplementationReviewCycles: settings.maxImplementationReviewCycles,
             debugMode: (0, outputChannel_1.isSpecForgeDebugLoggingEnabled)(),
             approvalBaseBranchProposal: this.refinementApprovalBaseBranchProposal,
             approvalWorkBranchProposal: this.buildRefinementApprovalWorkBranchProposal(workflow),

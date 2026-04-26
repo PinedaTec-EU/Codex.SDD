@@ -88,7 +88,7 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
     autoPlayEnabled: configuration.get<boolean>("features.autoPlayEnabled", false),
     autoReviewEnabled: configuration.get<boolean>("features.autoReviewEnabled", false),
     maxImplementationReviewCycles: normalizeOptionalPositiveInteger(
-      configuration.get<unknown>("features.maxImplementationReviewCycles")),
+      configuration.get<unknown>("features.maxImplementationReviewCycles", 5)),
     destructiveRewindEnabled: configuration.get<boolean>("features.destructiveRewindEnabled", false),
     pauseOnFailedReview: configuration.get<boolean>("features.pauseOnFailedReview", false)
   };

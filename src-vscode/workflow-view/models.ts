@@ -35,6 +35,7 @@ export interface WorkflowViewState {
   readonly playbackStartedAtMs?: number | null;
   readonly executionSettingsPending?: boolean;
   readonly executionSettingsPendingMessage?: string | null;
+  readonly maxImplementationReviewCycles?: number | null;
   readonly debugMode?: boolean;
   readonly graphScrollTop?: number;
   readonly detailScrollTop?: number;

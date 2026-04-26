@@ -321,6 +321,62 @@ test("buildWorkflowHtml relies on delegated command handlers without per-node du
   assert.doesNotMatch(html, /querySelectorAll\("\[data-command\]"\)/);
 });
 
+test("buildWorkflowHtml paused overlay persistence key includes startedAt to avoid stale dismiss state", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0001",
+    title: "Workflow view",
+    category: "workflow",
+    status: "active",
+    currentPhase: "implementation",
+    directoryPath: "/tmp/us.US-0001",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "implementation",
+        title: "Implementation",
+        order: 4,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/03-implementation.md",
+        executePromptPath: null,
+        approvePromptPath: null,
+        executeSystemPromptPath: null,
+        approveSystemPromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: true,
+      regressionTargets: [],
+      rewindTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "review",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    executionPhaseId: "implementation",
+    playbackStartedAtMs: 123456
+  }, "paused");
+
+  assert.match(html, /buildExecutionOverlayStateKey\([^)]*executionOverlay\.dataset\.startedAtMs/);
+  assert.match(html, /specforge-ai:execution-overlay:.*startedAtMs/);
+});
+
 test("buildWorkflowHtml renders iteration lineage with input and output artifacts", () => {
   const html = buildWorkflowHtml({
     usId: "US-0200",
@@ -2582,6 +2638,76 @@ test("buildWorkflowHtml prefers configured overlay model label over stale histor
 
   assert.match(html, /Executing Implementation/);
   assert.match(html, /execution-overlay__phase-model">codex-main \/ codex</);
+});
+
+test("buildWorkflowHtml shows implementation loop limit banner and manual extra pass action", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0099",
+    title: "Implementation loop limit",
+    category: "workflow",
+    status: "active",
+    currentPhase: "implementation",
+    directoryPath: "/tmp/us.US-0099",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "implementation",
+        title: "Implementation",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/03-implementation.md",
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: true,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [
+      {
+        timestampUtc: "2026-04-18T10:00:00Z",
+        code: "phase_completed",
+        actor: "system",
+        phase: "implementation",
+        summary: "Generated implementation artifact.",
+        artifacts: ["/tmp/03-implementation.md"]
+      },
+      {
+        timestampUtc: "2026-04-18T10:10:00Z",
+        code: "artifact_operated",
+        actor: "system",
+        phase: "implementation",
+        summary: "Applied implementation corrections.",
+        artifacts: ["/tmp/03-implementation.v02.md"]
+      }
+    ],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "implementation",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    maxImplementationReviewCycles: 2
+  }, "idle");
+
+  assert.match(html, /Implementation Loop Paused/);
+  assert.match(html, /reached the configured limit \(2\)/);
+  assert.match(html, /Run One Extra Review Pass/);
 });
 
 test("buildWorkflowHtml prefers assigned overlay profile over stale history when configured model is blank", () => {
