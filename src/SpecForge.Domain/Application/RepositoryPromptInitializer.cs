@@ -443,8 +443,10 @@ public sealed class RepositoryPromptInitializer
         - do not return markdown outside the structured payload
         - do not leave required fields empty
         - do not use placeholder-only values such as `...`, `TODO`, or empty bullet lists
+        - every list-valued field in this phase must be a JSON array of strings
         - `PR Title` must be directly usable for a draft PR
         - `PR Summary` must describe the delivered scope concretely
+        - `PR Body` must be a JSON array of strings, with one markdown line per array item
         - `PR Body` must be complete reviewer-ready markdown, not a template stub
         """;
 }

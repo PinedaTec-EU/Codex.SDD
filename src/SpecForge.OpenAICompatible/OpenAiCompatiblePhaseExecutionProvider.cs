@@ -552,9 +552,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine("Return only structured data that conforms to the response schema.")
                 .AppendLine("Every required field must be populated with repository-grounded content.")
                 .AppendLine("Do not return placeholder-only values such as empty strings, empty arrays, `...`, `TODO`, or generic filler.")
+                .AppendLine("Every list-valued field in this phase must be a JSON array of strings.")
+                .AppendLine("Do not collapse array fields into one markdown string and do not return objects where the schema expects string arrays.")
                 .AppendLine("`prTitle` must be a publishable draft PR title.")
                 .AppendLine("`prSummary` must explain the delivered scope in 1-3 concrete sentences.")
                 .AppendLine("`changeNarrative`, `validationSummary`, and `reviewerChecklist` must each contain at least one concrete item.")
+                .AppendLine("`prBody` must be a JSON array of strings, one markdown line per array item.")
                 .AppendLine("`prBody` must contain a complete reviewer-ready markdown body, not a template stub.")
                 .AppendLine("If the available repository context is insufficient, say so explicitly inside the required fields while still filling the schema with concrete blocking detail.");
         }
