@@ -2,6 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import * as path from "node:path";
 import {
   buildApprovePhaseArguments,
+  buildReopenCompletedWorkflowArguments,
   buildRewindWorkflowArguments,
   buildRequestRegressionArguments,
   buildRestartUserStoryArguments,
@@ -271,6 +272,7 @@ export interface SpecForgeBackendClient {
   approveReviewAnyway(usId: string, reason: string, actor?: string): Promise<ContinuePhaseResult>;
   approveCurrentPhase(usId: string, baseBranch?: string, workBranch?: string, actor?: string): Promise<UserStorySummary>;
   requestRegression(usId: string, targetPhase: string, reason?: string, actor?: string, destructive?: boolean): Promise<RequestRegressionResult>;
+  reopenCompletedWorkflow(usId: string, reasonKind: string, description: string, actor?: string): Promise<RequestRegressionResult>;
   restartUserStoryFromSource(usId: string, reason?: string, actor?: string): Promise<RestartUserStoryResult>;
   rewindWorkflow(usId: string, targetPhase: string, actor?: string, destructive?: boolean): Promise<RewindWorkflowResult>;
   resetUserStoryToCapture(usId: string): Promise<ResetUserStoryResult>;
@@ -435,6 +437,13 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     return this.callTool<RequestRegressionResult>(
       "request_regression",
       buildRequestRegressionArguments(this.workspaceRoot, usId, targetPhase, reason, actor, destructive)
+    );
+  }
+
+  public async reopenCompletedWorkflow(usId: string, reasonKind: string, description: string, actor?: string): Promise<RequestRegressionResult> {
+    return this.callTool<RequestRegressionResult>(
+      "reopen_completed_workflow",
+      buildReopenCompletedWorkflowArguments(this.workspaceRoot, usId, reasonKind, description, actor)
     );
   }
 

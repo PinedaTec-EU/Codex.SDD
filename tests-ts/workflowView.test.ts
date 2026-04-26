@@ -115,9 +115,9 @@ test("buildWorkflowHtml renders phase detail for the selected phase", () => {
   assert.match(html, /phase-current-rail__label">Current</);
   assert.match(html, /phase-viewing-rail phase-viewing-rail--current">/);
   assert.match(html, /phase-viewing-rail__label">Viewing</);
-  assert.match(html, /phase-tag phase-tag--waiting-user">waiting-user</);
-  assert.match(html, /<div class="phase-slug">US<\/div>/);
-  assert.match(html, /<span class="token">spec<\/span>/);
+  assert.match(html, /token token--attention">waiting-user</);
+  assert.match(html, /<div class="phase-slug">Shape approved scope<\/div>/);
+  assert.match(html, /<span class="token">Shape approved scope<\/span>/);
   assert.match(html, /currentFlow/);
   assert.match(html, /currentPulse/);
   assert.match(html, /<h2>Refinement<\/h2>/);
@@ -485,7 +485,9 @@ test("buildWorkflowHtml renders iteration lineage with input and output artifact
     ]
   }, "idle");
 
-  assert.match(html, /Expand/);
+  assert.match(html, /class="iteration-rail-toggle"/);
+  assert.match(html, /aria-label="Expand phase iterations"/);
+  assert.match(html, /iteration-rail-toggle__icon/);
   assert.match(html, /iteration-rail--collapsed/);
   assert.match(html, /Iteration 2 ·/);
   assert.doesNotMatch(html, /Iteration 1 · 2026-04-25T10:00:00Z/);
@@ -591,7 +593,8 @@ test("buildWorkflowHtml expands phase iteration tree when the phase is opened", 
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /Collapse/);
+  assert.match(html, /aria-label="Collapse phase iterations"/);
+  assert.match(html, /iteration-rail-toggle__icon--expanded/);
   assert.match(html, /iteration-rail--expanded/);
   assert.match(html, /Iteration 2 · 2026-04-25T11:00:00Z/);
   assert.match(html, /Iteration 1 · 2026-04-25T10:00:00Z/);
@@ -941,9 +944,9 @@ test("buildWorkflowHtml shows ready instead of executing when the current phase 
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /phase-tag phase-tag--active">ready</);
   assert.match(html, /token token--success">ready</);
-  assert.doesNotMatch(html, /phase-tag phase-tag--active">executing</);
+  assert.match(html, /token token--success">ready</);
+  assert.doesNotMatch(html, /token token--active">executing</);
 });
 
 test("buildWorkflowHtml wires release-approval reject modal to rewind into review", () => {
@@ -1625,7 +1628,7 @@ test("buildWorkflowHtml ignores placeholder approval questions and renders copy 
   assert.match(html, /copy-question-button__icon--done/);
 });
 
-test("buildWorkflowHtml uses US as the secondary label for capture and clarification", () => {
+test("buildWorkflowHtml uses descriptive secondary labels for capture and clarification", () => {
   const html = buildWorkflowHtml({
     usId: "US-0001",
     title: "US-0001 · Clarification view",
@@ -1693,10 +1696,10 @@ test("buildWorkflowHtml uses US as the secondary label for capture and clarifica
   }, "idle");
 
   assert.match(html, /<h1>US-0001 · Clarification view<\/h1>/);
-  assert.match(html, /phase-node capture[^]*?<div class="phase-slug">US<\/div>/);
-  assert.match(html, /phase-node clarification[^]*?<div class="phase-slug">US<\/div>/);
+  assert.match(html, /phase-node capture[^]*?<div class="phase-slug">Capture story intent<\/div>/);
+  assert.match(html, /phase-node clarification[^]*?<div class="phase-slug">Resolve open questions<\/div>/);
   assert.match(html, /<h2>Refinement<\/h2>/);
-  assert.match(html, /<span class="token">US<\/span>/);
+  assert.match(html, /<span class="token">Resolve open questions<\/span>/);
 });
 
 test("buildWorkflowHtml does not render the legacy debug reset action", () => {
@@ -3361,7 +3364,8 @@ test("buildWorkflowHtml highlights waiting-user and runner paused hero tokens as
   assert.match(html, /token token--attention">waiting-user</);
   assert.match(html, /token token--attention">runner:paused</);
   assert.match(html, /phase-node clarification phase-tone-paused selected/);
-  assert.match(html, /phase-tag phase-tag--paused">paused</);
+  assert.match(html, /token token--attention">waiting-user</);
+  assert.match(html, /token token--attention">runner:paused</);
 });
 
 test("buildWorkflowHtml reuses sidebar status colors in graph nodes and hero tokens", () => {
@@ -3429,7 +3433,7 @@ test("buildWorkflowHtml reuses sidebar status colors in graph nodes and hero tok
   assert.match(html, /\.token\.token--blocked/);
   assert.match(html, /token token--blocked">blocked</);
   assert.match(html, /phase-node technical-design phase-tone-blocked selected/);
-  assert.match(html, /phase-tag phase-tag--blocked">blocked</);
+  assert.match(html, /token token--blocked">blocked</);
   assert.match(html, /phase-node capture phase-tone-completed/);
 });
 
@@ -3627,7 +3631,7 @@ test("buildWorkflowHtml renders rerun review action when review failed and the w
   }, "idle");
 
   assert.match(html, /phase-node review phase-tone-blocked selected phase-node--current/);
-  assert.match(html, /phase-tag phase-tag--blocked">blocked</);
+  assert.match(html, /token token--blocked">blocked</);
   assert.match(html, /data-command="continue"[^>]*>Rerun Review</);
   assert.doesNotMatch(html, /data-command="continue"[^>]*disabled[^>]*>Rerun Review</);
   assert.match(html, /token token--blocked">blocked</);
@@ -3683,7 +3687,7 @@ test("buildWorkflowHtml shows active execution state while rerunning a failed re
   }, "playing");
 
   assert.match(html, /phase-node review phase-tone-active selected phase-node--current/);
-  assert.match(html, /phase-tag phase-tag--active">executing</);
+  assert.match(html, /token token--active">executing</);
   assert.match(html, /data-tone="playing"/);
   assert.match(html, /Executing Review/);
 });
@@ -4331,13 +4335,85 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 166px;/);
-  assert.match(html, /phase-node technical-design[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 590px;/);
-  assert.match(html, /phase-node implementation[\s\S]*?--phase-left-desktop: 38px; --phase-top-desktop: 716px;/);
-  assert.match(html, /phase-node review[\s\S]*?--phase-left-desktop: 38px; --phase-top-desktop: 928px;/);
-  assert.match(html, /phase-node review[\s\S]*?--phase-left-mobile: 16px; --phase-top-mobile: 886px;/);
-  assert.match(html, /phase-node release-approval[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 1054px;/);
+  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 142px;/);
+  assert.match(html, /phase-node technical-design[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 498px;/);
+  assert.match(html, /phase-node implementation[\s\S]*?--phase-left-desktop: 38px; --phase-top-desktop: 600px;/);
+  assert.match(html, /phase-node review[\s\S]*?--phase-left-desktop: 38px; --phase-top-desktop: 778px;/);
+  assert.match(html, /phase-node review[\s\S]*?--phase-left-mobile: 16px; --phase-top-mobile: 736px;/);
+  assert.match(html, /phase-node release-approval[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 880px;/);
   assert.match(html, /viewBox="0 0 \d+ \d+"/);
+});
+
+test("buildWorkflowHtml renders completed phase reopen controls and lock state", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0200",
+    title: "Completed workflow",
+    category: "workflow",
+    status: "completed",
+    currentPhase: "pr-preparation",
+    directoryPath: "/tmp/us.US-0200",
+    workBranch: "feature/us-0200-completed",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "pr-preparation",
+        title: "PR Preparation",
+        order: 7,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: true,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: "/tmp/06-pr-preparation.md",
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "completed",
+        title: "Completed",
+        order: 8,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: true,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: "workflow_completed",
+      canRestartFromSource: false,
+      regressionTargets: [],
+      rewindTargets: ["review", "pr-preparation"]
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "completed",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    completedUsLockOnCompleted: true
+  }, "idle");
+
+  assert.match(html, /phase-node completed phase-tone-completed selected phase-node--current/);
+  assert.match(html, /<div class="phase-slug">Workflow finished<\/div>/);
+  assert.match(html, /Completed and locked/);
+  assert.match(html, /Reopen Completed Workflow/);
+  assert.match(html, /data-completed-reopen-reason/);
+  assert.match(html, /id="completed-reopen-description"/);
+  assert.match(html, /data-submit-completed-reopen disabled>Open</);
+  assert.doesNotMatch(html, /data-phase-rewind-button/);
 });
 
 test("buildWorkflowHtml keeps the hero header above a dedicated scrolling body", () => {

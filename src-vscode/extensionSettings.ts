@@ -17,6 +17,7 @@ export interface SpecForgeSettings {
   readonly maxImplementationReviewCycles: number | null;
   readonly destructiveRewindEnabled: boolean;
   readonly pauseOnFailedReview: boolean;
+  readonly completedUsLockOnCompleted: boolean;
 }
 
 export interface SpecForgeSettingsStatus {
@@ -90,7 +91,8 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
     maxImplementationReviewCycles: normalizeOptionalPositiveInteger(
       configuration.get<unknown>("features.maxImplementationReviewCycles", 5)),
     destructiveRewindEnabled: configuration.get<boolean>("features.destructiveRewindEnabled", false),
-    pauseOnFailedReview: configuration.get<boolean>("features.pauseOnFailedReview", false)
+    pauseOnFailedReview: configuration.get<boolean>("features.pauseOnFailedReview", false),
+    completedUsLockOnCompleted: configuration.get<boolean>("features.completedUsLockOnCompleted", true)
   };
 }
 
@@ -105,6 +107,7 @@ export function buildBackendEnvironment(settings: SpecForgeSettings): NodeJS.Pro
   env.SPECFORGE_CAPTURE_TOLERANCE = settings.clarificationTolerance;
   env.SPECFORGE_REVIEW_TOLERANCE = settings.reviewTolerance;
   env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED = settings.autoClarificationAnswersEnabled ? "true" : "false";
+  env.SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED = settings.completedUsLockOnCompleted ? "true" : "false";
 
   if (settings.autoClarificationAnswersProfile) {
     env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE = settings.autoClarificationAnswersProfile;

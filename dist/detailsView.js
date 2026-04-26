@@ -13,7 +13,8 @@ const PHASES = [
     "implementation",
     "review",
     "release-approval",
-    "pr-preparation"
+    "pr-preparation",
+    "completed"
 ];
 function buildUserStoryDetailsHtml(summary) {
     const phaseItems = PHASES.map((phase) => {

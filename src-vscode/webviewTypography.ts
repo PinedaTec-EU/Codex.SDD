@@ -1,10 +1,9 @@
-import * as vscode from "vscode";
-
 function escapeCssCustomPropertyValue(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
 }
 
 export function getEditorTypographyCssVars(): string {
+  const vscode = require("vscode") as typeof import("vscode");
   const editorConfig = vscode.workspace.getConfiguration("editor");
   const vars: string[] = [];
   const fontFamily = editorConfig.get<string>("fontFamily", "").trim();

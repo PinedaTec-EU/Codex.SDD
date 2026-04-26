@@ -35,7 +35,9 @@ test("validatePhasePermissionAssignments rejects implementation and review when 
     refinementProfile: null,
     technicalDesignProfile: null,
     implementationProfile: null,
-    reviewProfile: null
+    reviewProfile: null,
+    releaseApprovalProfile: null,
+    prPreparationProfile: null
   });
 
   assert.deepEqual(issues.map((item) => item.assignmentKey), ["implementationProfile", "reviewProfile"]);
@@ -52,7 +54,9 @@ test("validatePhasePermissionAssignments accepts read phases on read and write p
     refinementProfile: null,
     technicalDesignProfile: null,
     implementationProfile: "implementer",
-    reviewProfile: "implementer"
+    reviewProfile: "implementer",
+    releaseApprovalProfile: null,
+    prPreparationProfile: null
   });
 
   assert.equal(issues.length, 0);

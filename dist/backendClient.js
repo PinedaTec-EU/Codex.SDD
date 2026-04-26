@@ -159,6 +159,9 @@ class StdioMcpBackendClient {
     async requestRegression(usId, targetPhase, reason, actor, destructive) {
         return this.callTool("request_regression", (0, backendClientModel_1.buildRequestRegressionArguments)(this.workspaceRoot, usId, targetPhase, reason, actor, destructive));
     }
+    async reopenCompletedWorkflow(usId, reasonKind, description, actor) {
+        return this.callTool("reopen_completed_workflow", (0, backendClientModel_1.buildReopenCompletedWorkflowArguments)(this.workspaceRoot, usId, reasonKind, description, actor));
+    }
     async restartUserStoryFromSource(usId, reason, actor) {
         return this.callTool("restart_user_story_from_source", (0, backendClientModel_1.buildRestartUserStoryArguments)(this.workspaceRoot, usId, reason, actor));
     }

@@ -291,6 +291,11 @@ class WorkflowPanelController {
             case "sendReviewToImplementation":
                 await this.sendReviewToImplementationAsync(message.prompt, message.includeReviewArtifactInContext !== false);
                 return;
+            case "reopenCompletedWorkflow":
+                if (message.reasonKind && message.description) {
+                    await this.reopenCompletedWorkflowAsync(message.reasonKind, message.description);
+                }
+                return;
             case "approveReviewAnyway":
                 if (message.reason) {
                     await this.approveReviewAnywayAsync(message.reason);
@@ -394,6 +399,10 @@ class WorkflowPanelController {
         return true;
     }
     resolveWorkflowExecutionRequest(workflow, sourceLabel, allowCurrentPhaseReplay) {
+        if (workflow.status === "completed") {
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' ignored execution request from ${sourceLabel} because the workflow is already completed.`);
+            return null;
+        }
         if (allowCurrentPhaseReplay && this.canReplayCurrentPhase(workflow)) {
             return {
                 kind: "replay-current",
@@ -795,6 +804,27 @@ class WorkflowPanelController {
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("rewindWorkflowAsync");
     }
+    async reopenCompletedWorkflowAsync(reasonKind, description) {
+        const previousPhase = this.summary.currentPhase;
+        const confirmation = await vscode.window.showWarningMessage(`Reopen ${this.summary.usId} from completed status?`, { modal: true }, "Reopen Workflow");
+        if (confirmation !== "Reopen Workflow") {
+            return;
+        }
+        const result = await this.getBackendClient().reopenCompletedWorkflow(this.summary.usId, reasonKind, description, (0, userActor_1.getCurrentActor)());
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' was reopened with reason '${reasonKind}' to '${result.currentPhase}' and status '${result.status}'.`);
+        this.summary = {
+            ...this.summary,
+            currentPhase: result.currentPhase,
+            status: result.status
+        };
+        this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
+        this.clearTransientExecutionPhase();
+        this.selectedPhaseId = result.currentPhase;
+        this.selectedIterationKey = null;
+        this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, result.currentPhase, "reopen-completed");
+        await this.callbacks.refreshExplorer();
+        await this.refreshAsync("reopenCompletedWorkflowAsync");
+    }
     async debugResetToCaptureAsync() {
         const previousPhase = this.summary.currentPhase;
         const confirmation = await vscode.window.showWarningMessage(`Reset ${this.summary.usId} to capture and delete all generated artifacts after the source?`, { modal: true }, "Reset to Capture");
@@ -825,6 +855,13 @@ class WorkflowPanelController {
             (0, outputChannel_1.appendSpecForgeLog)(`Autoplay loop started for '${this.summary.usId}'.`);
             while (this.playbackState === "playing") {
                 const workflow = await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+                if (workflow.status === "completed") {
+                    this.playbackState = "paused";
+                    this.clearTransientExecutionPhase();
+                    (0, outputChannel_1.appendSpecForgeLog)(`Autoplay stopped for '${workflow.usId}' because the workflow completed at phase '${workflow.currentPhase}'.`);
+                    await this.refreshAsync("autoplay:completed");
+                    return;
+                }
                 const settings = (0, extensionSettings_1.getSpecForgeSettings)();
                 const executionPhaseId = this.resolveExecutionPhaseIdForWorkflow(workflow);
                 const canReplayCurrentPhase = this.canReplayCurrentPhase(workflow);
@@ -992,7 +1029,10 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' paused automatically at failed review because 'specForge.features.pauseOnFailedReview' is enabled.`);
     }
     async renderWorkflowAsync(workflow) {
-        const selectedPhase = workflow.phases.find((phase) => phase.phaseId === this.selectedPhaseId)
+        const preferredSelectedPhaseId = workflow.status === "completed" && this.selectedPhaseId === workflow.currentPhase
+            ? "completed"
+            : this.selectedPhaseId;
+        const selectedPhase = workflow.phases.find((phase) => phase.phaseId === preferredSelectedPhaseId)
             ?? workflow.phases.find((phase) => phase.isCurrent)
             ?? workflow.phases[0];
         this.selectedPhaseId = selectedPhase.phaseId;
@@ -1052,6 +1092,7 @@ class WorkflowPanelController {
                 ? "Execution settings changed while this phase was running. SpecForge.AI will reload the setup after the workflow enters the next phase."
                 : null,
             maxImplementationReviewCycles: settings.maxImplementationReviewCycles,
+            completedUsLockOnCompleted: settings.completedUsLockOnCompleted,
             debugMode: (0, outputChannel_1.isSpecForgeDebugLoggingEnabled)(),
             approvalBaseBranchProposal: this.refinementApprovalBaseBranchProposal,
             approvalWorkBranchProposal: this.buildRefinementApprovalWorkBranchProposal(workflow),

@@ -11,6 +11,7 @@ public sealed class SpecForgeApplicationService
     private readonly RepositoryCategoryCatalog repositoryCategoryCatalog;
     private readonly UserStoryRuntimeStatusStore runtimeStatusStore;
     private readonly string? runtimeVersion;
+    private readonly bool completedUsLockOnCompleted;
 
     public SpecForgeApplicationService()
         : this(new UserStoryFileStore(), new WorkflowRunner(), new RepositoryPromptInitializer(), new RepositoryCategoryCatalog(), new UserStoryRuntimeStatusStore(), null)
@@ -23,7 +24,8 @@ public sealed class SpecForgeApplicationService
         RepositoryPromptInitializer? repositoryPromptInitializer = null,
         RepositoryCategoryCatalog? repositoryCategoryCatalog = null,
         UserStoryRuntimeStatusStore? runtimeStatusStore = null,
-        string? runtimeVersion = null)
+        string? runtimeVersion = null,
+        bool completedUsLockOnCompleted = true)
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
         this.workflowRunner = workflowRunner ?? throw new ArgumentNullException(nameof(workflowRunner));
@@ -31,6 +33,7 @@ public sealed class SpecForgeApplicationService
         this.repositoryCategoryCatalog = repositoryCategoryCatalog ?? new RepositoryCategoryCatalog();
         this.runtimeStatusStore = runtimeStatusStore ?? new UserStoryRuntimeStatusStore();
         this.runtimeVersion = string.IsNullOrWhiteSpace(runtimeVersion) ? null : runtimeVersion.Trim();
+        this.completedUsLockOnCompleted = completedUsLockOnCompleted;
     }
 
     public Task<InitializeRepoPromptsResult> InitializeRepoPromptsAsync(
@@ -220,6 +223,18 @@ public sealed class SpecForgeApplicationService
                 false,
                 false,
                 canAdvanceClarification ? null : "clarification_pending_answers");
+        }
+
+        if (workflowRun.Status == UserStoryStatus.Completed)
+        {
+            return new CurrentPhaseSummary(
+                workflowRun.UsId,
+                WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
+                WorkflowPresentation.ToStatusSlug(workflowRun.Status),
+                CanAdvance: false,
+                CanApprove: false,
+                RequiresApproval: false,
+                BlockingReason: "workflow_completed");
         }
 
         var requiresApproval = workflowRun.Definition.RequiresApproval(workflowRun.CurrentPhase);
@@ -476,6 +491,18 @@ public sealed class SpecForgeApplicationService
         return workflowRunner.RewindWorkflowAsync(workspaceRoot, usId, phaseId, destructive, actor, cancellationToken);
     }
 
+    public Task<RequestRegressionResult> ReopenCompletedWorkflowAsync(
+        string workspaceRoot,
+        string usId,
+        string reasonKind,
+        string description,
+        string actor = "user",
+        CancellationToken cancellationToken = default)
+    {
+        var targetPhase = MapCompletedWorkflowReopenTarget(reasonKind);
+        return workflowRunner.ReopenCompletedWorkflowAsync(workspaceRoot, usId, targetPhase, reasonKind, description, actor, cancellationToken);
+    }
+
     public Task<ResetUserStoryResult> ResetUserStoryToCaptureAsync(
         string workspaceRoot,
         string usId,
@@ -619,10 +646,14 @@ public sealed class SpecForgeApplicationService
             Workflow.PhaseId.PrPreparation
         };
 
-        return phases
+        var materializedPhases = phases
             .Select((phaseId, index) =>
             {
                 var requiresApproval = workflowRun.Definition.RequiresApproval(phaseId);
+                var isCompletedWorkflow = workflowRun.Status == UserStoryStatus.Completed;
+                var isCurrent = isCompletedWorkflow
+                    ? false
+                    : workflowRun.CurrentPhase == phaseId;
                 return new WorkflowPhaseDetails(
                     WorkflowPresentation.ToPhaseSlug(phaseId),
                     ToPhaseTitle(phaseId),
@@ -630,7 +661,7 @@ public sealed class SpecForgeApplicationService
                     requiresApproval,
                     WorkflowPresentation.ExpectsHumanIntervention(phaseId, requiresApproval),
                     workflowRun.IsPhaseApproved(phaseId),
-                    workflowRun.CurrentPhase == phaseId,
+                    isCurrent,
                     ResolvePhaseState(workflowRun, phaseId),
                     TryGetLatestArtifactPath(paths, phaseId),
                     TryGetLatestOperationLogPath(paths, phaseId),
@@ -640,7 +671,29 @@ public sealed class SpecForgeApplicationService
                     TryGetApproveSystemPromptPath(paths, phaseId),
                     workflowRunner.GetPhaseExecutionReadiness(phaseId));
             })
-            .ToArray();
+            .ToList();
+
+        if (workflowRun.Status == UserStoryStatus.Completed)
+        {
+            materializedPhases.Add(new WorkflowPhaseDetails(
+                "completed",
+                "Completed",
+                materializedPhases.Count,
+                RequiresApproval: false,
+                ExpectsHumanIntervention: false,
+                IsApproved: true,
+                IsCurrent: true,
+                State: "current",
+                ArtifactPath: null,
+                OperationLogPath: null,
+                ExecutePromptPath: null,
+                ApprovePromptPath: null,
+                ExecuteSystemPromptPath: null,
+                ApproveSystemPromptPath: null,
+                ExecutionReadiness: null));
+        }
+
+        return materializedPhases;
     }
 
     private static IReadOnlyCollection<UserStoryFileDetails> BuildFileDetails(string directoryPath)
@@ -843,6 +896,16 @@ public sealed class SpecForgeApplicationService
             .Select(WorkflowPresentation.ToPhaseSlug)
             .ToArray();
     }
+
+    private static Workflow.PhaseId MapCompletedWorkflowReopenTarget(string reasonKind) =>
+        reasonKind.Trim().ToLowerInvariant() switch
+        {
+            "merge-conflict" => Workflow.PhaseId.Implementation,
+            "functional-issue" => Workflow.PhaseId.Refinement,
+            "technical-issue" => Workflow.PhaseId.TechnicalDesign,
+            _ => throw new WorkflowDomainException(
+                $"Unsupported completed workflow reopen reason '{reasonKind}'. Expected 'merge-conflict', 'functional-issue', or 'technical-issue'.")
+        };
 
     private static async Task<ClarificationSession?> ReadClarificationSessionAsync(
         UserStoryFilePaths paths,

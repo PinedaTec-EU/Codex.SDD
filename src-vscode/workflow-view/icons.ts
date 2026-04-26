@@ -45,3 +45,19 @@ export function fileIcon(): string {
     </svg>
   `;
 }
+
+export function lockClosedIcon(): string {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M8.5 10V8.25a3.5 3.5 0 1 1 7 0V10h.75A1.75 1.75 0 0 1 18 11.75v7.5A1.75 1.75 0 0 1 16.25 21h-8.5A1.75 1.75 0 0 1 6 19.25v-7.5A1.75 1.75 0 0 1 7.75 10h.75Zm1.5 0h4V8.25a2 2 0 1 0-4 0V10Z"></path>
+    </svg>
+  `;
+}
+
+export function lockOpenIcon(): string {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M15 10V8.25a2 2 0 1 0-4 0 .75.75 0 0 1-1.5 0 3.5 3.5 0 1 1 7 0V10h.75A1.75 1.75 0 0 1 19 11.75v7.5A1.75 1.75 0 0 1 17.25 21h-8.5A1.75 1.75 0 0 1 7 19.25v-7.5A1.75 1.75 0 0 1 8.75 10H15Zm2.5 1.75A.25.25 0 0 0 17.25 11h-8.5a.25.25 0 0 0-.25.25v7.5c0 .14.11.25.25.25h8.5a.25.25 0 0 0 .25-.25v-7.5Z"></path>
+    </svg>
+  `;
+}

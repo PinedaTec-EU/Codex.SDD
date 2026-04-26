@@ -29,7 +29,8 @@ function readSpecForgeSettings(configuration) {
         autoReviewEnabled: configuration.get("features.autoReviewEnabled", false),
         maxImplementationReviewCycles: normalizeOptionalPositiveInteger(configuration.get("features.maxImplementationReviewCycles", 5)),
         destructiveRewindEnabled: configuration.get("features.destructiveRewindEnabled", false),
-        pauseOnFailedReview: configuration.get("features.pauseOnFailedReview", false)
+        pauseOnFailedReview: configuration.get("features.pauseOnFailedReview", false),
+        completedUsLockOnCompleted: configuration.get("features.completedUsLockOnCompleted", true)
     };
 }
 function buildBackendEnvironment(settings) {
@@ -41,6 +42,7 @@ function buildBackendEnvironment(settings) {
     env.SPECFORGE_CAPTURE_TOLERANCE = settings.clarificationTolerance;
     env.SPECFORGE_REVIEW_TOLERANCE = settings.reviewTolerance;
     env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED = settings.autoClarificationAnswersEnabled ? "true" : "false";
+    env.SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED = settings.completedUsLockOnCompleted ? "true" : "false";
     if (settings.autoClarificationAnswersProfile) {
         env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE = settings.autoClarificationAnswersProfile;
     }

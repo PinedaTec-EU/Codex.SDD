@@ -26,6 +26,7 @@ public sealed class WorkflowRunner
     private readonly IPullRequestPublisher pullRequestPublisher;
     private readonly string captureTolerance;
     private readonly string? runtimeVersion;
+    private readonly bool completedUsLockOnCompleted;
 
     public WorkflowRunner()
         : this(new UserStoryFileStore(), new DeterministicPhaseExecutionProvider(), new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), null)
@@ -42,6 +43,11 @@ public sealed class WorkflowRunner
     {
     }
 
+    public WorkflowRunner(IPhaseExecutionProvider phaseExecutionProvider, string? runtimeVersion, string captureTolerance, bool completedUsLockOnCompleted)
+        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), runtimeVersion, captureTolerance, completedUsLockOnCompleted)
+    {
+    }
+
     internal WorkflowRunner(
         UserStoryFileStore fileStore,
         IPhaseExecutionProvider phaseExecutionProvider,
@@ -49,7 +55,8 @@ public sealed class WorkflowRunner
         IWorkBranchManager? workBranchManager = null,
         IPullRequestPublisher? pullRequestPublisher = null,
         string? runtimeVersion = null,
-        string captureTolerance = "balanced")
+        string captureTolerance = "balanced",
+        bool completedUsLockOnCompleted = true)
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
         this.phaseExecutionProvider = phaseExecutionProvider ?? throw new ArgumentNullException(nameof(phaseExecutionProvider));
@@ -58,6 +65,7 @@ public sealed class WorkflowRunner
         this.pullRequestPublisher = pullRequestPublisher ?? new GitHubPullRequestPublisher();
         this.runtimeVersion = string.IsNullOrWhiteSpace(runtimeVersion) ? null : runtimeVersion.Trim();
         this.captureTolerance = captureTolerance is "strict" or "balanced" or "inferential" ? captureTolerance : "balanced";
+        this.completedUsLockOnCompleted = completedUsLockOnCompleted;
     }
 
     public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
@@ -238,6 +246,7 @@ public sealed class WorkflowRunner
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        EnsureCompletedWorkflowIsUnlockedForDirectMutation(workflowRun, "Regression");
         await TrackRuntimeVersionChangeAsync(paths, workflowRun, NormalizeActor(actor), workflowRun.CurrentPhase, cancellationToken);
         var targetPhaseWasApproved = workflowRun.IsPhaseApproved(targetPhase);
         if (destructive)
@@ -431,6 +440,7 @@ public sealed class WorkflowRunner
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        EnsureCompletedWorkflowIsUnlockedForDirectMutation(workflowRun, "Rewind");
         await TrackRuntimeVersionChangeAsync(paths, workflowRun, NormalizeActor(actor), workflowRun.CurrentPhase, cancellationToken);
         ValidateRewindTarget(workflowRun, targetPhase);
         var targetPhaseWasApproved = workflowRun.IsPhaseApproved(targetPhase);
@@ -469,6 +479,44 @@ public sealed class WorkflowRunner
             WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
             deletedPaths,
             destructive ? BuildRewindPreservedPaths(paths, targetPhase) : BuildNonDestructiveRewindPreservedPaths(paths));
+    }
+
+    public async Task<RequestRegressionResult> ReopenCompletedWorkflowAsync(
+        string workspaceRoot,
+        string usId,
+        PhaseId targetPhase,
+        string reasonKind,
+        string description,
+        string actor = "user",
+        CancellationToken cancellationToken = default)
+    {
+        ValidateRequired(reasonKind, nameof(reasonKind));
+        ValidateRequired(description, nameof(description));
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
+        var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        await TrackRuntimeVersionChangeAsync(paths, workflowRun, NormalizeActor(actor), workflowRun.CurrentPhase, cancellationToken);
+
+        if (workflowRun.Status != UserStoryStatus.Completed)
+        {
+            throw new WorkflowDomainException("Only completed workflows can be reopened.");
+        }
+
+        ValidateRewindTarget(workflowRun, targetPhase);
+        workflowRun.RewindToPhase(targetPhase);
+        await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "workflow_reopened",
+            NormalizeActor(actor),
+            workflowRun.CurrentPhase,
+            $"Reopened completed workflow due to `{reasonKind.Trim()}` and returned it to phase `{WorkflowPresentation.ToPhaseSlug(targetPhase)}`. Details: {description.Trim()}.",
+            cancellationToken);
+
+        return new RequestRegressionResult(
+            workflowRun.UsId,
+            WorkflowPresentation.ToStatusSlug(workflowRun.Status),
+            WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase));
     }
 
     public async Task<ContinuePhaseResult> ContinuePhaseAsync(
@@ -738,6 +786,7 @@ public sealed class WorkflowRunner
         ValidateRequired(prompt, nameof(prompt));
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
         var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        EnsureCompletedWorkflowIsUnlockedForDirectMutation(workflowRun, "Artifact operation");
         await TrackRuntimeVersionChangeAsync(paths, workflowRun, NormalizeActor(actor), workflowRun.CurrentPhase, cancellationToken);
         if (!HasArtifact(workflowRun.CurrentPhase))
         {
@@ -1889,6 +1938,16 @@ public sealed class WorkflowRunner
             throw new WorkflowDomainException(
                 $"Rewind from '{workflowRun.CurrentPhase}' to '{targetPhase}' is not allowed.");
         }
+    }
+
+    private void EnsureCompletedWorkflowIsUnlockedForDirectMutation(WorkflowRun workflowRun, string actionLabel)
+    {
+        if (!completedUsLockOnCompleted || workflowRun.Status != UserStoryStatus.Completed)
+        {
+            return;
+        }
+
+        throw new WorkflowDomainException($"{actionLabel} is not allowed because the completed workflow is locked by configuration.");
     }
 
     private static IReadOnlyCollection<string> BuildRewindPreservedPaths(UserStoryFilePaths paths, PhaseId targetPhase)

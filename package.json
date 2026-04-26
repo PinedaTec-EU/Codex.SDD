@@ -325,6 +325,11 @@
           "type": "boolean",
           "default": false,
           "description": "When enabled, automatically pause workflow playback on a failed review and show the review warning overlay for developer inspection."
+        },
+        "specForge.features.completedUsLockOnCompleted": {
+          "type": "boolean",
+          "default": true,
+          "description": "When enabled, completed user stories stay locked against direct rewind or artifact modification. Explicit reopen from the completed phase remains available."
         }
       }
     },

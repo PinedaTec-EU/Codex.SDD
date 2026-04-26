@@ -276,6 +276,143 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCurrentPhaseAsync_CompletedWorkflow_CannotAdvance()
+    {
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new PassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager(),
+            new RecordingPullRequestPublisher());
+        var applicationService = new SpecForgeApplicationService();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var currentPhase = await applicationService.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal("pr-preparation", currentPhase.CurrentPhase);
+        Assert.Equal("completed", currentPhase.Status);
+        Assert.False(currentPhase.CanAdvance);
+        Assert.False(currentPhase.CanApprove);
+        Assert.False(currentPhase.RequiresApproval);
+        Assert.Equal("workflow_completed", currentPhase.BlockingReason);
+    }
+
+    [Fact]
+    public async Task GetUserStoryWorkflowAsync_CompletedWorkflow_AppendsCompletedPhaseAsCurrent()
+    {
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new PassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager(),
+            new RecordingPullRequestPublisher());
+        var applicationService = new SpecForgeApplicationService();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var workflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
+
+        var completedPhase = Assert.Single(workflow.Phases, phase => phase.PhaseId == "completed");
+        Assert.True(completedPhase.IsCurrent);
+        Assert.Equal("current", completedPhase.State);
+        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "pr-preparation" && !phase.IsCurrent);
+    }
+
+    [Fact]
+    public async Task ReopenCompletedWorkflowAsync_FunctionalIssue_ReturnsWorkflowToRefinement()
+    {
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new PassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager(),
+            new RecordingPullRequestPublisher());
+        var applicationService = new SpecForgeApplicationService();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var result = await applicationService.ReopenCompletedWorkflowAsync(
+            workspaceRoot,
+            "US-0001",
+            "functional-issue",
+            "Customer validation found a business rule gap.",
+            actor: "alice");
+
+        Assert.Equal("US-0001", result.UsId);
+        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("waiting-user", result.Status);
+
+        var workflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
+        Assert.Equal("refinement", workflow.CurrentPhase);
+        Assert.Equal("waiting-user", workflow.Status);
+        Assert.Contains(workflow.Events, timelineEvent =>
+            timelineEvent.Code == "workflow_reopened"
+            && timelineEvent.Actor == "alice"
+            && timelineEvent.Summary is not null
+            && timelineEvent.Summary.Contains("functional-issue", StringComparison.Ordinal)
+            && timelineEvent.Summary.Contains("refinement", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task RewindWorkflowAsync_CompletedWorkflowWithLockEnabled_Throws()
+    {
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new PassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager(),
+            new RecordingPullRequestPublisher(),
+            runtimeVersion: null,
+            captureTolerance: "balanced",
+            completedUsLockOnCompleted: true);
+        var applicationService = new SpecForgeApplicationService();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
+            applicationService.RewindWorkflowAsync(workspaceRoot, "US-0001", "review"));
+
+        Assert.Contains("locked", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task GetCurrentPhaseAsync_WithUnresolvedRefinementApprovalQuestions_CannotApprove()
     {
         var runner = new WorkflowRunner();
@@ -697,5 +834,22 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
                 BranchCreated: false,
                 CurrentBranch: baseBranch,
                 UpstreamBranch: $"origin/{baseBranch}"));
+    }
+
+    private sealed class RecordingPullRequestPublisher : IPullRequestPublisher
+    {
+        public Task<PullRequestPublicationResult> PublishAsync(
+            string workspaceRoot,
+            string usId,
+            WorkBranch branch,
+            PrPreparationArtifactDocument artifact,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new PullRequestPublicationResult(
+                CommitCreated: true,
+                CommitSha: "abc123",
+                RemoteBranch: branch.WorkBranchName,
+                IsDraft: true,
+                Number: 101,
+                Url: "https://github.com/example/repo/pull/101"));
     }
 }

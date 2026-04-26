@@ -4,6 +4,7 @@ exports.buildApprovePhaseArguments = buildApprovePhaseArguments;
 exports.buildRequestRegressionArguments = buildRequestRegressionArguments;
 exports.buildRestartUserStoryArguments = buildRestartUserStoryArguments;
 exports.buildRewindWorkflowArguments = buildRewindWorkflowArguments;
+exports.buildReopenCompletedWorkflowArguments = buildReopenCompletedWorkflowArguments;
 exports.parseToolContent = parseToolContent;
 exports.buildServerProjectPath = buildServerProjectPath;
 function buildApprovePhaseArguments(workspaceRoot, usId, baseBranch, workBranch, actor) {
@@ -63,6 +64,18 @@ function buildRewindWorkflowArguments(workspaceRoot, usId, targetPhase, actor, d
     }
     if (destructive) {
         argumentsPayload.destructive = "true";
+    }
+    return argumentsPayload;
+}
+function buildReopenCompletedWorkflowArguments(workspaceRoot, usId, reasonKind, description, actor) {
+    const argumentsPayload = {
+        workspaceRoot,
+        usId,
+        reasonKind,
+        description
+    };
+    if (actor && actor.trim().length > 0) {
+        argumentsPayload.actor = actor;
     }
     return argumentsPayload;
 }

@@ -80,7 +80,8 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
     ["features.requireApprovalBranchAcceptance", true],
     ["features.autoReviewEnabled", true],
     ["features.maxImplementationReviewCycles", 3],
-    ["features.pauseOnFailedReview", true]
+    ["features.pauseOnFailedReview", true],
+    ["features.completedUsLockOnCompleted", false]
   ]);
 
   const settings = readSpecForgeSettings({
@@ -136,7 +137,8 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
     autoReviewEnabled: true,
     maxImplementationReviewCycles: 3,
     destructiveRewindEnabled: false,
-    pauseOnFailedReview: true
+    pauseOnFailedReview: true,
+    completedUsLockOnCompleted: false
   });
 });
 
@@ -203,7 +205,8 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
-    pauseOnFailedReview: false
+    pauseOnFailedReview: false,
+    completedUsLockOnCompleted: true
   }), {
     SPECFORGE_OPENAI_MODEL_PROFILES_JSON: JSON.stringify([
       {
@@ -230,7 +233,8 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
     })),
     SPECFORGE_CAPTURE_TOLERANCE: "strict",
     SPECFORGE_REVIEW_TOLERANCE: "inferential",
-    SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED: "false"
+    SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED: "false",
+    SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED: "true"
   });
 });
 
@@ -251,7 +255,8 @@ test("getSpecForgeSettingsStatus requires at least one model profile", () => {
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
-    pauseOnFailedReview: false
+    pauseOnFailedReview: false,
+    completedUsLockOnCompleted: true
   });
 
   assert.equal(status.executionConfigured, false);
@@ -289,7 +294,8 @@ test("getSpecForgeSettingsStatus rejects a single fallback profile when phase pe
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
-    pauseOnFailedReview: false
+    pauseOnFailedReview: false,
+    completedUsLockOnCompleted: true
   });
 
   assert.equal(status.executionConfigured, false);
@@ -327,7 +333,8 @@ test("getSpecForgeSettingsStatus still requires an api key for remote profiles",
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
-    pauseOnFailedReview: false
+    pauseOnFailedReview: false,
+    completedUsLockOnCompleted: true
   });
 
   assert.equal(status.executionConfigured, false);
@@ -361,7 +368,8 @@ test("getSpecForgeSettingsStatus accepts profiles using the default provider", (
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
-    pauseOnFailedReview: false
+    pauseOnFailedReview: false,
+    completedUsLockOnCompleted: true
   });
 
   assert.equal(status.executionConfigured, true);
@@ -419,7 +427,8 @@ test("getSpecForgeSettingsStatus accepts codex, copilot, and claude providers", 
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
-    pauseOnFailedReview: false
+    pauseOnFailedReview: false,
+    completedUsLockOnCompleted: true
   });
 
   assert.equal(status.executionConfigured, true);
@@ -460,7 +469,8 @@ test("getSpecForgeSettingsStatus allows native CLI providers without baseUrl api
       autoReviewEnabled: false,
       maxImplementationReviewCycles: null,
       destructiveRewindEnabled: false,
-      pauseOnFailedReview: false
+      pauseOnFailedReview: false,
+      completedUsLockOnCompleted: true
     });
 
     assert.equal(status.executionConfigured, true);
@@ -495,7 +505,8 @@ test("getSpecForgeSettingsStatus rejects unsupported providers", () => {
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
-    pauseOnFailedReview: false
+    pauseOnFailedReview: false,
+    completedUsLockOnCompleted: true
   });
 
   assert.equal(status.executionConfigured, false);
@@ -531,7 +542,8 @@ test("getSpecForgeSettingsStatus validates named profile assignments", () => {
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
-    pauseOnFailedReview: false
+    pauseOnFailedReview: false,
+    completedUsLockOnCompleted: true
   });
 
   assert.equal(status.executionConfigured, false);
@@ -593,7 +605,8 @@ test("getSpecForgeSettingsStatus allows multiple profiles without default when a
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
-    pauseOnFailedReview: false
+    pauseOnFailedReview: false,
+    completedUsLockOnCompleted: true
   });
 
   assert.equal(status.executionConfigured, true);
@@ -645,7 +658,8 @@ test("getSpecForgeSettingsStatus rejects review when its assigned profile lacks 
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
-    pauseOnFailedReview: false
+    pauseOnFailedReview: false,
+    completedUsLockOnCompleted: true
   });
 
   assert.equal(status.executionConfigured, false);
@@ -680,7 +694,8 @@ test("getSpecForgeSettingsStatus requires an explicit auto-clarification profile
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
-    pauseOnFailedReview: false
+    pauseOnFailedReview: false,
+    completedUsLockOnCompleted: true
   });
 
   assert.equal(status.executionConfigured, false);
@@ -717,7 +732,8 @@ test("buildBackendEnvironment serializes auto-clarification settings", () => {
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
     destructiveRewindEnabled: false,
-    pauseOnFailedReview: false
+    pauseOnFailedReview: false,
+    completedUsLockOnCompleted: true
   });
 
   assert.equal(env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED, "true");

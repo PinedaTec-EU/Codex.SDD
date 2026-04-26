@@ -12,10 +12,14 @@ var serverVersion = typeof(Program).Assembly
 
 var captureTolerance = Environment.GetEnvironmentVariable("SPECFORGE_CAPTURE_TOLERANCE")?.Trim().ToLowerInvariant();
 captureTolerance = captureTolerance is "strict" or "balanced" or "inferential" ? captureTolerance : "balanced";
+var completedUsLockOnCompleted = !string.Equals(
+    Environment.GetEnvironmentVariable("SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED")?.Trim(),
+    "false",
+    StringComparison.OrdinalIgnoreCase);
 
 var phaseExecutionProvider = PhaseExecutionProviderFactory.Create();
-var workflowRunner = new WorkflowRunner(phaseExecutionProvider, serverVersion, captureTolerance);
-var applicationService = new SpecForgeApplicationService(new UserStoryFileStore(), workflowRunner, runtimeVersion: serverVersion);
+var workflowRunner = new WorkflowRunner(phaseExecutionProvider, serverVersion, captureTolerance, completedUsLockOnCompleted);
+var applicationService = new SpecForgeApplicationService(new UserStoryFileStore(), workflowRunner, runtimeVersion: serverVersion, completedUsLockOnCompleted: completedUsLockOnCompleted);
 var serializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 var stdin = Console.OpenStandardInput();
 var stdout = Console.OpenStandardOutput();
@@ -166,6 +170,12 @@ static async Task<JsonNode> HandleToolCallAsync(
                 usId: GetRequired(arguments, "usId"),
                 targetPhase: GetRequired(arguments, "targetPhase"),
                 destructive: GetOptionalBoolean(arguments, "destructive"),
+                actor: GetOptional(arguments, "actor") ?? "user"),
+            "reopen_completed_workflow" => await applicationService.ReopenCompletedWorkflowAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                reasonKind: GetRequired(arguments, "reasonKind"),
+                description: GetRequired(arguments, "description"),
                 actor: GetOptional(arguments, "actor") ?? "user"),
             "reset_user_story_to_capture" => await applicationService.ResetUserStoryToCaptureAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
@@ -354,6 +364,16 @@ static JsonObject BuildToolsList()
                         ("targetPhase",   Prop("string", "Phase slug to rewind to, e.g. clarification, refinement, technical-design.")),
                         ("destructive",   Prop("boolean", "Whether to delete later derived artifacts while rewinding. Defaults to false.")),
                         ("actor",         Prop("string", "Actor requesting the rewind. Defaults to 'user'."))))),
+
+            Tool("reopen_completed_workflow", "Reopen a completed workflow into a controlled earlier phase with an explicit typed reason and human note.",
+                Schema(
+                    required: ["workspaceRoot", "usId", "reasonKind", "description"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier.")),
+                        ("reasonKind",    Prop("string", "Typed reopen reason: merge-conflict, functional-issue, or technical-issue.")),
+                        ("description",   Prop("string", "Human explanation for what failed or what must be incorporated now.")),
+                        ("actor",         Prop("string", "Actor requesting the reopen. Defaults to 'user'."))))),
 
             Tool("reset_user_story_to_capture", "Reset a user story to the capture phase and delete all generated derived artifacts.",
                 Schema(

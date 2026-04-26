@@ -44,6 +44,7 @@ export interface WorkflowViewState {
   readonly requireExplicitApprovalBranchAcceptance?: boolean;
   readonly reviewRegressionDraft?: string | null;
   readonly reviewRegressionIncludeArtifact?: boolean;
+  readonly completedUsLockOnCompleted?: boolean;
 }
 
 export interface ApprovalQuestionItem {

@@ -12,7 +12,8 @@ const PHASES = [
   "implementation",
   "review",
   "release-approval",
-  "pr-preparation"
+  "pr-preparation",
+  "completed"
 ];
 
 export function buildUserStoryDetailsHtml(summary: UserStorySummary): string {

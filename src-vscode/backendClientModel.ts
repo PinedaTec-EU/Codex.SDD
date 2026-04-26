@@ -100,6 +100,27 @@ export function buildRewindWorkflowArguments(
   return argumentsPayload;
 }
 
+export function buildReopenCompletedWorkflowArguments(
+  workspaceRoot: string,
+  usId: string,
+  reasonKind: string,
+  description: string,
+  actor?: string
+): Record<string, string> {
+  const argumentsPayload: Record<string, string> = {
+    workspaceRoot,
+    usId,
+    reasonKind,
+    description
+  };
+
+  if (actor && actor.trim().length > 0) {
+    argumentsPayload.actor = actor;
+  }
+
+  return argumentsPayload;
+}
+
 export function parseToolContent<T>(toolName: string, result: any): T {
   const content = result?.content?.[0]?.text;
   if (typeof content !== "string") {
