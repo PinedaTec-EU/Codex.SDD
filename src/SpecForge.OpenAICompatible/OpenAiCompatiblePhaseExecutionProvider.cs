@@ -543,6 +543,22 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine("Return only structured data that conforms to the response schema.");
         }
 
+        if (context.PhaseId == PhaseId.PrPreparation)
+        {
+            builder
+                .AppendLine()
+                .AppendLine("## PR Preparation Contract")
+                .AppendLine()
+                .AppendLine("Return only structured data that conforms to the response schema.")
+                .AppendLine("Every required field must be populated with repository-grounded content.")
+                .AppendLine("Do not return placeholder-only values such as empty strings, empty arrays, `...`, `TODO`, or generic filler.")
+                .AppendLine("`prTitle` must be a publishable draft PR title.")
+                .AppendLine("`prSummary` must explain the delivered scope in 1-3 concrete sentences.")
+                .AppendLine("`changeNarrative`, `validationSummary`, and `reviewerChecklist` must each contain at least one concrete item.")
+                .AppendLine("`prBody` must contain a complete reviewer-ready markdown body, not a template stub.")
+                .AppendLine("If the available repository context is insufficient, say so explicitly inside the required fields while still filling the schema with concrete blocking detail.");
+        }
+
         return new EffectivePrompt(systemPrompt, builder.ToString().Trim(), warnings);
     }
 

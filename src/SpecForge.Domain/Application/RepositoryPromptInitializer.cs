@@ -231,6 +231,8 @@ public sealed class RepositoryPromptInitializer
 
         Produce a complete pull-request handoff artifact that another engineer could use directly.
         Keep it repository-grounded, explicit about validation and risk, and detailed enough to survive async review.
+        Never leave required sections empty or placeholder-only.
+        The final artifact must be publishable as a draft PR without manual reconstruction.
         """;
 
     private static string BuildAutoClarificationAnswersSystemPrompt() =>
@@ -435,5 +437,14 @@ public sealed class RepositoryPromptInitializer
         - Reviewer Checklist
         - Risks and Follow Ups
         - PR Body
+
+        Output rules:
+        - return only structured JSON that conforms to the response schema supplied by the caller
+        - do not return markdown outside the structured payload
+        - do not leave required fields empty
+        - do not use placeholder-only values such as `...`, `TODO`, or empty bullet lists
+        - `PR Title` must be directly usable for a draft PR
+        - `PR Summary` must describe the delivered scope concretely
+        - `PR Body` must be complete reviewer-ready markdown, not a template stub
         """;
 }

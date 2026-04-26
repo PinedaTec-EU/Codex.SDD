@@ -241,23 +241,23 @@ public static class StructuredPhaseArtifactContracts
         ToJsonElement(ObjectSchema(
             properties: new Dictionary<string, JsonNode?>
             {
-                ["state"] = StringSchema(),
-                ["basedOn"] = ArraySchema(StringSchema()),
-                ["prTitle"] = StringSchema(),
-                ["prSummary"] = StringSchema(),
-                ["branchSummary"] = ArraySchema(StringSchema()),
+                ["state"] = StringSchema(minLength: 1),
+                ["basedOn"] = ArraySchema(StringSchema(minLength: 1), minItems: 1),
+                ["prTitle"] = StringSchema(minLength: 1),
+                ["prSummary"] = StringSchema(minLength: 1),
+                ["branchSummary"] = ArraySchema(StringSchema(minLength: 1), minItems: 1),
                 ["participants"] = ArraySchema(ObjectSchema(
                     properties: new Dictionary<string, JsonNode?>
                     {
-                        ["actor"] = StringSchema(),
-                        ["phases"] = ArraySchema(StringSchema())
+                        ["actor"] = StringSchema(minLength: 1),
+                        ["phases"] = ArraySchema(StringSchema(minLength: 1), minItems: 1)
                     },
-                    required: ["actor", "phases"])),
-                ["changeNarrative"] = ArraySchema(StringSchema()),
-                ["validationSummary"] = ArraySchema(StringSchema()),
-                ["reviewerChecklist"] = ArraySchema(StringSchema()),
+                    required: ["actor", "phases"]), minItems: 1),
+                ["changeNarrative"] = ArraySchema(StringSchema(minLength: 1), minItems: 1),
+                ["validationSummary"] = ArraySchema(StringSchema(minLength: 1), minItems: 1),
+                ["reviewerChecklist"] = ArraySchema(StringSchema(minLength: 1), minItems: 1),
                 ["risksAndFollowUps"] = ArraySchema(StringSchema()),
-                ["prBody"] = ArraySchema(StringSchema())
+                ["prBody"] = ArraySchema(StringSchema(minLength: 1), minItems: 3)
             },
             required:
             [
@@ -300,11 +300,19 @@ public static class StructuredPhaseArtifactContracts
         return schema;
     }
 
-    private static JsonObject StringSchema() =>
-        new()
+    private static JsonObject StringSchema(int? minLength = null)
+    {
+        var schema = new JsonObject
         {
             ["type"] = "string"
         };
+        if (minLength is not null)
+        {
+            schema["minLength"] = minLength.Value;
+        }
+
+        return schema;
+    }
 
     private static JsonObject NullableStringSchema() =>
         new()
@@ -319,12 +327,20 @@ public static class StructuredPhaseArtifactContracts
             ["enum"] = new JsonArray(allowedValues.Select(static item => (JsonNode?)item).ToArray())
         };
 
-    private static JsonObject ArraySchema(JsonNode itemSchema) =>
-        new()
+    private static JsonObject ArraySchema(JsonNode itemSchema, int? minItems = null)
+    {
+        var schema = new JsonObject
         {
             ["type"] = "array",
             ["items"] = itemSchema.DeepClone()
         };
+        if (minItems is not null)
+        {
+            schema["minItems"] = minItems.Value;
+        }
+
+        return schema;
+    }
 }
 
 public sealed record ClarificationArtifactDocument(
