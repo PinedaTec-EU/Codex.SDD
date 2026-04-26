@@ -985,7 +985,8 @@ class WorkflowPanelController {
             ?? workflow.phases[0];
         this.selectedPhaseId = selectedPhase.phaseId;
         const phaseIterations = (workflow.phaseIterations ?? [])
-            .filter((iteration) => iteration.phaseId === selectedPhase.phaseId);
+            .filter((iteration) => iteration.phaseId === selectedPhase.phaseId)
+            .sort((left, right) => right.attempt - left.attempt);
         const iterationKeys = phaseIterations
             .map((iteration) => iteration.iterationKey);
         const selectedIteration = this.selectedIterationKey && iterationKeys.includes(this.selectedIterationKey)

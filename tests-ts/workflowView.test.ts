@@ -495,7 +495,6 @@ test("buildWorkflowHtml renders iteration lineage with input and output artifact
   assert.match(html, /Open Output/);
   assert.match(html, /Open Operation Log/);
   assert.match(html, /Context Artifacts/);
-  assert.match(html, /Embedded Context Artifacts/);
   assert.match(html, /04-review\.md/);
   assert.match(html, /Fix the empty state\./);
   assert.match(html, /Apply the failed review corrections\./);

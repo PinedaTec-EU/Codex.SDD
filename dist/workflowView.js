@@ -768,25 +768,17 @@ function buildEmbeddedArtifactSection(title, artifactPath, artifactContent, opti
     </section>
   `;
 }
-function buildArtifactCollectionSection(title, artifacts, options) {
+function buildArtifactCollectionSection(artifacts, options) {
     if (artifacts.length === 0) {
-        return `
-      <section class="detail-card detail-card--embedded-artifact-list">
-        <h3>${(0, htmlEscape_1.escapeHtml)(title)}</h3>
-        <p class="muted">${(0, htmlEscape_1.escapeHtml)(options?.emptyMessage ?? "No artifacts are available.")}</p>
-      </section>
-    `;
+        return `<p class="muted">${(0, htmlEscape_1.escapeHtml)(options?.emptyMessage ?? "No artifacts are available.")}</p>`;
     }
     return `
-    <section class="detail-card detail-card--embedded-artifact-list">
-      <h3>${(0, htmlEscape_1.escapeHtml)(title)}</h3>
-      <div class="embedded-artifact-list">
-        ${artifacts.map((artifact) => buildEmbeddedArtifactSection(fileNameFromPath(artifact.path), artifact.path, artifact.content ?? "Artifact content unavailable.", {
+    <div class="embedded-artifact-list">
+      ${artifacts.map((artifact) => buildEmbeddedArtifactSection(fileNameFromPath(artifact.path), artifact.path, artifact.content ?? "Artifact content unavailable.", {
         rawArtifact: options?.rawArtifact,
         compactTitle: true
     })).join("")}
-      </div>
-    </section>
+    </div>
   `;
 }
 function buildWorkflowAuditRowsHtml(workflow, state) {
@@ -969,9 +961,10 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     `
         : "";
     const shouldPulsePlay = playbackState === "idle" && workflow.controls.canContinue && !implementationReviewLimitReached;
+    const playWarnsAboutImplementationLimit = playbackState === "idle" && implementationReviewLimitReached;
     const playDisabled = playbackState === "playing"
         || !state.settingsConfigured
-        || (playbackState === "idle" && (!workflow.controls.canContinue || implementationReviewLimitReached));
+        || (playbackState === "idle" && !workflow.controls.canContinue);
     const rerunReviewDisabled = playbackState === "playing"
         || !state.settingsConfigured;
     const isMarkdownArtifact = Boolean(selectedPhase.artifactPath?.toLowerCase().endsWith(".md"));
@@ -1208,10 +1201,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         ${selectedIteration.contextArtifactPaths.length > 0
             ? `<div class="iteration-context-list">
               <h4>Context Artifacts</h4>
-              <div class="detail-actions">
-                ${selectedIteration.contextArtifactPaths.map((artifactPath) => `<button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${(0, htmlEscape_1.escapeHtmlAttr)(artifactPath)}">${(0, htmlEscape_1.escapeHtml)(fileNameFromPath(artifactPath))}</button>`).join("")}
-              </div>
-              ${buildArtifactCollectionSection("Embedded Context Artifacts", state.selectedIterationContextArtifacts ?? [], {
+              ${buildArtifactCollectionSection(state.selectedIterationContextArtifacts ?? [], {
                 emptyMessage: "The selected iteration recorded context artifact paths, but their contents could not be loaded."
             })}
             </div>`
@@ -1307,7 +1297,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     </div>
   `;
     const playbackButtons = `
-    <button class="icon-button icon-button--primary${shouldPulsePlay ? " icon-button--pulse" : ""}" data-command="play" aria-label="Play workflow"${playDisabled ? " disabled" : ""}>
+    <button class="icon-button ${playWarnsAboutImplementationLimit ? "icon-button--attention" : "icon-button--primary"}${shouldPulsePlay ? " icon-button--pulse" : ""}" data-command="play" aria-label="${playWarnsAboutImplementationLimit ? "Play workflow with implementation loop limit warning" : "Play workflow"}"${playDisabled ? " disabled" : ""}>
       ${(0, icons_1.playIcon)()}
     </button>
     <button class="icon-button" data-command="pause" aria-label="Pause workflow"${playbackState !== "playing" ? " disabled" : ""}>
@@ -1825,9 +1815,21 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       border-color: var(--action-progress-border);
       box-shadow: 0 10px 28px var(--action-progress-shadow);
     }
+    .icon-button--attention {
+      width: 74px;
+      height: 74px;
+      background: linear-gradient(180deg, rgba(255, 213, 90, 0.22), rgba(72, 52, 14, 0.96));
+      border-color: rgba(255, 213, 90, 0.32);
+      color: rgba(255, 246, 214, 0.96);
+      box-shadow: 0 10px 28px rgba(74, 55, 16, 0.24);
+    }
     .icon-button--primary:hover {
       border-color: var(--action-progress-border-hover);
       background: var(--action-progress-bg-hover);
+    }
+    .icon-button--attention:hover {
+      border-color: rgba(255, 225, 130, 0.44);
+      background: linear-gradient(180deg, rgba(255, 223, 124, 0.24), rgba(82, 60, 18, 0.98));
     }
     .icon-button--pulse {
       animation: playPulse 1.35s ease-in-out infinite;
@@ -1853,6 +1855,11 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       fill: currentColor;
     }
     .icon-button--primary svg {
+      width: 30px;
+      height: 30px;
+      margin-left: 2px;
+    }
+    .icon-button--attention svg {
       width: 30px;
       height: 30px;
       margin-left: 2px;
@@ -2841,12 +2848,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       gap: 12px;
     }
     .detail-card--embedded-artifact {
-      display: grid;
       gap: 12px;
-      padding: 14px 16px;
-      border-radius: 16px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      background: rgba(255, 255, 255, 0.025);
     }
     .detail-card--embedded-artifact h4 {
       margin: 0;
