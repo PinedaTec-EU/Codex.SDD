@@ -2708,6 +2708,8 @@ test("buildWorkflowHtml shows implementation loop limit banner and manual extra 
   assert.match(html, /Implementation Loop Paused/);
   assert.match(html, /reached the configured limit \(2\)/);
   assert.match(html, /Run One Extra Review Pass/);
+  assert.match(html, /icon-button--attention/);
+  assert.doesNotMatch(html, /data-command="play"[^>]*disabled/);
 });
 
 test("buildWorkflowHtml prefers assigned overlay profile over stale history when configured model is blank", () => {

@@ -346,7 +346,7 @@ class WorkflowPanelController {
         }
         return;
       case "play":
-        await this.requestWorkflowExecutionAsync("command:play", "play");
+        await this.playWithImplementationLimitConfirmationAsync();
         return;
       case "pause":
         await this.armNextPhasePauseAsync("toolbar pause");
@@ -1183,6 +1183,38 @@ class WorkflowPanelController {
         `Workflow '${this.summary.usId}' did not auto-play after ${trigger} because canContinue=${workflow.controls.canContinue}, requiresApproval=${workflow.controls.requiresApproval}, blockingReason='${workflow.controls.blockingReason ?? "none"}'.`
       );
     }
+  }
+
+  private async playWithImplementationLimitConfirmationAsync(): Promise<void> {
+    const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
+    this.lastWorkflow = workflow;
+    const settings = getSpecForgeSettings();
+    const implementationLimitReached = workflow.currentPhase === "implementation"
+      && hasReachedImplementationReviewCycleLimit(workflow, settings.maxImplementationReviewCycles);
+
+    if (!implementationLimitReached) {
+      await this.requestWorkflowExecutionAsync("command:play", "play");
+      return;
+    }
+
+    const confirmation = await vscode.window.showWarningMessage(
+      `Implementation already reached the configured implementation/review loop limit (${settings.maxImplementationReviewCycles}). Continue one extra review pass manually?`,
+      { modal: true },
+      "Continue Once",
+      "Abort"
+    );
+
+    if (confirmation !== "Continue Once") {
+      appendSpecForgeLog(
+        `Workflow '${this.summary.usId}' aborted manual extra review pass after reaching the implementation/review loop limit (${settings.maxImplementationReviewCycles}).`
+      );
+      return;
+    }
+
+    appendSpecForgeLog(
+      `Workflow '${this.summary.usId}' accepted one manual extra review pass after reaching the implementation/review loop limit (${settings.maxImplementationReviewCycles}).`
+    );
+    await this.continueCurrentPhaseAsync();
   }
 
   private async maybeAutoReviewAfterImplementationAsync(trigger: string): Promise<void> {
