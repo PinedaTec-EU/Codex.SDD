@@ -246,6 +246,13 @@ public static class StructuredPhaseArtifactContracts
                 ["prTitle"] = StringSchema(),
                 ["prSummary"] = StringSchema(),
                 ["branchSummary"] = ArraySchema(StringSchema()),
+                ["participants"] = ArraySchema(ObjectSchema(
+                    properties: new Dictionary<string, JsonNode?>
+                    {
+                        ["actor"] = StringSchema(),
+                        ["phases"] = ArraySchema(StringSchema())
+                    },
+                    required: ["actor", "phases"])),
                 ["changeNarrative"] = ArraySchema(StringSchema()),
                 ["validationSummary"] = ArraySchema(StringSchema()),
                 ["reviewerChecklist"] = ArraySchema(StringSchema()),
@@ -259,6 +266,7 @@ public static class StructuredPhaseArtifactContracts
                 "prTitle",
                 "prSummary",
                 "branchSummary",
+                "participants",
                 "changeNarrative",
                 "validationSummary",
                 "reviewerChecklist",
@@ -371,11 +379,16 @@ public sealed record PrPreparationArtifactDocument(
     string PrTitle,
     string PrSummary,
     IReadOnlyList<string> BranchSummary,
+    IReadOnlyList<PrPreparationParticipant> Participants,
     IReadOnlyList<string> ChangeNarrative,
     IReadOnlyList<string> ValidationSummary,
     IReadOnlyList<string> ReviewerChecklist,
     IReadOnlyList<string> RisksAndFollowUps,
     IReadOnlyList<string> PrBody);
+
+public sealed record PrPreparationParticipant(
+    string Actor,
+    IReadOnlyList<string> Phases);
 
 public sealed record ReviewValidationChecklistItem(
     string Status,
@@ -689,6 +702,12 @@ public static class PrPreparationArtifactJson
         lines.Add("## Branch Summary");
         lines.AddRange(StructuredPhaseArtifactMarkdown.RenderBulletSection(normalized.BranchSummary));
         lines.Add(string.Empty);
+        lines.Add("## Participants");
+        lines.AddRange(normalized.Participants.Count == 0
+            ? ["- user — phases: capture"]
+            : normalized.Participants.Select(static participant =>
+                $"- {participant.Actor} — phases: {string.Join(", ", participant.Phases)}"));
+        lines.Add(string.Empty);
         lines.Add("## Change Narrative");
         lines.AddRange(StructuredPhaseArtifactMarkdown.RenderBulletSection(normalized.ChangeNarrative));
         lines.Add(string.Empty);
@@ -713,11 +732,21 @@ public static class PrPreparationArtifactJson
             PrTitle: StructuredPhaseArtifactJson.NormalizeScalar(document.PrTitle),
             PrSummary: StructuredPhaseArtifactJson.NormalizeScalar(document.PrSummary),
             BranchSummary: StructuredPhaseArtifactJson.NormalizeLines(document.BranchSummary),
+            Participants: NormalizeParticipants(document.Participants),
             ChangeNarrative: StructuredPhaseArtifactJson.NormalizeLines(document.ChangeNarrative),
             ValidationSummary: StructuredPhaseArtifactJson.NormalizeLines(document.ValidationSummary),
             ReviewerChecklist: StructuredPhaseArtifactJson.NormalizeLines(document.ReviewerChecklist),
             RisksAndFollowUps: StructuredPhaseArtifactJson.NormalizeLines(document.RisksAndFollowUps),
             PrBody: StructuredPhaseArtifactJson.NormalizeLines(document.PrBody));
+
+    private static IReadOnlyList<PrPreparationParticipant> NormalizeParticipants(
+        IReadOnlyList<PrPreparationParticipant>? participants) =>
+        (participants ?? Array.Empty<PrPreparationParticipant>())
+            .Select(static participant => new PrPreparationParticipant(
+                StructuredPhaseArtifactJson.NormalizeScalar(participant.Actor),
+                StructuredPhaseArtifactJson.NormalizeLines(participant.Phases)))
+            .Where(static participant => !string.IsNullOrWhiteSpace(participant.Actor))
+            .ToArray();
 }
 
 internal static class StructuredPhaseArtifactJson

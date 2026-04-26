@@ -429,6 +429,7 @@ public sealed class RepositoryPromptInitializer
         - PR Title
         - PR Summary
         - Branch Summary
+        - Participants
         - Change Narrative
         - Validation Summary
         - Reviewer Checklist
