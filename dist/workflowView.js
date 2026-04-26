@@ -2346,7 +2346,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .phase-node h3 {
       margin: 10px 0 4px;
-      font-size: 0.98rem;
+      font-size: 1.18rem;
+      font-weight: 700;
+      line-height: 1.15;
       position: relative;
       z-index: 1;
     }
@@ -2368,9 +2370,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .phase-slug {
       font-family: var(--specforge-mono-font-family);
-      font-size: 0.78rem;
+      font-size: 0.96rem;
       opacity: 0.66;
-      line-height: 1.25;
+      line-height: 1.35;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
