@@ -1082,7 +1082,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         ? (0, workflowRejectPlan_1.resolveWorkflowRejectPlan)(selectedPhase.phaseId)
         : null;
     const selectedPhaseStateClass = heroTokenClass(selectedPhaseDisplayState);
-    const continueActionLabel = selectedPhaseIsCurrent ? "Continue" : "Continue Current Phase";
+    const continueActionLabel = "Continue";
     const rerunReviewActionLabel = "Rerun Review";
     const approveActionLabel = selectedPhaseIsCurrent ? "Approve" : "Approve Current Phase";
     const reviewRegressionIncludeArtifact = state.reviewRegressionIncludeArtifact !== false;
@@ -1113,7 +1113,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         ${shouldRenderApproveReviewAnywayAction
             ? `<button class="workflow-action-button workflow-action-button--attention" type="button" data-open-review-approve-anyway-modal>Approve Anyway</button>`
             : ""}
-        ${workflow.controls.canContinue
+        ${selectedPhaseIsCurrent && workflow.controls.canContinue
             ? `<button class="workflow-action-button workflow-action-button--progress" data-command="continue"${playDisabled ? " disabled" : ""}>${continueActionLabel}</button>`
             : ""}
         ${shouldRenderRerunReviewAction
