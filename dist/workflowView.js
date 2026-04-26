@@ -1595,11 +1595,11 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .token-summary__label {
       min-width: 0;
-      font-size: 0.76rem;
+      font-size: 1rem;
       color: rgba(226, 232, 240, 0.7);
     }
     .token-summary__value {
-      font-size: 0.8rem;
+      font-size: 1rem;
       font-weight: 700;
       color: #f4f7fb;
     }
