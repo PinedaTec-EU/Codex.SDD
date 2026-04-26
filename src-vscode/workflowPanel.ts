@@ -60,6 +60,43 @@ type WorkflowExecutionRequest = {
 
 const panels = new Map<string, WorkflowPanelController>();
 
+function escapeCssCustomPropertyValue(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+}
+
+function getEditorTypographyCssVars(): string {
+  const editorConfig = vscode.workspace.getConfiguration("editor");
+  const vars: string[] = [];
+  const fontFamily = editorConfig.get<string>("fontFamily", "").trim();
+  const fontSize = editorConfig.get<number>("fontSize");
+  const lineHeight = editorConfig.get<number>("lineHeight");
+  const fontLigatures = editorConfig.get<string | boolean>("fontLigatures");
+
+  if (fontFamily) {
+    vars.push(`--specforge-editor-font-family: ${escapeCssCustomPropertyValue(fontFamily)};`);
+  }
+
+  if (typeof fontSize === "number" && Number.isFinite(fontSize) && fontSize > 0) {
+    vars.push(`--specforge-editor-font-size: ${fontSize}px;`);
+  }
+
+  if (typeof lineHeight === "number" && Number.isFinite(lineHeight)) {
+    if (lineHeight > 8) {
+      vars.push(`--specforge-editor-line-height: ${lineHeight}px;`);
+    } else if (lineHeight > 0) {
+      vars.push(`--specforge-editor-line-height: ${lineHeight};`);
+    }
+  }
+
+  if (typeof fontLigatures === "string" && fontLigatures.trim().length > 0) {
+    vars.push(`--specforge-editor-font-feature-settings: ${fontLigatures.trim()};`);
+  } else if (typeof fontLigatures === "boolean") {
+    vars.push(`--specforge-editor-font-variant-ligatures: ${fontLigatures ? "normal" : "none"};`);
+  }
+
+  return vars.join("\n      ");
+}
+
 export interface WorkflowPanelCallbacks {
   refreshExplorer(): Promise<void>;
   notifyAttention(message: string): void;
@@ -1297,7 +1334,12 @@ class WorkflowPanelController {
     };
     this.panel.title = `${workflow.usId} workflow`;
     this.lastRenderedViewState = viewState;
-    this.panel.webview.html = buildWorkflowHtml(workflow, viewState, this.playbackState);
+    this.panel.webview.html = buildWorkflowHtml(
+      workflow,
+      viewState,
+      this.playbackState,
+      getEditorTypographyCssVars()
+    );
     if (this.panel.active) {
       this.callbacks.showWorkflowAudit(this.summary.usId, workflow, viewState);
     }

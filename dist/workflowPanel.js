@@ -54,6 +54,38 @@ const workflowView_1 = require("./workflowView");
 const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
 const utils_1 = require("./utils");
 const panels = new Map();
+function escapeCssCustomPropertyValue(value) {
+    return value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+}
+function getEditorTypographyCssVars() {
+    const editorConfig = vscode.workspace.getConfiguration("editor");
+    const vars = [];
+    const fontFamily = editorConfig.get("fontFamily", "").trim();
+    const fontSize = editorConfig.get("fontSize");
+    const lineHeight = editorConfig.get("lineHeight");
+    const fontLigatures = editorConfig.get("fontLigatures");
+    if (fontFamily) {
+        vars.push(`--specforge-editor-font-family: ${escapeCssCustomPropertyValue(fontFamily)};`);
+    }
+    if (typeof fontSize === "number" && Number.isFinite(fontSize) && fontSize > 0) {
+        vars.push(`--specforge-editor-font-size: ${fontSize}px;`);
+    }
+    if (typeof lineHeight === "number" && Number.isFinite(lineHeight)) {
+        if (lineHeight > 8) {
+            vars.push(`--specforge-editor-line-height: ${lineHeight}px;`);
+        }
+        else if (lineHeight > 0) {
+            vars.push(`--specforge-editor-line-height: ${lineHeight};`);
+        }
+    }
+    if (typeof fontLigatures === "string" && fontLigatures.trim().length > 0) {
+        vars.push(`--specforge-editor-font-feature-settings: ${fontLigatures.trim()};`);
+    }
+    else if (typeof fontLigatures === "boolean") {
+        vars.push(`--specforge-editor-font-variant-ligatures: ${fontLigatures ? "normal" : "none"};`);
+    }
+    return vars.join("\n      ");
+}
 async function openWorkflowView(workspaceRoot, summary, getBackendClient, callbacks) {
     const panelId = `${workspaceRoot}:${summary.usId}`;
     let controller = panels.get(panelId);
@@ -1004,7 +1036,7 @@ class WorkflowPanelController {
         };
         this.panel.title = `${workflow.usId} workflow`;
         this.lastRenderedViewState = viewState;
-        this.panel.webview.html = (0, workflowView_1.buildWorkflowHtml)(workflow, viewState, this.playbackState);
+        this.panel.webview.html = (0, workflowView_1.buildWorkflowHtml)(workflow, viewState, this.playbackState, getEditorTypographyCssVars());
         if (this.panel.active) {
             this.callbacks.showWorkflowAudit(this.summary.usId, workflow, viewState);
         }

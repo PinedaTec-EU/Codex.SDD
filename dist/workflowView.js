@@ -785,7 +785,7 @@ function buildWorkflowAuditRowsHtml(workflow, state) {
         }).join("")
         : `<pre class="audit-log">${(0, htmlEscape_1.escapeHtml)(workflow.rawTimeline)}</pre>`;
 }
-function buildWorkflowAuditHtml(workflow, state) {
+function buildWorkflowAuditHtml(workflow, state, typographyCssVars = "") {
     const auditRows = buildWorkflowAuditRowsHtml(workflow, state);
     return `<!DOCTYPE html>
 <html lang="en">
@@ -795,8 +795,17 @@ function buildWorkflowAuditHtml(workflow, state) {
   <style>
     :root {
       color-scheme: light dark;
-      font-family: var(--vscode-font-family, "Segoe UI", ui-sans-serif, sans-serif);
-      font-size: calc(var(--vscode-font-size, 13px) * 0.98);
+      --specforge-editor-font-family: var(--vscode-editor-font-family, var(--vscode-font-family, "Segoe UI", ui-sans-serif, sans-serif));
+      --specforge-editor-font-size: var(--vscode-editor-font-size, 13px);
+      --specforge-editor-line-height: var(--vscode-editor-line-height, 1.5);
+      --specforge-editor-font-feature-settings: normal;
+      --specforge-editor-font-variant-ligatures: normal;
+      ${typographyCssVars}
+      font-family: var(--specforge-editor-font-family);
+      font-size: var(--specforge-editor-font-size);
+      line-height: var(--specforge-editor-line-height);
+      font-feature-settings: var(--specforge-editor-font-feature-settings);
+      font-variant-ligatures: var(--specforge-editor-font-variant-ligatures);
     }
     * {
       box-sizing: border-box;
@@ -884,7 +893,7 @@ function buildWorkflowAuditHtml(workflow, state) {
 </body>
 </html>`;
 }
-function buildWorkflowHtml(workflow, state, playbackState) {
+function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "") {
     const effectiveExecutionPhaseId = resolveEffectiveExecutionPhaseId(workflow, state, playbackState);
     const pausedExecutionPhaseId = resolvePausedExecutionPhaseId(workflow, state, playbackState);
     const displayedCurrentPhaseId = resolveDisplayedCurrentPhaseId(workflow, effectiveExecutionPhaseId, pausedExecutionPhaseId, playbackState);
@@ -1274,8 +1283,17 @@ function buildWorkflowHtml(workflow, state, playbackState) {
   <style>
     :root {
       color-scheme: light dark;
-      font-family: var(--vscode-font-family, "Segoe UI", ui-sans-serif, sans-serif);
-      font-size: calc(var(--vscode-font-size, 13px) * 0.96);
+      --specforge-editor-font-family: var(--vscode-editor-font-family, var(--vscode-font-family, "Segoe UI", ui-sans-serif, sans-serif));
+      --specforge-editor-font-size: var(--vscode-editor-font-size, 13px);
+      --specforge-editor-line-height: var(--vscode-editor-line-height, 1.5);
+      --specforge-editor-font-feature-settings: normal;
+      --specforge-editor-font-variant-ligatures: normal;
+      ${typographyCssVars}
+      font-family: var(--specforge-editor-font-family);
+      font-size: var(--specforge-editor-font-size);
+      line-height: var(--specforge-editor-line-height);
+      font-feature-settings: var(--specforge-editor-font-feature-settings);
+      font-variant-ligatures: var(--specforge-editor-font-variant-ligatures);
       --accent: #72f1b8;
       --accent-strong: #1fd89b;
       --accent-soft: rgba(114, 241, 184, 0.16);
@@ -3499,9 +3517,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       }
     }
     @media (max-width: 1160px) {
-      :root {
-        font-size: calc(var(--vscode-font-size, 13px) * 0.95);
-      }
       .layout-main {
         grid-template-columns: 1fr;
       }
@@ -3514,9 +3529,6 @@ function buildWorkflowHtml(workflow, state, playbackState) {
       }
     }
     @media (max-width: 1500px) and (min-width: 761px) {
-      :root {
-        font-size: calc(var(--vscode-font-size, 13px) * 0.96);
-      }
       .hero, .graph-panel, .detail-panel {
         padding: 18px;
       }
