@@ -955,6 +955,72 @@ function buildArtifactPreviewSection(
   `;
 }
 
+function buildEmbeddedArtifactSection(
+  title: string,
+  artifactPath: string,
+  artifactContent: string,
+  options?: {
+    readonly rawArtifact?: boolean;
+    readonly footerNote?: string;
+    readonly compactTitle?: boolean;
+  }
+): string {
+  const headingTag = options?.compactTitle ? "h4" : "h3";
+  const artifactPreviewHtml = artifactPath.trim().toLowerCase().endsWith(".md")
+    ? renderMarkdownToHtml(artifactContent)
+    : null;
+
+  return `
+    <section class="detail-card detail-card--embedded-artifact">
+      <${headingTag}>${escapeHtml(title)}</${headingTag}>
+      ${buildArtifactPreviewSection(
+        artifactPath,
+        artifactPreviewHtml,
+        artifactContent,
+        options
+      )}
+    </section>
+  `;
+}
+
+function buildArtifactCollectionSection(
+  title: string,
+  artifacts: readonly {
+    readonly path: string;
+    readonly content: string | null;
+  }[],
+  options?: {
+    readonly emptyMessage?: string;
+    readonly rawArtifact?: boolean;
+  }
+): string {
+  if (artifacts.length === 0) {
+    return `
+      <section class="detail-card detail-card--embedded-artifact-list">
+        <h3>${escapeHtml(title)}</h3>
+        <p class="muted">${escapeHtml(options?.emptyMessage ?? "No artifacts are available.")}</p>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="detail-card detail-card--embedded-artifact-list">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="embedded-artifact-list">
+        ${artifacts.map((artifact) => buildEmbeddedArtifactSection(
+          fileNameFromPath(artifact.path),
+          artifact.path,
+          artifact.content ?? "Artifact content unavailable.",
+          {
+            rawArtifact: options?.rawArtifact,
+            compactTitle: true
+          }
+        )).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function buildWorkflowAuditRowsHtml(
   workflow: UserStoryWorkflowDetails,
   state: WorkflowViewState
@@ -1402,6 +1468,13 @@ export function buildWorkflowHtml(
               <div class="detail-actions">
                 ${selectedIteration.contextArtifactPaths.map((artifactPath) => `<button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(artifactPath)}">${escapeHtml(fileNameFromPath(artifactPath))}</button>`).join("")}
               </div>
+              ${buildArtifactCollectionSection(
+                "Embedded Context Artifacts",
+                state.selectedIterationContextArtifacts ?? [],
+                {
+                  emptyMessage: "The selected iteration recorded context artifact paths, but their contents could not be loaded."
+                }
+              )}
             </div>`
           : ""}
       </section>
@@ -3023,6 +3096,21 @@ export function buildWorkflowHtml(
     .iteration-context-list h4 {
       margin: 0;
     }
+    .embedded-artifact-list {
+      display: grid;
+      gap: 12px;
+    }
+    .detail-card--embedded-artifact {
+      display: grid;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.025);
+    }
+    .detail-card--embedded-artifact h4 {
+      margin: 0;
+    }
     .approval-question-item {
       display: grid;
       gap: 10px;
@@ -4162,25 +4250,6 @@ export function buildWorkflowHtml(
       event.preventDefault();
       postCommand(commandElement);
     });
-    for (const element of document.querySelectorAll("[data-command]")) {
-      if (!(element instanceof HTMLElement) || element.dataset.command === "approve") {
-        continue;
-      }
-
-      element.addEventListener("click", () => {
-        postCommand(element);
-      });
-      if (element.dataset.command === "selectPhase") {
-        element.addEventListener("keydown", (event) => {
-          if (event.key !== "Enter" && event.key !== " ") {
-            return;
-          }
-
-          event.preventDefault();
-          postCommand(element);
-        });
-      }
-    }
     try {
       vscode.postMessage({
         command: "webviewReady",

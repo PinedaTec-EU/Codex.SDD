@@ -482,7 +482,22 @@ class WorkflowPanelController {
                 "",
                 normalizedPrompt
             ].join("\n");
-        const operation = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, operationPrompt, (0, userActor_1.getCurrentActor)(), includeReviewArtifactInContext);
+        if (this.playbackState !== "playing") {
+            this.playbackStartedAtMs = Date.now();
+        }
+        this.playbackState = "playing";
+        this.setTransientExecutionPhase("implementation");
+        await this.refreshAsync("sendReviewToImplementationAsync:running");
+        let operation;
+        try {
+            operation = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, operationPrompt, (0, userActor_1.getCurrentActor)(), includeReviewArtifactInContext);
+        }
+        finally {
+            if (this.playbackState === "playing") {
+                this.playbackState = "idle";
+                this.playbackStartedAtMs = null;
+            }
+        }
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' applied the approved review correction pass over implementation. reviewArtifactIncluded=${includeReviewArtifactInContext}.${this.formatExecutionSummary(operation.execution)}`);
         this.logExecutionWarnings(operation.execution);
         this.summary = {
@@ -964,6 +979,10 @@ class WorkflowPanelController {
             this.selectedIterationKey = selectedIteration?.iterationKey ?? null;
         }
         const selectedArtifactContent = await readArtifactContentAsync(selectedArtifactPath);
+        const selectedIterationContextArtifacts = await Promise.all((selectedIteration?.contextArtifactPaths ?? []).map(async (artifactPath) => ({
+            path: artifactPath,
+            content: await readArtifactContentAsync(artifactPath)
+        })));
         const selectedOperationContent = await readArtifactContentAsync(selectedPhase.operationLogPath);
         const sourceText = await readArtifactContentAsync(workflow.mainArtifactPath) ?? "";
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
@@ -980,6 +999,7 @@ class WorkflowPanelController {
             selectedIterationKey: this.selectedIterationKey,
             expandedIterationPhaseIds: [...this.expandedIterationPhaseIds],
             selectedArtifactContent,
+            selectedIterationContextArtifacts,
             selectedOperationContent,
             contextSuggestions,
             settingsConfigured: settingsStatus.executionConfigured,

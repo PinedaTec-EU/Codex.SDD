@@ -5,6 +5,10 @@ export interface WorkflowViewState {
   readonly selectedIterationKey?: string | null;
   readonly expandedIterationPhaseIds?: readonly string[];
   readonly selectedArtifactContent: string | null;
+  readonly selectedIterationContextArtifacts?: readonly {
+    readonly path: string;
+    readonly content: string | null;
+  }[];
   readonly selectedOperationContent?: string | null;
   readonly contextSuggestions: readonly SuggestedContextFile[];
   readonly settingsConfigured: boolean;

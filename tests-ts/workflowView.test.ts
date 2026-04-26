@@ -266,6 +266,61 @@ test("buildWorkflowAuditHtml renders workflow audit content in a standalone pane
   assert.doesNotMatch(html, /Audit Stream<\/h2>/);
 });
 
+test("buildWorkflowHtml relies on delegated command handlers without per-node duplicate listeners", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0001",
+    title: "Workflow view",
+    category: "workflow",
+    status: "active",
+    currentPhase: "review",
+    directoryPath: "/tmp/us.US-0001",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "review",
+        title: "Review",
+        order: 5,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/04-review.md",
+        executePromptPath: null,
+        approvePromptPath: null,
+        executeSystemPromptPath: null,
+        approveSystemPromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "review_failed",
+      canRestartFromSource: true,
+      regressionTargets: ["implementation"],
+      rewindTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "review",
+    selectedArtifactContent: "review",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.match(html, /document\.addEventListener\("click"/);
+  assert.match(html, /document\.addEventListener\("keydown"/);
+  assert.doesNotMatch(html, /querySelectorAll\("\[data-command\]"\)/);
+});
+
 test("buildWorkflowHtml renders iteration lineage with input and output artifacts", () => {
   const html = buildWorkflowHtml({
     usId: "US-0200",
@@ -357,6 +412,12 @@ test("buildWorkflowHtml renders iteration lineage with input and output artifact
     selectedIterationKey: "implementation:2:2026-04-25T11:00:00Z:artifact_operated",
     expandedIterationPhaseIds: [],
     selectedArtifactContent: "# impl v2",
+    selectedIterationContextArtifacts: [
+      {
+        path: "/tmp/04-review.md",
+        content: "# Review\n\n- Result: `fail`\n- Fix the empty state."
+      }
+    ],
     contextSuggestions: [],
     settingsConfigured: true,
     settingsMessage: null,
@@ -378,7 +439,9 @@ test("buildWorkflowHtml renders iteration lineage with input and output artifact
   assert.match(html, /Open Output/);
   assert.match(html, /Open Operation Log/);
   assert.match(html, /Context Artifacts/);
+  assert.match(html, /Embedded Context Artifacts/);
   assert.match(html, /04-review\.md/);
+  assert.match(html, /Fix the empty state\./);
   assert.match(html, /Apply the failed review corrections\./);
 });
 
