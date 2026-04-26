@@ -1368,7 +1368,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       margin: 0 0 10px;
       text-transform: uppercase;
       letter-spacing: 0.18em;
-      font-size: 0.72rem;
+      font-size: 0.86rem;
       color: var(--accent);
     }
     .hero-caption {
@@ -1382,7 +1382,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       margin: 0;
     }
     .runtime-version {
-      font-size: 0.68rem;
+      font-size: 0.8rem;
       letter-spacing: 0.08em;
       color: rgba(166, 255, 206, 0.78);
     }
@@ -1936,7 +1936,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       flex: 1 1 auto;
     }
     .execution-overlay__eyebrow {
-      font-size: 0.68rem;
+      font-size: 0.82rem;
       text-transform: uppercase;
       letter-spacing: 0.16em;
       color: rgba(114, 241, 184, 0.92);
@@ -1970,7 +1970,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       bottom: 12px;
       max-width: calc(100% - 32px);
       color: rgba(166, 172, 178, 0.78);
-      font-size: 0.72rem;
+      font-size: 0.82rem;
       line-height: 1.2;
       text-align: right;
       letter-spacing: 0.02em;
@@ -1989,7 +1989,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       color: rgba(233, 240, 250, 0.8);
       padding: 5px 10px;
       font: inherit;
-      font-size: 0.72rem;
+      font-size: 0.82rem;
       line-height: 1;
       cursor: pointer;
     }
@@ -2229,7 +2229,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       margin-left: -10px;
       color: rgba(245, 250, 255, 0.98);
       text-shadow: 0 1px 2px rgba(7, 17, 28, 0.34);
-      font-size: 0.72rem;
+      font-size: 0.84rem;
       font-weight: 800;
       letter-spacing: 0.18em;
       line-height: 1;
@@ -2266,7 +2266,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       margin-right: -10px;
       color: rgba(245, 248, 252, 0.94);
       text-shadow: 0 1px 2px rgba(7, 17, 28, 0.28);
-      font-size: 0.68rem;
+      font-size: 0.84rem;
       font-weight: 800;
       letter-spacing: 0.16em;
       line-height: 1;
@@ -2392,7 +2392,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     .phase-tag {
       border-radius: 999px;
       padding: 3px 8px;
-      font-size: 0.68rem;
+      font-size: 0.8rem;
       background: rgba(255, 255, 255, 0.07);
       color: rgba(255, 255, 255, 0.84);
     }
@@ -3031,7 +3031,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       color: rgba(255, 255, 255, 0.8);
     }
     .phase-input-label {
-      font-size: 0.72rem;
+      font-size: 0.82rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: rgba(226, 232, 240, 0.72);
@@ -3069,7 +3069,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       gap: 8px;
     }
     .phase-input-log__header {
-      font-size: 0.72rem;
+      font-size: 0.82rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: rgba(226, 232, 240, 0.68);
