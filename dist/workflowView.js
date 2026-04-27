@@ -122,15 +122,15 @@ function buildHorizontalPhaseLayout(phases, nodeWidth, compact = false) {
     const positions = {};
     const scale = compact ? 0.72 : 1;
     const map = {
-        capture: { left: Math.round(298 * scale), top: Math.round(36 * scale) },
-        refinement: { left: Math.round(632 * scale), top: Math.round(198 * scale) },
-        spec: { left: Math.round(360 * scale), top: Math.round(418 * scale) },
-        "technical-design": { left: Math.round(72 * scale), top: Math.round(590 * scale) },
-        implementation: { left: Math.round(470 * scale), top: Math.round(612 * scale) },
-        review: { left: Math.round(420 * scale), top: Math.round(846 * scale) },
-        "release-approval": { left: Math.round(738 * scale), top: Math.round(1018 * scale) },
-        "pr-preparation": { left: Math.round(356 * scale), top: Math.round(1188 * scale) },
-        completed: { left: Math.round(440 * scale), top: Math.round(1378 * scale) }
+        capture: { left: Math.round(72 * scale), top: Math.round(56 * scale) },
+        refinement: { left: Math.round(430 * scale), top: Math.round(56 * scale) },
+        spec: { left: Math.round(788 * scale), top: Math.round(56 * scale) },
+        "technical-design": { left: Math.round(788 * scale), top: Math.round(398 * scale) },
+        implementation: { left: Math.round(430 * scale), top: Math.round(398 * scale) },
+        review: { left: Math.round(72 * scale), top: Math.round(398 * scale) },
+        "release-approval": { left: Math.round(72 * scale), top: Math.round(740 * scale) },
+        "pr-preparation": { left: Math.round(430 * scale), top: Math.round(740 * scale) },
+        completed: { left: Math.round(788 * scale), top: Math.round(740 * scale) }
     };
     for (const phase of phases) {
         positions[phase.phaseId] = map[phase.phaseId] ?? { left: Math.round(150 * scale), top: Math.round(120 * scale) };
@@ -6835,162 +6835,49 @@ function graphPath(fromPhaseId, toPhaseId, positions, nodeWidth, graphLayoutMode
     return buildCrossColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth);
 }
 function buildHorizontalGraphPath(fromPhaseId, toPhaseId, fromPosition, toPosition, nodeWidth) {
-    if (fromPhaseId === "capture" && toPhaseId === "refinement") {
-        return buildHorizontalCaptureToRefinementPath(fromPosition, toPosition, nodeWidth);
-    }
-    if (fromPhaseId === "implementation" && toPhaseId === "review") {
-        return buildHorizontalImplementationToReviewPath(fromPosition, toPosition, nodeWidth);
-    }
-    if (fromPhaseId === "pr-preparation" && toPhaseId === "completed") {
-        return buildHorizontalPrPreparationToCompletedPath(fromPosition, toPosition, nodeWidth);
-    }
-    const template = horizontalGraphTemplates[`${fromPhaseId}->${toPhaseId}`];
-    if (template) {
-        return buildHorizontalTemplateGraphPath(template, fromPosition, toPosition, nodeWidth);
-    }
     const deltaX = toPosition.left - fromPosition.left;
     const deltaY = toPosition.top - fromPosition.top;
     const movingRight = deltaX >= 0;
-    const mostlyLateral = Math.abs(deltaY) <= Math.max(54, phaseNodeHeight * 0.34);
-    if (mostlyLateral) {
+    const sameRow = Math.abs(deltaY) <= Math.max(24, phaseNodeHeight * 0.16);
+    const sameColumn = Math.abs(deltaX) <= Math.max(24, nodeWidth * 0.08);
+    if (sameRow) {
         const start = {
             x: movingRight ? fromPosition.left + nodeWidth : fromPosition.left,
-            y: fromPosition.top + phaseNodeHeight * 0.64
+            y: fromPosition.top + phaseNodeHeight * 0.5
         };
         const end = {
             x: movingRight ? toPosition.left : toPosition.left + nodeWidth,
-            y: toPosition.top + phaseNodeHeight * 0.54
+            y: toPosition.top + phaseNodeHeight * 0.5
         };
-        const spread = Math.max(34, Math.min(82, Math.abs(deltaX) * 0.22));
-        return buildSmoothGuidePath([
-            start,
-            { x: start.x + (movingRight ? spread : -spread), y: start.y },
-            { x: end.x - (movingRight ? spread : -spread), y: end.y },
-            end
-        ]);
+        const spread = Math.max(88, Math.abs(end.x - start.x) * 0.32);
+        const sign = movingRight ? 1 : -1;
+        return `M ${start.x} ${start.y} C ${start.x + spread * sign} ${start.y}, ${end.x - spread * sign} ${end.y}, ${end.x} ${end.y}`;
     }
-    if (deltaY > 0) {
-        const start = Math.abs(deltaX) <= 40
-            ? { x: fromPosition.left + nodeWidth * 0.5, y: fromPosition.top + phaseNodeHeight }
-            : {
-                x: movingRight ? fromPosition.left + nodeWidth : fromPosition.left,
-                y: fromPosition.top + phaseNodeHeight * 0.74
-            };
-        const end = {
-            x: Math.abs(deltaX) <= 40
-                ? toPosition.left + nodeWidth * 0.5
-                : movingRight
-                    ? toPosition.left + nodeWidth * 0.28
-                    : toPosition.left + nodeWidth * 0.72,
-            y: toPosition.top
+    if (sameColumn) {
+        const movingDown = deltaY >= 0;
+        const start = {
+            x: fromPosition.left + nodeWidth * 0.5,
+            y: movingDown ? fromPosition.top + phaseNodeHeight : fromPosition.top
         };
-        const laneX = Math.abs(deltaX) <= 40
-            ? start.x
-            : start.x + (movingRight ? 1 : -1) * Math.max(56, Math.min(112, Math.abs(deltaX) * 0.26));
-        const approachY = end.y - Math.max(34, Math.min(76, Math.abs(deltaY) * 0.18));
-        return buildSmoothGuidePath([
-            start,
-            { x: laneX, y: start.y },
-            { x: laneX, y: approachY },
-            { x: end.x, y: approachY },
-            end
-        ]);
+        const end = {
+            x: toPosition.left + nodeWidth * 0.5,
+            y: movingDown ? toPosition.top : toPosition.top + phaseNodeHeight
+        };
+        const spread = Math.max(88, Math.abs(end.y - start.y) * 0.32);
+        const sign = movingDown ? 1 : -1;
+        return `M ${start.x} ${start.y} C ${start.x} ${start.y + spread * sign}, ${end.x} ${end.y - spread * sign}, ${end.x} ${end.y}`;
     }
     const start = {
         x: movingRight ? fromPosition.left + nodeWidth : fromPosition.left,
-        y: fromPosition.top + phaseNodeHeight * 0.52
+        y: fromPosition.top + phaseNodeHeight * 0.5
     };
     const end = {
         x: movingRight ? toPosition.left : toPosition.left + nodeWidth,
-        y: toPosition.top + phaseNodeHeight * 0.52
+        y: toPosition.top + phaseNodeHeight * 0.5
     };
-    const laneY = Math.min(start.y, end.y) - Math.max(44, Math.min(88, Math.abs(deltaY) * 0.28));
-    return buildSmoothGuidePath([
-        start,
-        { x: start.x + (movingRight ? 48 : -48), y: start.y },
-        { x: start.x + (movingRight ? 48 : -48), y: laneY },
-        { x: end.x - (movingRight ? 48 : -48), y: laneY },
-        { x: end.x - (movingRight ? 48 : -48), y: end.y },
-        end
-    ]);
-}
-function buildHorizontalCaptureToRefinementPath(fromPosition, toPosition, nodeWidth) {
-    const start = getAnchorPoint(fromPosition, "exit-center-right", nodeWidth);
-    const end = getAnchorPoint(toPosition, "entry-top-left", nodeWidth);
-    const shoulderX = start.x + Math.max(34, Math.min(56, (end.x - start.x) * 0.34));
-    const shoulderY = start.y + Math.max(8, Math.min(18, (end.y - start.y) * 0.08));
-    return `M ${start.x} ${start.y}
-    C ${start.x + 26} ${start.y}, ${shoulderX - 14} ${start.y}, ${shoulderX} ${shoulderY}
-    S ${end.x - 34} ${end.y - 54}, ${end.x} ${end.y}`;
-}
-function buildHorizontalImplementationToReviewPath(fromPosition, toPosition, nodeWidth) {
-    const start = getAnchorPoint(fromPosition, "exit-bottom-mid", nodeWidth);
-    const end = getAnchorPoint(toPosition, "entry-top-right", nodeWidth);
-    const dropY = start.y + Math.max(26, Math.min(46, (end.y - start.y) * 0.24));
-    const bendX = start.x - Math.max(40, Math.min(82, Math.abs(end.x - start.x) * 0.8));
-    const approachY = end.y - Math.max(22, Math.min(38, (end.y - start.y) * 0.18));
-    return `M ${start.x} ${start.y}
-    C ${start.x} ${dropY}, ${bendX} ${dropY}, ${bendX} ${start.y + (end.y - start.y) * 0.58}
-    S ${end.x - 28} ${approachY}, ${end.x} ${end.y}`;
-}
-function buildHorizontalPrPreparationToCompletedPath(fromPosition, toPosition, nodeWidth) {
-    const start = getAnchorPoint(fromPosition, "exit-center-right", nodeWidth);
-    const end = getAnchorPoint(toPosition, "entry-center-right", nodeWidth);
-    const outerX = Math.max(start.x, end.x) + Math.max(42, Math.min(74, nodeWidth * 0.18));
-    const middleY = start.y + (end.y - start.y) * 0.56;
-    return `M ${start.x} ${start.y}
-    C ${outerX - 18} ${start.y}, ${outerX} ${start.y + 44}, ${outerX} ${middleY}
-    S ${outerX - 12} ${end.y - 28}, ${end.x} ${end.y}`;
-}
-function buildHorizontalTemplateGraphPath(template, fromPosition, toPosition, nodeWidth) {
-    const from = getAnchorPoint(fromPosition, template.fromAnchor, nodeWidth);
-    const to = getAnchorPoint(toPosition, template.toAnchor, nodeWidth);
-    const deltaX = to.x - from.x;
-    const deltaY = to.y - from.y;
-    const points = [from];
-    for (const guide of template.guides) {
-        const baseX = guide.kind === "to-x"
-            ? to.x
-            : guide.kind === "mid-x"
-                ? from.x + deltaX * 0.5
-                : from.x;
-        const baseY = guide.kind === "to-y"
-            ? to.y
-            : guide.kind === "mid-y"
-                ? from.y + deltaY * 0.5
-                : from.y;
-        points.push({
-            x: baseX + deltaX * (guide.xFactor ?? 0),
-            y: baseY + deltaY * (guide.yFactor ?? 0)
-        });
-    }
-    points.push(to);
-    return buildSmoothGuidePath(points);
-}
-function buildSmoothGuidePath(points) {
-    if (points.length === 0) {
-        return "";
-    }
-    if (points.length === 1) {
-        return `M ${points[0].x} ${points[0].y}`;
-    }
-    let path = `M ${points[0].x} ${points[0].y}`;
-    if (points.length === 2) {
-        path += ` L ${points[1].x} ${points[1].y}`;
-        return path;
-    }
-    for (let index = 0; index < points.length - 1; index += 1) {
-        const previous = points[index - 1] ?? points[index];
-        const current = points[index];
-        const next = points[index + 1];
-        const following = points[index + 2] ?? next;
-        const control1X = current.x + (next.x - previous.x) / 6;
-        const control1Y = current.y + (next.y - previous.y) / 6;
-        const control2X = next.x - (following.x - current.x) / 6;
-        const control2Y = next.y - (following.y - current.y) / 6;
-        path += ` C ${control1X} ${control1Y}, ${control2X} ${control2Y}, ${next.x} ${next.y}`;
-    }
-    return path;
+    const midX = start.x + (end.x - start.x) * 0.5;
+    const bendY = start.y + (end.y - start.y) * 0.5;
+    return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${bendY}, ${midX} ${bendY} S ${midX} ${end.y}, ${end.x} ${end.y}`;
 }
 function buildSameColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth) {
     const verticalGap = Math.abs(to.y - from.y);
