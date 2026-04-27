@@ -363,7 +363,9 @@ test("buildWorkflowHtml paused overlay persistence key includes startedAt to avo
       rewindTargets: []
     },
     clarification: null,
-    events: [],
+    events: [
+      { timestampUtc: "2026-04-27T08:00:00Z", code: "phase_completed", actor: "system", phase: "refinement", summary: null, artifacts: [], usage: null, durationMs: null, execution: null }
+    ],
     attachmentsDirectoryPath: "/tmp/attachments",
     attachments: []
   }, {
@@ -878,7 +880,9 @@ test("buildWorkflowHtml shows a single hero rewind control and keeps per-phase p
       rewindTargets: ["refinement"]
     },
     clarification: null,
-    events: [],
+    events: [
+      { timestampUtc: "2026-04-27T08:00:00Z", code: "phase_completed", actor: "system", phase: "refinement", summary: null, artifacts: [], usage: null, durationMs: null, execution: null }
+    ],
     attachmentsDirectoryPath: "/tmp/attachments",
     attachments: [],
     contextFilesDirectoryPath: "/tmp/context",
@@ -892,6 +896,8 @@ test("buildWorkflowHtml shows a single hero rewind control and keeps per-phase p
   }, "idle");
 
   assert.match(html, /data-hero-rewind-button/);
+  assert.match(html, /class="time-nav"/);
+  assert.match(html, /data-command="rewind"[\s\S]*data-phase-id="refinement"/);
   assert.match(html, /data-phase-id="implementation"[\s\S]*data-phase-pause-button/);
   assert.doesNotMatch(html, /data-phase-rewind-button/);
   assert.doesNotMatch(html, /aria-label="Rewind workflow to selected phase"/);

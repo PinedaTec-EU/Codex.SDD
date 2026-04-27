@@ -443,6 +443,10 @@ public sealed class WorkflowRunner
         EnsureCompletedWorkflowIsUnlockedForDirectMutation(workflowRun, "Rewind");
         await TrackRuntimeVersionChangeAsync(paths, workflowRun, NormalizeActor(actor), workflowRun.CurrentPhase, cancellationToken);
         ValidateRewindTarget(workflowRun, targetPhase);
+        var timelineEvents = File.Exists(paths.TimelineFilePath)
+            ? TimelineMarkdownParser.ParseEvents(await File.ReadAllTextAsync(paths.TimelineFilePath, cancellationToken))
+            : Array.Empty<TimelineEventDetails>();
+        WorkflowRewindPolicy.EnsureCanRewind(workflowRun, targetPhase, timelineEvents);
         var targetPhaseWasApproved = workflowRun.IsPhaseApproved(targetPhase);
 
         IReadOnlyCollection<string> deletedPaths = [];

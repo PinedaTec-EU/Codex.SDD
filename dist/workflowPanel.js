@@ -280,7 +280,7 @@ class WorkflowPanelController {
                 await this.rejectCurrentApprovalAsync(message.reason);
                 return;
             case "rewind":
-                await this.rewindWorkflowAsync();
+                await this.rewindWorkflowAsync(message.phaseId);
                 return;
             case "submitClarificationAnswers":
                 await this.submitClarificationAnswersAsync(message.answers ?? []);
@@ -786,16 +786,20 @@ class WorkflowPanelController {
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("restartCurrentWorkflowAsync");
     }
-    async rewindWorkflowAsync() {
+    async rewindWorkflowAsync(requestedTargetPhaseId) {
         const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
         this.lastWorkflow = workflow;
         const displayedCurrentPhaseId = this.pendingRewindPhaseId ?? workflow.currentPhase;
-        const targetPhase = (0, workflowRewind_1.resolveTimelineRewindTargetPhase)(workflow, displayedCurrentPhaseId);
-        if (!targetPhase) {
-            (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' ignored rewind because no earlier timeline phase exists.`);
+        const decision = (0, workflowRewind_1.resolveTimelineRewindDecision)(workflow, displayedCurrentPhaseId, requestedTargetPhaseId);
+        if (!decision.allowed || !decision.targetPhaseId) {
+            if (decision.reasonMessage) {
+                void vscode.window.showWarningMessage(decision.reasonMessage);
+            }
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' ignored rewind. reason='${decision.reasonCode}' target='${decision.targetPhaseId ?? "(none)"}'.`);
             await this.refreshAsync("rewindWorkflowAsync:none");
             return;
         }
+        const targetPhase = decision.targetPhaseId;
         this.pendingRewindPhaseId = targetPhase;
         this.selectedPhaseId = targetPhase;
         this.selectedIterationKey = null;

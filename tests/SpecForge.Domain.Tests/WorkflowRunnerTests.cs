@@ -400,6 +400,103 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RewindWorkflowAsync_FromReviewWithSingleImplementationReviewIteration_AllowsTechnicalDesign()
+    {
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new PassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var result = await runner.RewindWorkflowAsync(workspaceRoot, "US-0001", PhaseId.TechnicalDesign);
+
+        Assert.Equal("technical-design", result.CurrentPhase);
+        Assert.Equal("active", result.Status);
+    }
+
+    [Fact]
+    public async Task RewindWorkflowAsync_AfterMultipleImplementationReviewIterations_ThrowsWithGuardrailMessage()
+    {
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new PassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        await File.AppendAllTextAsync(
+            paths.TimelineFilePath,
+            """
+
+            ### 2026-04-27T09:10:00.0000000Z · `phase_completed`
+            - Actor: `system`
+            - Phase: `implementation`
+            - Summary: Second implementation pass.
+            - Artifacts:
+              - `.specs/us/workflow/US-0001/phases/03-implementation.v02.md`
+
+            ### 2026-04-27T09:20:00.0000000Z · `phase_completed`
+            - Actor: `system`
+            - Phase: `review`
+            - Summary: Second review pass.
+            - Artifacts:
+              - `.specs/us/workflow/US-0001/phases/04-review.v02.md`
+            """);
+
+        var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
+            runner.RewindWorkflowAsync(workspaceRoot, "US-0001", PhaseId.TechnicalDesign));
+
+        Assert.Contains("multiple implementation/review iterations", error.Message);
+    }
+
+    [Fact]
+    public async Task RewindWorkflowAsync_FromCompletedWorkflowReopenLandingPhase_ThrowsWithGuardrailMessage()
+    {
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new PassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager(),
+            new RecordingPullRequestPublisher());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ReopenCompletedWorkflowAsync(
+            workspaceRoot,
+            "US-0001",
+            PhaseId.TechnicalDesign,
+            "technical-issue",
+            "APR found a technical design issue.");
+
+        var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
+            runner.RewindWorkflowAsync(workspaceRoot, "US-0001", PhaseId.Refinement));
+
+        Assert.Contains("recovery phase", error.Message);
+    }
+
+    [Fact]
     public async Task ContinuePhaseAsync_FromPrPreparation_PublishesDraftPullRequestAndCompletesWorkflow()
     {
         var publisher = new RecordingPullRequestPublisher();

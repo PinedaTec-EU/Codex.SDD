@@ -11,7 +11,7 @@ import { buildPrPreparationPhaseSections } from "./workflow-view/prPreparationPh
 import { hasReachedImplementationReviewCycleLimit } from "./workflowAutomation";
 import { resolveCompletedWorkflowReopenTargetPhase } from "./workflowCompletedReopen";
 import { canPauseWorkflowExecutionPhase, resolveWorkflowExecutionPhaseId } from "./workflowPlaybackState";
-import { resolveTimelineRewindTargetPhase } from "./workflowRewind";
+import { buildTimelineRewindPoints, resolveTimelineRewindDecision } from "./workflowRewind";
 import { resolveWorkflowRejectPlan } from "./workflowRejectPlan";
 import { buildRefinementPhaseSections } from "./workflow-view/refinementPhaseView";
 import { buildReleaseApprovalPhaseSections } from "./workflow-view/releaseApprovalPhaseView";
@@ -1456,10 +1456,42 @@ export function buildWorkflowHtml(
     ? `View PR #${workflow.pullRequest.number}`
     : "View PR";
   const pendingRewindPhaseId = state.pendingRewindPhaseId?.trim() || null;
-  const heroRewindTargetPhaseId = !completedWorkflowLocked && playbackState === "idle"
-    ? resolveTimelineRewindTargetPhase(workflow, displayedCurrentPhaseId)
-    : null;
-  const heroRewindDisabled = !heroRewindTargetPhaseId || playbackState !== "idle";
+  const rewindDecision = !completedWorkflowLocked && playbackState === "idle"
+    ? resolveTimelineRewindDecision(workflow, displayedCurrentPhaseId)
+    : { allowed: false, targetPhaseId: null, reasonCode: "no-history" as const, reasonMessage: null };
+  const heroRewindTargetPhaseId = rewindDecision.targetPhaseId;
+  const heroRewindDisabled = !rewindDecision.allowed || playbackState !== "idle";
+  const timelineRewindPoints = buildTimelineRewindPoints(workflow, displayedCurrentPhaseId);
+  const timelineRewindRail = timelineRewindPoints.length > 1
+    ? `
+      <div class="time-nav" aria-label="Workflow timeline navigation">
+        ${timelineRewindPoints.map((point) => `
+          <button
+            class="time-nav__point${point.isCurrent ? " time-nav__point--current" : ""}${point.canSelect ? "" : " time-nav__point--disabled"}"
+            type="button"
+            data-command="rewind"
+            data-phase-id="${escapeHtmlAttribute(point.phaseId)}"
+            title="${escapeHtmlAttribute(point.reasonMessage ?? point.title)}"
+            aria-label="${escapeHtmlAttribute(point.canSelect ? `Move rewind pointer to ${point.title}` : point.reasonMessage ?? `Cannot rewind to ${point.title}`)}"
+            ${point.canSelect ? "" : "disabled"}>
+            <span class="time-nav__dot" aria-hidden="true"></span>
+            <span class="time-nav__label">${escapeHtml(point.title)}</span>
+          </button>
+        `).join("")}
+      </div>
+    `
+    : "";
+  const rewindBlockOverlay = rewindDecision.reasonMessage && !pendingRewindPhaseId
+    ? `
+      <div class="settings-warning settings-warning--attention rewind-warning" role="status">
+        <div class="settings-warning__icon">!</div>
+        <div>
+          <p class="eyebrow warning">Rewind blocked</p>
+          <p class="warning-copy">${escapeHtml(rewindDecision.reasonMessage)}</p>
+        </div>
+      </div>
+    `
+    : "";
   const phaseSpecificSections = buildPhaseSpecificSections(
     workflow,
     selectedPhase,
@@ -2341,6 +2373,58 @@ export function buildWorkflowHtml(
       align-content: flex-start;
       justify-content: flex-end;
       max-width: 540px;
+    }
+    .time-nav {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+      gap: 8px;
+      margin-top: 18px;
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.035);
+    }
+    .time-nav__point {
+      position: relative;
+      display: grid;
+      grid-template-columns: 12px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(114, 241, 184, 0.16);
+      background: rgba(10, 18, 24, 0.72);
+      color: rgba(236, 255, 245, 0.9);
+      cursor: pointer;
+    }
+    .time-nav__point--current {
+      border-color: rgba(255, 213, 90, 0.42);
+      background: rgba(255, 213, 90, 0.12);
+      color: #fff3bf;
+    }
+    .time-nav__point--disabled {
+      cursor: not-allowed;
+      opacity: 0.48;
+    }
+    .time-nav__dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: currentColor;
+      opacity: 0.92;
+    }
+    .time-nav__label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .rewind-warning {
+      margin-top: 12px;
     }
     .workflow-files-overlay {
       position: fixed;
@@ -4561,6 +4645,8 @@ export function buildWorkflowHtml(
           </button>
         </div>
       </div>
+      ${timelineRewindRail}
+      ${rewindBlockOverlay}
       ${implementationReviewLimitBanner}
     </section>
     <div class="shell-body">

@@ -16,7 +16,7 @@ import {
 import { buildWorkBranchProposal } from "./workflowBranchName";
 import { buildCompletedWorkflowReopenOperationPrompt } from "./workflowCompletedReopen";
 import { resolvePreferredSelectedWorkflowPhaseId } from "./workflowPhaseSelection";
-import { resolveTimelineRewindTargetPhase } from "./workflowRewind";
+import { resolveTimelineRewindDecision } from "./workflowRewind";
 import { resolveWorkflowRejectPlan } from "./workflowRejectPlan";
 import { buildWorkflowHtml } from "./workflowView";
 import type { WorkflowViewState } from "./workflow-view/models";
@@ -331,7 +331,7 @@ class WorkflowPanelController {
         await this.rejectCurrentApprovalAsync(message.reason);
         return;
       case "rewind":
-        await this.rewindWorkflowAsync();
+        await this.rewindWorkflowAsync(message.phaseId);
         return;
       case "submitClarificationAnswers":
         await this.submitClarificationAnswersAsync(message.answers ?? []);
@@ -996,17 +996,24 @@ class WorkflowPanelController {
     await this.refreshAsync("restartCurrentWorkflowAsync");
   }
 
-  private async rewindWorkflowAsync(): Promise<void> {
+  private async rewindWorkflowAsync(requestedTargetPhaseId?: string): Promise<void> {
     const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
     this.lastWorkflow = workflow;
     const displayedCurrentPhaseId = this.pendingRewindPhaseId ?? workflow.currentPhase;
-    const targetPhase = resolveTimelineRewindTargetPhase(workflow, displayedCurrentPhaseId);
-    if (!targetPhase) {
-      appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' ignored rewind because no earlier timeline phase exists.`);
+    const decision = resolveTimelineRewindDecision(workflow, displayedCurrentPhaseId, requestedTargetPhaseId);
+    if (!decision.allowed || !decision.targetPhaseId) {
+      if (decision.reasonMessage) {
+        void vscode.window.showWarningMessage(decision.reasonMessage);
+      }
+
+      appendSpecForgeDebugLog(
+        `Workflow '${this.summary.usId}' ignored rewind. reason='${decision.reasonCode}' target='${decision.targetPhaseId ?? "(none)"}'.`
+      );
       await this.refreshAsync("rewindWorkflowAsync:none");
       return;
     }
 
+    const targetPhase = decision.targetPhaseId;
     this.pendingRewindPhaseId = targetPhase;
     this.selectedPhaseId = targetPhase;
     this.selectedIterationKey = null;
