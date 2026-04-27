@@ -50,10 +50,15 @@ type PhaseGraphLayout = {
   readonly width: number;
   readonly height: number;
 };
+type PhaseGraphEdge = {
+  readonly fromPhaseId: string;
+  readonly toPhaseId: string;
+  readonly className: string;
+};
 type GraphAnchor = "entry-top" | "entry-left" | "entry-right" | "exit-right" | "exit-left" | "exit-bottom-left" | "exit-bottom-mid" | "exit-bottom-right";
-const phaseNodeWidth = 188;
-const phaseNodeHeight = 146;
-const mobilePhaseNodeWidth = 166;
+const phaseNodeWidth = 274;
+const phaseNodeHeight = 154;
+const mobilePhaseNodeWidth = 238;
 const defaultPhaseSequence: readonly LayoutPhaseDescriptor[] = [
   { phaseId: "capture", expectsHumanIntervention: false },
   { phaseId: "clarification", expectsHumanIntervention: true },
@@ -91,32 +96,32 @@ function buildHorizontalPhaseLayout(
 ): PhaseGraphLayout {
   const positions: Record<string, PhasePosition> = {};
   const lefts = compact
-    ? { outerLeft: 18, left: 214, mid: 448, right: 690, outerRight: 922, edgeRight: 1154 }
-    : { outerLeft: 42, left: 276, mid: 566, right: 878, outerRight: 1188, edgeRight: 1498 };
+    ? { capture: 18, refinement: 316, spec: 600, implementation: 430, review: 856, release: 1148, completed: 1450 }
+    : { capture: 42, refinement: 428, spec: 804, implementation: 560, review: 1102, release: 1468, completed: 1832 };
   const tops = compact
-    ? { top: 18, upperMid: 196, lowerMid: 386, bottom: 576 }
-    : { top: 40, upperMid: 252, lowerMid: 472, bottom: 692 };
+    ? { top: 26, upperMid: 238, lowerMid: 460, bottom: 686 }
+    : { top: 42, upperMid: 288, lowerMid: 546, bottom: 810 };
   const map: Record<string, PhasePosition> = {
-    capture: { left: lefts.outerLeft, top: tops.top },
-    clarification: { left: lefts.left, top: tops.top },
-    refinement: { left: lefts.mid, top: tops.top },
-    "technical-design": { left: lefts.left - (compact ? 72 : 94), top: tops.upperMid },
-    spec: { left: lefts.mid + (compact ? 20 : 26), top: tops.upperMid },
-    implementation: { left: lefts.mid - (compact ? 8 : 22), top: tops.lowerMid },
-    review: { left: lefts.right, top: tops.lowerMid },
-    "release-approval": { left: lefts.outerRight, top: tops.upperMid },
-    "pr-preparation": { left: lefts.outerRight, top: tops.lowerMid },
-    completed: { left: lefts.edgeRight, top: tops.bottom }
+    capture: { left: lefts.capture, top: tops.top },
+    clarification: { left: lefts.refinement, top: tops.top },
+    refinement: { left: lefts.refinement, top: tops.top },
+    "technical-design": { left: lefts.capture - (compact ? 16 : 24), top: tops.lowerMid - (compact ? 8 : 10) },
+    spec: { left: lefts.spec, top: tops.upperMid },
+    implementation: { left: lefts.implementation, top: tops.lowerMid + (compact ? 26 : 24) },
+    review: { left: lefts.review, top: tops.lowerMid + (compact ? 42 : 40) },
+    "release-approval": { left: lefts.release, top: tops.upperMid + (compact ? 20 : 12) },
+    "pr-preparation": { left: lefts.release + (compact ? 6 : 8), top: tops.lowerMid - (compact ? 12 : 4) },
+    completed: { left: lefts.completed, top: tops.lowerMid + (compact ? 62 : 70) }
   };
 
   for (const phase of phases) {
-    positions[phase.phaseId] = map[phase.phaseId] ?? { left: lefts.outerLeft, top: tops.top };
+    positions[phase.phaseId] = map[phase.phaseId] ?? { left: lefts.capture, top: tops.top };
   }
 
   return {
     positions,
-    width: computeGraphWidth(positions, nodeWidth, compact ? 70 : 170),
-    height: computeGraphHeight(positions, phaseNodeHeight, compact ? 72 : 136)
+    width: computeGraphWidth(positions, nodeWidth, compact ? 92 : 186),
+    height: computeGraphHeight(positions, phaseNodeHeight, compact ? 98 : 162)
   };
 }
 
@@ -127,22 +132,22 @@ function buildVerticalPhaseLayout(
 ): PhaseGraphLayout {
   const positions: Record<string, PhasePosition> = {};
   const lefts = compact
-    ? { left: 18, mid: 238, right: 458 }
-    : { left: 42, mid: 386, right: 730 };
+    ? { left: 18, mid: 324, right: 620 }
+    : { left: 42, mid: 430, right: 804 };
   const tops = compact
-    ? { row1: 18, row2: 210, row3: 402, row4: 594, row5: 786 }
-    : { row1: 40, row2: 264, row3: 488, row4: 712, row5: 936 };
+    ? { row1: 24, row2: 218, row3: 414, row4: 620, row5: 832, row6: 1050, row7: 1268 }
+    : { row1: 42, row2: 286, row3: 538, row4: 794, row5: 1062, row6: 1338, row7: 1610 };
   const map: Record<string, PhasePosition> = {
-    capture: { left: lefts.left, top: tops.row1 },
-    clarification: { left: lefts.mid, top: tops.row1 },
-    refinement: { left: lefts.right, top: tops.row1 },
-    "technical-design": { left: lefts.left, top: tops.row2 },
-    spec: { left: lefts.right, top: tops.row2 },
-    implementation: { left: lefts.left, top: tops.row3 },
-    review: { left: lefts.left, top: tops.row4 },
-    "release-approval": { left: lefts.right, top: tops.row4 },
-    "pr-preparation": { left: lefts.right, top: tops.row5 },
-    completed: { left: lefts.left, top: tops.row5 }
+    capture: { left: lefts.mid - (compact ? 54 : 40), top: tops.row1 },
+    clarification: { left: lefts.mid + (compact ? 10 : 16), top: tops.row2 - (compact ? 22 : 28) },
+    refinement: { left: lefts.mid + (compact ? 10 : 16), top: tops.row2 - (compact ? 22 : 28) },
+    spec: { left: lefts.mid - (compact ? 18 : 8), top: tops.row3 },
+    "technical-design": { left: lefts.left, top: tops.row4 - (compact ? 26 : 18) },
+    implementation: { left: lefts.mid - (compact ? 20 : 14), top: tops.row4 + (compact ? 8 : 12) },
+    review: { left: lefts.mid + (compact ? 30 : 34), top: tops.row5 },
+    "release-approval": { left: lefts.right, top: tops.row6 - (compact ? 30 : 20) },
+    "pr-preparation": { left: lefts.mid - (compact ? 16 : 10), top: tops.row6 + (compact ? 96 : 108) },
+    completed: { left: lefts.mid + (compact ? 92 : 102), top: tops.row7 }
   };
 
   for (const phase of phases) {
@@ -151,8 +156,8 @@ function buildVerticalPhaseLayout(
 
   return {
     positions,
-    width: computeGraphWidth(positions, nodeWidth, compact ? 64 : 156),
-    height: computeGraphHeight(positions, phaseNodeHeight, compact ? 78 : 150)
+    width: computeGraphWidth(positions, nodeWidth, compact ? 86 : 172),
+    height: computeGraphHeight(positions, phaseNodeHeight, compact ? 118 : 188)
   };
 }
 
@@ -3079,7 +3084,10 @@ export function buildWorkflowHtml(
       filter: drop-shadow(0 0 14px rgba(92, 181, 255, 0.42));
     }
     .graph-links path.pending {
-      stroke: rgba(255, 255, 255, 0.1);
+      stroke: rgba(161, 172, 189, 0.62);
+      stroke-dasharray: 11 12;
+      stroke-width: 3.5;
+      filter: none;
     }
     .graph-links path.reverse {
       stroke: rgba(174, 182, 193, 0.42);
@@ -3125,6 +3133,137 @@ export function buildWorkflowHtml(
     }
     .phase-graph[data-graph-layout-mode="vertical"] .graph-links--desktop-vertical {
       display: block;
+    }
+    .graph-adornment {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      display: none;
+    }
+    .phase-graph[data-graph-layout-mode="horizontal"] .graph-adornment--horizontal {
+      display: block;
+    }
+    .phase-graph[data-graph-layout-mode="vertical"] .graph-adornment--vertical {
+      display: block;
+    }
+    .graph-loop-badge {
+      position: absolute;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(58, 154, 255, 0.34);
+      background: linear-gradient(180deg, rgba(9, 24, 38, 0.94), rgba(8, 16, 24, 0.96));
+      color: #51a8ff;
+      box-shadow: 0 18px 28px rgba(4, 14, 24, 0.24);
+      max-width: 240px;
+    }
+    .graph-loop-badge--horizontal {
+      top: 458px;
+      left: 844px;
+      border: none;
+      background: transparent;
+      box-shadow: none;
+      padding: 0;
+      gap: 12px;
+      color: rgba(75, 225, 154, 0.96);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.94rem;
+      font-weight: 800;
+      max-width: none;
+    }
+    .graph-loop-badge--vertical {
+      top: 704px;
+      right: 28px;
+      line-height: 1.45;
+    }
+    .graph-loop-badge__icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: inherit;
+      flex: 0 0 auto;
+    }
+    .graph-loop-badge__icon svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+    .graph-loop-badge--horizontal .graph-loop-badge__icon {
+      display: none;
+    }
+    .graph-loop-badge__text {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .graph-legend {
+      position: absolute;
+      left: 0;
+      bottom: 42px;
+      width: 220px;
+      padding: 20px 20px 18px;
+      border-radius: 22px;
+      border: 1px dashed rgba(174, 188, 209, 0.26);
+      background: linear-gradient(180deg, rgba(10, 18, 28, 0.84), rgba(8, 13, 22, 0.92));
+      box-shadow: 0 16px 26px rgba(4, 8, 16, 0.22);
+    }
+    .graph-legend__title {
+      margin-bottom: 16px;
+      color: rgba(240, 244, 252, 0.92);
+      font-size: 0.96rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .graph-legend__row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: rgba(214, 221, 232, 0.86);
+    }
+    .graph-legend__row + .graph-legend__row {
+      margin-top: 14px;
+    }
+    .graph-legend__line {
+      width: 40px;
+      height: 0;
+      border-top: 4px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      flex: 0 0 auto;
+    }
+    .graph-legend__line--progress {
+      border-top-color: rgba(114, 241, 184, 0.82);
+      box-shadow: 0 0 12px rgba(114, 241, 184, 0.2);
+    }
+    .graph-legend__line--pending {
+      border-top-color: rgba(161, 172, 189, 0.76);
+      border-top-style: dashed;
+    }
+    .graph-legend__line--loop {
+      border-top-color: rgba(58, 154, 255, 0.9);
+      border-top-style: dashed;
+    }
+    .graph-legend__dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      flex: 0 0 auto;
+    }
+    .graph-legend__dot--completed {
+      background: linear-gradient(180deg, #49d484, #2f9c62);
+    }
+    .graph-legend__dot--current {
+      background: linear-gradient(180deg, #4297ff, #2569d6);
+    }
+    .graph-legend__dot--pending {
+      background: linear-gradient(180deg, #9099aa, #687181);
+    }
+    .graph-legend__dot--final {
+      background: linear-gradient(180deg, #8a4dff, #5f2bc3);
     }
     .phase-node {
       position: absolute;
@@ -3277,6 +3416,31 @@ export function buildWorkflowHtml(
         0 22px 34px rgba(18, 72, 53, 0.22),
         0 0 0 1px rgba(173, 255, 218, 0.1),
         0 0 26px rgba(114, 241, 184, 0.14);
+    }
+    .phase-node--final,
+    .phase-node--final.phase-tone-completed,
+    .phase-node--final.phase-tone-pending {
+      background: linear-gradient(180deg, rgba(34, 22, 58, 0.98), rgba(18, 10, 34, 0.98));
+      border-color: rgba(143, 89, 255, 0.58);
+      box-shadow:
+        0 20px 34px rgba(44, 20, 90, 0.24),
+        0 0 0 1px rgba(170, 132, 255, 0.12),
+        0 0 28px rgba(120, 74, 255, 0.12);
+      opacity: 1;
+    }
+    .phase-node--final:hover {
+      border-color: rgba(170, 120, 255, 0.78);
+      background: linear-gradient(180deg, rgba(46, 28, 76, 0.98), rgba(23, 12, 43, 1));
+      box-shadow:
+        0 24px 36px rgba(50, 22, 96, 0.28),
+        0 0 0 1px rgba(185, 148, 255, 0.16),
+        0 0 32px rgba(146, 100, 255, 0.18);
+    }
+    .phase-node--final .phase-index,
+    .phase-node--final .phase-role-badge {
+      color: rgba(212, 194, 255, 0.96);
+      border-color: rgba(160, 124, 255, 0.24);
+      background: rgba(142, 93, 255, 0.14);
     }
     .phase-node.phase-tone-pending {
       background:
@@ -4869,6 +5033,20 @@ export function buildWorkflowHtml(
       .phase-graph[data-graph-layout-mode="vertical"] .graph-links--mobile-vertical {
         display: block;
       }
+      .graph-legend {
+        display: none;
+      }
+      .graph-loop-badge--horizontal {
+        top: 374px;
+        left: 474px;
+        font-size: 0.82rem;
+      }
+      .graph-loop-badge--vertical {
+        top: 652px;
+        right: 6px;
+        max-width: 188px;
+        padding: 12px 14px;
+      }
       .execution-overlay {
         left: 10px;
         right: 10px;
@@ -6374,6 +6552,10 @@ function buildPhaseGraph(
   const desktopVerticalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, desktopVerticalLayout.positions, phaseNodeWidth);
   const mobileHorizontalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, mobileHorizontalLayout.positions, mobilePhaseNodeWidth);
   const mobileVerticalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, mobileVerticalLayout.positions, mobilePhaseNodeWidth);
+  const implementationReviewCycleCount = resolveImplementationReviewCycleCount(workflow);
+  const graphLegend = renderGraphLegend();
+  const horizontalLoopBadge = renderGraphLoopBadge(implementationReviewCycleCount, "horizontal");
+  const verticalLoopBadge = renderGraphLoopBadge(implementationReviewCycleCount, "vertical");
 
   const nodes = visiblePhases.map((phase, index) => {
     const disabled = false;
@@ -6401,7 +6583,7 @@ function buildPhaseGraph(
       : `Pause before ${phase.title}`;
     return `
     <div
-      class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phaseIsSelected ? " selected" : ""}${phaseIsCurrent ? " phase-node--current" : ""}"
+      class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phaseIsSelected ? " selected" : ""}${phaseIsCurrent ? " phase-node--current" : ""}${phase.phaseId === "completed" ? " phase-node--final" : ""}"
       data-command="selectPhase"
       data-phase-id="${escapeHtmlAttribute(phase.phaseId)}"
       role="button"
@@ -6458,6 +6640,13 @@ function buildPhaseGraph(
       <svg class="graph-links graph-links--mobile graph-links--mobile-vertical" viewBox="0 0 ${mobileVerticalLayout.width} ${mobileVerticalLayout.height}" preserveAspectRatio="none" aria-hidden="true">
         ${mobileVerticalLinks}
       </svg>
+      <div class="graph-adornment graph-adornment--horizontal">
+        ${horizontalLoopBadge}
+      </div>
+      <div class="graph-adornment graph-adornment--vertical">
+        ${graphLegend}
+        ${verticalLoopBadge}
+      </div>
       ${nodes}
     </div>
   `;
@@ -6531,17 +6720,8 @@ function buildGraphLinks(
   positions: Record<string, PhasePosition>,
   nodeWidth: number
 ): string {
-  const edges: Array<{ fromPhaseId: string; toPhaseId: string; className: string }> = [];
-
-  for (let index = 0; index < visiblePhases.length - 1; index++) {
-    const fromPhase = visiblePhases[index];
-    const toPhase = visiblePhases[index + 1];
-    edges.push({
-      fromPhaseId: fromPhase.phaseId,
-      toPhaseId: toPhase.phaseId,
-      className: linkClass(toPhase, executingTargetPhaseId, currentPhaseId, completedPhaseIds)
-    });
-  }
+  const visiblePhaseMap = new Map(visiblePhases.map((phase) => [phase.phaseId, phase]));
+  const edges: PhaseGraphEdge[] = buildPrimaryGraphEdges(visiblePhases, visiblePhaseMap, executingTargetPhaseId, currentPhaseId, completedPhaseIds);
 
   for (const edge of buildSecondaryGraphEdges(workflow, visiblePhases, completedPhaseIds, selectedPhaseId)) {
     edges.push(edge);
@@ -6550,6 +6730,84 @@ function buildGraphLinks(
   return edges
     .map((edge) => `<path class="${edge.className}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth)}"></path>`)
     .join("");
+}
+
+function resolveImplementationReviewCycleCount(workflow: UserStoryWorkflowDetails): number {
+  const attempts = (workflow.phaseIterations ?? [])
+    .filter((iteration) => iteration.phaseId === "implementation" || iteration.phaseId === "review")
+    .map((iteration) => iteration.attempt);
+
+  return attempts.length > 0 ? Math.max(...attempts) : 0;
+}
+
+function renderGraphLegend(): string {
+  return `
+    <aside class="graph-legend" aria-label="Graph legend">
+      <div class="graph-legend__title">Legend</div>
+      <div class="graph-legend__row"><span class="graph-legend__line graph-legend__line--progress"></span><span>Progress</span></div>
+      <div class="graph-legend__row"><span class="graph-legend__line graph-legend__line--pending"></span><span>Pending / skip</span></div>
+      <div class="graph-legend__row"><span class="graph-legend__line graph-legend__line--loop"></span><span>Iteration loop</span></div>
+      <div class="graph-legend__row"><span class="graph-legend__dot graph-legend__dot--completed"></span><span>Completed</span></div>
+      <div class="graph-legend__row"><span class="graph-legend__dot graph-legend__dot--current"></span><span>Current</span></div>
+      <div class="graph-legend__row"><span class="graph-legend__dot graph-legend__dot--pending"></span><span>Pending</span></div>
+      <div class="graph-legend__row"><span class="graph-legend__dot graph-legend__dot--final"></span><span>Final</span></div>
+    </aside>
+  `;
+}
+
+function renderGraphLoopBadge(loopCount: number, layoutMode: "horizontal" | "vertical"): string {
+  if (loopCount < 2) {
+    return "";
+  }
+
+  const label = layoutMode === "horizontal"
+    ? `Loop #${loopCount}`
+    : `${loopCount} cycles between Implementation and Review`;
+
+  return `
+    <div class="graph-loop-badge graph-loop-badge--${layoutMode}" aria-label="${escapeHtmlAttribute(label)}">
+      <span class="graph-loop-badge__icon">${rewindIcon()}</span>
+      <span class="graph-loop-badge__text">${escapeHtml(label)}</span>
+    </div>
+  `;
+}
+
+function buildPrimaryGraphEdges(
+  visiblePhases: readonly WorkflowPhaseDetails[],
+  visiblePhaseMap: ReadonlyMap<string, WorkflowPhaseDetails>,
+  executingTargetPhaseId: string | null,
+  currentPhaseId: string,
+  completedPhaseIds: ReadonlySet<string>
+): PhaseGraphEdge[] {
+  const edges: PhaseGraphEdge[] = [];
+  const hasClarification = visiblePhaseMap.has("clarification");
+  const primaryDefinitions: ReadonlyArray<{ fromPhaseId: string; toPhaseId: string }> = [
+    { fromPhaseId: "capture", toPhaseId: hasClarification ? "clarification" : "refinement" },
+    ...(hasClarification ? [{ fromPhaseId: "clarification", toPhaseId: "refinement" }] : []),
+    { fromPhaseId: "refinement", toPhaseId: "spec" },
+    { fromPhaseId: "technical-design", toPhaseId: "spec" },
+    { fromPhaseId: "technical-design", toPhaseId: "implementation" },
+    { fromPhaseId: "spec", toPhaseId: "implementation" },
+    { fromPhaseId: "implementation", toPhaseId: "review" },
+    { fromPhaseId: "review", toPhaseId: "release-approval" },
+    { fromPhaseId: "release-approval", toPhaseId: "pr-preparation" },
+    { fromPhaseId: "pr-preparation", toPhaseId: "completed" }
+  ];
+
+  for (const definition of primaryDefinitions) {
+    const targetPhase = visiblePhaseMap.get(definition.toPhaseId);
+    if (!visiblePhaseMap.has(definition.fromPhaseId) || !targetPhase) {
+      continue;
+    }
+
+    edges.push({
+      fromPhaseId: definition.fromPhaseId,
+      toPhaseId: definition.toPhaseId,
+      className: linkClass(targetPhase, executingTargetPhaseId, currentPhaseId, completedPhaseIds)
+    });
+  }
+
+  return edges;
 }
 
 function buildSecondaryGraphEdges(
@@ -6700,6 +6958,18 @@ function graphPath(
     return buildCompletedReopenGraphPath(fromPosition, toPosition, nodeWidth);
   }
 
+  if (fromPhaseId === "technical-design" && toPhaseId === "spec") {
+    return buildTechnicalDesignToSpecPath(fromPosition, toPosition, nodeWidth);
+  }
+
+  if (fromPhaseId === "technical-design" && toPhaseId === "implementation") {
+    return buildTechnicalDesignToImplementationPath(fromPosition, toPosition, nodeWidth);
+  }
+
+  if (fromPhaseId === "spec" && toPhaseId === "implementation") {
+    return buildSpecToImplementationPath(fromPosition, toPosition, nodeWidth);
+  }
+
   const { fromAnchor, toAnchor } = resolveAnchors(fromPosition, toPosition);
   const from = getAnchorPoint(fromPosition, fromAnchor, nodeWidth);
   const to = getAnchorPoint(toPosition, toAnchor, nodeWidth);
@@ -6763,18 +7033,62 @@ function buildCrossColumnGraphPath(
   return `M ${from.x} ${from.y} C ${exitPull.x} ${from.y}, ${exitX} ${crestY}, ${from.x + deltaX * 0.52} ${from.y + deltaY * 0.52} S ${entryX} ${to.y}, ${to.x} ${to.y}`;
 }
 
+function buildTechnicalDesignToSpecPath(
+  fromPosition: PhasePosition,
+  toPosition: PhasePosition,
+  nodeWidth: number
+): string {
+  const from = getAnchorPoint(fromPosition, "exit-right", nodeWidth);
+  const to = getAnchorPoint(toPosition, "entry-left", nodeWidth);
+  const midX = from.x + (to.x - from.x) * 0.44;
+  const crestY = Math.min(from.y, to.y) - Math.max(44, Math.abs(to.y - from.y) * 0.12);
+  return `M ${from.x} ${from.y} C ${midX - 30} ${from.y}, ${midX - 12} ${crestY}, ${midX} ${crestY} S ${to.x - 42} ${to.y}, ${to.x} ${to.y}`;
+}
+
+function buildTechnicalDesignToImplementationPath(
+  fromPosition: PhasePosition,
+  toPosition: PhasePosition,
+  nodeWidth: number
+): string {
+  const from = getAnchorPoint(fromPosition, "exit-bottom-mid", nodeWidth);
+  const to = getAnchorPoint(toPosition, "entry-left", nodeWidth);
+  const laneY = from.y + Math.max(54, phaseNodeHeight * 0.44);
+  const bendX = from.x + Math.max(44, nodeWidth * 0.16);
+  return `M ${from.x} ${from.y} C ${from.x} ${from.y + 24}, ${bendX} ${laneY}, ${bendX} ${laneY} S ${to.x - 34} ${to.y}, ${to.x} ${to.y}`;
+}
+
+function buildSpecToImplementationPath(
+  fromPosition: PhasePosition,
+  toPosition: PhasePosition,
+  nodeWidth: number
+): string {
+  const from = getAnchorPoint(fromPosition, "exit-bottom-mid", nodeWidth);
+  const to = getAnchorPoint(toPosition, "entry-top", nodeWidth);
+  const laneY = from.y + Math.max(46, Math.abs(to.y - from.y) * 0.34);
+  return `M ${from.x} ${from.y} C ${from.x} ${laneY}, ${to.x} ${laneY - 18}, ${to.x} ${to.y}`;
+}
+
 function buildReviewLoopGraphPath(
   fromPosition: PhasePosition,
   toPosition: PhasePosition,
   nodeWidth: number
 ): string {
+  const isVertical = Math.abs(fromPosition.left - toPosition.left) < nodeWidth * 0.7;
+  if (isVertical) {
+    const from = getAnchorPoint(fromPosition, "entry-right", nodeWidth);
+    const to = getAnchorPoint(toPosition, "entry-right", nodeWidth);
+    const outerRight = Math.max(from.x, to.x) + Math.max(96, nodeWidth * 0.42);
+    const midY = (from.y + to.y) / 2;
+    return `M ${from.x} ${from.y} C ${outerRight} ${from.y}, ${outerRight} ${midY - 36}, ${outerRight} ${midY} S ${outerRight - 10} ${to.y}, ${to.x} ${to.y}`;
+  }
+
   const from = getAnchorPoint(fromPosition, "exit-bottom-right", nodeWidth);
   const to = getAnchorPoint(toPosition, "exit-bottom-left", nodeWidth);
-  const laneDepth = Math.max(62, phaseNodeHeight * 0.46);
-  const outerRight = Math.max(from.x, to.x) + Math.max(70, nodeWidth * 0.38);
+  const laneDepth = Math.max(72, phaseNodeHeight * 0.52);
   const lowerY = Math.max(from.y, to.y) + laneDepth;
-
-  return `M ${from.x} ${from.y} C ${from.x + 28} ${from.y + 6}, ${outerRight} ${from.y + 12}, ${outerRight} ${from.y + 44} S ${outerRight - 14} ${lowerY}, ${to.x + 28} ${lowerY} S ${to.x - 14} ${to.y + 20}, ${to.x} ${to.y}`;
+  const outerLeft = Math.min(from.x, to.x) + nodeWidth * 0.08;
+  const outerRight = Math.max(from.x, to.x) + Math.max(84, nodeWidth * 0.44);
+  return `M ${from.x} ${from.y} C ${from.x + 24} ${from.y + 10}, ${outerRight} ${from.y + 8}, ${outerRight} ${from.y + 48} S ${outerRight - 26} ${lowerY}, ${outerLeft} ${lowerY} S ${to.x - 24} ${to.y + 18}, ${to.x} ${to.y}`;
 }
 
 function buildCompletedReopenGraphPath(
