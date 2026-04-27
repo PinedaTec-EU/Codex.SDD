@@ -2127,10 +2127,15 @@ test("buildWorkflowHtml computes deterministic two-column graph positions with o
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /phase-node capture[\s\S]*?--phase-left-desktop:/);
-  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop:/);
-  assert.match(html, /phase-node refinement[\s\S]*?--phase-left-desktop:/);
-  assert.match(html, /phase-graph" aria-label="Workflow graph" style="--graph-width-desktop:/);
+  assert.match(html, /phase-node capture[\s\S]*?--phase-left-desktop-horizontal:/);
+  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop-horizontal:/);
+  assert.match(html, /phase-node refinement[\s\S]*?--phase-left-desktop-horizontal:/);
+  assert.match(html, /phase-node refinement[\s\S]*?--phase-left-desktop-vertical:/);
+  assert.match(html, /phase-graph" data-graph-layout-mode="vertical" aria-label="Workflow graph" style="--graph-width-desktop-horizontal:/);
+  assert.match(html, /graph-view-toggle/);
+  assert.match(html, /data-layout-mode="horizontal">Horizontal<\/button>/);
+  assert.match(html, /data-layout-mode="vertical">Vertical<\/button>/);
+  assert.match(html, /phase-role-badge/);
 });
 
 test("buildWorkflowHtml routes graph links around cards using rounded orthogonal segments", () => {
@@ -4512,13 +4517,17 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 142px;/);
-  assert.match(html, /phase-node technical-design[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 498px;/);
-  assert.match(html, /phase-node implementation[\s\S]*?--phase-left-desktop: 38px; --phase-top-desktop: 600px;/);
-  assert.match(html, /phase-node review[\s\S]*?--phase-left-desktop: 38px; --phase-top-desktop: 778px;/);
-  assert.match(html, /phase-node review[\s\S]*?--phase-left-mobile: 16px; --phase-top-mobile: 736px;/);
-  assert.match(html, /phase-node release-approval[\s\S]*?--phase-left-desktop: 400px; --phase-top-desktop: 880px;/);
+  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop-horizontal: 320px; --phase-top-desktop-horizontal: 36px; --phase-left-desktop-vertical: 392px; --phase-top-desktop-vertical: 34px;/);
+  assert.match(html, /phase-node technical-design[\s\S]*?--phase-left-desktop-horizontal: 40px; --phase-top-desktop-horizontal: 220px; --phase-left-desktop-vertical: 38px; --phase-top-desktop-vertical: 196px;/);
+  assert.match(html, /phase-node implementation[\s\S]*?--phase-left-desktop-horizontal: 320px; --phase-top-desktop-horizontal: 404px; --phase-left-desktop-vertical: 38px; --phase-top-desktop-vertical: 358px;/);
+  assert.match(html, /phase-node review[\s\S]*?--phase-left-desktop-horizontal: 600px; --phase-top-desktop-horizontal: 404px; --phase-left-desktop-vertical: 38px; --phase-top-desktop-vertical: 554px;/);
+  assert.match(html, /phase-node review[\s\S]*?--phase-left-mobile-horizontal: 402px; --phase-top-mobile-horizontal: 326px; --phase-left-mobile-vertical: 18px; --phase-top-mobile-vertical: 454px;/);
+  assert.match(html, /phase-node release-approval[\s\S]*?--phase-left-desktop-horizontal: 600px; --phase-top-desktop-horizontal: 220px; --phase-left-desktop-vertical: 392px; --phase-top-desktop-vertical: 554px;/);
   assert.match(html, /viewBox="0 0 \d+ \d+"/);
+  assert.match(html, /graph-links--desktop-horizontal/);
+  assert.match(html, /graph-links--desktop-vertical/);
+  assert.match(html, /graph-links--mobile-horizontal/);
+  assert.match(html, /graph-links--mobile-vertical/);
 });
 
 test("buildWorkflowHtml renders completed phase reopen controls and lock state", () => {
@@ -4733,8 +4742,8 @@ test("buildWorkflowHtml shows completed secondary reopen edges only after execut
 
   const reverseMatches = selectedHtml.match(/path class="reverse"/g) ?? [];
   const reverseCompletedMatches = selectedHtml.match(/path class="reverse-completed"/g) ?? [];
-  assert.equal(reverseMatches.length, 4);
-  assert.equal(reverseCompletedMatches.length, 2);
+  assert.equal(reverseMatches.length, 8);
+  assert.equal(reverseCompletedMatches.length, 4);
 });
 
 test("buildWorkflowHtml keeps completed reopen collapsed when completed has no own data", () => {
