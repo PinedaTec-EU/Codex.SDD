@@ -5082,7 +5082,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
 
       const stylesheetContent = Array.from(document.querySelectorAll("style"))
         .map((styleElement) => styleElement.textContent ?? "")
-        .join("\n");
+        .join("\\n");
       const serializedMarkup = new XMLSerializer().serializeToString(clonedGraphStage);
       const svgMarkup =
         '<svg xmlns="http://www.w3.org/2000/svg" width="' + captureWidth + '" height="' + captureHeight + '" viewBox="0 0 ' + captureWidth + ' ' + captureHeight + '">'

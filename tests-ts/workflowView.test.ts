@@ -387,6 +387,9 @@ test("buildWorkflowHtml applies a nonce-backed CSP when a webview source is prov
   assert.match(html, /img-src vscode-webview:\/\/test data: blob:/);
   assert.match(html, /script-src 'nonce-[A-Za-z0-9]{32}'/);
   assert.match(html, /<script nonce="[A-Za-z0-9]{32}">/);
+  const script = html.match(/<script[^>]*>([\s\S]*)<\/script>/)?.[1];
+  assert.ok(script);
+  assert.doesNotThrow(() => new Function(script));
 });
 
 test("buildWorkflowHtml paused overlay persistence key includes startedAt to avoid stale dismiss state", () => {
