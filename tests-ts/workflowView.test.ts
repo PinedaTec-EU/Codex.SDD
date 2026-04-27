@@ -333,6 +333,62 @@ test("buildWorkflowHtml wires delegated handlers and pointer phase-node listener
   assert.match(html, /\|\| commandElement\.dataset\.command === "selectPhase"/);
 });
 
+test("buildWorkflowHtml applies a nonce-backed CSP when a webview source is provided", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0005",
+    title: "Workflow csp",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "capture",
+    directoryPath: "/tmp/us.US-0005",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "",
+    phases: [
+      {
+        phaseId: "capture",
+        title: "Capture",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/us.md",
+        executePromptPath: null,
+        approvePromptPath: null,
+        executeSystemPromptPath: null,
+        approveSystemPromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: true,
+      regressionTargets: [],
+      rewindTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "capture",
+    selectedArtifactContent: "capture",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle", "", "vscode-webview://test");
+
+  assert.match(html, /Content-Security-Policy/);
+  assert.match(html, /img-src vscode-webview:\/\/test data: blob:/);
+  assert.match(html, /script-src 'nonce-[A-Za-z0-9]{32}'/);
+  assert.match(html, /<script nonce="[A-Za-z0-9]{32}">/);
+});
+
 test("buildWorkflowHtml paused overlay persistence key includes startedAt to avoid stale dismiss state", () => {
   const html = buildWorkflowHtml({
     usId: "US-0001",

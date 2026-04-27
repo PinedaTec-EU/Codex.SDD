@@ -1159,7 +1159,7 @@ class WorkflowPanelController {
         };
         this.panel.title = `${workflow.usId} workflow`;
         this.lastRenderedViewState = viewState;
-        this.panel.webview.html = (0, workflowView_1.buildWorkflowHtml)(workflow, viewState, this.playbackState, (0, webviewTypography_1.getEditorTypographyCssVars)());
+        this.panel.webview.html = (0, workflowView_1.buildWorkflowHtml)(workflow, viewState, this.playbackState, (0, webviewTypography_1.getEditorTypographyCssVars)(), this.panel.webview.cspSource);
         if (this.panel.active) {
             this.callbacks.showWorkflowAudit(this.summary.usId, workflow, viewState);
         }

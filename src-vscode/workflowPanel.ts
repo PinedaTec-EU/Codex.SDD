@@ -1512,7 +1512,8 @@ class WorkflowPanelController {
       workflow,
       viewState,
       this.playbackState,
-      getEditorTypographyCssVars()
+      getEditorTypographyCssVars(),
+      this.panel.webview.cspSource
     );
     if (this.panel.active) {
       this.callbacks.showWorkflowAudit(this.summary.usId, workflow, viewState);

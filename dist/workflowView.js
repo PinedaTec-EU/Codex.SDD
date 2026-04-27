@@ -1004,6 +1004,14 @@ function buildTimelineLoopGroups(points, selectedPhaseId) {
 function isImplementationReviewTimelinePhase(phaseId) {
     return phaseId === "implementation" || phaseId === "review";
 }
+function createWebviewNonce() {
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let nonce = "";
+    for (let index = 0; index < 32; index += 1) {
+        nonce += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+    return nonce;
+}
 function buildWorkflowAuditHtml(workflow, state, typographyCssVars = "") {
     const auditRows = buildWorkflowAuditRowsHtml(workflow, state);
     return `<!DOCTYPE html>
@@ -1101,7 +1109,11 @@ function buildWorkflowAuditHtml(workflow, state, typographyCssVars = "") {
 </body>
 </html>`;
 }
-function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "") {
+function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "", cspSource = "") {
+    const scriptNonce = createWebviewNonce();
+    const cspMeta = cspSource.trim().length > 0
+        ? `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${(0, htmlEscape_1.escapeHtmlAttr)(cspSource)} data: blob:; style-src ${(0, htmlEscape_1.escapeHtmlAttr)(cspSource)} 'unsafe-inline'; script-src 'nonce-${scriptNonce}';">`
+        : "";
     const effectiveExecutionPhaseId = resolveEffectiveExecutionPhaseId(workflow, state, playbackState);
     const pausedExecutionPhaseId = resolvePausedExecutionPhaseId(workflow, state, playbackState);
     const displayedCurrentPhaseId = resolveDisplayedCurrentPhaseId(workflow, state, effectiveExecutionPhaseId, pausedExecutionPhaseId, playbackState);
@@ -1629,6 +1641,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  ${cspMeta}
   <style>
     :root {
       ${(0, webviewTypography_1.buildWebviewTypographyRootCss)(typographyCssVars)}
@@ -4925,7 +4938,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     </div>
     ${timelineRewindDock}
   </div>
-  <script>
+  <script nonce="${scriptNonce}">
     const vscode = (() => {
       if (window.__specForgeVsCodeApi) {
         return window.__specForgeVsCodeApi;

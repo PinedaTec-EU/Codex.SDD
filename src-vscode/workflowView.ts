@@ -1328,6 +1328,15 @@ function isImplementationReviewTimelinePhase(phaseId: string | null | undefined)
   return phaseId === "implementation" || phaseId === "review";
 }
 
+function createWebviewNonce(): string {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let nonce = "";
+  for (let index = 0; index < 32; index += 1) {
+    nonce += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return nonce;
+}
+
 export function buildWorkflowAuditHtml(
   workflow: UserStoryWorkflowDetails,
   state: WorkflowViewState,
@@ -1434,8 +1443,13 @@ export function buildWorkflowHtml(
   workflow: UserStoryWorkflowDetails,
   state: WorkflowViewState,
   playbackState: "idle" | "playing" | "paused" | "stopping",
-  typographyCssVars = ""
+  typographyCssVars = "",
+  cspSource = ""
 ): string {
+  const scriptNonce = createWebviewNonce();
+  const cspMeta = cspSource.trim().length > 0
+    ? `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${escapeHtmlAttribute(cspSource)} data: blob:; style-src ${escapeHtmlAttribute(cspSource)} 'unsafe-inline'; script-src 'nonce-${scriptNonce}';">`
+    : "";
   const effectiveExecutionPhaseId = resolveEffectiveExecutionPhaseId(workflow, state, playbackState);
   const pausedExecutionPhaseId = resolvePausedExecutionPhaseId(workflow, state, playbackState);
   const displayedCurrentPhaseId = resolveDisplayedCurrentPhaseId(workflow, state, effectiveExecutionPhaseId, pausedExecutionPhaseId, playbackState);
@@ -2011,6 +2025,7 @@ export function buildWorkflowHtml(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  ${cspMeta}
   <style>
     :root {
       ${buildWebviewTypographyRootCss(typographyCssVars)}
@@ -5307,7 +5322,7 @@ export function buildWorkflowHtml(
     </div>
     ${timelineRewindDock}
   </div>
-  <script>
+  <script nonce="${scriptNonce}">
     const vscode = (() => {
       if (window.__specForgeVsCodeApi) {
         return window.__specForgeVsCodeApi;
