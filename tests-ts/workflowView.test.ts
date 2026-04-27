@@ -269,7 +269,7 @@ test("buildWorkflowAuditHtml renders workflow audit content in a standalone pane
   assert.doesNotMatch(html, /Audit Stream<\/h2>/);
 });
 
-test("buildWorkflowHtml relies on delegated command handlers without per-node duplicate listeners", () => {
+test("buildWorkflowHtml wires delegated handlers and direct phase-node listeners for graph selection", () => {
   const html = buildWorkflowHtml({
     usId: "US-0001",
     title: "Workflow view",
@@ -321,6 +321,8 @@ test("buildWorkflowHtml relies on delegated command handlers without per-node du
 
   assert.match(html, /document\.addEventListener\("click"/);
   assert.match(html, /document\.addEventListener\("keydown"/);
+  assert.match(html, /document\.querySelectorAll\('\[data-command="selectPhase"\]'\)\.forEach\(\(element\) => \{/);
+  assert.match(html, /bindDirectCommandElement\(element\);/);
   assert.doesNotMatch(html, /querySelectorAll\("\[data-command\]"\)/);
 });
 

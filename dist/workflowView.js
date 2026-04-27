@@ -5227,6 +5227,34 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         // Last-resort swallow to avoid breaking the webview script.
       }
     };
+    const bindDirectCommandElement = (element, options = {}) => {
+      if (!(element instanceof HTMLElement)) {
+        return;
+      }
+
+      const stopPropagation = options.stopPropagation !== false;
+      element.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (stopPropagation) {
+          event.stopPropagation();
+        }
+        postCommand(element);
+      });
+      element.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") {
+          return;
+        }
+
+        event.preventDefault();
+        if (stopPropagation) {
+          event.stopPropagation();
+        }
+        postCommand(element);
+      });
+    };
+    document.querySelectorAll('[data-command="selectPhase"]').forEach((element) => {
+      bindDirectCommandElement(element);
+    });
     document.addEventListener("click", (event) => {
       const commandElement = event.target instanceof Element
         ? event.target.closest("[data-command]")
