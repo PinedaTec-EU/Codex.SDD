@@ -1094,6 +1094,17 @@ function graphPhaseSecondaryLabel(phase: WorkflowPhaseDetails): string {
   return phaseSecondaryLabel(phase);
 }
 
+function graphPhaseTitle(phase: WorkflowPhaseDetails): string {
+  switch (phase.phaseId) {
+    case "refinement":
+      return "Refinement";
+    case "spec":
+      return "Spec";
+    default:
+      return phase.title;
+  }
+}
+
 function ensureSpecGraphPhase(phases: readonly WorkflowPhaseDetails[]): readonly WorkflowPhaseDetails[] {
   if (phases.some((phase) => phase.phaseId === "spec")) {
     return phases;
@@ -3209,7 +3220,7 @@ export function buildWorkflowHtml(
       align-items: center;
       gap: 10px;
       padding: 16px 20px;
-      border-radius: 8px;
+      border-radius: 18px;
       border: 1px solid rgba(58, 154, 255, 0.28);
       background: linear-gradient(180deg, rgba(7, 28, 42, 0.86), rgba(5, 16, 25, 0.94));
       color: #51a8ff;
@@ -3261,7 +3272,7 @@ export function buildWorkflowHtml(
       bottom: 32px;
       width: 240px;
       padding: 22px 22px 20px;
-      border-radius: 8px;
+      border-radius: 18px;
       border: 1px dashed rgba(174, 188, 209, 0.26);
       background: linear-gradient(180deg, rgba(8, 18, 30, 0.86), rgba(5, 11, 20, 0.94));
       box-shadow: 0 16px 26px rgba(4, 8, 16, 0.22);
@@ -3359,7 +3370,7 @@ export function buildWorkflowHtml(
       top: var(--phase-top-desktop-vertical);
       width: ${phaseNodeWidth}px;
       min-height: ${phaseNodeHeight}px;
-      border-radius: 8px;
+      border-radius: 18px;
       border: 1px solid rgba(125, 145, 170, 0.42);
       padding: 20px 24px;
       color: inherit;
@@ -3640,7 +3651,7 @@ export function buildWorkflowHtml(
     .phase-index {
       width: 30px;
       height: 30px;
-      border-radius: 8px;
+      border-radius: 10px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -7060,7 +7071,7 @@ function buildPhaseGraph(
               </button>`
             : `<span class="phase-role-badge graph-phase-status-icon" title="${escapeHtmlAttribute(phaseRoleLabel)}" aria-label="${escapeHtmlAttribute(phaseRoleLabel)}">${statusIcon || phaseRoleIcon}</span>`}
         </div>
-        <h3>${escapeHtml(phase.title)}</h3>
+        <h3>${escapeHtml(graphPhaseTitle(phase))}</h3>
         <div class="phase-slug">${escapeHtml(graphPhaseSecondaryLabel(phase))}</div>
         <div class="phase-tags">
               <span class="phase-tag phase-tag--graph-status phase-tag--${escapeHtmlAttribute(visualTone)}">${escapeHtml(statusBadge)}</span>

@@ -850,6 +850,16 @@ function graphPhaseSecondaryLabel(phase) {
     }
     return phaseSecondaryLabel(phase);
 }
+function graphPhaseTitle(phase) {
+    switch (phase.phaseId) {
+        case "refinement":
+            return "Refinement";
+        case "spec":
+            return "Spec";
+        default:
+            return phase.title;
+    }
+}
 function ensureSpecGraphPhase(phases) {
     if (phases.some((phase) => phase.phaseId === "spec")) {
         return phases;
@@ -2818,7 +2828,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       align-items: center;
       gap: 10px;
       padding: 16px 20px;
-      border-radius: 8px;
+      border-radius: 18px;
       border: 1px solid rgba(58, 154, 255, 0.28);
       background: linear-gradient(180deg, rgba(7, 28, 42, 0.86), rgba(5, 16, 25, 0.94));
       color: #51a8ff;
@@ -2870,7 +2880,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       bottom: 32px;
       width: 240px;
       padding: 22px 22px 20px;
-      border-radius: 8px;
+      border-radius: 18px;
       border: 1px dashed rgba(174, 188, 209, 0.26);
       background: linear-gradient(180deg, rgba(8, 18, 30, 0.86), rgba(5, 11, 20, 0.94));
       box-shadow: 0 16px 26px rgba(4, 8, 16, 0.22);
@@ -2968,7 +2978,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       top: var(--phase-top-desktop-vertical);
       width: ${phaseNodeWidth}px;
       min-height: ${phaseNodeHeight}px;
-      border-radius: 8px;
+      border-radius: 18px;
       border: 1px solid rgba(125, 145, 170, 0.42);
       padding: 20px 24px;
       color: inherit;
@@ -3249,7 +3259,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     .phase-index {
       width: 30px;
       height: 30px;
-      border-radius: 8px;
+      border-radius: 10px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -6652,7 +6662,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
               </button>`
             : `<span class="phase-role-badge graph-phase-status-icon" title="${(0, htmlEscape_1.escapeHtmlAttr)(phaseRoleLabel)}" aria-label="${(0, htmlEscape_1.escapeHtmlAttr)(phaseRoleLabel)}">${statusIcon || phaseRoleIcon}</span>`}
         </div>
-        <h3>${(0, htmlEscape_1.escapeHtml)(phase.title)}</h3>
+        <h3>${(0, htmlEscape_1.escapeHtml)(graphPhaseTitle(phase))}</h3>
         <div class="phase-slug">${(0, htmlEscape_1.escapeHtml)(graphPhaseSecondaryLabel(phase))}</div>
         <div class="phase-tags">
               <span class="phase-tag phase-tag--graph-status phase-tag--${(0, htmlEscape_1.escapeHtmlAttr)(visualTone)}">${(0, htmlEscape_1.escapeHtml)(statusBadge)}</span>
