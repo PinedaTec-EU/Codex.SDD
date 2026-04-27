@@ -3201,22 +3201,53 @@ export function buildWorkflowHtml(
     }
     .graph-legend {
       position: absolute;
-      left: 0;
-      bottom: 42px;
+      left: 18px;
+      bottom: 18px;
       width: 220px;
       padding: 20px 20px 18px;
       border-radius: 22px;
       border: 1px dashed rgba(174, 188, 209, 0.26);
       background: linear-gradient(180deg, rgba(10, 18, 28, 0.84), rgba(8, 13, 22, 0.92));
       box-shadow: 0 16px 26px rgba(4, 8, 16, 0.22);
+      pointer-events: auto;
+    }
+    .graph-legend[hidden] {
+      display: none;
+    }
+    .graph-legend__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
     }
     .graph-legend__title {
-      margin-bottom: 16px;
       color: rgba(240, 244, 252, 0.92);
       font-size: 0.96rem;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.08em;
+    }
+    .graph-legend__dismiss {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(197, 208, 226, 0.18);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(230, 236, 246, 0.88);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font: inherit;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+    }
+    .graph-legend__dismiss:hover {
+      border-color: rgba(230, 236, 246, 0.34);
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(248, 250, 255, 0.96);
     }
     .graph-legend__row {
       display: flex;
@@ -5034,7 +5065,10 @@ export function buildWorkflowHtml(
         display: block;
       }
       .graph-legend {
-        display: none;
+        left: 10px;
+        bottom: 10px;
+        width: 188px;
+        padding: 16px 16px 14px;
       }
       .graph-loop-badge--horizontal {
         top: 374px;
@@ -5299,6 +5333,7 @@ export function buildWorkflowHtml(
     const graphPanel = document.querySelector('[data-panel-scroll="graph"]');
     const detailPanel = document.querySelector('[data-panel-scroll="detail"]');
     const phaseGraph = document.querySelector(".phase-graph");
+    const graphLegendElements = Array.from(document.querySelectorAll("[data-graph-legend]"));
     const selectedPhaseNode = document.querySelector(".phase-node.selected");
     const currentPhaseNode = document.querySelector(".phase-node.phase-node--current");
     const focusedPhaseNode = selectedPhaseNode instanceof HTMLElement
@@ -5322,6 +5357,37 @@ export function buildWorkflowHtml(
     const autoScrollStateKey = workflowShell instanceof HTMLElement
       ? "specforge-ai:auto-scroll-phase:" + (workflowShell.dataset.usId ?? "")
       : "";
+    const graphLegendDismissKey = workflowShell instanceof HTMLElement
+      ? "specforge-ai:graph-legend-dismissed:" + (workflowShell.dataset.usId ?? "")
+      : "";
+    const syncGraphLegendVisibility = () => {
+      const dismissed = graphLegendDismissKey
+        ? window.sessionStorage.getItem(graphLegendDismissKey) === "true"
+        : false;
+      for (const legendElement of graphLegendElements) {
+        if (legendElement instanceof HTMLElement) {
+          legendElement.hidden = dismissed;
+        }
+      }
+    };
+    syncGraphLegendVisibility();
+    for (const legendElement of graphLegendElements) {
+      if (!(legendElement instanceof HTMLElement)) {
+        continue;
+      }
+
+      const dismissButton = legendElement.querySelector("[data-graph-legend-dismiss]");
+      if (dismissButton instanceof HTMLButtonElement) {
+        dismissButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (graphLegendDismissKey) {
+            window.sessionStorage.setItem(graphLegendDismissKey, "true");
+          }
+          syncGraphLegendVisibility();
+        });
+      }
+    }
     if (focusedPhaseNode instanceof HTMLElement && focusedPhaseId && autoScrollStateKey) {
       try {
         const previousPhaseId = window.sessionStorage.getItem(autoScrollStateKey) ?? "";
@@ -6553,7 +6619,7 @@ function buildPhaseGraph(
   const mobileHorizontalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, mobileHorizontalLayout.positions, mobilePhaseNodeWidth);
   const mobileVerticalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, mobileVerticalLayout.positions, mobilePhaseNodeWidth);
   const implementationReviewCycleCount = resolveImplementationReviewCycleCount(workflow);
-  const graphLegend = renderGraphLegend();
+  const graphLegend = renderGraphLegend(workflow.usId);
   const horizontalLoopBadge = renderGraphLoopBadge(implementationReviewCycleCount, "horizontal");
   const verticalLoopBadge = renderGraphLoopBadge(implementationReviewCycleCount, "vertical");
 
@@ -6641,6 +6707,7 @@ function buildPhaseGraph(
         ${mobileVerticalLinks}
       </svg>
       <div class="graph-adornment graph-adornment--horizontal">
+        ${graphLegend}
         ${horizontalLoopBadge}
       </div>
       <div class="graph-adornment graph-adornment--vertical">
@@ -6740,10 +6807,13 @@ function resolveImplementationReviewCycleCount(workflow: UserStoryWorkflowDetail
   return attempts.length > 0 ? Math.max(...attempts) : 0;
 }
 
-function renderGraphLegend(): string {
+function renderGraphLegend(usId: string): string {
   return `
-    <aside class="graph-legend" aria-label="Graph legend">
-      <div class="graph-legend__title">Legend</div>
+    <aside class="graph-legend" data-graph-legend data-us-id="${escapeHtmlAttribute(usId)}" aria-label="Graph legend">
+      <div class="graph-legend__head">
+        <div class="graph-legend__title">Legend</div>
+        <button type="button" class="graph-legend__dismiss" data-graph-legend-dismiss aria-label="Dismiss graph legend">×</button>
+      </div>
       <div class="graph-legend__row"><span class="graph-legend__line graph-legend__line--progress"></span><span>Progress</span></div>
       <div class="graph-legend__row"><span class="graph-legend__line graph-legend__line--pending"></span><span>Pending / skip</span></div>
       <div class="graph-legend__row"><span class="graph-legend__line graph-legend__line--loop"></span><span>Iteration loop</span></div>
