@@ -4556,6 +4556,130 @@ test("buildWorkflowHtml renders completed phase reopen controls and lock state",
   assert.match(html, /detail-card-shell[^]*detail-card--phase-overview[^]*detail-card--completed-reopen[^]*<h3>Workflow Dashboard<\/h3>/);
 });
 
+test("buildWorkflowHtml hides secondary review regression edge until it has execution history and review is not selected", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0200A",
+    title: "Review secondary edge hidden",
+    category: "workflow",
+    status: "active",
+    currentPhase: "release-approval",
+    directoryPath: "/tmp/us.US-0200A",
+    workBranch: "feature/us-0200A",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      { phaseId: "implementation", title: "Implementation", order: 4, requiresApproval: false, expectsHumanIntervention: false, isApproved: false, isCurrent: false, state: "completed", artifactPath: null, executePromptPath: null, approvePromptPath: null },
+      { phaseId: "review", title: "Review", order: 5, requiresApproval: false, expectsHumanIntervention: false, isApproved: false, isCurrent: false, state: "completed", artifactPath: null, executePromptPath: null, approvePromptPath: null },
+      { phaseId: "release-approval", title: "Release Approval", order: 6, requiresApproval: true, expectsHumanIntervention: true, isApproved: false, isCurrent: true, state: "current", artifactPath: null, executePromptPath: null, approvePromptPath: null }
+    ],
+    controls: { canContinue: false, canApprove: true, requiresApproval: true, blockingReason: null, canRestartFromSource: false, regressionTargets: [], rewindTargets: [] },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "implementation",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    completedPhaseIds: ["implementation", "review"]
+  }, "idle");
+
+  assert.doesNotMatch(html, /graph-links[^]*path class="reverse/);
+});
+
+test("buildWorkflowHtml shows secondary review regression edge in gray when review is selected without execution history", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0200B",
+    title: "Review secondary edge selected",
+    category: "workflow",
+    status: "active",
+    currentPhase: "review",
+    directoryPath: "/tmp/us.US-0200B",
+    workBranch: "feature/us-0200B",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      { phaseId: "implementation", title: "Implementation", order: 4, requiresApproval: false, expectsHumanIntervention: false, isApproved: false, isCurrent: false, state: "completed", artifactPath: null, executePromptPath: null, approvePromptPath: null },
+      { phaseId: "review", title: "Review", order: 5, requiresApproval: false, expectsHumanIntervention: false, isApproved: false, isCurrent: true, state: "current", artifactPath: null, executePromptPath: null, approvePromptPath: null }
+    ],
+    controls: { canContinue: false, canApprove: false, requiresApproval: false, blockingReason: null, canRestartFromSource: false, regressionTargets: [], rewindTargets: [] },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "review",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    completedPhaseIds: ["implementation"]
+  }, "idle");
+
+  assert.match(html, /path class="reverse"/);
+});
+
+test("buildWorkflowHtml shows completed secondary reopen edges only after execution unless completed is selected", () => {
+  const workflow = {
+    usId: "US-0200C",
+    title: "Completed secondary edges",
+    category: "workflow",
+    status: "completed",
+    currentPhase: "pr-preparation",
+    directoryPath: "/tmp/us.US-0200C",
+    workBranch: "feature/us-0200C",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      { phaseId: "refinement", title: "Refinement", order: 2, requiresApproval: true, expectsHumanIntervention: true, isApproved: true, isCurrent: false, state: "completed", artifactPath: null, executePromptPath: null, approvePromptPath: null },
+      { phaseId: "technical-design", title: "Technical Design", order: 3, requiresApproval: false, expectsHumanIntervention: true, isApproved: true, isCurrent: false, state: "completed", artifactPath: null, executePromptPath: null, approvePromptPath: null },
+      { phaseId: "implementation", title: "Implementation", order: 4, requiresApproval: false, expectsHumanIntervention: false, isApproved: true, isCurrent: false, state: "completed", artifactPath: null, executePromptPath: null, approvePromptPath: null },
+      { phaseId: "pr-preparation", title: "PR Preparation", order: 7, requiresApproval: false, expectsHumanIntervention: false, isApproved: true, isCurrent: false, state: "completed", artifactPath: null, executePromptPath: null, approvePromptPath: null },
+      { phaseId: "completed", title: "Completed", order: 8, requiresApproval: false, expectsHumanIntervention: false, isApproved: true, isCurrent: true, state: "current", artifactPath: null, executePromptPath: null, approvePromptPath: null }
+    ],
+    controls: { canContinue: false, canApprove: false, requiresApproval: false, blockingReason: "workflow_completed", canRestartFromSource: false, regressionTargets: [], rewindTargets: ["refinement", "technical-design", "implementation"] },
+    clarification: null,
+    events: [
+      { timestampUtc: "2026-04-27T09:00:00Z", code: "workflow_reopened", actor: "alice", phase: "implementation", summary: null, artifacts: [], usage: null, durationMs: null, execution: null }
+    ],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  } as const;
+
+  const hiddenHtml = buildWorkflowHtml(workflow, {
+    selectedPhaseId: "implementation",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    completedPhaseIds: ["refinement", "technical-design", "implementation", "pr-preparation", "completed"],
+    completedUsLockOnCompleted: true
+  }, "idle");
+
+  assert.match(hiddenHtml, /path class="reverse-completed"/);
+  assert.doesNotMatch(hiddenHtml, /path class="reverse"(?!-)/);
+
+  const selectedHtml = buildWorkflowHtml(workflow, {
+    selectedPhaseId: "completed",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    completedPhaseIds: ["refinement", "technical-design", "implementation", "pr-preparation", "completed"],
+    completedUsLockOnCompleted: true
+  }, "idle");
+
+  const reverseMatches = selectedHtml.match(/path class="reverse"/g) ?? [];
+  const reverseCompletedMatches = selectedHtml.match(/path class="reverse-completed"/g) ?? [];
+  assert.equal(reverseMatches.length, 4);
+  assert.equal(reverseCompletedMatches.length, 2);
+});
+
 test("buildWorkflowHtml keeps completed reopen collapsed when completed has no own data", () => {
   const html = buildWorkflowHtml({
     usId: "US-0201",

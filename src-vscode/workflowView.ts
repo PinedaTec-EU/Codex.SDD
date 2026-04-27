@@ -6025,8 +6025,8 @@ function buildPhaseGraph(
   }));
   const desktopLayout = buildPhaseLayout(layoutPhases, desktopLayoutConfig, phaseNodeWidth);
   const mobileLayout = buildPhaseLayout(layoutPhases, mobileLayoutConfig, mobilePhaseNodeWidth);
-  const links = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopLayout.positions, phaseNodeWidth);
-  const mobileLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileLayout.positions, mobilePhaseNodeWidth);
+  const links = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, desktopLayout.positions, phaseNodeWidth);
+  const mobileLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, mobileLayout.positions, mobilePhaseNodeWidth);
 
   const nodes = visiblePhases.map((phase, index) => {
     const disabled = false;
@@ -6169,6 +6169,7 @@ function buildGraphLinks(
   executingTargetPhaseId: string | null,
   currentPhaseId: string,
   completedPhaseIds: ReadonlySet<string>,
+  selectedPhaseId: string,
   positions: Record<string, PhasePosition>,
   nodeWidth: number
 ): string {
@@ -6184,13 +6185,8 @@ function buildGraphLinks(
     });
   }
 
-  if (visiblePhases.some((phase) => phase.phaseId === "implementation")
-    && visiblePhases.some((phase) => phase.phaseId === "review")) {
-    edges.push({
-      fromPhaseId: "review",
-      toPhaseId: "implementation",
-      className: reverseLinkClass(workflow, completedPhaseIds)
-    });
+  for (const edge of buildSecondaryGraphEdges(workflow, visiblePhases, completedPhaseIds, selectedPhaseId)) {
+    edges.push(edge);
   }
 
   return edges
@@ -6198,27 +6194,96 @@ function buildGraphLinks(
     .join("");
 }
 
-function reverseLinkClass(
+function buildSecondaryGraphEdges(
   workflow: UserStoryWorkflowDetails,
-  completedPhaseIds: ReadonlySet<string>
+  visiblePhases: readonly WorkflowPhaseDetails[],
+  completedPhaseIds: ReadonlySet<string>,
+  selectedPhaseId: string
+): Array<{ fromPhaseId: string; toPhaseId: string; className: string }> {
+  const visiblePhaseIds = new Set(visiblePhases.map((phase) => phase.phaseId));
+  const edges: Array<{ fromPhaseId: string; toPhaseId: string; className: string }> = [];
+
+  const secondaryDefinitions: ReadonlyArray<{ fromPhaseId: string; toPhaseId: string }> = [
+    { fromPhaseId: "review", toPhaseId: "implementation" },
+    ...resolveCompletedReopenTargetPhases().map((targetPhaseId) => ({ fromPhaseId: "completed", toPhaseId: targetPhaseId }))
+  ];
+
+  for (const definition of secondaryDefinitions) {
+    if (!visiblePhaseIds.has(definition.fromPhaseId) || !visiblePhaseIds.has(definition.toPhaseId)) {
+      continue;
+    }
+
+    const executed = hasSecondaryTransitionExecution(workflow, definition.fromPhaseId, definition.toPhaseId);
+    const viewingSource = selectedPhaseId === definition.fromPhaseId;
+    if (!executed && !viewingSource) {
+      continue;
+    }
+
+    edges.push({
+      fromPhaseId: definition.fromPhaseId,
+      toPhaseId: definition.toPhaseId,
+      className: secondaryLinkClass(workflow, completedPhaseIds, definition.fromPhaseId, definition.toPhaseId, executed)
+    });
+  }
+
+  return edges;
+}
+
+function secondaryLinkClass(
+  workflow: UserStoryWorkflowDetails,
+  completedPhaseIds: ReadonlySet<string>,
+  fromPhaseId: string,
+  toPhaseId: string,
+  executed: boolean
 ): string {
-  const reviewRegressionOpen = workflow.currentPhase === "review"
-    && (workflow.controls.blockingReason === "review_failed"
-      || workflow.controls.blockingReason === "review_result_missing"
-      || workflow.controls.blockingReason === "review_missing_artifact");
+  if (fromPhaseId === "review" && toPhaseId === "implementation") {
+    const reviewRegressionOpen = workflow.currentPhase === "review"
+      && (workflow.controls.blockingReason === "review_failed"
+        || workflow.controls.blockingReason === "review_result_missing"
+        || workflow.controls.blockingReason === "review_missing_artifact");
 
-  if (reviewRegressionOpen) {
-    return "reverse-active";
+    if (reviewRegressionOpen) {
+      return "reverse-active";
+    }
   }
 
-  const hasRegressionHistory = (workflow.phaseIterations ?? []).some((iteration) =>
-    (iteration.phaseId === "implementation" || iteration.phaseId === "review") && iteration.attempt > 1);
-
-  if (hasRegressionHistory && (completedPhaseIds.has("review") || workflow.currentPhase === "release-approval" || workflow.currentPhase === "pr-preparation")) {
-    return "reverse-completed";
+  if (!executed) {
+    return "reverse";
   }
 
-  return "reverse";
+  if (fromPhaseId === "review" && toPhaseId === "implementation") {
+    if (completedPhaseIds.has("review") || workflow.currentPhase === "release-approval" || workflow.currentPhase === "pr-preparation") {
+      return "reverse-completed";
+    }
+  }
+
+  return "reverse-completed";
+}
+
+function hasSecondaryTransitionExecution(
+  workflow: UserStoryWorkflowDetails,
+  fromPhaseId: string,
+  toPhaseId: string
+): boolean {
+  if (fromPhaseId === "review" && toPhaseId === "implementation") {
+    return (workflow.phaseIterations ?? []).some((iteration) =>
+      (iteration.phaseId === "implementation" || iteration.phaseId === "review") && iteration.attempt > 1);
+  }
+
+  if (fromPhaseId === "completed") {
+    return workflow.events.some((event) => event.code === "workflow_reopened" && event.phase === toPhaseId);
+  }
+
+  return false;
+}
+
+function resolveCompletedReopenTargetPhases(): readonly string[] {
+  return [...new Set([
+    resolveCompletedWorkflowReopenTargetPhase("merge-conflict"),
+    resolveCompletedWorkflowReopenTargetPhase("defect"),
+    resolveCompletedWorkflowReopenTargetPhase("functional-issue"),
+    resolveCompletedWorkflowReopenTargetPhase("technical-issue")
+  ].filter((phaseId) => phaseId.length > 0))];
 }
 
 function shouldShowClarificationPhase(
