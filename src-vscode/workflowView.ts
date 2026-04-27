@@ -2720,21 +2720,13 @@ export function buildWorkflowHtml(
       background: transparent;
       color: rgba(226, 244, 239, 0.86);
       cursor: pointer;
-      transform-origin: bottom center;
-      transition: transform 150ms ease, width 150ms ease, opacity 150ms ease, color 150ms ease;
+      transition: opacity 150ms ease, color 150ms ease;
       position: relative;
       z-index: 1;
     }
     .time-dock__point:hover {
-      width: 118px;
-      transform: translateY(-12px) scale(1.28);
       color: #f2fff8;
       z-index: 3;
-    }
-    .time-dock__point:has(+ .time-dock__point:hover),
-    .time-dock__point:hover + .time-dock__point {
-      transform: translateY(-6px) scale(1.12);
-      color: rgba(238, 255, 248, 0.96);
     }
     .time-dock__point--current {
       color: #ffe08a;
@@ -2757,11 +2749,30 @@ export function buildWorkflowHtml(
       font-size: 0.76rem;
       font-weight: 900;
       letter-spacing: -0.04em;
+      transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease, color 150ms ease;
     }
     .time-dock__point--current .time-dock__orb {
       border-color: rgba(255, 213, 90, 0.52);
       background: linear-gradient(180deg, rgba(255, 213, 90, 0.24), rgba(55, 42, 14, 0.96));
       box-shadow: 0 12px 30px rgba(255, 213, 90, 0.14);
+    }
+    .time-dock__point:hover .time-dock__orb {
+      border-color: rgba(114, 241, 184, 0.48);
+      background:
+        linear-gradient(180deg, rgba(114, 241, 184, 0.28), rgba(14, 38, 33, 0.96)),
+        rgba(8, 16, 22, 0.92);
+      box-shadow:
+        0 10px 24px rgba(0, 0, 0, 0.32),
+        0 0 0 1px rgba(177, 255, 224, 0.08),
+        0 0 22px rgba(114, 241, 184, 0.14);
+    }
+    .time-dock__point--current:hover .time-dock__orb {
+      border-color: rgba(255, 223, 116, 0.72);
+      background: linear-gradient(180deg, rgba(255, 213, 90, 0.34), rgba(64, 48, 16, 0.98));
+      box-shadow:
+        0 12px 30px rgba(255, 213, 90, 0.16),
+        0 0 0 1px rgba(255, 234, 170, 0.1),
+        0 0 22px rgba(255, 213, 90, 0.16);
     }
     .time-dock__label,
     .time-dock__time {
@@ -2775,10 +2786,19 @@ export function buildWorkflowHtml(
     .time-dock__label {
       font-size: 0.72rem;
       font-weight: 800;
+      transition: color 150ms ease;
     }
     .time-dock__time {
       font-size: 0.66rem;
       opacity: 0.62;
+      transition: opacity 150ms ease, color 150ms ease;
+    }
+    .time-dock__point:hover .time-dock__label {
+      color: rgba(242, 255, 248, 0.98);
+    }
+    .time-dock__point:hover .time-dock__time {
+      opacity: 0.84;
+      color: rgba(214, 240, 226, 0.92);
     }
     .time-dock__scroll {
       width: 42px;
