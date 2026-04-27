@@ -684,6 +684,22 @@ public sealed class WorkflowRunner
 
         var branch = workflowRun.Branch
             ?? throw new WorkflowDomainException("PR preparation requires branch metadata before publication.");
+        if (branch.PullRequest is { Number: > 0, Url: not null } existingPullRequest &&
+            !string.IsNullOrWhiteSpace(existingPullRequest.Url))
+        {
+            workflowRun.CompleteCurrentWorkflow();
+            await AppendTimelineEventAsync(
+                paths.TimelineFilePath,
+                "pull_request_reused",
+                actor,
+                workflowRun.CurrentPhase,
+                $"Reused existing pull request for `{branch.WorkBranchName}`: {existingPullRequest.Url}",
+                cancellationToken,
+                [artifactPath]);
+
+            return artifactPath;
+        }
+
         var publication = await pullRequestPublisher.PublishAsync(workspaceRoot, workflowRun.UsId, branch, document, cancellationToken);
         EnsurePullRequestPublicationSucceeded(publication);
         branch.RecordPublishedPullRequest(

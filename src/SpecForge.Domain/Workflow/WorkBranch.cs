@@ -74,6 +74,16 @@ public sealed class WorkBranch
         string title,
         string artifactPath)
     {
+        if (PullRequest is not null && PullRequest.Number is > 0 && !string.IsNullOrWhiteSpace(PullRequest.Url))
+        {
+            PullRequest = PullRequest with
+            {
+                Title = title,
+                ArtifactPath = artifactPath
+            };
+            return;
+        }
+
         PullRequest = new PullRequestRecord(
             Status: "prepared",
             TargetBaseBranch: BaseBranch,

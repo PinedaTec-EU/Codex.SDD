@@ -478,6 +478,65 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ContinuePhaseAsync_FromPrPreparation_ReusesExistingPullRequestAfterReopenWithoutRepublishing()
+    {
+        var publisher = new RecordingPullRequestPublisher();
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new PassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager(),
+            publisher);
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        publisher.Clear();
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        var loadedRun = await new UserStoryFileStore().LoadAsync(paths.RootDirectory);
+        loadedRun.Branch!.RecordPublishedPullRequest(
+            new PullRequestRecord(
+                Status: "draft",
+                TargetBaseBranch: "main",
+                Title: "US-0001: deliver approved workflow scope",
+                ArtifactPath: paths.GetPhaseArtifactPath(PhaseId.PrPreparation),
+                IsDraft: true,
+                Number: 101,
+                Url: "https://github.com/example/repo/pull/101",
+                RemoteBranch: loadedRun.Branch.WorkBranchName,
+                HeadCommitSha: "abc123",
+                PublishedAtUtc: new DateTimeOffset(2026, 4, 27, 10, 0, 0, TimeSpan.Zero)));
+        loadedRun.RestoreState(PhaseId.PrPreparation, UserStoryStatus.Active);
+        await new UserStoryFileStore().SaveAsync(loadedRun, paths.RootDirectory);
+
+        var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal(PhaseId.PrPreparation, result.CurrentPhase);
+        Assert.Equal(UserStoryStatus.Completed, result.Status);
+        Assert.Null(publisher.LastArtifact);
+
+        var reloadedRun = await new UserStoryFileStore().LoadAsync(paths.RootDirectory);
+        Assert.Equal(UserStoryStatus.Completed, reloadedRun.Status);
+        Assert.NotNull(reloadedRun.Branch?.PullRequest);
+        Assert.Equal("draft", reloadedRun.Branch!.PullRequest!.Status);
+        Assert.Equal(101, reloadedRun.Branch.PullRequest.Number);
+        Assert.Equal("https://github.com/example/repo/pull/101", reloadedRun.Branch.PullRequest.Url);
+
+        var timeline = await File.ReadAllTextAsync(paths.TimelineFilePath);
+        Assert.Contains("`pull_request_reused`", timeline);
+        Assert.Contains("https://github.com/example/repo/pull/101", timeline);
+    }
+
+    [Fact]
     public async Task ContinuePhaseAsync_PrPreparation_ThrowsWhenArtifactIsPlaceholderOnly()
     {
         var runner = new WorkflowRunner(
@@ -1563,6 +1622,8 @@ public sealed class WorkflowRunnerTests : IDisposable
     private sealed class RecordingPullRequestPublisher : IPullRequestPublisher
     {
         public PrPreparationArtifactDocument? LastArtifact { get; private set; }
+
+        public void Clear() => LastArtifact = null;
 
         public Task<PullRequestPublicationResult> PublishAsync(
             string workspaceRoot,
