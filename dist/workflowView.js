@@ -5070,6 +5070,20 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
 
       return clonedNode;
     };
+    const applySnapshotBackground = (targetNode) => {
+      if (!(targetNode instanceof HTMLElement)) {
+        return;
+      }
+
+      const bodyStyle = window.getComputedStyle(document.body);
+      const rootStyle = window.getComputedStyle(document.documentElement);
+      targetNode.style.backgroundColor = bodyStyle.backgroundColor || rootStyle.backgroundColor || "#0a1418";
+      targetNode.style.backgroundImage = bodyStyle.backgroundImage || rootStyle.backgroundImage || "none";
+      targetNode.style.backgroundPosition = bodyStyle.backgroundPosition || rootStyle.backgroundPosition || "center";
+      targetNode.style.backgroundSize = bodyStyle.backgroundSize || rootStyle.backgroundSize || "cover";
+      targetNode.style.backgroundRepeat = bodyStyle.backgroundRepeat || rootStyle.backgroundRepeat || "no-repeat";
+      targetNode.style.backgroundAttachment = "scroll";
+    };
     const encodeSvgDataUri = (svgMarkup) => {
       const encoded = typeof window.btoa === "function"
         ? window.btoa(unescape(encodeURIComponent(svgMarkup)))
@@ -5160,6 +5174,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       clonedGraphStage.style.margin = "0";
       clonedGraphStage.style.transform = "none";
       clonedGraphStage.style.boxSizing = "border-box";
+      applySnapshotBackground(clonedGraphStage);
 
       const clonedPhaseGraph = clonedGraphStage.querySelector(".phase-graph");
       if (clonedPhaseGraph instanceof HTMLElement) {
