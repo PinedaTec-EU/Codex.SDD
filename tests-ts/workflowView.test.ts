@@ -325,9 +325,10 @@ test("buildWorkflowHtml wires delegated handlers and pointer phase-node listener
   assert.match(html, /bindPhaseSelectionElement\(element\);/);
   assert.match(html, /const markSelectedPhaseNode = \(element\) => \{/);
   assert.match(html, /document\.querySelectorAll\("\.phase-node\.selected"\)\.forEach/);
+  assert.match(html, /document\.querySelectorAll\("\[data-command\]"\)\.forEach\(\(element\) => \{/);
+  assert.match(html, /bindCommandElement\(element\);/);
   assert.match(html, /element\.addEventListener\("pointerdown"/);
   assert.match(html, /\|\| commandElement\.dataset\.command === "selectPhase"/);
-  assert.doesNotMatch(html, /querySelectorAll\("\[data-command\]"\)/);
 });
 
 test("buildWorkflowHtml paused overlay persistence key includes startedAt to avoid stale dismiss state", () => {
@@ -3499,7 +3500,8 @@ test("buildWorkflowHtml locks background interaction while the workflow files mo
   }, "idle");
 
   assert.match(html, /<div class="shell" data-workflow-shell data-us-id="US-0014">/);
-  assert.match(html, /\.shell\.shell--interaction-locked[\s\S]*pointer-events: none;/);
+  assert.match(html, /\.shell\.shell--interaction-locked \{\s+user-select: none;\s+\}/);
+  assert.doesNotMatch(html, /\.shell\.shell--interaction-locked \{\s+pointer-events: none;/);
   assert.match(html, /workflowShell\.classList\.toggle\("shell--interaction-locked", open\)/);
 });
 

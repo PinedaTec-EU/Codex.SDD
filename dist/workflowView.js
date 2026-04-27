@@ -1679,7 +1679,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       overflow: hidden;
     }
     .shell.shell--interaction-locked {
-      pointer-events: none;
       user-select: none;
     }
     .shell-body {
@@ -5237,6 +5236,26 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       });
       element.classList.add("selected");
     };
+    const bindCommandElement = (element) => {
+      if (!(element instanceof HTMLElement)) {
+        return;
+      }
+
+      const command = element.dataset.command ?? "";
+      if (!command || command === "approve" || command === "selectPhase") {
+        return;
+      }
+
+      element.addEventListener("click", (event) => {
+        if (element instanceof HTMLButtonElement && element.disabled) {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        postCommand(element);
+      });
+    };
     const bindPhaseSelectionElement = (element) => {
       if (!(element instanceof HTMLElement)) {
         return;
@@ -5265,6 +5284,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     };
     document.querySelectorAll('[data-command="selectPhase"]').forEach((element) => {
       bindPhaseSelectionElement(element);
+    });
+    document.querySelectorAll("[data-command]").forEach((element) => {
+      bindCommandElement(element);
     });
     document.addEventListener("click", (event) => {
       const commandElement = event.target instanceof Element
