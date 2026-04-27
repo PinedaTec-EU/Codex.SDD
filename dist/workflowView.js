@@ -188,6 +188,17 @@ function renderTokenSummaryRow(label, value) {
     </div>
   `;
 }
+function renderTokenSummaryCard(title, rows, options) {
+    const modifierClass = options?.modifierClass ? ` ${options.modifierClass}` : "";
+    return `
+    <div class="token-summary${modifierClass}">
+      <div class="token-summary__header">${(0, htmlEscape_1.escapeHtml)(title)}</div>
+      <div class="token-summary__rows">
+        ${rows.join("")}
+      </div>
+    </div>
+  `;
+}
 function renderUsageDashboardTable(title, headers, rows) {
     return `
     <section class="detail-card detail-card--usage-table">
@@ -1159,37 +1170,32 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       </div>
     </div>
   `;
-    const touchSummary = `
-    <div class="token-summary token-summary--touches">
-      <div class="token-summary__header">Touches</div>
-      <div class="token-summary__rows">
-        ${renderTokenSummaryRow("Total", String(selectedPhaseTouches.total))}
-        ${renderTokenSummaryRow("Generated", String(selectedPhaseTouches.generated))}
-        ${renderTokenSummaryRow("Operated", String(selectedPhaseTouches.operated))}
-        ${renderTokenSummaryRow("Started", String(selectedPhaseTouches.started))}
-        ${renderTokenSummaryRow("Rewinds Here", String(selectedPhaseTouches.rewound))}
-        ${renderTokenSummaryRow("Regressions Here", String(selectedPhaseTouches.regressed))}
-      </div>
-    </div>
-  `;
-    const tokenSummary = `
-    <div class="token-summary token-summary--wide">
-      <div class="token-summary__header">Tokens</div>
-      <div class="token-summary__rows">
-        ${renderTokenSummaryRow("Input / Output", hasTokenTelemetry
-        ? `${formatMetricNumber(selectedPhaseUsageAggregate.inputTokens)} / ${formatMetricNumber(selectedPhaseUsageAggregate.outputTokens)}`
-        : "n/a")}
-        ${renderTokenSummaryRow("Total", hasTokenTelemetry
-        ? formatMetricNumber(selectedPhaseUsageAggregate.totalTokens)
-        : "n/a")}
-        ${renderTokenSummaryRow("Model", selectedPhaseExecutionLabel ?? "n/a")}
-        ${renderTokenSummaryRow("Iterations", String(selectedPhaseRecordedIterationCount))}
-        ${hasTokenTelemetry && selectedPhaseDurationAggregate > 0
-        ? renderTokenSummaryRow("Response Speed", formatTokensPerSecond(selectedPhaseUsageAggregate.outputTokens, selectedPhaseDurationAggregate))
-        : ""}
-      </div>
-    </div>
-  `;
+    const touchSummary = renderTokenSummaryCard("Touches", [
+        renderTokenSummaryRow("Total", String(selectedPhaseTouches.total)),
+        renderTokenSummaryRow("Generated", String(selectedPhaseTouches.generated)),
+        renderTokenSummaryRow("Operated", String(selectedPhaseTouches.operated)),
+        renderTokenSummaryRow("Started", String(selectedPhaseTouches.started)),
+        renderTokenSummaryRow("Rewinds Here", String(selectedPhaseTouches.rewound)),
+        renderTokenSummaryRow("Regressions Here", String(selectedPhaseTouches.regressed))
+    ], {
+        modifierClass: "token-summary--touches"
+    });
+    const tokenSummaryRows = [
+        renderTokenSummaryRow("Input / Output", hasTokenTelemetry
+            ? `${formatMetricNumber(selectedPhaseUsageAggregate.inputTokens)} / ${formatMetricNumber(selectedPhaseUsageAggregate.outputTokens)}`
+            : "n/a"),
+        renderTokenSummaryRow("Total", hasTokenTelemetry
+            ? formatMetricNumber(selectedPhaseUsageAggregate.totalTokens)
+            : "n/a"),
+        renderTokenSummaryRow("Model", selectedPhaseExecutionLabel ?? "n/a"),
+        renderTokenSummaryRow("Iterations", String(selectedPhaseRecordedIterationCount))
+    ];
+    if (hasTokenTelemetry && selectedPhaseDurationAggregate > 0) {
+        tokenSummaryRows.push(renderTokenSummaryRow("Response Speed", formatTokensPerSecond(selectedPhaseUsageAggregate.outputTokens, selectedPhaseDurationAggregate)));
+    }
+    const tokenSummary = renderTokenSummaryCard("Tokens", tokenSummaryRows, {
+        modifierClass: "token-summary--wide"
+    });
     const selectedPhaseMetrics = `${durationMetric}${touchSummary}${tokenSummary}`;
     const workflowUsageDashboard = `
     <section class="detail-card detail-card--workflow-dashboard">
@@ -1200,26 +1206,20 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         </div>
       </div>
       <div class="token-summary-grid token-summary-grid--workflow">
-        <div class="token-summary">
-          <div class="token-summary__header">Totals</div>
-          <div class="token-summary__rows">
-            ${renderTokenSummaryRow("Input / Output", `${formatMetricNumber(workflowUsage.overall.inputTokens)} / ${formatMetricNumber(workflowUsage.overall.outputTokens)}`)}
-            ${renderTokenSummaryRow("Total Tokens", formatMetricNumber(workflowUsage.overall.totalTokens))}
-            ${renderTokenSummaryRow("Recorded Runs", String(workflowUsage.overall.events))}
-            ${renderTokenSummaryRow("Duration", workflowUsage.overall.durationMs > 0 ? formatDuration(workflowUsage.overall.durationMs) : "n/a")}
-            ${renderTokenSummaryRow("Response Speed", workflowUsage.overall.durationMs > 0 ? formatTokensPerSecond(workflowUsage.overall.outputTokens, workflowUsage.overall.durationMs) : "n/a")}
-          </div>
-        </div>
-        <div class="token-summary">
-          <div class="token-summary__header">Timeline</div>
-          <div class="token-summary__rows">
-            ${renderTokenSummaryRow("Events", String(workflow.events.length))}
-            ${renderTokenSummaryRow("Iterations", String(workflow.phaseIterations?.length ?? 0))}
-            ${renderTokenSummaryRow("Started", formatUtcTimestamp(workflow.events[0]?.timestampUtc ?? null))}
-            ${renderTokenSummaryRow("Last Event", formatUtcTimestamp(workflow.events[workflow.events.length - 1]?.timestampUtc ?? null))}
-            ${renderTokenSummaryRow("Current Phase", (workflow.phases.find((phase) => phase.isCurrent) ?? selectedPhase).title)}
-          </div>
-        </div>
+        ${renderTokenSummaryCard("Totals", [
+        renderTokenSummaryRow("Input / Output", `${formatMetricNumber(workflowUsage.overall.inputTokens)} / ${formatMetricNumber(workflowUsage.overall.outputTokens)}`),
+        renderTokenSummaryRow("Total Tokens", formatMetricNumber(workflowUsage.overall.totalTokens)),
+        renderTokenSummaryRow("Recorded Runs", String(workflowUsage.overall.events)),
+        renderTokenSummaryRow("Duration", workflowUsage.overall.durationMs > 0 ? formatDuration(workflowUsage.overall.durationMs) : "n/a"),
+        renderTokenSummaryRow("Response Speed", workflowUsage.overall.durationMs > 0 ? formatTokensPerSecond(workflowUsage.overall.outputTokens, workflowUsage.overall.durationMs) : "n/a")
+    ])}
+        ${renderTokenSummaryCard("Timeline", [
+        renderTokenSummaryRow("Events", String(workflow.events.length)),
+        renderTokenSummaryRow("Iterations", String(workflow.phaseIterations?.length ?? 0)),
+        renderTokenSummaryRow("Started", formatUtcTimestamp(workflow.events[0]?.timestampUtc ?? null)),
+        renderTokenSummaryRow("Last Event", formatUtcTimestamp(workflow.events[workflow.events.length - 1]?.timestampUtc ?? null)),
+        renderTokenSummaryRow("Current Phase", (workflow.phases.find((phase) => phase.isCurrent) ?? selectedPhase).title)
+    ])}
       </div>
     </section>
   `;
