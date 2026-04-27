@@ -5367,9 +5367,15 @@ export function buildWorkflowHtml(
       ? "specforge-ai:graph-legend-dismissed:" + (workflowShell.dataset.usId ?? "")
       : "";
     const syncGraphLegendVisibility = () => {
-      const dismissed = graphLegendDismissKey
-        ? window.sessionStorage.getItem(graphLegendDismissKey) === "true"
-        : false;
+      let dismissed = false;
+      if (graphLegendDismissKey) {
+        try {
+          dismissed = window.sessionStorage.getItem(graphLegendDismissKey) === "true";
+        } catch {
+          dismissed = false;
+        }
+      }
+
       for (const legendElement of graphLegendElements) {
         if (legendElement instanceof HTMLElement) {
           legendElement.hidden = dismissed;
@@ -5388,7 +5394,11 @@ export function buildWorkflowHtml(
           event.preventDefault();
           event.stopPropagation();
           if (graphLegendDismissKey) {
-            window.sessionStorage.setItem(graphLegendDismissKey, "true");
+            try {
+              window.sessionStorage.setItem(graphLegendDismissKey, "true");
+            } catch {
+              // Ignore storage failures and still hide the legend for this render.
+            }
           }
           syncGraphLegendVisibility();
         });
