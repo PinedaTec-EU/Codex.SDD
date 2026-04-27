@@ -4926,7 +4926,15 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     ${timelineRewindDock}
   </div>
   <script>
-    const vscode = acquireVsCodeApi();
+    const vscode = (() => {
+      if (window.__specForgeVsCodeApi) {
+        return window.__specForgeVsCodeApi;
+      }
+
+      const acquiredApi = acquireVsCodeApi();
+      window.__specForgeVsCodeApi = acquiredApi;
+      return acquiredApi;
+    })();
     window.addEventListener("error", (event) => {
       try {
         vscode.postMessage({
