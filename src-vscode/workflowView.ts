@@ -5609,17 +5609,29 @@ export function buildWorkflowHtml(
         // Last-resort swallow to avoid breaking the webview script.
       }
     };
-    const bindDirectCommandElement = (element, options = {}) => {
+    const markSelectedPhaseNode = (element) => {
+      if (!(element instanceof HTMLElement) || element.dataset.command !== "selectPhase") {
+        return;
+      }
+
+      document.querySelectorAll(".phase-node.selected").forEach((selectedElement) => {
+        selectedElement.classList.remove("selected");
+      });
+      element.classList.add("selected");
+    };
+    const bindPhaseSelectionElement = (element) => {
       if (!(element instanceof HTMLElement)) {
         return;
       }
 
-      const stopPropagation = options.stopPropagation !== false;
-      element.addEventListener("click", (event) => {
-        event.preventDefault();
-        if (stopPropagation) {
-          event.stopPropagation();
+      element.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) {
+          return;
         }
+
+        event.preventDefault();
+        event.stopPropagation();
+        markSelectedPhaseNode(element);
         postCommand(element);
       });
       element.addEventListener("keydown", (event) => {
@@ -5628,20 +5640,23 @@ export function buildWorkflowHtml(
         }
 
         event.preventDefault();
-        if (stopPropagation) {
-          event.stopPropagation();
-        }
+        event.stopPropagation();
+        markSelectedPhaseNode(element);
         postCommand(element);
       });
     };
     document.querySelectorAll('[data-command="selectPhase"]').forEach((element) => {
-      bindDirectCommandElement(element);
+      bindPhaseSelectionElement(element);
     });
     document.addEventListener("click", (event) => {
       const commandElement = event.target instanceof Element
         ? event.target.closest("[data-command]")
         : null;
-      if (!(commandElement instanceof HTMLElement) || commandElement.dataset.command === "approve") {
+      if (
+        !(commandElement instanceof HTMLElement)
+        || commandElement.dataset.command === "approve"
+        || commandElement.dataset.command === "selectPhase"
+      ) {
         return;
       }
 

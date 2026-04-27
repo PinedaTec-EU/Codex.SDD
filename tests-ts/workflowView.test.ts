@@ -269,7 +269,7 @@ test("buildWorkflowAuditHtml renders workflow audit content in a standalone pane
   assert.doesNotMatch(html, /Audit Stream<\/h2>/);
 });
 
-test("buildWorkflowHtml wires delegated handlers and direct phase-node listeners for graph selection", () => {
+test("buildWorkflowHtml wires delegated handlers and pointer phase-node listeners for graph selection", () => {
   const html = buildWorkflowHtml({
     usId: "US-0001",
     title: "Workflow view",
@@ -322,7 +322,11 @@ test("buildWorkflowHtml wires delegated handlers and direct phase-node listeners
   assert.match(html, /document\.addEventListener\("click"/);
   assert.match(html, /document\.addEventListener\("keydown"/);
   assert.match(html, /document\.querySelectorAll\('\[data-command="selectPhase"\]'\)\.forEach\(\(element\) => \{/);
-  assert.match(html, /bindDirectCommandElement\(element\);/);
+  assert.match(html, /bindPhaseSelectionElement\(element\);/);
+  assert.match(html, /const markSelectedPhaseNode = \(element\) => \{/);
+  assert.match(html, /document\.querySelectorAll\("\.phase-node\.selected"\)\.forEach/);
+  assert.match(html, /element\.addEventListener\("pointerdown"/);
+  assert.match(html, /\|\| commandElement\.dataset\.command === "selectPhase"/);
   assert.doesNotMatch(html, /querySelectorAll\("\[data-command\]"\)/);
 });
 
