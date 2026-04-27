@@ -62,7 +62,7 @@ class ExecutionSettingsPanelController {
         this.extensionUri = extensionUri;
         this.onDidSave = onDidSave;
         this.onDidDisposePanel = onDidDisposePanel;
-        this.panel = vscode.window.createWebviewPanel("specForge.executionSettings", "SpecForge Execution Settings", vscode.ViewColumn.Active, {
+        this.panel = vscode.window.createWebviewPanel("specForge.executionSettings", "SpecForge Configuration", vscode.ViewColumn.Active, {
             enableScripts: true,
             retainContextWhenHidden: true,
             localResourceRoots: [extensionUri]
@@ -77,7 +77,7 @@ class ExecutionSettingsPanelController {
                     return;
                 case "saveExecutionSettings":
                     try {
-                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.autoClarificationAnswersEnabled ?? false, message.autoClarificationAnswersProfile, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.completedUsLockOnCompleted ?? true);
+                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.clarificationTolerance ?? "balanced", message.reviewTolerance ?? "balanced", message.watcherEnabled ?? true, message.attentionNotificationsEnabled ?? true, message.contextSuggestionsEnabled ?? true, message.requireExplicitApprovalBranchAcceptance ?? false, message.autoClarificationAnswersEnabled ?? false, message.autoClarificationAnswersProfile, message.autoPlayEnabled ?? false, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.destructiveRewindEnabled ?? false, message.pauseOnFailedReview ?? false, message.completedUsLockOnCompleted ?? true);
                         await this.onDidSave();
                         await this.refreshAsync();
                     }
@@ -97,10 +97,19 @@ class ExecutionSettingsPanelController {
         this.panel.webview.html = buildExecutionSettingsHtml({
             modelProfiles: settings.modelProfiles,
             phaseModelAssignments: settings.phaseModelAssignments,
+            clarificationTolerance: settings.clarificationTolerance,
+            reviewTolerance: settings.reviewTolerance,
+            watcherEnabled: settings.watcherEnabled,
+            attentionNotificationsEnabled: settings.attentionNotificationsEnabled,
+            contextSuggestionsEnabled: settings.contextSuggestionsEnabled,
+            requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance,
             autoClarificationAnswersEnabled: settings.autoClarificationAnswersEnabled,
             autoClarificationAnswersProfile: settings.autoClarificationAnswersProfile,
+            autoPlayEnabled: settings.autoPlayEnabled,
             autoReviewEnabled: settings.autoReviewEnabled,
             maxImplementationReviewCycles: settings.maxImplementationReviewCycles,
+            destructiveRewindEnabled: settings.destructiveRewindEnabled,
+            pauseOnFailedReview: settings.pauseOnFailedReview,
             completedUsLockOnCompleted: settings.completedUsLockOnCompleted,
             typographyCssVars: (0, webviewTypography_1.getEditorTypographyCssVars)()
         });
@@ -222,6 +231,11 @@ function buildExecutionSettingsHtml(model) {
     .profiles, .phase-grid {
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     }
+    .feature-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
     .profile-card {
       grid-column: 1 / -1;
       padding: 14px;
@@ -320,9 +334,9 @@ function buildExecutionSettingsHtml(model) {
 <body>
   <div class="shell">
     <section class="hero">
-      <p class="eyebrow">Execution Setup</p>
-      <h1>Providers and phase routing</h1>
-      <p class="copy">Define named executor profiles once, then assign the right one to each workflow phase. Native CLI providers only need repository access. OpenAI-compatible bridge profiles still use endpoint settings.</p>
+      <p class="eyebrow">SpecForge Configuration</p>
+      <h1>One panel, one source of truth</h1>
+      <p class="copy">Keep SpecForge settings together here instead of scattering workflow behavior across raw VS Code settings. Provider catalog, phase routing, tolerances, automation, workflow safety, and workspace UX all persist to the same <code>specForge.*</code> workspace configuration.</p>
       <div class="actions">
         <button class="ghost-action" type="button" data-command="openRawSettings">Open Raw VS Code Settings</button>
       </div>
@@ -364,7 +378,25 @@ function buildExecutionSettingsHtml(model) {
           <p class="copy">When clarification blocks refinement, let a selected model try to answer the pending questions once before handing the phase back to the user.</p>
         </div>
       </div>
-      <div class="phase-grid">
+      <div class="feature-grid">
+        <label class="phase-field">
+          <span>Clarification tolerance</span>
+          <select data-clarification-tolerance>
+            <option value="strict"${model.clarificationTolerance === "strict" ? " selected" : ""}>Strict</option>
+            <option value="balanced"${model.clarificationTolerance === "balanced" ? " selected" : ""}>Balanced</option>
+            <option value="inferential"${model.clarificationTolerance === "inferential" ? " selected" : ""}>Inferential</option>
+          </select>
+          <span class="phase-field__hint">Controls how much ambiguity clarification tolerates before refinement can continue.</span>
+        </label>
+        <label class="phase-field">
+          <span>Review tolerance</span>
+          <select data-review-tolerance>
+            <option value="strict"${model.reviewTolerance === "strict" ? " selected" : ""}>Strict</option>
+            <option value="balanced"${model.reviewTolerance === "balanced" ? " selected" : ""}>Balanced</option>
+            <option value="inferential"${model.reviewTolerance === "inferential" ? " selected" : ""}>Inferential</option>
+          </select>
+          <span class="phase-field__hint">Controls how demanding the review phase is before it passes or fails delivered work.</span>
+        </label>
         <label class="phase-field">
           <span>Enable auto answers</span>
           <select data-auto-clarification-enabled>
@@ -376,15 +408,39 @@ function buildExecutionSettingsHtml(model) {
           <span>Auto-answer profile</span>
           <select data-auto-clarification-profile></select>
         </label>
+        <label class="phase-field">
+          <span>Context suggestions</span>
+          <select data-context-suggestions-enabled>
+            <option value="true"${model.contextSuggestionsEnabled ? " selected" : ""}>Enabled</option>
+            <option value="false"${model.contextSuggestionsEnabled ? "" : " selected"}>Disabled</option>
+          </select>
+          <span class="phase-field__hint">Suggest nearby repository files during clarification to improve local context selection.</span>
+        </label>
+        <label class="phase-field">
+          <span>Require approval branch acceptance</span>
+          <select data-require-approval-branch-acceptance>
+            <option value="false"${model.requireExplicitApprovalBranchAcceptance ? "" : " selected"}>Disabled</option>
+            <option value="true"${model.requireExplicitApprovalBranchAcceptance ? " selected" : ""}>Enabled</option>
+          </select>
+          <span class="phase-field__hint">Force explicit confirmation of the proposed base branch before approving refinement.</span>
+        </label>
       </div>
       <div class="section-header">
         <div>
-          <p class="eyebrow">Review Automation</p>
-          <h2>Implementation loop</h2>
-          <p class="copy">Optionally continue from implementation into review automatically, but stop once the configured implementation/review cycle cap is reached.</p>
+          <p class="eyebrow">Automation</p>
+          <h2>Playback and review loop</h2>
+          <p class="copy">Control when SpecForge resumes automatically after manual checkpoints and how far the implementation/review loop is allowed to run without intervention.</p>
         </div>
       </div>
-      <div class="phase-grid">
+      <div class="feature-grid">
+        <label class="phase-field">
+          <span>Enable auto play</span>
+          <select data-auto-play-enabled>
+            <option value="false"${model.autoPlayEnabled ? "" : " selected"}>Disabled</option>
+            <option value="true"${model.autoPlayEnabled ? " selected" : ""}>Enabled</option>
+          </select>
+          <span class="phase-field__hint">Resume workflow playback automatically after qualifying manual actions such as approvals.</span>
+        </label>
         <label class="phase-field">
           <span>Enable auto review</span>
           <select data-auto-review-enabled>
@@ -398,16 +454,66 @@ function buildExecutionSettingsHtml(model) {
           <span class="phase-field__hint">Automatic review stops when this many implementation attempts have been recorded.</span>
         </label>
         <label class="phase-field">
+          <span>Pause on failed review</span>
+          <select data-pause-on-failed-review>
+            <option value="false"${model.pauseOnFailedReview ? "" : " selected"}>Disabled</option>
+            <option value="true"${model.pauseOnFailedReview ? " selected" : ""}>Enabled</option>
+          </select>
+          <span class="phase-field__hint">Pause playback automatically when review fails so the developer can inspect before continuing.</span>
+        </label>
+      </div>
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Workflow Safety</p>
+          <h2>Rewind and completion policy</h2>
+          <p class="copy">Define how aggressive rewinds are, and whether completed user stories stay locked until they are explicitly reopened from the completed phase.</p>
+        </div>
+      </div>
+      <div class="feature-grid">
+        <label class="phase-field">
+          <span>Destructive rewind</span>
+          <select data-destructive-rewind-enabled>
+            <option value="false"${model.destructiveRewindEnabled ? "" : " selected"}>Disabled</option>
+            <option value="true"${model.destructiveRewindEnabled ? " selected" : ""}>Enabled</option>
+          </select>
+          <span class="phase-field__hint">When enabled, rewinds and regressions delete later derived artifacts instead of only moving workflow state.</span>
+        </label>
+        <label class="phase-field">
           <span>Lock completed workflows</span>
           <select data-completed-us-lock-on-completed>
             <option value="true"${model.completedUsLockOnCompleted ? " selected" : ""}>Enabled</option>
             <option value="false"${model.completedUsLockOnCompleted ? "" : " selected"}>Disabled</option>
           </select>
-          <span class="phase-field__hint">Disable this if completed workflows should still expose rewind and correction controls.</span>
+          <span class="phase-field__hint">Disable this if completed workflows should remain directly mutable instead of requiring explicit reopen.</span>
+        </label>
+      </div>
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Workspace UX</p>
+          <h2>Refresh and attention signals</h2>
+          <p class="copy">Keep the explorer and workflow views synchronized with disk changes and decide whether SpecForge should surface attention notifications.</p>
+        </div>
+      </div>
+      <div class="feature-grid">
+        <label class="phase-field">
+          <span>Workspace watcher</span>
+          <select data-watcher-enabled>
+            <option value="true"${model.watcherEnabled ? " selected" : ""}>Enabled</option>
+            <option value="false"${model.watcherEnabled ? "" : " selected"}>Disabled</option>
+          </select>
+          <span class="phase-field__hint">Refresh the explorer and workflow views automatically when <code>.specs</code> files change on disk.</span>
+        </label>
+        <label class="phase-field">
+          <span>Attention notifications</span>
+          <select data-attention-notifications-enabled>
+            <option value="true"${model.attentionNotificationsEnabled ? " selected" : ""}>Enabled</option>
+            <option value="false"${model.attentionNotificationsEnabled ? "" : " selected"}>Disabled</option>
+          </select>
+          <span class="phase-field__hint">Show notifications when a user story becomes waiting-user, blocked, or completed.</span>
         </label>
       </div>
       <div class="actions">
-        <button class="primary-action" type="submit">Save Execution Settings</button>
+        <button class="primary-action" type="submit">Save SpecForge Configuration</button>
       </div>
       <p class="save-error" data-save-error></p>
     </form>
@@ -425,10 +531,19 @@ function buildExecutionSettingsHtml(model) {
     let state = {
       modelProfiles: ${JSON.stringify(model.modelProfiles)},
       phaseModelAssignments: ${JSON.stringify(model.phaseModelAssignments)},
+      clarificationTolerance: ${JSON.stringify(model.clarificationTolerance)},
+      reviewTolerance: ${JSON.stringify(model.reviewTolerance)},
+      watcherEnabled: ${JSON.stringify(model.watcherEnabled)},
+      attentionNotificationsEnabled: ${JSON.stringify(model.attentionNotificationsEnabled)},
+      contextSuggestionsEnabled: ${JSON.stringify(model.contextSuggestionsEnabled)},
+      requireExplicitApprovalBranchAcceptance: ${JSON.stringify(model.requireExplicitApprovalBranchAcceptance)},
       autoClarificationAnswersEnabled: ${JSON.stringify(model.autoClarificationAnswersEnabled)},
       autoClarificationAnswersProfile: ${JSON.stringify(model.autoClarificationAnswersProfile)},
+      autoPlayEnabled: ${JSON.stringify(model.autoPlayEnabled)},
       autoReviewEnabled: ${JSON.stringify(model.autoReviewEnabled)},
       maxImplementationReviewCycles: ${JSON.stringify(model.maxImplementationReviewCycles ?? 5)},
+      destructiveRewindEnabled: ${JSON.stringify(model.destructiveRewindEnabled)},
+      pauseOnFailedReview: ${JSON.stringify(model.pauseOnFailedReview)},
       completedUsLockOnCompleted: ${JSON.stringify(model.completedUsLockOnCompleted)},
       initialPermissionIssues: ${JSON.stringify(permissionIssues)}
     };
@@ -548,9 +663,18 @@ function buildExecutionSettingsHtml(model) {
       const warning = document.querySelector("[data-default-warning]");
       const autoClarificationProfile = document.querySelector("[data-auto-clarification-profile]");
       const autoClarificationWrapper = document.querySelector("[data-auto-clarification-profile-wrapper]");
+      const clarificationTolerance = document.querySelector("[data-clarification-tolerance]");
+      const reviewTolerance = document.querySelector("[data-review-tolerance]");
+      const watcherEnabled = document.querySelector("[data-watcher-enabled]");
+      const attentionNotificationsEnabled = document.querySelector("[data-attention-notifications-enabled]");
+      const contextSuggestionsEnabled = document.querySelector("[data-context-suggestions-enabled]");
+      const requireApprovalBranchAcceptance = document.querySelector("[data-require-approval-branch-acceptance]");
       const autoClarificationEnabled = document.querySelector("[data-auto-clarification-enabled]");
+      const autoPlayEnabled = document.querySelector("[data-auto-play-enabled]");
       const autoReviewEnabled = document.querySelector("[data-auto-review-enabled]");
       const maxImplementationReviewCycles = document.querySelector("[data-max-implementation-review-cycles]");
+      const destructiveRewindEnabled = document.querySelector("[data-destructive-rewind-enabled]");
+      const pauseOnFailedReview = document.querySelector("[data-pause-on-failed-review]");
       const completedUsLockOnCompleted = document.querySelector("[data-completed-us-lock-on-completed]");
       const saveButton = document.querySelector('button[type="submit"]');
       const saveError = document.querySelector("[data-save-error]");
@@ -601,11 +725,60 @@ function buildExecutionSettingsHtml(model) {
         });
       }
 
+      if (clarificationTolerance instanceof HTMLSelectElement) {
+        clarificationTolerance.value = state.clarificationTolerance || "balanced";
+        clarificationTolerance.addEventListener("change", () => {
+          state.clarificationTolerance = clarificationTolerance.value || "balanced";
+        });
+      }
+
+      if (reviewTolerance instanceof HTMLSelectElement) {
+        reviewTolerance.value = state.reviewTolerance || "balanced";
+        reviewTolerance.addEventListener("change", () => {
+          state.reviewTolerance = reviewTolerance.value || "balanced";
+        });
+      }
+
+      if (watcherEnabled instanceof HTMLSelectElement) {
+        watcherEnabled.value = state.watcherEnabled ? "true" : "false";
+        watcherEnabled.addEventListener("change", () => {
+          state.watcherEnabled = watcherEnabled.value === "true";
+        });
+      }
+
+      if (attentionNotificationsEnabled instanceof HTMLSelectElement) {
+        attentionNotificationsEnabled.value = state.attentionNotificationsEnabled ? "true" : "false";
+        attentionNotificationsEnabled.addEventListener("change", () => {
+          state.attentionNotificationsEnabled = attentionNotificationsEnabled.value === "true";
+        });
+      }
+
+      if (contextSuggestionsEnabled instanceof HTMLSelectElement) {
+        contextSuggestionsEnabled.value = state.contextSuggestionsEnabled ? "true" : "false";
+        contextSuggestionsEnabled.addEventListener("change", () => {
+          state.contextSuggestionsEnabled = contextSuggestionsEnabled.value === "true";
+        });
+      }
+
+      if (requireApprovalBranchAcceptance instanceof HTMLSelectElement) {
+        requireApprovalBranchAcceptance.value = state.requireExplicitApprovalBranchAcceptance ? "true" : "false";
+        requireApprovalBranchAcceptance.addEventListener("change", () => {
+          state.requireExplicitApprovalBranchAcceptance = requireApprovalBranchAcceptance.value === "true";
+        });
+      }
+
       if (autoClarificationEnabled instanceof HTMLSelectElement) {
         autoClarificationEnabled.value = state.autoClarificationAnswersEnabled ? "true" : "false";
         autoClarificationEnabled.addEventListener("change", () => {
           state.autoClarificationAnswersEnabled = autoClarificationEnabled.value === "true";
           render();
+        });
+      }
+
+      if (autoPlayEnabled instanceof HTMLSelectElement) {
+        autoPlayEnabled.value = state.autoPlayEnabled ? "true" : "false";
+        autoPlayEnabled.addEventListener("change", () => {
+          state.autoPlayEnabled = autoPlayEnabled.value === "true";
         });
       }
 
@@ -625,6 +798,20 @@ function buildExecutionSettingsHtml(model) {
         };
         maxImplementationReviewCycles.addEventListener("input", syncMaxCycles);
         maxImplementationReviewCycles.addEventListener("change", syncMaxCycles);
+      }
+
+      if (destructiveRewindEnabled instanceof HTMLSelectElement) {
+        destructiveRewindEnabled.value = state.destructiveRewindEnabled ? "true" : "false";
+        destructiveRewindEnabled.addEventListener("change", () => {
+          state.destructiveRewindEnabled = destructiveRewindEnabled.value === "true";
+        });
+      }
+
+      if (pauseOnFailedReview instanceof HTMLSelectElement) {
+        pauseOnFailedReview.value = state.pauseOnFailedReview ? "true" : "false";
+        pauseOnFailedReview.addEventListener("change", () => {
+          state.pauseOnFailedReview = pauseOnFailedReview.value === "true";
+        });
       }
 
       if (completedUsLockOnCompleted instanceof HTMLSelectElement) {
@@ -826,10 +1013,19 @@ function buildExecutionSettingsHtml(model) {
         command: "saveExecutionSettings",
         modelProfiles: state.modelProfiles,
         phaseModelAssignments: state.phaseModelAssignments,
+        clarificationTolerance: state.clarificationTolerance,
+        reviewTolerance: state.reviewTolerance,
+        watcherEnabled: state.watcherEnabled,
+        attentionNotificationsEnabled: state.attentionNotificationsEnabled,
+        contextSuggestionsEnabled: state.contextSuggestionsEnabled,
+        requireExplicitApprovalBranchAcceptance: state.requireExplicitApprovalBranchAcceptance,
         autoClarificationAnswersEnabled: state.autoClarificationAnswersEnabled,
         autoClarificationAnswersProfile: state.autoClarificationAnswersProfile,
+        autoPlayEnabled: state.autoPlayEnabled,
         autoReviewEnabled: state.autoReviewEnabled,
         maxImplementationReviewCycles: state.maxImplementationReviewCycles,
+        destructiveRewindEnabled: state.destructiveRewindEnabled,
+        pauseOnFailedReview: state.pauseOnFailedReview,
         completedUsLockOnCompleted: state.completedUsLockOnCompleted
       });
     });
@@ -839,7 +1035,7 @@ function buildExecutionSettingsHtml(model) {
 </body>
 </html>`;
 }
-async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, autoClarificationAnswersEnabled = false, autoClarificationAnswersProfile, autoReviewEnabled = false, maxImplementationReviewCycles, completedUsLockOnCompleted = true) {
+async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, clarificationTolerance = "balanced", reviewTolerance = "balanced", watcherEnabled = true, attentionNotificationsEnabled = true, contextSuggestionsEnabled = true, requireExplicitApprovalBranchAcceptance = false, autoClarificationAnswersEnabled = false, autoClarificationAnswersProfile, autoPlayEnabled = false, autoReviewEnabled = false, maxImplementationReviewCycles, destructiveRewindEnabled = false, pauseOnFailedReview = false, completedUsLockOnCompleted = true) {
     const configuration = vscode.workspace.getConfiguration("specForge");
     const normalizedProfiles = modelProfiles
         .map((profile) => ({
@@ -881,10 +1077,19 @@ async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, 
     }
     await configuration.update("execution.modelProfiles", normalizedProfiles, vscode.ConfigurationTarget.Workspace);
     await configuration.update("execution.phaseModels", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("execution.clarificationTolerance", clarificationTolerance, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("execution.reviewTolerance", reviewTolerance, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("ui.enableWatcher", watcherEnabled, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("ui.notifyOnAttention", attentionNotificationsEnabled, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("features.enableContextSuggestions", contextSuggestionsEnabled, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("features.requireApprovalBranchAcceptance", requireExplicitApprovalBranchAcceptance, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.autoClarificationAnswersEnabled", autoClarificationAnswersEnabled, vscode.ConfigurationTarget.Workspace);
     await configuration.update("execution.autoClarificationAnswersProfile", normalizeOptionalAssignment(autoClarificationAnswersProfile), vscode.ConfigurationTarget.Workspace);
+    await configuration.update("features.autoPlayEnabled", autoPlayEnabled, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.autoReviewEnabled", autoReviewEnabled, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.maxImplementationReviewCycles", normalizePositiveInteger(maxImplementationReviewCycles) ?? 5, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("features.destructiveRewindEnabled", destructiveRewindEnabled, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("features.pauseOnFailedReview", pauseOnFailedReview, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.completedUsLockOnCompleted", completedUsLockOnCompleted, vscode.ConfigurationTarget.Workspace);
 }
 function normalizeOptionalAssignment(value) {

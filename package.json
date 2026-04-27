@@ -97,7 +97,7 @@
       },
       {
         "command": "specForge.openExecutionSettings",
-        "title": "Open Execution Settings"
+        "title": "Open SpecForge Configuration"
       },
       {
         "command": "specForge.openMainArtifact",

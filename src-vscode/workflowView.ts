@@ -1359,7 +1359,7 @@ export function buildWorkflowHtml(
           <p class="eyebrow warning">Execution Setup Pending</p>
           <p class="warning-copy">${escapeHtml(state.executionSettingsPendingMessage)}</p>
           <div class="detail-actions">
-            <button class="workflow-action-button workflow-action-button--document" data-command="openSettings">Open Execution Settings</button>
+            <button class="workflow-action-button workflow-action-button--document" data-command="openSettings">Open SpecForge Configuration</button>
           </div>
         </div>
       </div>
