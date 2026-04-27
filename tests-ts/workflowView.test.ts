@@ -2133,8 +2133,9 @@ test("buildWorkflowHtml computes deterministic two-column graph positions with o
   assert.match(html, /phase-node refinement[\s\S]*?--phase-left-desktop-vertical:/);
   assert.match(html, /phase-graph" data-graph-layout-mode="vertical" aria-label="Workflow graph" style="--graph-width-desktop-horizontal:/);
   assert.match(html, /graph-view-toggle/);
-  assert.match(html, /data-layout-mode="horizontal">Horizontal<\/button>/);
-  assert.match(html, /data-layout-mode="vertical">Vertical<\/button>/);
+  assert.match(html, /data-graph-layout-mode-toggle/);
+  assert.match(html, /graph-view-toggle__label">Vertical</);
+  assert.match(html, /Switch graph layout to horizontal/);
   assert.match(html, /phase-role-badge/);
 });
 
@@ -4517,12 +4518,12 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop-horizontal: 320px; --phase-top-desktop-horizontal: 36px; --phase-left-desktop-vertical: 392px; --phase-top-desktop-vertical: 34px;/);
-  assert.match(html, /phase-node technical-design[\s\S]*?--phase-left-desktop-horizontal: 40px; --phase-top-desktop-horizontal: 220px; --phase-left-desktop-vertical: 38px; --phase-top-desktop-vertical: 196px;/);
-  assert.match(html, /phase-node implementation[\s\S]*?--phase-left-desktop-horizontal: 320px; --phase-top-desktop-horizontal: 404px; --phase-left-desktop-vertical: 38px; --phase-top-desktop-vertical: 358px;/);
-  assert.match(html, /phase-node review[\s\S]*?--phase-left-desktop-horizontal: 600px; --phase-top-desktop-horizontal: 404px; --phase-left-desktop-vertical: 38px; --phase-top-desktop-vertical: 554px;/);
-  assert.match(html, /phase-node review[\s\S]*?--phase-left-mobile-horizontal: 402px; --phase-top-mobile-horizontal: 326px; --phase-left-mobile-vertical: 18px; --phase-top-mobile-vertical: 454px;/);
-  assert.match(html, /phase-node release-approval[\s\S]*?--phase-left-desktop-horizontal: 600px; --phase-top-desktop-horizontal: 220px; --phase-left-desktop-vertical: 392px; --phase-top-desktop-vertical: 554px;/);
+  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop-horizontal: 344px; --phase-top-desktop-horizontal: 40px; --phase-left-desktop-vertical: 386px; --phase-top-desktop-vertical: 40px;/);
+  assert.match(html, /phase-node technical-design[\s\S]*?--phase-left-desktop-horizontal: 344px; --phase-top-desktop-horizontal: 260px; --phase-left-desktop-vertical: 42px; --phase-top-desktop-vertical: 264px;/);
+  assert.match(html, /phase-node implementation[\s\S]*?--phase-left-desktop-horizontal: 646px; --phase-top-desktop-horizontal: 480px; --phase-left-desktop-vertical: 42px; --phase-top-desktop-vertical: 488px;/);
+  assert.match(html, /phase-node review[\s\S]*?--phase-left-desktop-horizontal: 948px; --phase-top-desktop-horizontal: 480px; --phase-left-desktop-vertical: 42px; --phase-top-desktop-vertical: 712px;/);
+  assert.match(html, /phase-node review[\s\S]*?--phase-left-mobile-horizontal: 702px; --phase-top-mobile-horizontal: 398px; --phase-left-mobile-vertical: 18px; --phase-top-mobile-vertical: 594px;/);
+  assert.match(html, /phase-node release-approval[\s\S]*?--phase-left-desktop-horizontal: 948px; --phase-top-desktop-horizontal: 260px; --phase-left-desktop-vertical: 730px; --phase-top-desktop-vertical: 712px;/);
   assert.match(html, /viewBox="0 0 \d+ \d+"/);
   assert.match(html, /graph-links--desktop-horizontal/);
   assert.match(html, /graph-links--desktop-vertical/);

@@ -4,7 +4,7 @@ import { buildCapturePhaseSections } from "./workflow-view/capturePhaseView";
 import { buildClarificationPhaseSections } from "./workflow-view/clarificationPhaseView";
 import { buildCompletedPhaseSections } from "./workflow-view/completedPhaseView";
 import { buildImplementationPhaseSections } from "./workflow-view/implementationPhaseView";
-import { automationPhaseIcon, externalLinkIcon, fileIcon, lockClosedIcon, lockOpenIcon, pauseIcon, playIcon, rewindIcon, stopIcon, userPhaseIcon } from "./workflow-view/icons";
+import { automationPhaseIcon, externalLinkIcon, fileIcon, graphLayoutModeIcon, lockClosedIcon, lockOpenIcon, pauseIcon, playIcon, rewindIcon, stopIcon, userPhaseIcon } from "./workflow-view/icons";
 import { renderMarkdownToHtml } from "./workflow-view/markdownRenderer";
 import type { ApprovalQuestionItem, PhaseIterationItem, PhaseSectionFragments, WorkflowViewState } from "./workflow-view/models";
 import { buildPrPreparationPhaseSections } from "./workflow-view/prPreparationPhaseView";
@@ -91,31 +91,32 @@ function buildHorizontalPhaseLayout(
 ): PhaseGraphLayout {
   const positions: Record<string, PhasePosition> = {};
   const lefts = compact
-    ? { left: 18, mid: 210, right: 402 }
-    : { left: 40, mid: 320, right: 600 };
+    ? { col1: 18, col2: 246, col3: 474, col4: 702, col5: 930 }
+    : { col1: 42, col2: 344, col3: 646, col4: 948, col5: 1250 };
   const tops = compact
-    ? { row1: 18, row2: 172, row3: 326, row4: 480 }
-    : { row1: 36, row2: 220, row3: 404, row4: 588 };
+    ? { row1: 18, row2: 208, row3: 398, row4: 588 }
+    : { row1: 40, row2: 260, row3: 480, row4: 700 };
   const map: Record<string, PhasePosition> = {
-    capture: { left: lefts.left, top: tops.row1 },
-    clarification: { left: lefts.mid, top: tops.row1 },
-    refinement: { left: lefts.right, top: tops.row1 },
-    "technical-design": { left: lefts.left, top: tops.row2 },
-    implementation: { left: lefts.mid, top: tops.row3 },
-    review: { left: lefts.right, top: tops.row3 },
-    "release-approval": { left: lefts.right, top: tops.row2 },
-    "pr-preparation": { left: lefts.right, top: tops.row4 },
-    completed: { left: lefts.left, top: tops.row4 }
+    capture: { left: lefts.col1, top: tops.row1 },
+    clarification: { left: lefts.col2, top: tops.row1 },
+    refinement: { left: lefts.col3, top: tops.row1 },
+    "technical-design": { left: lefts.col2, top: tops.row2 },
+    spec: { left: lefts.col3, top: tops.row2 },
+    implementation: { left: lefts.col3, top: tops.row3 },
+    review: { left: lefts.col4, top: tops.row3 },
+    "release-approval": { left: lefts.col4, top: tops.row2 },
+    "pr-preparation": { left: lefts.col5, top: tops.row3 },
+    completed: { left: lefts.col5, top: tops.row4 }
   };
 
   for (const phase of phases) {
-    positions[phase.phaseId] = map[phase.phaseId] ?? { left: lefts.left, top: tops.row1 };
+    positions[phase.phaseId] = map[phase.phaseId] ?? { left: lefts.col1, top: tops.row1 };
   }
 
   return {
     positions,
-    width: computeGraphWidth(positions, nodeWidth, compact ? 40 : 120),
-    height: computeGraphHeight(positions, phaseNodeHeight, compact ? 52 : 96)
+    width: computeGraphWidth(positions, nodeWidth, compact ? 70 : 170),
+    height: computeGraphHeight(positions, phaseNodeHeight, compact ? 72 : 136)
   };
 }
 
@@ -126,16 +127,17 @@ function buildVerticalPhaseLayout(
 ): PhaseGraphLayout {
   const positions: Record<string, PhasePosition> = {};
   const lefts = compact
-    ? { left: 18, right: 242 }
-    : { left: 38, right: 392 };
+    ? { left: 18, mid: 238, right: 458 }
+    : { left: 42, mid: 386, right: 730 };
   const tops = compact
-    ? { row1: 18, row2: 152, row3: 286, row4: 454, row5: 622 }
-    : { row1: 34, row2: 196, row3: 358, row4: 554, row5: 750 };
+    ? { row1: 18, row2: 210, row3: 402, row4: 594, row5: 786 }
+    : { row1: 40, row2: 264, row3: 488, row4: 712, row5: 936 };
   const map: Record<string, PhasePosition> = {
     capture: { left: lefts.left, top: tops.row1 },
-    clarification: { left: lefts.right, top: tops.row1 },
-    refinement: { left: lefts.right, top: tops.row2 },
+    clarification: { left: lefts.mid, top: tops.row1 },
+    refinement: { left: lefts.right, top: tops.row1 },
     "technical-design": { left: lefts.left, top: tops.row2 },
+    spec: { left: lefts.right, top: tops.row2 },
     implementation: { left: lefts.left, top: tops.row3 },
     review: { left: lefts.left, top: tops.row4 },
     "release-approval": { left: lefts.right, top: tops.row4 },
@@ -149,8 +151,8 @@ function buildVerticalPhaseLayout(
 
   return {
     positions,
-    width: computeGraphWidth(positions, nodeWidth, compact ? 44 : 120),
-    height: computeGraphHeight(positions, phaseNodeHeight, compact ? 48 : 110)
+    width: computeGraphWidth(positions, nodeWidth, compact ? 64 : 156),
+    height: computeGraphHeight(positions, phaseNodeHeight, compact ? 78 : 150)
   };
 }
 
@@ -2860,30 +2862,43 @@ export function buildWorkflowHtml(
       gap: 16px;
     }
     .graph-view-toggle {
-      display: inline-flex;
-      gap: 8px;
-      flex-wrap: wrap;
+      display: flex;
       justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
     }
     .graph-view-toggle__button {
-      border: 1px solid rgba(114, 241, 184, 0.18);
-      border-radius: 999px;
-      padding: 9px 12px;
-      background: rgba(8, 16, 20, 0.78);
-      color: rgba(226, 244, 239, 0.82);
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      border: 1px solid rgba(114, 241, 184, 0.16);
+      background: rgba(9, 18, 24, 0.88);
+      color: rgba(226, 244, 239, 0.84);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
       transition: border-color 140ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+    .graph-view-toggle__button svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
     }
     .graph-view-toggle__button:hover {
-      border-color: rgba(114, 241, 184, 0.34);
-      background: rgba(16, 30, 28, 0.92);
-      color: rgba(240, 255, 249, 0.96);
+      border-color: rgba(114, 241, 184, 0.3);
+      background: rgba(16, 32, 31, 0.96);
+      color: rgba(244, 255, 250, 0.98);
+      box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
     }
-    .graph-view-toggle__button--active {
-      border-color: rgba(114, 241, 184, 0.42);
-      background: rgba(18, 46, 39, 0.94);
-      color: rgba(150, 250, 198, 0.98);
-      box-shadow: 0 0 0 1px rgba(114, 241, 184, 0.08);
+    .graph-view-toggle__label {
+      font-size: 0.74rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(196, 225, 212, 0.68);
+      white-space: nowrap;
     }
     .panel-copy {
       position: relative;
@@ -3125,7 +3140,7 @@ export function buildWorkflowHtml(
       text-align: left;
       cursor: pointer;
       box-shadow: 0 18px 28px rgba(0, 0, 0, 0.24);
-      transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+      transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
       overflow: visible;
       isolation: isolate;
       animation: nodeRise 420ms ease both;
@@ -3145,7 +3160,6 @@ export function buildWorkflowHtml(
       pointer-events: none;
     }
     .phase-node:hover {
-      transform: translateY(-2px) scale(1.01);
       border-color: rgba(164, 231, 255, 0.42);
       background: linear-gradient(180deg, rgba(34, 42, 56, 0.98), rgba(14, 18, 26, 1));
       box-shadow:
@@ -5031,9 +5045,17 @@ export function buildWorkflowHtml(
               <h2 class="panel-title">Workflow Constellation</h2>
               <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and phase context.</p>
             </div>
-            <div class="graph-view-toggle" role="tablist" aria-label="Graph layout mode">
-              <button class="graph-view-toggle__button${state.graphLayoutMode === "horizontal" ? " graph-view-toggle__button--active" : ""}" type="button" data-graph-layout-mode-button data-layout-mode="horizontal">Horizontal</button>
-              <button class="graph-view-toggle__button${state.graphLayoutMode === "horizontal" ? "" : " graph-view-toggle__button--active"}" type="button" data-graph-layout-mode-button data-layout-mode="vertical">Vertical</button>
+            <div class="graph-view-toggle" aria-label="Graph layout mode">
+              <span class="graph-view-toggle__label">${state.graphLayoutMode === "horizontal" ? "Horizontal" : "Vertical"}</span>
+              <button
+                class="graph-view-toggle__button"
+                type="button"
+                data-graph-layout-mode-toggle
+                data-layout-mode="${state.graphLayoutMode === "horizontal" ? "horizontal" : "vertical"}"
+                aria-label="${state.graphLayoutMode === "horizontal" ? "Switch graph layout to vertical" : "Switch graph layout to horizontal"}"
+                title="${state.graphLayoutMode === "horizontal" ? "Switch graph layout to vertical" : "Switch graph layout to horizontal"}">
+                ${graphLayoutModeIcon(state.graphLayoutMode === "horizontal" ? "horizontal" : "vertical")}
+              </button>
             </div>
           </div>
           <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}${playbackState === "playing" || playbackState === "stopping" ? " graph-stage--overlay-blocking" : ""}">
@@ -5181,24 +5203,37 @@ export function buildWorkflowHtml(
         });
       });
     });
-    document.querySelectorAll("[data-graph-layout-mode-button]").forEach((element) => {
-      element.addEventListener("click", () => {
-        if (!(element instanceof HTMLElement) || !(phaseGraph instanceof HTMLElement)) {
+    const graphLayoutToggle = document.querySelector("[data-graph-layout-mode-toggle]");
+    const graphLayoutLabel = document.querySelector(".graph-view-toggle__label");
+    if (graphLayoutToggle instanceof HTMLButtonElement) {
+      graphLayoutToggle.addEventListener("click", () => {
+        if (!(phaseGraph instanceof HTMLElement)) {
           return;
         }
 
-        const nextMode = element.dataset.layoutMode === "horizontal" ? "horizontal" : "vertical";
+        const currentMode = graphLayoutToggle.dataset.layoutMode === "horizontal" ? "horizontal" : "vertical";
+        const nextMode = currentMode === "horizontal" ? "vertical" : "horizontal";
+        const nextLabel = nextMode === "horizontal" ? "Horizontal" : "Vertical";
+        const nextTitle = nextMode === "horizontal"
+          ? "Switch graph layout to vertical"
+          : "Switch graph layout to horizontal";
         phaseGraph.dataset.graphLayoutMode = nextMode;
-        document.querySelectorAll("[data-graph-layout-mode-button]").forEach((candidate) => {
-          candidate.classList.toggle("graph-view-toggle__button--active", candidate === element);
-        });
+        graphLayoutToggle.dataset.layoutMode = nextMode;
+        graphLayoutToggle.setAttribute("aria-label", nextTitle);
+        graphLayoutToggle.title = nextTitle;
+        graphLayoutToggle.innerHTML = nextMode === "horizontal"
+          ? ${JSON.stringify(graphLayoutModeIcon("horizontal"))}
+          : ${JSON.stringify(graphLayoutModeIcon("vertical"))};
+        if (graphLayoutLabel instanceof HTMLElement) {
+          graphLayoutLabel.textContent = nextLabel;
+        }
         vscode.setState({
           ...viewState,
           graphLayoutMode: nextMode
         });
         window.requestAnimationFrame(() => centerFocusedPhaseInGraph());
       });
-    });
+    }
     const postCommand = (element) => {
       try {
         persistWorkflowScrollState();
