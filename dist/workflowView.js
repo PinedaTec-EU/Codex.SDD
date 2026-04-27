@@ -2730,28 +2730,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       min-width: 0;
       overflow: hidden;
     }
-    .detail-card--collapsible {
-      padding: 0;
-    }
-    .detail-card__summary {
-      display: block;
-      list-style: none;
-      cursor: pointer;
-      padding: 18px;
-    }
-    .detail-card__summary::-webkit-details-marker {
-      display: none;
-    }
-    .detail-card__summary::marker {
-      content: "";
-    }
-    .detail-card__summary:focus-visible {
-      outline: none;
-      box-shadow: inset 0 0 0 2px rgba(92, 181, 255, 0.22);
-    }
-    .detail-card--collapsible .review-regression {
-      padding: 0 18px 18px;
-    }
     .detail-card--phase-overview {
       position: relative;
       z-index: 1;
@@ -5055,14 +5033,35 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     const completedReopenReason = document.querySelector("[data-completed-reopen-reason]");
     const completedReopenDescription = document.getElementById("completed-reopen-description");
     const completedReopenSubmitButton = document.querySelector("[data-submit-completed-reopen]");
+    const completedReopenTargetMessage = document.querySelector("[data-completed-reopen-target-message]");
+    const getCompletedReopenTargetPhaseLabel = (reasonKind) => {
+      switch ((reasonKind || "").trim()) {
+        case "merge-conflict":
+        case "defect":
+          return "implementation";
+        case "functional-issue":
+          return "refinement";
+        case "technical-issue":
+          return "technical-design";
+        default:
+          return "";
+      }
+    };
     const syncCompletedReopenState = () => {
+      const reasonValue = completedReopenReason instanceof HTMLSelectElement
+        ? completedReopenReason.value.trim()
+        : "";
+      const targetPhaseLabel = getCompletedReopenTargetPhaseLabel(reasonValue);
+      if (completedReopenTargetMessage instanceof HTMLElement) {
+        completedReopenTargetMessage.textContent = targetPhaseLabel
+          ? "Workflow will return to phase '" + targetPhaseLabel + "'."
+          : "Select a reopen reason to see the destination phase.";
+      }
+
       if (!(completedReopenSubmitButton instanceof HTMLButtonElement)) {
         return;
       }
 
-      const reasonValue = completedReopenReason instanceof HTMLSelectElement
-        ? completedReopenReason.value.trim()
-        : "";
       const descriptionValue = completedReopenDescription instanceof HTMLTextAreaElement
         ? completedReopenDescription.value.trim()
         : "";

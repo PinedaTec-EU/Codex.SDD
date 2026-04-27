@@ -4428,77 +4428,14 @@ test("buildWorkflowHtml renders completed phase reopen controls and lock state",
   assert.match(html, /<h3>Usage by Phase<\/h3>/);
   assert.match(html, /Completed and locked/);
   assert.match(html, /Reopen Completed Workflow/);
-  assert.match(html, /detail-card--completed-reopen detail-card--collapsible">/);
+  assert.match(html, /detail-card--completed-reopen/);
+  assert.doesNotMatch(html, /detail-card--collapsible/);
   assert.match(html, /data-completed-reopen-reason/);
   assert.match(html, /<option value="defect">re-open by defect<\/option>/);
+  assert.match(html, /Select a reopen reason to see the destination phase\./);
   assert.match(html, /id="completed-reopen-description"/);
   assert.match(html, /data-submit-completed-reopen disabled>Open</);
   assert.doesNotMatch(html, /data-phase-rewind-button/);
-});
-
-test("buildWorkflowHtml expands the completed reopen panel when the completed phase has recorded data", () => {
-  const html = buildWorkflowHtml({
-    usId: "US-0201",
-    title: "Completed workflow with data",
-    category: "workflow",
-    status: "completed",
-    currentPhase: "pr-preparation",
-    directoryPath: "/tmp/us.US-0201",
-    workBranch: "feature/us-0201-completed",
-    mainArtifactPath: "/tmp/us.md",
-    timelinePath: "/tmp/timeline.md",
-    rawTimeline: "raw timeline",
-    phases: [
-      {
-        phaseId: "completed",
-        title: "Completed",
-        order: 8,
-        requiresApproval: false,
-        expectsHumanIntervention: false,
-        isApproved: true,
-        isCurrent: true,
-        state: "current",
-        artifactPath: "/tmp/completed.md",
-        operationLogPath: null,
-        executePromptPath: null,
-        approvePromptPath: null
-      }
-    ],
-    controls: {
-      canContinue: false,
-      canApprove: false,
-      requiresApproval: false,
-      blockingReason: "workflow_completed",
-      canRestartFromSource: false,
-      regressionTargets: [],
-      rewindTargets: []
-    },
-    clarification: null,
-    events: [
-      {
-        timestampUtc: "2026-04-27T08:00:00Z",
-        code: "phase_completed",
-        actor: "system",
-        phase: "completed",
-        summary: "Workflow completion was recorded.",
-        artifacts: ["/tmp/completed.md"],
-        usage: null,
-        durationMs: null,
-        execution: null
-      }
-    ],
-    attachmentsDirectoryPath: "/tmp/attachments",
-    attachments: []
-  }, {
-    selectedPhaseId: "completed",
-    selectedArtifactContent: "Completed artifact",
-    contextSuggestions: [],
-    settingsConfigured: true,
-    settingsMessage: null,
-    completedUsLockOnCompleted: true
-  }, "idle");
-
-  assert.match(html, /detail-card--completed-reopen detail-card--collapsible" open>/);
 });
 
 test("buildWorkflowHtml keeps the hero header above a dedicated scrolling body", () => {

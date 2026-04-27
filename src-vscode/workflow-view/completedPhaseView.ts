@@ -13,16 +13,12 @@ export function buildCompletedPhaseSections(args: CompletedPhaseViewArgs): Phase
   }
 
   const locked = args.state.completedUsLockOnCompleted !== false;
-  const hasCompletedPhaseData = args.workflow.events.some((event) => event.phase === "completed")
-    || (args.workflow.phaseIterations?.some((iteration) => iteration.phaseId === "completed") ?? false)
-    || Boolean(args.selectedPhase.artifactPath)
-    || Boolean(args.selectedPhase.operationLogPath);
 
   return {
     beforeArtifact: [
       `
-      <details class="detail-card detail-card--completed-reopen detail-card--collapsible"${hasCompletedPhaseData ? " open" : ""}>
-        <summary class="detail-card__summary">
+      <section class="detail-card detail-card--completed-reopen">
+        <div class="review-regression">
           <div class="review-regression__header">
             <div class="review-regression__copy">
               <span class="badge ${locked ? "badge--attention" : "badge--active"}">${locked ? "Completed and locked" : "Completed and unlocked"}</span>
@@ -37,8 +33,6 @@ export function buildCompletedPhaseSections(args: CompletedPhaseViewArgs): Phase
               <strong class="review-regression__stat-value">${locked ? "Locked" : "Open"}</strong>
             </div>
           </div>
-        </summary>
-        <div class="review-regression">
           <div class="review-regression__body">
             <label class="phase-input-shell" for="completed-reopen-reason">
               <span class="phase-input-label">Reopen reason</span>
@@ -49,6 +43,9 @@ export function buildCompletedPhaseSections(args: CompletedPhaseViewArgs): Phase
                 <option value="functional-issue">re-open by functional issue</option>
                 <option value="technical-issue">re-open by technical issue</option>
               </select>
+              <p class="phase-input-copy" data-completed-reopen-target-message>
+                Select a reopen reason to see the destination phase.
+              </p>
               <span class="phase-input-label">Description</span>
               <p class="phase-input-copy">
                 Required. Explain what failed or what must now be incorporated so the reopened phase starts with the right context.
@@ -64,7 +61,7 @@ export function buildCompletedPhaseSections(args: CompletedPhaseViewArgs): Phase
             </div>
           </div>
         </div>
-      </details>
+      </section>
       `
     ],
     afterArtifact: []
