@@ -30,7 +30,7 @@ function readSpecForgeSettings(configuration) {
         maxImplementationReviewCycles: normalizeOptionalPositiveInteger(configuration.get("features.maxImplementationReviewCycles", 5)),
         destructiveRewindEnabled: configuration.get("features.destructiveRewindEnabled", false),
         pauseOnFailedReview: configuration.get("features.pauseOnFailedReview", false),
-        completedUsLockOnCompleted: configuration.get("features.completedUsLockOnCompleted", true)
+        completedUsLockOnCompleted: configuration.get("features.completedUsLockOnCompleted", false)
     };
 }
 function buildBackendEnvironment(settings) {

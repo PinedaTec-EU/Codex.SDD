@@ -13,6 +13,7 @@ const icons_1 = require("./workflow-view/icons");
 const markdownRenderer_1 = require("./workflow-view/markdownRenderer");
 const prPreparationPhaseView_1 = require("./workflow-view/prPreparationPhaseView");
 const workflowAutomation_1 = require("./workflowAutomation");
+const workflowCompletedReopen_1 = require("./workflowCompletedReopen");
 const workflowPlaybackState_1 = require("./workflowPlaybackState");
 const workflowRewind_1 = require("./workflowRewind");
 const workflowRejectPlan_1 = require("./workflowRejectPlan");
@@ -21,25 +22,9 @@ const releaseApprovalPhaseView_1 = require("./workflow-view/releaseApprovalPhase
 const reviewPhaseView_1 = require("./workflow-view/reviewPhaseView");
 const technicalDesignPhaseView_1 = require("./workflow-view/technicalDesignPhaseView");
 const webviewTypography_1 = require("./webviewTypography");
-const phaseNodeWidth = 188;
-const phaseNodeHeight = 146;
-const mobilePhaseNodeWidth = 166;
-const desktopLayoutConfig = {
-    columns: { left: 38, right: 400 },
-    topOffset: 40,
-    sameColumnGap: 32,
-    overlapRatio: 0.30,
-    rightPadding: 88,
-    bottomPadding: 96
-};
-const mobileLayoutConfig = {
-    columns: { left: 16, right: 192 },
-    topOffset: 16,
-    sameColumnGap: 26,
-    overlapRatio: 0.30,
-    rightPadding: 88,
-    bottomPadding: 96
-};
+const phaseNodeWidth = 274;
+const phaseNodeHeight = 154;
+const mobilePhaseNodeWidth = 238;
 const defaultPhaseSequence = [
     { phaseId: "capture", expectsHumanIntervention: false },
     { phaseId: "clarification", expectsHumanIntervention: true },
@@ -51,12 +36,14 @@ const defaultPhaseSequence = [
     { phaseId: "pr-preparation", expectsHumanIntervention: false },
     { phaseId: "completed", expectsHumanIntervention: false }
 ];
-const defaultDesktopLayout = buildPhaseLayout(defaultPhaseSequence, desktopLayoutConfig, phaseNodeWidth);
-const defaultMobileLayout = buildPhaseLayout(defaultPhaseSequence, mobileLayoutConfig, mobilePhaseNodeWidth);
-const desktopGraphHeight = defaultDesktopLayout.height;
-const mobileGraphHeight = defaultMobileLayout.height;
-const desktopGraphWidth = defaultDesktopLayout.width;
-const mobileGraphWidth = defaultMobileLayout.width;
+const defaultDesktopHorizontalLayout = buildHorizontalPhaseLayout(defaultPhaseSequence, phaseNodeWidth);
+const defaultDesktopVerticalLayout = buildVerticalPhaseLayout(defaultPhaseSequence, phaseNodeWidth);
+const defaultMobileHorizontalLayout = buildHorizontalPhaseLayout(defaultPhaseSequence, mobilePhaseNodeWidth, true);
+const defaultMobileVerticalLayout = buildVerticalPhaseLayout(defaultPhaseSequence, mobilePhaseNodeWidth, true);
+const desktopGraphHeight = Math.max(defaultDesktopHorizontalLayout.height, defaultDesktopVerticalLayout.height);
+const mobileGraphHeight = Math.max(defaultMobileHorizontalLayout.height, defaultMobileVerticalLayout.height);
+const desktopGraphWidth = Math.max(defaultDesktopHorizontalLayout.width, defaultDesktopVerticalLayout.width);
+const mobileGraphWidth = Math.max(defaultMobileHorizontalLayout.width, defaultMobileVerticalLayout.width);
 function computeGraphHeight(positions, nodeHeight, bottomPadding) {
     const maxTop = Math.max(...Object.values(positions).map((position) => position.top));
     return maxTop + nodeHeight + bottomPadding;
@@ -65,32 +52,57 @@ function computeGraphWidth(positions, nodeWidth, rightPadding) {
     const maxLeft = Math.max(...Object.values(positions).map((position) => position.left));
     return maxLeft + nodeWidth + rightPadding;
 }
-function resolvePhaseColumn(expectsHumanIntervention) {
-    return expectsHumanIntervention ? "right" : "left";
-}
-function buildPhaseLayout(phases, config, nodeWidth) {
+function buildHorizontalPhaseLayout(phases, nodeWidth, compact = false) {
     const positions = {};
-    let previousPhase = null;
+    const scale = compact ? 0.64 : 1;
+    const map = {
+        capture: { left: Math.round(150 * scale), top: Math.round(120 * scale) },
+        clarification: { left: Math.round(450 * scale), top: Math.round(120 * scale) },
+        refinement: { left: Math.round(450 * scale), top: Math.round(120 * scale) },
+        spec: { left: Math.round(600 * scale), top: Math.round(260 * scale) },
+        "technical-design": { left: Math.round(200 * scale), top: Math.round(300 * scale) },
+        implementation: { left: Math.round(500 * scale), top: Math.round(400 * scale) },
+        review: { left: Math.round(750 * scale), top: Math.round(400 * scale) },
+        "release-approval": { left: Math.round(950 * scale), top: Math.round(200 * scale) },
+        "pr-preparation": { left: Math.round(950 * scale), top: Math.round(350 * scale) },
+        completed: { left: Math.round(1050 * scale), top: Math.round(500 * scale) }
+    };
     for (const phase of phases) {
-        const column = resolvePhaseColumn(phase.expectsHumanIntervention);
-        const left = config.columns[column];
-        let top = config.topOffset;
-        if (previousPhase) {
-            const previousPosition = positions[previousPhase.phaseId];
-            const previousColumn = resolvePhaseColumn(previousPhase.expectsHumanIntervention);
-            const sameColumn = previousColumn === column;
-            const verticalStep = sameColumn
-                ? phaseNodeHeight + config.sameColumnGap
-                : phaseNodeHeight * (1 - config.overlapRatio);
-            top = previousPosition.top + Math.round(verticalStep);
-        }
-        positions[phase.phaseId] = { left, top };
-        previousPhase = phase;
+        positions[phase.phaseId] = map[phase.phaseId] ?? { left: Math.round(150 * scale), top: Math.round(120 * scale) };
     }
     return {
         positions,
-        width: computeGraphWidth(positions, nodeWidth, config.rightPadding),
-        height: computeGraphHeight(positions, phaseNodeHeight, config.bottomPadding)
+        width: computeGraphWidth(positions, nodeWidth, compact ? 92 : 186),
+        height: computeGraphHeight(positions, phaseNodeHeight, compact ? 98 : 162)
+    };
+}
+function buildVerticalPhaseLayout(phases, nodeWidth, compact = false) {
+    const positions = {};
+    const lefts = compact
+        ? { left: 18, mid: 324, right: 620 }
+        : { left: 42, mid: 430, right: 804 };
+    const tops = compact
+        ? { row1: 24, row2: 218, row3: 414, row4: 620, row5: 832, row6: 1050, row7: 1268 }
+        : { row1: 42, row2: 286, row3: 538, row4: 794, row5: 1062, row6: 1338, row7: 1610 };
+    const map = {
+        capture: { left: lefts.mid - (compact ? 54 : 40), top: tops.row1 },
+        clarification: { left: lefts.mid + (compact ? 10 : 16), top: tops.row2 - (compact ? 22 : 28) },
+        refinement: { left: lefts.mid + (compact ? 10 : 16), top: tops.row2 - (compact ? 22 : 28) },
+        spec: { left: lefts.mid - (compact ? 18 : 8), top: tops.row3 },
+        "technical-design": { left: lefts.left, top: tops.row4 - (compact ? 26 : 18) },
+        implementation: { left: lefts.mid - (compact ? 20 : 14), top: tops.row4 + (compact ? 8 : 12) },
+        review: { left: lefts.mid + (compact ? 30 : 34), top: tops.row5 },
+        "release-approval": { left: lefts.right, top: tops.row6 - (compact ? 30 : 20) },
+        "pr-preparation": { left: lefts.mid - (compact ? 16 : 10), top: tops.row6 + (compact ? 96 : 108) },
+        completed: { left: lefts.mid + (compact ? 92 : 102), top: tops.row7 }
+    };
+    for (const phase of phases) {
+        positions[phase.phaseId] = map[phase.phaseId] ?? { left: lefts.left, top: tops.row1 };
+    }
+    return {
+        positions,
+        width: computeGraphWidth(positions, nodeWidth, compact ? 86 : 172),
+        height: computeGraphHeight(positions, phaseNodeHeight, compact ? 118 : 188)
     };
 }
 function formatDuration(durationMs) {
@@ -960,6 +972,38 @@ function buildWorkflowAuditRowsHtml(workflow, state) {
         }).join("")
         : `<pre class="audit-log">${(0, htmlEscape_1.escapeHtml)(workflow.rawTimeline)}</pre>`;
 }
+function buildTimelineLoopGroups(points, selectedPhaseId) {
+    const groups = [];
+    let index = 0;
+    while (index < points.length) {
+        if (!isImplementationReviewTimelinePhase(points[index]?.phaseId)) {
+            index += 1;
+            continue;
+        }
+        const startIndex = index;
+        while (index + 1 < points.length && isImplementationReviewTimelinePhase(points[index + 1]?.phaseId)) {
+            index += 1;
+        }
+        const endIndex = index;
+        const segment = points.slice(startIndex, endIndex + 1);
+        const implementationCount = segment.filter((point) => point.phaseId === "implementation").length;
+        const reviewCount = segment.filter((point) => point.phaseId === "review").length;
+        const iterationCount = Math.max(...segment.map((point) => point.attempt ?? 0), implementationCount, reviewCount);
+        if (implementationCount > 0 && reviewCount > 0 && iterationCount >= 2 && segment.length >= 3) {
+            groups.push({
+                startIndex,
+                endIndex,
+                iterationCount,
+                isSelected: selectedPhaseId === "implementation" || selectedPhaseId === "review"
+            });
+        }
+        index += 1;
+    }
+    return groups;
+}
+function isImplementationReviewTimelinePhase(phaseId) {
+    return phaseId === "implementation" || phaseId === "review";
+}
 function buildWorkflowAuditHtml(workflow, state, typographyCssVars = "") {
     const auditRows = buildWorkflowAuditRowsHtml(workflow, state);
     return `<!DOCTYPE html>
@@ -1150,12 +1194,21 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     const heroRewindTargetPhaseId = rewindDecision.targetPhaseId;
     const heroRewindDisabled = !rewindDecision.allowed || playbackState !== "idle";
     const timelineRewindPoints = (0, workflowRewind_1.buildTimelineRewindPoints)(workflow, displayedCurrentPhaseId);
+    const timelineLoopGroups = buildTimelineLoopGroups(timelineRewindPoints, selectedPhase.phaseId);
     const timelineRewindDock = timelineRewindPoints.length > 1
         ? `
       <div class="time-dock" aria-label="Workflow time navigation">
         <button class="time-dock__scroll" type="button" data-time-dock-scroll="left" aria-label="Move timeline left">&lt;</button>
         <div class="time-dock__viewport" data-time-dock-viewport>
           <div class="time-dock__track">
+            ${timelineLoopGroups.map((group) => `
+              <div
+                class="time-dock__loop-group${group.isSelected ? " time-dock__loop-group--selected" : ""}"
+                style="--loop-start-index: ${group.startIndex}; --loop-span: ${group.endIndex - group.startIndex + 1};"
+                aria-hidden="true">
+                <span class="time-dock__loop-label">Loop x${(0, htmlEscape_1.escapeHtml)(String(group.iterationCount))}</span>
+              </div>
+            `).join("")}
             ${timelineRewindPoints.map((point, index) => `
               <button
                 class="time-dock__point${point.isCurrent ? " time-dock__point--current" : ""}${point.canSelect ? "" : " time-dock__point--disabled"}"
@@ -2228,11 +2281,60 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       overscroll-behavior-x: contain;
     }
     .time-dock__track {
+      --time-dock-point-width: 72px;
+      --time-dock-point-gap: 12px;
       display: flex;
+      position: relative;
       align-items: end;
       gap: 12px;
       min-width: max-content;
-      min-height: 76px;
+      min-height: 112px;
+      padding-top: 28px;
+    }
+    .time-dock__loop-group {
+      position: absolute;
+      left: calc((var(--time-dock-point-width) + var(--time-dock-point-gap)) * var(--loop-start-index));
+      bottom: 0;
+      width: calc((var(--time-dock-point-width) * var(--loop-span)) + (var(--time-dock-point-gap) * (var(--loop-span) - 1)));
+      height: 88px;
+      border-radius: 22px;
+      border: 1px solid rgba(114, 241, 184, 0.26);
+      background:
+        linear-gradient(180deg, rgba(25, 70, 52, 0.18), rgba(10, 24, 20, 0.12)),
+        rgba(8, 16, 18, 0.18);
+      box-shadow:
+        inset 0 1px 0 rgba(196, 255, 226, 0.06),
+        0 10px 24px rgba(6, 16, 13, 0.24);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .time-dock__loop-group--selected {
+      border-color: rgba(114, 241, 184, 0.42);
+      background:
+        linear-gradient(180deg, rgba(31, 92, 67, 0.22), rgba(10, 28, 22, 0.16)),
+        rgba(8, 16, 18, 0.22);
+      box-shadow:
+        inset 0 1px 0 rgba(196, 255, 226, 0.08),
+        0 12px 28px rgba(8, 26, 19, 0.28),
+        0 0 22px rgba(114, 241, 184, 0.08);
+    }
+    .time-dock__loop-label {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(114, 241, 184, 0.26);
+      background: rgba(8, 20, 17, 0.94);
+      color: rgba(150, 250, 198, 0.96);
+      font-size: 0.69rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
     .time-dock__point {
       width: 72px;
@@ -2246,19 +2348,13 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       background: transparent;
       color: rgba(226, 244, 239, 0.86);
       cursor: pointer;
-      transform-origin: bottom center;
-      transition: transform 150ms ease, width 150ms ease, opacity 150ms ease, color 150ms ease;
+      transition: opacity 150ms ease, color 150ms ease;
+      position: relative;
+      z-index: 1;
     }
     .time-dock__point:hover {
-      width: 118px;
-      transform: translateY(-12px) scale(1.28);
       color: #f2fff8;
       z-index: 3;
-    }
-    .time-dock__point:has(+ .time-dock__point:hover),
-    .time-dock__point:hover + .time-dock__point {
-      transform: translateY(-6px) scale(1.12);
-      color: rgba(238, 255, 248, 0.96);
     }
     .time-dock__point--current {
       color: #ffe08a;
@@ -2281,11 +2377,30 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       font-size: 0.76rem;
       font-weight: 900;
       letter-spacing: -0.04em;
+      transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease, color 150ms ease;
     }
     .time-dock__point--current .time-dock__orb {
       border-color: rgba(255, 213, 90, 0.52);
       background: linear-gradient(180deg, rgba(255, 213, 90, 0.24), rgba(55, 42, 14, 0.96));
       box-shadow: 0 12px 30px rgba(255, 213, 90, 0.14);
+    }
+    .time-dock__point:hover .time-dock__orb {
+      border-color: rgba(114, 241, 184, 0.48);
+      background:
+        linear-gradient(180deg, rgba(114, 241, 184, 0.28), rgba(14, 38, 33, 0.96)),
+        rgba(8, 16, 22, 0.92);
+      box-shadow:
+        0 10px 24px rgba(0, 0, 0, 0.32),
+        0 0 0 1px rgba(177, 255, 224, 0.08),
+        0 0 22px rgba(114, 241, 184, 0.14);
+    }
+    .time-dock__point--current:hover .time-dock__orb {
+      border-color: rgba(255, 223, 116, 0.72);
+      background: linear-gradient(180deg, rgba(255, 213, 90, 0.34), rgba(64, 48, 16, 0.98));
+      box-shadow:
+        0 12px 30px rgba(255, 213, 90, 0.16),
+        0 0 0 1px rgba(255, 234, 170, 0.1),
+        0 0 22px rgba(255, 213, 90, 0.16);
     }
     .time-dock__label,
     .time-dock__time {
@@ -2299,10 +2414,19 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     .time-dock__label {
       font-size: 0.72rem;
       font-weight: 800;
+      transition: color 150ms ease;
     }
     .time-dock__time {
       font-size: 0.66rem;
       opacity: 0.62;
+      transition: opacity 150ms ease, color 150ms ease;
+    }
+    .time-dock__point:hover .time-dock__label {
+      color: rgba(242, 255, 248, 0.98);
+    }
+    .time-dock__point:hover .time-dock__time {
+      opacity: 0.84;
+      color: rgba(214, 240, 226, 0.92);
     }
     .time-dock__scroll {
       width: 42px;
@@ -2346,6 +2470,53 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       z-index: 2;
       margin: 0 0 6px;
       font-size: 1rem;
+    }
+    .graph-panel__head {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .graph-view-toggle {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .graph-view-toggle__button {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      border: 1px solid rgba(114, 241, 184, 0.16);
+      background: rgba(9, 18, 24, 0.88);
+      color: rgba(226, 244, 239, 0.84);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 140ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+    .graph-view-toggle__button svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+    .graph-view-toggle__button:hover {
+      border-color: rgba(114, 241, 184, 0.3);
+      background: rgba(16, 32, 31, 0.96);
+      color: rgba(244, 255, 250, 0.98);
+      box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
+    }
+    .graph-view-toggle__label {
+      font-size: 0.74rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(196, 225, 212, 0.68);
+      white-space: nowrap;
     }
     .panel-copy {
       position: relative;
@@ -2526,7 +2697,10 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       filter: drop-shadow(0 0 14px rgba(92, 181, 255, 0.42));
     }
     .graph-links path.pending {
-      stroke: rgba(255, 255, 255, 0.1);
+      stroke: rgba(161, 172, 189, 0.62);
+      stroke-dasharray: 11 12;
+      stroke-width: 3.5;
+      filter: none;
     }
     .graph-links path.reverse {
       stroke: rgba(174, 182, 193, 0.42);
@@ -2553,17 +2727,193 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .phase-graph {
       position: relative;
-      width: var(--graph-width-desktop, ${desktopGraphWidth}px);
-      min-width: var(--graph-width-desktop, ${desktopGraphWidth}px);
-      min-height: var(--graph-height-desktop, ${desktopGraphHeight}px);
+      width: var(--graph-width-desktop-vertical, ${desktopGraphWidth}px);
+      min-width: var(--graph-width-desktop-vertical, ${desktopGraphWidth}px);
+      min-height: var(--graph-height-desktop-vertical, ${desktopGraphHeight}px);
     }
-    .graph-links--mobile {
+    .phase-graph[data-graph-layout-mode="horizontal"] {
+      width: var(--graph-width-desktop-horizontal, ${desktopGraphWidth}px);
+      min-width: var(--graph-width-desktop-horizontal, ${desktopGraphWidth}px);
+      min-height: var(--graph-height-desktop-horizontal, ${desktopGraphHeight}px);
+    }
+    .graph-links--mobile,
+    .graph-links--desktop-horizontal,
+    .graph-links--desktop-vertical {
       display: none;
+    }
+    .phase-graph[data-graph-layout-mode="horizontal"] .graph-links--desktop-horizontal {
+      display: block;
+    }
+    .phase-graph[data-graph-layout-mode="vertical"] .graph-links--desktop-vertical {
+      display: block;
+    }
+    .graph-adornment {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      display: none;
+    }
+    .phase-graph[data-graph-layout-mode="horizontal"] .graph-adornment--horizontal {
+      display: block;
+    }
+    .phase-graph[data-graph-layout-mode="vertical"] .graph-adornment--vertical {
+      display: block;
+    }
+    .graph-loop-badge {
+      position: absolute;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(58, 154, 255, 0.34);
+      background: linear-gradient(180deg, rgba(9, 24, 38, 0.94), rgba(8, 16, 24, 0.96));
+      color: #51a8ff;
+      box-shadow: 0 18px 28px rgba(4, 14, 24, 0.24);
+      max-width: 240px;
+    }
+    .graph-loop-badge--horizontal {
+      top: 458px;
+      left: 844px;
+      border: none;
+      background: transparent;
+      box-shadow: none;
+      padding: 0;
+      gap: 12px;
+      color: rgba(75, 225, 154, 0.96);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.94rem;
+      font-weight: 800;
+      max-width: none;
+    }
+    .graph-loop-badge--vertical {
+      top: 704px;
+      right: 28px;
+      line-height: 1.45;
+    }
+    .graph-loop-badge__icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: inherit;
+      flex: 0 0 auto;
+    }
+    .graph-loop-badge__icon svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+    .graph-loop-badge--horizontal .graph-loop-badge__icon {
+      display: none;
+    }
+    .graph-loop-badge__text {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .graph-legend {
+      position: absolute;
+      left: 18px;
+      bottom: 18px;
+      width: 220px;
+      padding: 20px 20px 18px;
+      border-radius: 22px;
+      border: 1px dashed rgba(174, 188, 209, 0.26);
+      background: linear-gradient(180deg, rgba(10, 18, 28, 0.84), rgba(8, 13, 22, 0.92));
+      box-shadow: 0 16px 26px rgba(4, 8, 16, 0.22);
+      pointer-events: auto;
+      z-index: 6;
+    }
+    .graph-legend[hidden] {
+      display: none;
+    }
+    .graph-legend__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .graph-legend__title {
+      color: rgba(240, 244, 252, 0.92);
+      font-size: 0.96rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .graph-legend__dismiss {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(197, 208, 226, 0.18);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(230, 236, 246, 0.88);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font: inherit;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+    }
+    .graph-legend__dismiss:hover {
+      border-color: rgba(230, 236, 246, 0.34);
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(248, 250, 255, 0.96);
+    }
+    .graph-legend__row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: rgba(214, 221, 232, 0.86);
+    }
+    .graph-legend__row + .graph-legend__row {
+      margin-top: 14px;
+    }
+    .graph-legend__line {
+      width: 40px;
+      height: 0;
+      border-top: 4px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      flex: 0 0 auto;
+    }
+    .graph-legend__line--progress {
+      border-top-color: rgba(114, 241, 184, 0.82);
+      box-shadow: 0 0 12px rgba(114, 241, 184, 0.2);
+    }
+    .graph-legend__line--pending {
+      border-top-color: rgba(161, 172, 189, 0.76);
+      border-top-style: dashed;
+    }
+    .graph-legend__line--loop {
+      border-top-color: rgba(58, 154, 255, 0.9);
+      border-top-style: dashed;
+    }
+    .graph-legend__dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      flex: 0 0 auto;
+    }
+    .graph-legend__dot--completed {
+      background: linear-gradient(180deg, #49d484, #2f9c62);
+    }
+    .graph-legend__dot--current {
+      background: linear-gradient(180deg, #4297ff, #2569d6);
+    }
+    .graph-legend__dot--pending {
+      background: linear-gradient(180deg, #9099aa, #687181);
+    }
+    .graph-legend__dot--final {
+      background: linear-gradient(180deg, #8a4dff, #5f2bc3);
     }
     .phase-node {
       position: absolute;
-      left: var(--phase-left-desktop);
-      top: var(--phase-top-desktop);
+      left: var(--phase-left-desktop-vertical);
+      top: var(--phase-top-desktop-vertical);
       width: ${phaseNodeWidth}px;
       min-height: ${phaseNodeHeight}px;
       border-radius: 22px;
@@ -2574,11 +2924,15 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       text-align: left;
       cursor: pointer;
       box-shadow: 0 18px 28px rgba(0, 0, 0, 0.24);
-      transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+      transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
       overflow: visible;
       isolation: isolate;
       animation: nodeRise 420ms ease both;
       z-index: 1;
+    }
+    .phase-graph[data-graph-layout-mode="horizontal"] .phase-node {
+      left: var(--phase-left-desktop-horizontal);
+      top: var(--phase-top-desktop-horizontal);
     }
     .phase-node::after {
       content: "";
@@ -2589,20 +2943,13 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       z-index: 0;
       pointer-events: none;
     }
-    .phase-node::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      background:
-        radial-gradient(circle at 14% 12%, rgba(114, 241, 184, 0.08), transparent 28%),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.012), transparent 34%);
-      z-index: 1;
-      pointer-events: none;
-    }
     .phase-node:hover {
-      transform: translateY(-2px) scale(1.01);
-      border-color: rgba(114, 241, 184, 0.28);
+      border-color: rgba(164, 231, 255, 0.42);
+      background: linear-gradient(180deg, rgba(34, 42, 56, 0.98), rgba(14, 18, 26, 1));
+      box-shadow:
+        0 22px 34px rgba(0, 0, 0, 0.28),
+        0 0 0 1px rgba(210, 229, 246, 0.08),
+        0 0 24px rgba(124, 190, 255, 0.12);
     }
     .phase-node.selected {
       outline: 2px solid rgba(114, 241, 184, 0.52);
@@ -2656,24 +3003,89 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       box-shadow: 0 20px 34px rgba(48, 120, 255, 0.16);
       animation: nodeRise 420ms ease both, currentPulse 2.8s ease-in-out infinite;
     }
+    .phase-node.phase-tone-active:hover {
+      border-color: rgba(110, 198, 255, 0.72);
+      background: linear-gradient(180deg, rgb(34, 69, 114), rgb(12, 28, 46));
+      box-shadow:
+        0 24px 36px rgba(30, 86, 150, 0.28),
+        0 0 0 1px rgba(128, 205, 255, 0.16),
+        0 0 28px rgba(92, 181, 255, 0.22);
+    }
     .phase-node.phase-tone-waiting-user {
       background: linear-gradient(180deg, rgb(74, 56, 12), rgb(24, 18, 7));
       border-color: rgba(255, 213, 90, 0.5);
       box-shadow: 0 20px 34px rgba(154, 118, 24, 0.24);
+    }
+    .phase-node.phase-tone-waiting-user:hover {
+      border-color: rgba(255, 223, 116, 0.74);
+      background: linear-gradient(180deg, rgb(96, 73, 16), rgb(36, 27, 10));
+      box-shadow:
+        0 24px 36px rgba(154, 118, 24, 0.28),
+        0 0 0 1px rgba(255, 231, 162, 0.14),
+        0 0 28px rgba(255, 213, 90, 0.18);
     }
     .phase-node.phase-tone-paused {
       background: linear-gradient(180deg, rgb(24, 49, 82), rgb(10, 20, 32));
       border-color: rgba(92, 181, 255, 0.34);
       box-shadow: 0 18px 30px rgba(48, 120, 255, 0.14);
     }
+    .phase-node.phase-tone-paused:hover {
+      border-color: rgba(122, 201, 255, 0.62);
+      background: linear-gradient(180deg, rgb(33, 63, 102), rgb(12, 25, 40));
+      box-shadow:
+        0 22px 34px rgba(40, 98, 160, 0.24),
+        0 0 0 1px rgba(141, 208, 255, 0.12),
+        0 0 24px rgba(92, 181, 255, 0.16);
+    }
     .phase-node.phase-tone-blocked {
       background: linear-gradient(180deg, rgb(54, 23, 23), rgb(20, 10, 10));
       border-color: rgba(255, 120, 120, 0.28);
       box-shadow: 0 18px 30px rgba(140, 38, 38, 0.16);
     }
+    .phase-node.phase-tone-blocked:hover {
+      border-color: rgba(255, 146, 146, 0.58);
+      background: linear-gradient(180deg, rgb(72, 29, 29), rgb(28, 12, 12));
+      box-shadow:
+        0 22px 34px rgba(140, 38, 38, 0.22),
+        0 0 0 1px rgba(255, 184, 184, 0.08),
+        0 0 24px rgba(255, 120, 120, 0.12);
+    }
     .phase-node.phase-tone-completed {
       background: linear-gradient(180deg, rgb(18, 44, 34), rgb(10, 20, 17));
       border-color: rgba(114, 241, 184, 0.24);
+    }
+    .phase-node.phase-tone-completed:hover {
+      border-color: rgba(114, 241, 184, 0.56);
+      background: linear-gradient(180deg, rgb(24, 61, 46), rgb(11, 27, 21));
+      box-shadow:
+        0 22px 34px rgba(18, 72, 53, 0.22),
+        0 0 0 1px rgba(173, 255, 218, 0.1),
+        0 0 26px rgba(114, 241, 184, 0.14);
+    }
+    .phase-node--final,
+    .phase-node--final.phase-tone-completed,
+    .phase-node--final.phase-tone-pending {
+      background: linear-gradient(180deg, rgba(34, 22, 58, 0.98), rgba(18, 10, 34, 0.98));
+      border-color: rgba(143, 89, 255, 0.58);
+      box-shadow:
+        0 20px 34px rgba(44, 20, 90, 0.24),
+        0 0 0 1px rgba(170, 132, 255, 0.12),
+        0 0 28px rgba(120, 74, 255, 0.12);
+      opacity: 1;
+    }
+    .phase-node--final:hover {
+      border-color: rgba(170, 120, 255, 0.78);
+      background: linear-gradient(180deg, rgba(46, 28, 76, 0.98), rgba(23, 12, 43, 1));
+      box-shadow:
+        0 24px 36px rgba(50, 22, 96, 0.28),
+        0 0 0 1px rgba(185, 148, 255, 0.16),
+        0 0 32px rgba(146, 100, 255, 0.18);
+    }
+    .phase-node--final .phase-index,
+    .phase-node--final .phase-role-badge {
+      color: rgba(212, 194, 255, 0.96);
+      border-color: rgba(160, 124, 255, 0.24);
+      background: rgba(142, 93, 255, 0.14);
     }
     .phase-node.phase-tone-pending {
       background:
@@ -2682,6 +3094,16 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       border-color: rgba(196, 203, 214, 0.14);
       box-shadow: 0 16px 28px rgba(7, 10, 16, 0.22);
       opacity: 0.96;
+    }
+    .phase-node.phase-tone-pending:hover {
+      border-color: rgba(214, 222, 235, 0.28);
+      background:
+        linear-gradient(180deg, rgb(84, 90, 102), rgb(26, 31, 39)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+      box-shadow:
+        0 22px 34px rgba(7, 10, 16, 0.28),
+        0 0 0 1px rgba(226, 232, 240, 0.06),
+        0 0 20px rgba(196, 203, 214, 0.08);
     }
     .phase-node.phase-tone-disabled {
       background:
@@ -2705,6 +3127,24 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       align-items: center;
       gap: 10px;
       min-width: 0;
+      flex-wrap: wrap;
+    }
+    .phase-role-badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(222, 240, 235, 0.9);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+    .phase-role-badge svg {
+      width: 15px;
+      height: 15px;
+      fill: currentColor;
     }
     .phase-current-rail {
       position: absolute;
@@ -4147,8 +4587,12 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         min-height: auto;
       }
       .graph-stage, .phase-graph {
-        min-width: var(--graph-width-desktop, ${desktopGraphWidth}px);
-        min-height: var(--graph-height-desktop, ${desktopGraphHeight}px);
+        min-width: var(--graph-width-desktop-vertical, ${desktopGraphWidth}px);
+        min-height: var(--graph-height-desktop-vertical, ${desktopGraphHeight}px);
+      }
+      .phase-graph[data-graph-layout-mode="horizontal"] {
+        min-width: var(--graph-width-desktop-horizontal, ${desktopGraphWidth}px);
+        min-height: var(--graph-height-desktop-horizontal, ${desktopGraphHeight}px);
       }
     }
     @media (max-width: 1500px) and (min-width: 761px) {
@@ -4194,6 +4638,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       .detail-actions--artifact {
         grid-template-columns: 1fr;
       }
+      .graph-panel__head {
+        flex-direction: column;
+      }
       .review-regression__header {
         grid-template-columns: 1fr;
       }
@@ -4201,20 +4648,52 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         justify-items: start;
       }
       .phase-node {
-        left: var(--phase-left-mobile);
-        top: var(--phase-top-mobile);
+        left: var(--phase-left-mobile-vertical);
+        top: var(--phase-top-mobile-vertical);
         width: ${mobilePhaseNodeWidth}px;
       }
+      .phase-graph[data-graph-layout-mode="horizontal"] .phase-node {
+        left: var(--phase-left-mobile-horizontal);
+        top: var(--phase-top-mobile-horizontal);
+      }
       .graph-stage, .phase-graph {
-        width: var(--graph-width-mobile, ${mobileGraphWidth}px);
-        min-width: var(--graph-width-mobile, ${mobileGraphWidth}px);
-        min-height: var(--graph-height-mobile, ${mobileGraphHeight}px);
+        width: var(--graph-width-mobile-vertical, ${mobileGraphWidth}px);
+        min-width: var(--graph-width-mobile-vertical, ${mobileGraphWidth}px);
+        min-height: var(--graph-height-mobile-vertical, ${mobileGraphHeight}px);
+      }
+      .phase-graph[data-graph-layout-mode="horizontal"] {
+        width: var(--graph-width-mobile-horizontal, ${mobileGraphWidth}px);
+        min-width: var(--graph-width-mobile-horizontal, ${mobileGraphWidth}px);
+        min-height: var(--graph-height-mobile-horizontal, ${mobileGraphHeight}px);
       }
       .graph-links--desktop {
         display: none;
       }
       .graph-links--mobile {
+        display: none;
+      }
+      .phase-graph[data-graph-layout-mode="horizontal"] .graph-links--mobile-horizontal {
         display: block;
+      }
+      .phase-graph[data-graph-layout-mode="vertical"] .graph-links--mobile-vertical {
+        display: block;
+      }
+      .graph-legend {
+        left: 10px;
+        bottom: 10px;
+        width: 188px;
+        padding: 16px 16px 14px;
+      }
+      .graph-loop-badge--horizontal {
+        top: 374px;
+        left: 474px;
+        font-size: 0.82rem;
+      }
+      .graph-loop-badge--vertical {
+        top: 652px;
+        right: 6px;
+        max-width: 188px;
+        padding: 12px 14px;
       }
       .execution-overlay {
         left: 10px;
@@ -4387,11 +4866,36 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       <section class="layout">
         <div class="layout-main">
         <aside class="panel graph-panel" data-panel-scroll="graph">
-          <h2 class="panel-title">Workflow Constellation</h2>
-          <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and phase context.</p>
+          <div class="graph-panel__head">
+            <div>
+              <h2 class="panel-title">Workflow Constellation</h2>
+              <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and phase context.</p>
+            </div>
+            <div class="graph-view-toggle" aria-label="Graph layout mode">
+              <button
+                class="graph-view-toggle__button"
+                type="button"
+                data-export-workflow-snapshot
+                aria-label="Export workflow snapshot"
+                title="Export workflow snapshot">
+                ${(0, icons_1.cameraIcon)()}
+              </button>
+              <span class="graph-view-toggle__label">${state.graphLayoutMode === "horizontal" ? "Horizontal" : "Vertical"}</span>
+              <button
+                class="graph-view-toggle__button"
+                type="button"
+                data-graph-layout-mode-toggle
+                data-layout-mode="${state.graphLayoutMode === "horizontal" ? "horizontal" : "vertical"}"
+                aria-label="${state.graphLayoutMode === "horizontal" ? "Switch graph layout to vertical" : "Switch graph layout to horizontal"}"
+                title="${state.graphLayoutMode === "horizontal" ? "Switch graph layout to vertical" : "Switch graph layout to horizontal"}">
+                ${(0, icons_1.graphLayoutModeIcon)(state.graphLayoutMode === "horizontal" ? "horizontal" : "vertical")}
+              </button>
+            </div>
+          </div>
           <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}${playbackState === "playing" || playbackState === "stopping" ? " graph-stage--overlay-blocking" : ""}">
             ${executionOverlay}
             ${phaseGraph}
+            ${renderGraphLegend(workflow.usId)}
           </div>
         </aside>
         <main class="panel detail-panel" data-panel-scroll="detail">
@@ -4451,6 +4955,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     const workflowShell = document.querySelector("[data-workflow-shell]");
     const graphPanel = document.querySelector('[data-panel-scroll="graph"]');
     const detailPanel = document.querySelector('[data-panel-scroll="detail"]');
+    const phaseGraph = document.querySelector(".phase-graph");
+    const graphLegendElements = Array.from(document.querySelectorAll("[data-graph-legend]"));
+    const exportWorkflowSnapshotButton = document.querySelector("[data-export-workflow-snapshot]");
     const selectedPhaseNode = document.querySelector(".phase-node.selected");
     const currentPhaseNode = document.querySelector(".phase-node.phase-node--current");
     const focusedPhaseNode = selectedPhaseNode instanceof HTMLElement
@@ -4474,6 +4981,138 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     const autoScrollStateKey = workflowShell instanceof HTMLElement
       ? "specforge-ai:auto-scroll-phase:" + (workflowShell.dataset.usId ?? "")
       : "";
+    const graphLegendDismissKey = workflowShell instanceof HTMLElement
+      ? "specforge-ai:graph-legend-dismissed:" + (workflowShell.dataset.usId ?? "")
+      : "";
+    const syncGraphLegendVisibility = () => {
+      let dismissed = false;
+      if (graphLegendDismissKey) {
+        try {
+          dismissed = window.sessionStorage.getItem(graphLegendDismissKey) === "true";
+        } catch {
+          dismissed = false;
+        }
+      }
+
+      for (const legendElement of graphLegendElements) {
+        if (legendElement instanceof HTMLElement) {
+          legendElement.hidden = dismissed;
+        }
+      }
+    };
+    syncGraphLegendVisibility();
+    for (const legendElement of graphLegendElements) {
+      if (!(legendElement instanceof HTMLElement)) {
+        continue;
+      }
+
+      const dismissButton = legendElement.querySelector("[data-graph-legend-dismiss]");
+      if (dismissButton instanceof HTMLButtonElement) {
+        dismissButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (graphLegendDismissKey) {
+            try {
+              window.sessionStorage.setItem(graphLegendDismissKey, "true");
+            } catch {
+              // Ignore storage failures and still hide the legend for this render.
+            }
+          }
+          syncGraphLegendVisibility();
+        });
+      }
+    }
+    const exportWorkflowSnapshot = async () => {
+      if (!(workflowShell instanceof HTMLElement) || !(graphPanel instanceof HTMLElement) || !(phaseGraph instanceof HTMLElement)) {
+        return;
+      }
+
+      const graphStage = document.querySelector(".graph-stage");
+      if (!(graphStage instanceof HTMLElement)) {
+        return;
+      }
+
+      const captureWidth = Math.ceil(phaseGraph.scrollWidth);
+      const captureHeight = Math.ceil(phaseGraph.scrollHeight);
+      const clonedGraphStage = graphStage.cloneNode(true);
+      if (!(clonedGraphStage instanceof HTMLElement)) {
+        return;
+      }
+
+      const clonedExecutionOverlay = clonedGraphStage.querySelector(".execution-overlay");
+      if (clonedExecutionOverlay instanceof HTMLElement) {
+        clonedExecutionOverlay.remove();
+      }
+
+      clonedGraphStage.style.width = captureWidth + "px";
+      clonedGraphStage.style.minWidth = captureWidth + "px";
+      clonedGraphStage.style.height = captureHeight + "px";
+      clonedGraphStage.style.minHeight = captureHeight + "px";
+      clonedGraphStage.style.overflow = "visible";
+      clonedGraphStage.style.padding = "0";
+      clonedGraphStage.style.margin = "0";
+
+      const clonedPhaseGraph = clonedGraphStage.querySelector(".phase-graph");
+      if (clonedPhaseGraph instanceof HTMLElement) {
+        clonedPhaseGraph.style.width = captureWidth + "px";
+        clonedPhaseGraph.style.minWidth = captureWidth + "px";
+        clonedPhaseGraph.style.height = captureHeight + "px";
+        clonedPhaseGraph.style.minHeight = captureHeight + "px";
+      }
+
+      const stylesheetContent = Array.from(document.querySelectorAll("style"))
+        .map((styleElement) => styleElement.textContent ?? "")
+        .join("\n");
+      const serializedMarkup = new XMLSerializer().serializeToString(clonedGraphStage);
+      const svgMarkup =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="' + captureWidth + '" height="' + captureHeight + '" viewBox="0 0 ' + captureWidth + ' ' + captureHeight + '">'
+        + '<foreignObject width="100%" height="100%">'
+        + '<div xmlns="http://www.w3.org/1999/xhtml" style="width:' + captureWidth + 'px;height:' + captureHeight + 'px;">'
+        + '<style>' + stylesheetContent + '</style>'
+        + serializedMarkup
+        + "</div>"
+        + "</foreignObject>"
+        + "</svg>";
+
+      const blob = new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        const image = new Image();
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = reject;
+          image.src = objectUrl;
+        });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = captureWidth;
+        canvas.height = captureHeight;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          throw new Error("Canvas 2D context is unavailable.");
+        }
+
+        context.drawImage(image, 0, 0);
+        const dataUrl = canvas.toDataURL("image/png");
+        vscode.postMessage({
+          command: "exportWorkflowSnapshot",
+          dataUrl,
+          fileName: (workflowShell.dataset.usId ?? "workflow") + ".workflow.png"
+        });
+      } catch (error) {
+        vscode.postMessage({
+          command: "webviewClientError",
+          detail: "snapshot:" + (error instanceof Error ? error.message : String(error))
+        });
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+    if (exportWorkflowSnapshotButton instanceof HTMLButtonElement) {
+      exportWorkflowSnapshotButton.addEventListener("click", () => {
+        void exportWorkflowSnapshot();
+      });
+    }
     if (focusedPhaseNode instanceof HTMLElement && focusedPhaseId && autoScrollStateKey) {
       try {
         const previousPhaseId = window.sessionStorage.getItem(autoScrollStateKey) ?? "";
@@ -4533,6 +5172,37 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         });
       });
     });
+    const graphLayoutToggle = document.querySelector("[data-graph-layout-mode-toggle]");
+    const graphLayoutLabel = document.querySelector(".graph-view-toggle__label");
+    if (graphLayoutToggle instanceof HTMLButtonElement) {
+      graphLayoutToggle.addEventListener("click", () => {
+        if (!(phaseGraph instanceof HTMLElement)) {
+          return;
+        }
+
+        const currentMode = graphLayoutToggle.dataset.layoutMode === "horizontal" ? "horizontal" : "vertical";
+        const nextMode = currentMode === "horizontal" ? "vertical" : "horizontal";
+        const nextLabel = nextMode === "horizontal" ? "Horizontal" : "Vertical";
+        const nextTitle = nextMode === "horizontal"
+          ? "Switch graph layout to vertical"
+          : "Switch graph layout to horizontal";
+        phaseGraph.dataset.graphLayoutMode = nextMode;
+        graphLayoutToggle.dataset.layoutMode = nextMode;
+        graphLayoutToggle.setAttribute("aria-label", nextTitle);
+        graphLayoutToggle.title = nextTitle;
+        graphLayoutToggle.innerHTML = nextMode === "horizontal"
+          ? ${JSON.stringify((0, icons_1.graphLayoutModeIcon)("horizontal"))}
+          : ${JSON.stringify((0, icons_1.graphLayoutModeIcon)("vertical"))};
+        if (graphLayoutLabel instanceof HTMLElement) {
+          graphLayoutLabel.textContent = nextLabel;
+        }
+        vscode.setState({
+          ...viewState,
+          graphLayoutMode: nextMode
+        });
+        window.requestAnimationFrame(() => centerFocusedPhaseInGraph());
+      });
+    }
     const postCommand = (element) => {
       try {
         persistWorkflowScrollState();
@@ -5656,30 +6326,42 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         phaseId: phase.phaseId,
         expectsHumanIntervention: phase.expectsHumanIntervention
     }));
-    const desktopLayout = buildPhaseLayout(layoutPhases, desktopLayoutConfig, phaseNodeWidth);
-    const mobileLayout = buildPhaseLayout(layoutPhases, mobileLayoutConfig, mobilePhaseNodeWidth);
-    const links = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopLayout.positions, phaseNodeWidth);
-    const mobileLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileLayout.positions, mobilePhaseNodeWidth);
+    const graphLayoutMode = state.graphLayoutMode === "horizontal" ? "horizontal" : "vertical";
+    const desktopHorizontalLayout = buildHorizontalPhaseLayout(layoutPhases, phaseNodeWidth);
+    const desktopVerticalLayout = buildVerticalPhaseLayout(layoutPhases, phaseNodeWidth);
+    const mobileHorizontalLayout = buildHorizontalPhaseLayout(layoutPhases, mobilePhaseNodeWidth, true);
+    const mobileVerticalLayout = buildVerticalPhaseLayout(layoutPhases, mobilePhaseNodeWidth, true);
+    const desktopHorizontalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, desktopHorizontalLayout.positions, phaseNodeWidth);
+    const desktopVerticalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, desktopVerticalLayout.positions, phaseNodeWidth);
+    const mobileHorizontalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, mobileHorizontalLayout.positions, mobilePhaseNodeWidth);
+    const mobileVerticalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, mobileVerticalLayout.positions, mobilePhaseNodeWidth);
+    const implementationReviewCycleCount = resolveImplementationReviewCycleCount(workflow);
+    const horizontalLoopBadge = renderGraphLoopBadge(implementationReviewCycleCount, "horizontal");
+    const verticalLoopBadge = renderGraphLoopBadge(implementationReviewCycleCount, "vertical");
     const nodes = visiblePhases.map((phase, index) => {
         const disabled = false;
         const visualTone = resolvePhaseVisualTone(workflow.status, workflow, playbackState, phase, disabled, executionPhaseId, pausedExecutionPhaseId, completedPhaseIds);
-        const desktopPosition = desktopLayout.positions[phase.phaseId] ?? { left: desktopLayoutConfig.columns.left, top: desktopLayoutConfig.topOffset };
-        const mobilePosition = mobileLayout.positions[phase.phaseId] ?? { left: mobileLayoutConfig.columns.left, top: mobileLayoutConfig.topOffset };
+        const desktopHorizontalPosition = desktopHorizontalLayout.positions[phase.phaseId] ?? { left: 40, top: 36 };
+        const desktopVerticalPosition = desktopVerticalLayout.positions[phase.phaseId] ?? { left: 38, top: 34 };
+        const mobileHorizontalPosition = mobileHorizontalLayout.positions[phase.phaseId] ?? { left: 18, top: 18 };
+        const mobileVerticalPosition = mobileVerticalLayout.positions[phase.phaseId] ?? { left: 18, top: 18 };
         const canPausePhase = (0, workflowPlaybackState_1.canPauseWorkflowExecutionPhase)(phase.phaseId) && phase.state === "pending";
         const pauseArmed = pausedPhaseIds.has(phase.phaseId);
         const phaseIsCurrent = phase.phaseId === displayedCurrentPhaseId;
         const phaseIsSelected = phase.phaseId === selectedPhaseId;
+        const phaseRoleIcon = phase.expectsHumanIntervention ? (0, icons_1.userPhaseIcon)() : (0, icons_1.automationPhaseIcon)();
+        const phaseRoleLabel = phase.expectsHumanIntervention ? "User step" : "Automated step";
         const pauseButtonLabel = pauseArmed
             ? `Remove pause before ${phase.title}`
             : `Pause before ${phase.title}`;
         return `
     <div
-      class="phase-node ${(0, htmlEscape_1.escapeHtmlAttr)(phase.phaseId)} phase-tone-${(0, htmlEscape_1.escapeHtmlAttr)(visualTone)}${phaseIsSelected ? " selected" : ""}${phaseIsCurrent ? " phase-node--current" : ""}"
+      class="phase-node ${(0, htmlEscape_1.escapeHtmlAttr)(phase.phaseId)} phase-tone-${(0, htmlEscape_1.escapeHtmlAttr)(visualTone)}${phaseIsSelected ? " selected" : ""}${phaseIsCurrent ? " phase-node--current" : ""}${phase.phaseId === "completed" ? " phase-node--final" : ""}"
       data-command="selectPhase"
       data-phase-id="${(0, htmlEscape_1.escapeHtmlAttr)(phase.phaseId)}"
       role="button"
       tabindex="0"
-      style="--phase-left-desktop: ${desktopPosition.left}px; --phase-top-desktop: ${desktopPosition.top}px; --phase-left-mobile: ${mobilePosition.left}px; --phase-top-mobile: ${mobilePosition.top}px;">
+      style="--phase-left-desktop-horizontal: ${desktopHorizontalPosition.left}px; --phase-top-desktop-horizontal: ${desktopHorizontalPosition.top}px; --phase-left-desktop-vertical: ${desktopVerticalPosition.left}px; --phase-top-desktop-vertical: ${desktopVerticalPosition.top}px; --phase-left-mobile-horizontal: ${mobileHorizontalPosition.left}px; --phase-top-mobile-horizontal: ${mobileHorizontalPosition.top}px; --phase-left-mobile-vertical: ${mobileVerticalPosition.left}px; --phase-top-mobile-vertical: ${mobileVerticalPosition.top}px;">
       ${phaseIsCurrent ? `<span class="phase-current-rail"><span class="phase-current-rail__label">Current</span></span>` : ""}
       ${phaseIsSelected ? `<span class="phase-viewing-rail${phaseIsCurrent ? " phase-viewing-rail--current" : ""}"><span class="phase-viewing-rail__label">Viewing</span></span>` : ""}
       <div class="phase-node-content${phaseIsCurrent ? " phase-node-content--current" : ""}">
@@ -5688,6 +6370,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
             <span class="phase-index${phase.phaseId === "completed" ? " phase-index--icon" : ""}">${phase.phaseId === "completed"
             ? (state.completedUsLockOnCompleted !== false ? (0, icons_1.lockClosedIcon)() : (0, icons_1.lockOpenIcon)())
             : String(index + 1)}</span>
+            <span class="phase-role-badge" title="${(0, htmlEscape_1.escapeHtmlAttr)(phaseRoleLabel)}" aria-label="${(0, htmlEscape_1.escapeHtmlAttr)(phaseRoleLabel)}">${phaseRoleIcon}</span>
             ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
           </div>
           ${canPausePhase
@@ -5716,13 +6399,25 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
   `;
     }).join("");
     return `
-    <div class="phase-graph" aria-label="Workflow graph" style="--graph-width-desktop: ${desktopLayout.width}px; --graph-height-desktop: ${desktopLayout.height}px; --graph-width-mobile: ${mobileLayout.width}px; --graph-height-mobile: ${mobileLayout.height}px;">
-      <svg class="graph-links graph-links--desktop" viewBox="0 0 ${desktopLayout.width} ${desktopLayout.height}" preserveAspectRatio="none" aria-hidden="true">
-        ${links}
+    <div class="phase-graph" data-graph-layout-mode="${(0, htmlEscape_1.escapeHtmlAttr)(graphLayoutMode)}" aria-label="Workflow graph" style="--graph-width-desktop-horizontal: ${desktopHorizontalLayout.width}px; --graph-height-desktop-horizontal: ${desktopHorizontalLayout.height}px; --graph-width-desktop-vertical: ${desktopVerticalLayout.width}px; --graph-height-desktop-vertical: ${desktopVerticalLayout.height}px; --graph-width-mobile-horizontal: ${mobileHorizontalLayout.width}px; --graph-height-mobile-horizontal: ${mobileHorizontalLayout.height}px; --graph-width-mobile-vertical: ${mobileVerticalLayout.width}px; --graph-height-mobile-vertical: ${mobileVerticalLayout.height}px;">
+      <svg class="graph-links graph-links--desktop graph-links--desktop-horizontal" viewBox="0 0 ${desktopHorizontalLayout.width} ${desktopHorizontalLayout.height}" preserveAspectRatio="none" aria-hidden="true">
+        ${desktopHorizontalLinks}
       </svg>
-      <svg class="graph-links graph-links--mobile" viewBox="0 0 ${mobileLayout.width} ${mobileLayout.height}" preserveAspectRatio="none" aria-hidden="true">
-        ${mobileLinks}
+      <svg class="graph-links graph-links--desktop graph-links--desktop-vertical" viewBox="0 0 ${desktopVerticalLayout.width} ${desktopVerticalLayout.height}" preserveAspectRatio="none" aria-hidden="true">
+        ${desktopVerticalLinks}
       </svg>
+      <svg class="graph-links graph-links--mobile graph-links--mobile-horizontal" viewBox="0 0 ${mobileHorizontalLayout.width} ${mobileHorizontalLayout.height}" preserveAspectRatio="none" aria-hidden="true">
+        ${mobileHorizontalLinks}
+      </svg>
+      <svg class="graph-links graph-links--mobile graph-links--mobile-vertical" viewBox="0 0 ${mobileVerticalLayout.width} ${mobileVerticalLayout.height}" preserveAspectRatio="none" aria-hidden="true">
+        ${mobileVerticalLinks}
+      </svg>
+      <div class="graph-adornment graph-adornment--horizontal">
+        ${horizontalLoopBadge}
+      </div>
+      <div class="graph-adornment graph-adornment--vertical">
+        ${verticalLoopBadge}
+      </div>
       ${nodes}
     </div>
   `;
@@ -5760,42 +6455,141 @@ function resolveDisplayedCurrentPhaseId(workflow, state, effectiveExecutionPhase
     }
     return workflow.currentPhase;
 }
-function buildGraphLinks(workflow, visiblePhases, executingTargetPhaseId, currentPhaseId, completedPhaseIds, positions, nodeWidth) {
-    const edges = [];
-    for (let index = 0; index < visiblePhases.length - 1; index++) {
-        const fromPhase = visiblePhases[index];
-        const toPhase = visiblePhases[index + 1];
-        edges.push({
-            fromPhaseId: fromPhase.phaseId,
-            toPhaseId: toPhase.phaseId,
-            className: linkClass(toPhase, executingTargetPhaseId, currentPhaseId, completedPhaseIds)
-        });
-    }
-    if (visiblePhases.some((phase) => phase.phaseId === "implementation")
-        && visiblePhases.some((phase) => phase.phaseId === "review")) {
-        edges.push({
-            fromPhaseId: "review",
-            toPhaseId: "implementation",
-            className: reverseLinkClass(workflow, completedPhaseIds)
-        });
+function buildGraphLinks(workflow, visiblePhases, executingTargetPhaseId, currentPhaseId, completedPhaseIds, selectedPhaseId, positions, nodeWidth) {
+    const visiblePhaseMap = new Map(visiblePhases.map((phase) => [phase.phaseId, phase]));
+    const edges = buildPrimaryGraphEdges(visiblePhases, visiblePhaseMap, executingTargetPhaseId, currentPhaseId, completedPhaseIds);
+    for (const edge of buildSecondaryGraphEdges(workflow, visiblePhases, completedPhaseIds, selectedPhaseId)) {
+        edges.push(edge);
     }
     return edges
         .map((edge) => `<path class="${edge.className}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth)}"></path>`)
         .join("");
 }
-function reverseLinkClass(workflow, completedPhaseIds) {
-    const reviewRegressionOpen = workflow.currentPhase === "review"
-        && (workflow.controls.blockingReason === "review_failed"
-            || workflow.controls.blockingReason === "review_result_missing"
-            || workflow.controls.blockingReason === "review_missing_artifact");
-    if (reviewRegressionOpen) {
-        return "reverse-active";
+function resolveImplementationReviewCycleCount(workflow) {
+    const attempts = (workflow.phaseIterations ?? [])
+        .filter((iteration) => iteration.phaseId === "implementation" || iteration.phaseId === "review")
+        .map((iteration) => iteration.attempt);
+    return attempts.length > 0 ? Math.max(...attempts) : 0;
+}
+function renderGraphLegend(usId) {
+    return `
+    <aside class="graph-legend" data-graph-legend data-us-id="${(0, htmlEscape_1.escapeHtmlAttr)(usId)}" aria-label="Graph legend">
+      <div class="graph-legend__head">
+        <div class="graph-legend__title">Legend</div>
+        <button type="button" class="graph-legend__dismiss" data-graph-legend-dismiss aria-label="Dismiss graph legend">×</button>
+      </div>
+      <div class="graph-legend__row"><span class="graph-legend__line graph-legend__line--progress"></span><span>Progress</span></div>
+      <div class="graph-legend__row"><span class="graph-legend__line graph-legend__line--pending"></span><span>Pending / skip</span></div>
+      <div class="graph-legend__row"><span class="graph-legend__line graph-legend__line--loop"></span><span>Iteration loop</span></div>
+      <div class="graph-legend__row"><span class="graph-legend__dot graph-legend__dot--completed"></span><span>Completed</span></div>
+      <div class="graph-legend__row"><span class="graph-legend__dot graph-legend__dot--current"></span><span>Current</span></div>
+      <div class="graph-legend__row"><span class="graph-legend__dot graph-legend__dot--pending"></span><span>Pending</span></div>
+      <div class="graph-legend__row"><span class="graph-legend__dot graph-legend__dot--final"></span><span>Final</span></div>
+    </aside>
+  `;
+}
+function renderGraphLoopBadge(loopCount, layoutMode) {
+    if (loopCount < 2) {
+        return "";
     }
-    const hasRegressionHistory = (workflow.phaseIterations ?? []).some((iteration) => (iteration.phaseId === "implementation" || iteration.phaseId === "review") && iteration.attempt > 1);
-    if (hasRegressionHistory && (completedPhaseIds.has("review") || workflow.currentPhase === "release-approval" || workflow.currentPhase === "pr-preparation")) {
-        return "reverse-completed";
+    const label = layoutMode === "horizontal"
+        ? `Loop #${loopCount}`
+        : `${loopCount} cycles between Implementation and Review`;
+    return `
+    <div class="graph-loop-badge graph-loop-badge--${layoutMode}" aria-label="${(0, htmlEscape_1.escapeHtmlAttr)(label)}">
+      <span class="graph-loop-badge__icon">${(0, icons_1.rewindIcon)()}</span>
+      <span class="graph-loop-badge__text">${(0, htmlEscape_1.escapeHtml)(label)}</span>
+    </div>
+  `;
+}
+function buildPrimaryGraphEdges(visiblePhases, visiblePhaseMap, executingTargetPhaseId, currentPhaseId, completedPhaseIds) {
+    const edges = [];
+    const hasClarification = visiblePhaseMap.has("clarification");
+    const primaryDefinitions = [
+        { fromPhaseId: "capture", toPhaseId: hasClarification ? "clarification" : "refinement" },
+        ...(hasClarification ? [{ fromPhaseId: "clarification", toPhaseId: "refinement" }] : []),
+        { fromPhaseId: "refinement", toPhaseId: "spec" },
+        { fromPhaseId: "technical-design", toPhaseId: "spec" },
+        { fromPhaseId: "technical-design", toPhaseId: "implementation" },
+        { fromPhaseId: "spec", toPhaseId: "implementation" },
+        { fromPhaseId: "implementation", toPhaseId: "review" },
+        { fromPhaseId: "review", toPhaseId: "release-approval" },
+        { fromPhaseId: "release-approval", toPhaseId: "pr-preparation" },
+        { fromPhaseId: "pr-preparation", toPhaseId: "completed" }
+    ];
+    for (const definition of primaryDefinitions) {
+        const targetPhase = visiblePhaseMap.get(definition.toPhaseId);
+        if (!visiblePhaseMap.has(definition.fromPhaseId) || !targetPhase) {
+            continue;
+        }
+        edges.push({
+            fromPhaseId: definition.fromPhaseId,
+            toPhaseId: definition.toPhaseId,
+            className: linkClass(targetPhase, executingTargetPhaseId, currentPhaseId, completedPhaseIds)
+        });
     }
-    return "reverse";
+    return edges;
+}
+function buildSecondaryGraphEdges(workflow, visiblePhases, completedPhaseIds, selectedPhaseId) {
+    const visiblePhaseIds = new Set(visiblePhases.map((phase) => phase.phaseId));
+    const edges = [];
+    const secondaryDefinitions = [
+        { fromPhaseId: "review", toPhaseId: "implementation" },
+        ...resolveCompletedReopenTargetPhases().map((targetPhaseId) => ({ fromPhaseId: "completed", toPhaseId: targetPhaseId }))
+    ];
+    for (const definition of secondaryDefinitions) {
+        if (!visiblePhaseIds.has(definition.fromPhaseId) || !visiblePhaseIds.has(definition.toPhaseId)) {
+            continue;
+        }
+        const executed = hasSecondaryTransitionExecution(workflow, definition.fromPhaseId, definition.toPhaseId);
+        const viewingSource = selectedPhaseId === definition.fromPhaseId;
+        if (!executed && !viewingSource) {
+            continue;
+        }
+        edges.push({
+            fromPhaseId: definition.fromPhaseId,
+            toPhaseId: definition.toPhaseId,
+            className: secondaryLinkClass(workflow, completedPhaseIds, definition.fromPhaseId, definition.toPhaseId, executed)
+        });
+    }
+    return edges;
+}
+function secondaryLinkClass(workflow, completedPhaseIds, fromPhaseId, toPhaseId, executed) {
+    if (fromPhaseId === "review" && toPhaseId === "implementation") {
+        const reviewRegressionOpen = workflow.currentPhase === "review"
+            && (workflow.controls.blockingReason === "review_failed"
+                || workflow.controls.blockingReason === "review_result_missing"
+                || workflow.controls.blockingReason === "review_missing_artifact");
+        if (reviewRegressionOpen) {
+            return "reverse-active";
+        }
+    }
+    if (!executed) {
+        return "reverse";
+    }
+    if (fromPhaseId === "review" && toPhaseId === "implementation") {
+        if (completedPhaseIds.has("review") || workflow.currentPhase === "release-approval" || workflow.currentPhase === "pr-preparation") {
+            return "reverse-completed";
+        }
+    }
+    return "reverse-completed";
+}
+function hasSecondaryTransitionExecution(workflow, fromPhaseId, toPhaseId) {
+    if (fromPhaseId === "review" && toPhaseId === "implementation") {
+        return (workflow.phaseIterations ?? []).some((iteration) => (iteration.phaseId === "implementation" || iteration.phaseId === "review") && iteration.attempt > 1);
+    }
+    if (fromPhaseId === "completed") {
+        return workflow.events.some((event) => event.code === "workflow_reopened" && event.phase === toPhaseId);
+    }
+    return false;
+}
+function resolveCompletedReopenTargetPhases() {
+    return [...new Set([
+            (0, workflowCompletedReopen_1.resolveCompletedWorkflowReopenTargetPhase)("merge-conflict"),
+            (0, workflowCompletedReopen_1.resolveCompletedWorkflowReopenTargetPhase)("defect"),
+            (0, workflowCompletedReopen_1.resolveCompletedWorkflowReopenTargetPhase)("functional-issue"),
+            (0, workflowCompletedReopen_1.resolveCompletedWorkflowReopenTargetPhase)("technical-issue")
+        ].filter((phaseId) => phaseId.length > 0))];
 }
 function shouldShowClarificationPhase(_workflow, _executionPhaseId) {
     return true;
@@ -5821,6 +6615,21 @@ function graphPath(fromPhaseId, toPhaseId, positions, nodeWidth) {
     if (!fromPosition || !toPosition) {
         return "";
     }
+    if (fromPhaseId === "review" && toPhaseId === "implementation") {
+        return buildReviewLoopGraphPath(fromPosition, toPosition, nodeWidth);
+    }
+    if (fromPhaseId === "completed") {
+        return buildCompletedReopenGraphPath(fromPosition, toPosition, nodeWidth);
+    }
+    if (fromPhaseId === "technical-design" && toPhaseId === "spec") {
+        return buildTechnicalDesignToSpecPath(fromPosition, toPosition, nodeWidth);
+    }
+    if (fromPhaseId === "technical-design" && toPhaseId === "implementation") {
+        return buildTechnicalDesignToImplementationPath(fromPosition, toPosition, nodeWidth);
+    }
+    if (fromPhaseId === "spec" && toPhaseId === "implementation") {
+        return buildSpecToImplementationPath(fromPosition, toPosition, nodeWidth);
+    }
     const { fromAnchor, toAnchor } = resolveAnchors(fromPosition, toPosition);
     const from = getAnchorPoint(fromPosition, fromAnchor, nodeWidth);
     const to = getAnchorPoint(toPosition, toAnchor, nodeWidth);
@@ -5832,28 +6641,79 @@ function graphPath(fromPhaseId, toPhaseId, positions, nodeWidth) {
 }
 function buildSameColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth) {
     const verticalGap = Math.abs(to.y - from.y);
-    const laneOffset = Math.max(34, nodeWidth * 0.16);
+    const laneOffset = Math.max(42, nodeWidth * 0.18);
     const exitPull = projectAwayFromNode(fromPosition, fromAnchor, from, laneOffset);
     const entryPull = projectAwayFromNode(toPosition, toAnchor, to, laneOffset);
     if (to.y > from.y) {
-        const verticalSpread = Math.max(36, verticalGap * 0.32);
-        return `M ${from.x} ${from.y} C ${from.x} ${from.y + verticalSpread}, ${to.x} ${to.y - verticalSpread}, ${to.x} ${to.y}`;
+        const verticalSpread = Math.max(44, verticalGap * 0.34);
+        const midY = from.y + (to.y - from.y) * 0.52;
+        return `M ${from.x} ${from.y} C ${from.x} ${from.y + verticalSpread}, ${to.x} ${midY - verticalSpread * 0.18}, ${to.x} ${midY} S ${to.x} ${to.y - verticalSpread * 0.28}, ${to.x} ${to.y}`;
     }
     const laneX = fromAnchor === "exit-left" || toAnchor === "entry-left"
         ? fromPosition.left - laneOffset
         : fromPosition.left + nodeWidth + laneOffset;
-    const verticalSpread = Math.max(36, verticalGap * 0.28);
-    return `M ${from.x} ${from.y} C ${exitPull.x} ${from.y}, ${laneX} ${from.y - verticalSpread * 0.1}, ${laneX} ${from.y - verticalSpread} S ${laneX} ${to.y + verticalSpread}, ${entryPull.x} ${to.y} S ${to.x} ${to.y}, ${to.x} ${to.y}`;
+    const verticalSpread = Math.max(44, verticalGap * 0.3);
+    return `M ${from.x} ${from.y} C ${exitPull.x} ${from.y}, ${laneX} ${from.y - verticalSpread * 0.12}, ${laneX} ${from.y - verticalSpread} S ${laneX} ${to.y + verticalSpread}, ${entryPull.x} ${to.y} S ${to.x} ${to.y}, ${to.x} ${to.y}`;
 }
 function buildCrossColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth) {
-    const channelOffset = Math.max(30, nodeWidth * 0.14);
+    const channelOffset = Math.max(38, nodeWidth * 0.18);
     const exitPull = projectAwayFromNode(fromPosition, fromAnchor, from, channelOffset);
     const entryPull = projectAwayFromNode(toPosition, toAnchor, to, channelOffset);
-    const laneX = fromAnchor === "exit-bottom-left" || toAnchor === "entry-left"
-        ? Math.min(exitPull.x, entryPull.x) - Math.max(24, nodeWidth * 0.08)
-        : Math.max(exitPull.x, entryPull.x) + Math.max(24, nodeWidth * 0.08);
-    const verticalBias = Math.max(22, Math.abs(to.y - from.y) * 0.16);
-    return `M ${from.x} ${from.y} C ${exitPull.x} ${from.y + verticalBias * 0.45}, ${laneX} ${from.y + verticalBias}, ${laneX} ${from.y + verticalBias * 1.1} S ${laneX} ${to.y - verticalBias}, ${entryPull.x} ${to.y} S ${to.x} ${to.y}, ${to.x} ${to.y}`;
+    const deltaX = to.x - from.x;
+    const deltaY = to.y - from.y;
+    const horizontalSpread = Math.max(62, Math.abs(deltaX) * 0.28);
+    const verticalBias = Math.max(30, Math.abs(deltaY) * 0.22);
+    const exitX = from.x + Math.sign(deltaX || 1) * horizontalSpread;
+    const entryX = to.x - Math.sign(deltaX || 1) * Math.max(46, Math.abs(deltaX) * 0.22);
+    const crestY = deltaY >= 0
+        ? Math.min(from.y, to.y) + verticalBias
+        : Math.max(from.y, to.y) - verticalBias;
+    return `M ${from.x} ${from.y} C ${exitPull.x} ${from.y}, ${exitX} ${crestY}, ${from.x + deltaX * 0.52} ${from.y + deltaY * 0.52} S ${entryX} ${to.y}, ${to.x} ${to.y}`;
+}
+function buildTechnicalDesignToSpecPath(fromPosition, toPosition, nodeWidth) {
+    const from = getAnchorPoint(fromPosition, "exit-right", nodeWidth);
+    const to = getAnchorPoint(toPosition, "entry-left", nodeWidth);
+    const midX = from.x + (to.x - from.x) * 0.44;
+    const crestY = Math.min(from.y, to.y) - Math.max(44, Math.abs(to.y - from.y) * 0.12);
+    return `M ${from.x} ${from.y} C ${midX - 30} ${from.y}, ${midX - 12} ${crestY}, ${midX} ${crestY} S ${to.x - 42} ${to.y}, ${to.x} ${to.y}`;
+}
+function buildTechnicalDesignToImplementationPath(fromPosition, toPosition, nodeWidth) {
+    const from = getAnchorPoint(fromPosition, "exit-bottom-mid", nodeWidth);
+    const to = getAnchorPoint(toPosition, "entry-left", nodeWidth);
+    const laneY = from.y + Math.max(54, phaseNodeHeight * 0.44);
+    const bendX = from.x + Math.max(44, nodeWidth * 0.16);
+    return `M ${from.x} ${from.y} C ${from.x} ${from.y + 24}, ${bendX} ${laneY}, ${bendX} ${laneY} S ${to.x - 34} ${to.y}, ${to.x} ${to.y}`;
+}
+function buildSpecToImplementationPath(fromPosition, toPosition, nodeWidth) {
+    const from = getAnchorPoint(fromPosition, "exit-bottom-mid", nodeWidth);
+    const to = getAnchorPoint(toPosition, "entry-top", nodeWidth);
+    const laneY = from.y + Math.max(46, Math.abs(to.y - from.y) * 0.34);
+    return `M ${from.x} ${from.y} C ${from.x} ${laneY}, ${to.x} ${laneY - 18}, ${to.x} ${to.y}`;
+}
+function buildReviewLoopGraphPath(fromPosition, toPosition, nodeWidth) {
+    const isVertical = Math.abs(fromPosition.left - toPosition.left) < nodeWidth * 0.7;
+    if (isVertical) {
+        const from = getAnchorPoint(fromPosition, "entry-right", nodeWidth);
+        const to = getAnchorPoint(toPosition, "entry-right", nodeWidth);
+        const outerRight = Math.max(from.x, to.x) + Math.max(96, nodeWidth * 0.42);
+        const midY = (from.y + to.y) / 2;
+        return `M ${from.x} ${from.y} C ${outerRight} ${from.y}, ${outerRight} ${midY - 36}, ${outerRight} ${midY} S ${outerRight - 10} ${to.y}, ${to.x} ${to.y}`;
+    }
+    const from = getAnchorPoint(fromPosition, "exit-bottom-right", nodeWidth);
+    const to = getAnchorPoint(toPosition, "exit-bottom-left", nodeWidth);
+    const laneDepth = Math.max(72, phaseNodeHeight * 0.52);
+    const lowerY = Math.max(from.y, to.y) + laneDepth;
+    const outerLeft = Math.min(from.x, to.x) + nodeWidth * 0.08;
+    const outerRight = Math.max(from.x, to.x) + Math.max(84, nodeWidth * 0.44);
+    return `M ${from.x} ${from.y} C ${from.x + 24} ${from.y + 10}, ${outerRight} ${from.y + 8}, ${outerRight} ${from.y + 48} S ${outerRight - 26} ${lowerY}, ${outerLeft} ${lowerY} S ${to.x - 24} ${to.y + 18}, ${to.x} ${to.y}`;
+}
+function buildCompletedReopenGraphPath(fromPosition, toPosition, nodeWidth) {
+    const from = getAnchorPoint(fromPosition, "entry-right", nodeWidth);
+    const toAnchor = toPosition.left >= fromPosition.left ? "exit-bottom-left" : "exit-bottom-right";
+    const to = getAnchorPoint(toPosition, toAnchor, nodeWidth);
+    const laneX = from.x + Math.max(56, nodeWidth * 0.3);
+    const upperY = Math.min(from.y, to.y) - Math.max(70, phaseNodeHeight * 0.52);
+    return `M ${from.x} ${from.y} C ${laneX} ${from.y}, ${laneX} ${upperY}, ${from.x + 18} ${upperY} S ${to.x + (toAnchor === "exit-bottom-left" ? 28 : -28)} ${upperY + 12}, ${to.x} ${to.y}`;
 }
 function resolveAnchors(from, to) {
     const deltaX = to.left - from.left;
