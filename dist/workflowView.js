@@ -494,9 +494,6 @@ const phaseExecutionMessages = {
     ]
 };
 function buildExecutionOverlay(workflow, state, playbackState) {
-    if (playbackState === "idle") {
-        return "";
-    }
     const currentPhase = workflow.phases.find((phase) => phase.isCurrent) ?? workflow.phases[0];
     const effectiveExecutionPhaseId = resolveEffectiveExecutionPhaseId(workflow, state, playbackState);
     const pausedExecutionPhaseId = resolvePausedExecutionPhaseId(workflow, state, playbackState);
@@ -505,6 +502,13 @@ function buildExecutionOverlay(workflow, state, playbackState) {
         : playbackState === "paused" && pausedExecutionPhaseId
             ? workflow.phases.find((phase) => phase.phaseId === pausedExecutionPhaseId) ?? currentPhase
             : currentPhase;
+    const hasExecutionContext = playbackState !== "idle" || Boolean(state.executionPhaseId);
+    const shouldShowPendingSettingsOverlay = Boolean(state.executionSettingsPending
+        && state.executionSettingsPendingMessage
+        && hasExecutionContext);
+    if (playbackState === "idle" && !shouldShowPendingSettingsOverlay) {
+        return "";
+    }
     const pausedOnFailedReview = playbackState === "paused"
         && currentPhase.phaseId === "review"
         && workflow.controls.blockingReason === "review_failed";
@@ -548,19 +552,37 @@ function buildExecutionOverlay(workflow, state, playbackState) {
                             "Holding the line here so the next phase does not start on its own."
                         ]
             }
-            : {
-                usId: workflow.usId,
-                title: `Stopping after ${currentPhase.title}`,
-                phaseId: currentPhase.phaseId,
-                tone: "stopping",
-                startedAtMs: state.playbackStartedAtMs ?? null,
-                showElapsed: false,
-                messages: [
-                    "Stopping autoplay and asking the local runner to stand down.",
-                    "Trying to leave the in-flight work in a recoverable state.",
-                    "SpecForge.AI is winding down the current execution loop."
-                ]
-            };
+            : playbackState === "stopping"
+                ? {
+                    usId: workflow.usId,
+                    title: `Stopping after ${currentPhase.title}`,
+                    phaseId: currentPhase.phaseId,
+                    tone: "stopping",
+                    startedAtMs: state.playbackStartedAtMs ?? null,
+                    showElapsed: false,
+                    messages: [
+                        "Stopping autoplay and asking the local runner to stand down.",
+                        "Trying to leave the in-flight work in a recoverable state.",
+                        "SpecForge.AI is winding down the current execution loop."
+                    ]
+                }
+                : shouldShowPendingSettingsOverlay
+                    ? {
+                        usId: workflow.usId,
+                        title: "Execution setup pending",
+                        phaseId: state.executionPhaseId ?? currentPhase.phaseId,
+                        tone: "pending-settings",
+                        startedAtMs: state.playbackStartedAtMs ?? null,
+                        showElapsed: false,
+                        eyebrow: "SpecForge.AI Configuration",
+                        actionLabel: "Open SpecForge Configuration",
+                        actionCommand: "openSettings",
+                        messages: [state.executionSettingsPendingMessage ?? "Execution setup changes will apply on the next phase boundary."]
+                    }
+                    : null;
+    if (!overlay) {
+        return "";
+    }
     const overlayPhaseProfileLabel = phaseModelProfileLabel(overlayPhase, state);
     const overlayConfiguredModel = findConfiguredModelForProfile(state, overlayPhaseProfileLabel);
     const overlayPhaseConfiguredLabel = formatExecutionLabel(overlayConfiguredModel ? { model: overlayConfiguredModel, profileName: overlayPhaseProfileLabel } : null, { configuredModel: overlayConfiguredModel });
@@ -581,9 +603,12 @@ function buildExecutionOverlay(workflow, state, playbackState) {
       ${overlay.tone === "playing" ? "" : `<button type="button" class="execution-overlay__dismiss" data-execution-overlay-dismiss>Dismiss</button>`}
       <div class="execution-overlay__pulse" aria-hidden="true"></div>
       <div class="execution-overlay__body">
-        <span class="execution-overlay__eyebrow">SpecForge.AI Runner</span>
+        <span class="execution-overlay__eyebrow">${(0, htmlEscape_1.escapeHtml)(overlay.eyebrow ?? "SpecForge.AI Runner")}</span>
         <strong class="execution-overlay__title">${(0, htmlEscape_1.escapeHtml)(overlay.title)}</strong>
         <p class="execution-overlay__message" data-execution-message>${(0, htmlEscape_1.escapeHtml)(overlay.messages[0] ?? "Processing workflow phase.")}</p>
+        ${overlay.actionLabel && overlay.actionCommand
+        ? `<div class="execution-overlay__actions"><button class="workflow-action-button workflow-action-button--document" type="button" data-command="${(0, htmlEscape_1.escapeHtmlAttr)(overlay.actionCommand)}">${(0, htmlEscape_1.escapeHtml)(overlay.actionLabel)}</button></div>`
+        : ""}
       </div>
       ${overlay.showElapsed ? `<span class="execution-overlay__elapsed" data-execution-elapsed>00:00</span>` : ""}
       ${overlayPhaseModelLabel ? `<span class="execution-overlay__phase-model">${(0, htmlEscape_1.escapeHtml)(overlayPhaseModelLabel)}</span>` : ""}
@@ -1037,20 +1062,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         : playbackState === "paused" && pausedExecutionPhaseId
             ? pausedExecutionPhaseId
             : workflow.currentPhase;
-    const settingsBanner = state.executionSettingsPending && state.executionSettingsPendingMessage
-        ? `
-      <div class="settings-warning settings-warning--pending" role="status">
-        <div class="settings-warning__icon">~</div>
-        <div>
-          <p class="eyebrow warning">Execution Setup Pending</p>
-          <p class="warning-copy">${(0, htmlEscape_1.escapeHtml)(state.executionSettingsPendingMessage)}</p>
-          <div class="detail-actions">
-            <button class="workflow-action-button workflow-action-button--document" data-command="openSettings">Open SpecForge Configuration</button>
-          </div>
-        </div>
-      </div>
-    `
-        : "";
     const implementationReviewLimitReached = workflow.currentPhase === "implementation"
         && (0, workflowAutomation_1.hasReachedImplementationReviewCycleLimit)(workflow, state.maxImplementationReviewCycles);
     const implementationReviewLimitBanner = implementationReviewLimitReached
@@ -2207,6 +2218,12 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         linear-gradient(180deg, rgba(52, 24, 24, 0.96), rgba(23, 11, 11, 0.98)),
         rgba(10, 14, 20, 0.96);
     }
+    .execution-overlay--pending-settings {
+      border-color: rgba(114, 189, 255, 0.36);
+      background:
+        linear-gradient(180deg, rgba(16, 44, 74, 0.96), rgba(10, 20, 34, 0.98)),
+        rgba(10, 14, 20, 0.96);
+    }
     .execution-overlay__pulse {
       width: 14px;
       height: 14px;
@@ -2224,6 +2241,10 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     .execution-overlay--stopping .execution-overlay__pulse {
       background: #ff8b8b;
       animation-duration: 1.2s;
+    }
+    .execution-overlay--pending-settings .execution-overlay__pulse {
+      background: #8fd5ff;
+      animation-duration: 2.2s;
     }
     .execution-overlay__body {
       display: grid;
@@ -2249,6 +2270,12 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       overflow: hidden;
       color: rgba(255, 255, 255, 0.78);
       line-height: 1.4;
+    }
+    .execution-overlay__actions {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
     }
     .execution-overlay__elapsed {
       align-self: flex-start;
@@ -4172,7 +4199,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
           </button>
         </div>
       </div>
-      ${settingsBanner}
       ${implementationReviewLimitBanner}
     </section>
     <div class="shell-body">

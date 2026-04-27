@@ -2407,6 +2407,117 @@ test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
   assert.doesNotMatch(html, /document\.addEventListener\("pointerdown"/);
 });
 
+test("buildWorkflowHtml shows pending execution settings as a dismissable overlay when an execution context still exists", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0011",
+    title: "Pending settings overlay",
+    category: "workflow",
+    status: "completed",
+    currentPhase: "completed",
+    directoryPath: "/tmp/us.US-0011",
+    workBranch: "feature/us-0011",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "completed",
+        title: "Completed",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "completed",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    executionPhaseId: "completed",
+    executionSettingsPending: true,
+    executionSettingsPendingMessage: "Execution settings changed while this phase was running. SpecForge.AI will reload the setup after the workflow enters the next phase."
+  }, "idle");
+
+  assert.match(html, /execution-overlay execution-overlay--pending-settings/);
+  assert.match(html, /Execution setup pending/);
+  assert.match(html, /SpecForge\.AI Configuration/);
+  assert.match(html, /data-dismissible="true"/);
+  assert.match(html, /Open SpecForge Configuration/);
+  assert.match(html, /<div class="graph-stage graph-stage--overlay-active">/);
+});
+
+test("buildWorkflowHtml hides pending execution settings when there is no active execution context", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0012",
+    title: "No stale settings overlay",
+    category: "workflow",
+    status: "completed",
+    currentPhase: "completed",
+    directoryPath: "/tmp/us.US-0012",
+    workBranch: "feature/us-0012",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "completed",
+        title: "Completed",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "completed",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    executionSettingsPending: true,
+    executionSettingsPendingMessage: "Execution settings changed while this phase was running. SpecForge.AI will reload the setup after the workflow enters the next phase."
+  }, "idle");
+
+  assert.doesNotMatch(html, /execution-overlay execution-overlay--pending-settings/);
+  assert.doesNotMatch(html, /Execution setup pending/);
+});
+
 test("buildWorkflowHtml anchors paused state to the ad hoc paused phase when provided", () => {
   const html = buildWorkflowHtml({
     usId: "US-0015",
