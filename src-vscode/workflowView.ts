@@ -6692,6 +6692,14 @@ function graphPath(
     return "";
   }
 
+  if (fromPhaseId === "review" && toPhaseId === "implementation") {
+    return buildReviewLoopGraphPath(fromPosition, toPosition, nodeWidth);
+  }
+
+  if (fromPhaseId === "completed") {
+    return buildCompletedReopenGraphPath(fromPosition, toPosition, nodeWidth);
+  }
+
   const { fromAnchor, toAnchor } = resolveAnchors(fromPosition, toPosition);
   const from = getAnchorPoint(fromPosition, fromAnchor, nodeWidth);
   const to = getAnchorPoint(toPosition, toAnchor, nodeWidth);
@@ -6713,20 +6721,21 @@ function buildSameColumnGraphPath(
   nodeWidth: number
 ): string {
   const verticalGap = Math.abs(to.y - from.y);
-  const laneOffset = Math.max(34, nodeWidth * 0.16);
+  const laneOffset = Math.max(42, nodeWidth * 0.18);
   const exitPull = projectAwayFromNode(fromPosition, fromAnchor, from, laneOffset);
   const entryPull = projectAwayFromNode(toPosition, toAnchor, to, laneOffset);
 
   if (to.y > from.y) {
-    const verticalSpread = Math.max(36, verticalGap * 0.32);
-    return `M ${from.x} ${from.y} C ${from.x} ${from.y + verticalSpread}, ${to.x} ${to.y - verticalSpread}, ${to.x} ${to.y}`;
+    const verticalSpread = Math.max(44, verticalGap * 0.34);
+    const midY = from.y + (to.y - from.y) * 0.52;
+    return `M ${from.x} ${from.y} C ${from.x} ${from.y + verticalSpread}, ${to.x} ${midY - verticalSpread * 0.18}, ${to.x} ${midY} S ${to.x} ${to.y - verticalSpread * 0.28}, ${to.x} ${to.y}`;
   }
 
   const laneX = fromAnchor === "exit-left" || toAnchor === "entry-left"
     ? fromPosition.left - laneOffset
     : fromPosition.left + nodeWidth + laneOffset;
-  const verticalSpread = Math.max(36, verticalGap * 0.28);
-  return `M ${from.x} ${from.y} C ${exitPull.x} ${from.y}, ${laneX} ${from.y - verticalSpread * 0.1}, ${laneX} ${from.y - verticalSpread} S ${laneX} ${to.y + verticalSpread}, ${entryPull.x} ${to.y} S ${to.x} ${to.y}, ${to.x} ${to.y}`;
+  const verticalSpread = Math.max(44, verticalGap * 0.3);
+  return `M ${from.x} ${from.y} C ${exitPull.x} ${from.y}, ${laneX} ${from.y - verticalSpread * 0.12}, ${laneX} ${from.y - verticalSpread} S ${laneX} ${to.y + verticalSpread}, ${entryPull.x} ${to.y} S ${to.x} ${to.y}, ${to.x} ${to.y}`;
 }
 
 function buildCrossColumnGraphPath(
@@ -6738,15 +6747,48 @@ function buildCrossColumnGraphPath(
   to: { x: number; y: number },
   nodeWidth: number
 ): string {
-  const channelOffset = Math.max(30, nodeWidth * 0.14);
+  const channelOffset = Math.max(38, nodeWidth * 0.18);
   const exitPull = projectAwayFromNode(fromPosition, fromAnchor, from, channelOffset);
   const entryPull = projectAwayFromNode(toPosition, toAnchor, to, channelOffset);
-  const laneX = fromAnchor === "exit-bottom-left" || toAnchor === "entry-left"
-    ? Math.min(exitPull.x, entryPull.x) - Math.max(24, nodeWidth * 0.08)
-    : Math.max(exitPull.x, entryPull.x) + Math.max(24, nodeWidth * 0.08);
-  const verticalBias = Math.max(22, Math.abs(to.y - from.y) * 0.16);
+  const deltaX = to.x - from.x;
+  const deltaY = to.y - from.y;
+  const horizontalSpread = Math.max(62, Math.abs(deltaX) * 0.28);
+  const verticalBias = Math.max(30, Math.abs(deltaY) * 0.22);
+  const exitX = from.x + Math.sign(deltaX || 1) * horizontalSpread;
+  const entryX = to.x - Math.sign(deltaX || 1) * Math.max(46, Math.abs(deltaX) * 0.22);
+  const crestY = deltaY >= 0
+    ? Math.min(from.y, to.y) + verticalBias
+    : Math.max(from.y, to.y) - verticalBias;
 
-  return `M ${from.x} ${from.y} C ${exitPull.x} ${from.y + verticalBias * 0.45}, ${laneX} ${from.y + verticalBias}, ${laneX} ${from.y + verticalBias * 1.1} S ${laneX} ${to.y - verticalBias}, ${entryPull.x} ${to.y} S ${to.x} ${to.y}, ${to.x} ${to.y}`;
+  return `M ${from.x} ${from.y} C ${exitPull.x} ${from.y}, ${exitX} ${crestY}, ${from.x + deltaX * 0.52} ${from.y + deltaY * 0.52} S ${entryX} ${to.y}, ${to.x} ${to.y}`;
+}
+
+function buildReviewLoopGraphPath(
+  fromPosition: PhasePosition,
+  toPosition: PhasePosition,
+  nodeWidth: number
+): string {
+  const from = getAnchorPoint(fromPosition, "exit-bottom-right", nodeWidth);
+  const to = getAnchorPoint(toPosition, "exit-bottom-left", nodeWidth);
+  const laneDepth = Math.max(62, phaseNodeHeight * 0.46);
+  const outerRight = Math.max(from.x, to.x) + Math.max(70, nodeWidth * 0.38);
+  const lowerY = Math.max(from.y, to.y) + laneDepth;
+
+  return `M ${from.x} ${from.y} C ${from.x + 28} ${from.y + 6}, ${outerRight} ${from.y + 12}, ${outerRight} ${from.y + 44} S ${outerRight - 14} ${lowerY}, ${to.x + 28} ${lowerY} S ${to.x - 14} ${to.y + 20}, ${to.x} ${to.y}`;
+}
+
+function buildCompletedReopenGraphPath(
+  fromPosition: PhasePosition,
+  toPosition: PhasePosition,
+  nodeWidth: number
+): string {
+  const from = getAnchorPoint(fromPosition, "entry-right", nodeWidth);
+  const toAnchor = toPosition.left >= fromPosition.left ? "exit-bottom-left" : "exit-bottom-right";
+  const to = getAnchorPoint(toPosition, toAnchor, nodeWidth);
+  const laneX = from.x + Math.max(56, nodeWidth * 0.3);
+  const upperY = Math.min(from.y, to.y) - Math.max(70, phaseNodeHeight * 0.52);
+
+  return `M ${from.x} ${from.y} C ${laneX} ${from.y}, ${laneX} ${upperY}, ${from.x + 18} ${upperY} S ${to.x + (toAnchor === "exit-bottom-left" ? 28 : -28)} ${upperY + 12}, ${to.x} ${to.y}`;
 }
 
 function resolveAnchors(from: PhasePosition, to: PhasePosition): { fromAnchor: GraphAnchor; toAnchor: GraphAnchor } {
