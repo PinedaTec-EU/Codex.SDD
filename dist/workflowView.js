@@ -5047,6 +5047,42 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         return sourceNode.cloneNode(true);
       }
 
+      const appendPseudoElementSnapshot = (sourceElement, targetElement, pseudoSelector) => {
+        const pseudoStyle = window.getComputedStyle(sourceElement, pseudoSelector);
+        if (!pseudoStyle) {
+          return;
+        }
+
+        const content = pseudoStyle.getPropertyValue("content");
+        const hasRenderablePseudo = pseudoStyle.display !== "none"
+          && pseudoStyle.position !== ""
+          && (content && content !== "none");
+        if (!hasRenderablePseudo) {
+          return;
+        }
+
+        const pseudoElement = document.createElement("span");
+        pseudoElement.setAttribute("aria-hidden", "true");
+        const inlineStyle = Array.from(pseudoStyle)
+          .map((propertyName) => propertyName + ":" + pseudoStyle.getPropertyValue(propertyName) + ";")
+          .join("");
+        if (inlineStyle) {
+          pseudoElement.setAttribute("style", inlineStyle);
+        }
+
+        const normalizedContent = content.replace(/^"(.*)"$/, "$1");
+        if (normalizedContent) {
+          pseudoElement.textContent = normalizedContent;
+        }
+
+        if (pseudoSelector === "::after") {
+          targetElement.appendChild(pseudoElement);
+          return;
+        }
+
+        targetElement.insertBefore(pseudoElement, targetElement.firstChild);
+      };
+
       const clonedNode = sourceNode.cloneNode(false);
       if (!(clonedNode instanceof Element)) {
         return clonedNode;
@@ -5060,9 +5096,13 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         clonedNode.setAttribute("style", inlineStyle);
       }
 
+      appendPseudoElementSnapshot(sourceNode, clonedNode, "::before");
+
       for (const childNode of Array.from(sourceNode.childNodes)) {
         clonedNode.appendChild(cloneElementForSnapshot(childNode));
       }
+
+      appendPseudoElementSnapshot(sourceNode, clonedNode, "::after");
 
       if (sourceNode instanceof HTMLTextAreaElement || sourceNode instanceof HTMLInputElement) {
         clonedNode.setAttribute("value", sourceNode.value);
