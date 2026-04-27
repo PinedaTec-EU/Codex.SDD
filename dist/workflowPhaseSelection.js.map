@@ -1,0 +1,1 @@
+{"version":3,"file":"workflowPhaseSelection.js","sourceRoot":"","sources":["../src-vscode/workflowPhaseSelection.ts"],"names":[],"mappings":";;AAEA,0FASC;AATD,SAAgB,uCAAuC,CACrD,QAAkC,EAClC,eAAuB;IAEvB,IAAI,QAAQ,CAAC,MAAM,KAAK,WAAW,IAAI,eAAe,KAAK,WAAW,EAAE,CAAC;QACvE,OAAO,WAAW,CAAC;IACrB,CAAC;IAED,OAAO,eAAe,CAAC;AACzB,CAAC"}

@@ -6,6 +6,7 @@ import {
   resolveNextWorkflowExecutionPhaseId,
   resolveWorkflowExecutionPhaseId
 } from "../src-vscode/workflowPlaybackState";
+import { resolvePreferredSelectedWorkflowPhaseId } from "../src-vscode/workflowPhaseSelection";
 
 test("normalizePlaybackStateAfterManualWorkflowChange clears stale paused overlays after manual workflow actions", () => {
   assert.equal(normalizePlaybackStateAfterManualWorkflowChange("idle"), "idle");
@@ -24,4 +25,36 @@ test("workflow playback helpers resolve executable and next pauseable phases", (
   assert.equal(resolveNextWorkflowExecutionPhaseId("pr-preparation"), null);
   assert.equal(canPauseWorkflowExecutionPhase("implementation"), true);
   assert.equal(canPauseWorkflowExecutionPhase("capture"), false);
+});
+
+test("resolvePreferredSelectedWorkflowPhaseId keeps the real last phase selected after workflow completion", () => {
+  const workflow = {
+    usId: "US-0001",
+    title: "Workflow",
+    category: "travel",
+    status: "completed",
+    currentPhase: "pr-preparation",
+    directoryPath: "/tmp/us",
+    workBranch: "feature/us-0001",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "",
+    phases: [],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: "workflow_completed",
+      canRestartFromSource: false,
+      regressionTargets: [],
+      rewindTargets: []
+    },
+    clarification: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  };
+
+  assert.equal(resolvePreferredSelectedWorkflowPhaseId(workflow, "pr-preparation"), "pr-preparation");
+  assert.equal(resolvePreferredSelectedWorkflowPhaseId(workflow, "completed"), "completed");
 });

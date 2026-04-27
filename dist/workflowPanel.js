@@ -49,6 +49,7 @@ const userActor_1 = require("./userActor");
 const workflowAutomation_1 = require("./workflowAutomation");
 const workflowPlaybackState_1 = require("./workflowPlaybackState");
 const workflowBranchName_1 = require("./workflowBranchName");
+const workflowPhaseSelection_1 = require("./workflowPhaseSelection");
 const workflowRejectPlan_1 = require("./workflowRejectPlan");
 const workflowView_1 = require("./workflowView");
 const webviewTypography_1 = require("./webviewTypography");
@@ -1029,9 +1030,7 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' paused automatically at failed review because 'specForge.features.pauseOnFailedReview' is enabled.`);
     }
     async renderWorkflowAsync(workflow) {
-        const preferredSelectedPhaseId = workflow.status === "completed" && this.selectedPhaseId === workflow.currentPhase
-            ? "completed"
-            : this.selectedPhaseId;
+        const preferredSelectedPhaseId = (0, workflowPhaseSelection_1.resolvePreferredSelectedWorkflowPhaseId)(workflow, this.selectedPhaseId);
         const selectedPhase = workflow.phases.find((phase) => phase.phaseId === preferredSelectedPhaseId)
             ?? workflow.phases.find((phase) => phase.isCurrent)
             ?? workflow.phases[0];

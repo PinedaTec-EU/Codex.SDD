@@ -14,6 +14,7 @@ import {
   resolveWorkflowExecutionPhaseId
 } from "./workflowPlaybackState";
 import { buildWorkBranchProposal } from "./workflowBranchName";
+import { resolvePreferredSelectedWorkflowPhaseId } from "./workflowPhaseSelection";
 import { resolveWorkflowRejectPlan } from "./workflowRejectPlan";
 import { buildWorkflowHtml } from "./workflowView";
 import type { WorkflowViewState } from "./workflow-view/models";
@@ -1368,9 +1369,7 @@ class WorkflowPanelController {
   }
 
   private async renderWorkflowAsync(workflow: UserStoryWorkflowDetails): Promise<number> {
-    const preferredSelectedPhaseId = workflow.status === "completed" && this.selectedPhaseId === workflow.currentPhase
-      ? "completed"
-      : this.selectedPhaseId;
+    const preferredSelectedPhaseId = resolvePreferredSelectedWorkflowPhaseId(workflow, this.selectedPhaseId);
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === preferredSelectedPhaseId)
       ?? workflow.phases.find((phase) => phase.isCurrent)
       ?? workflow.phases[0];
