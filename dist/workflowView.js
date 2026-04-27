@@ -1771,8 +1771,15 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       font-weight: 700;
       color: #f4f7fb;
     }
+    .token-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
     .token-summary-grid--workflow {
       margin-top: 14px;
+      gap: 20px;
     }
     .usage-table-wrap {
       overflow-x: auto;
