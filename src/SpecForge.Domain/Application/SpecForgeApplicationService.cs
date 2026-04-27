@@ -138,6 +138,16 @@ public sealed class SpecForgeApplicationService
             rawTimeline,
             workflowRun.CreatedWithRuntimeVersion,
             workflowRun.LastRuntimeVersion,
+            workflowRun.Branch?.PullRequest is null
+                ? null
+                : new PullRequestDetails(
+                    workflowRun.Branch.PullRequest.Status,
+                    workflowRun.Branch.PullRequest.Title,
+                    workflowRun.Branch.PullRequest.IsDraft,
+                    workflowRun.Branch.PullRequest.Number,
+                    workflowRun.Branch.PullRequest.Url,
+                    workflowRun.Branch.PullRequest.RemoteBranch,
+                    workflowRun.Branch.PullRequest.PublishedAtUtc?.ToString("O")),
             BuildPhaseDetails(workflowRun, paths),
             new CurrentPhaseControls(
                 currentPhase.CanAdvance,

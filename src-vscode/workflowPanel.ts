@@ -32,6 +32,7 @@ type WorkflowPanelCommand =
   | { readonly command: "openArtifact"; readonly path?: string }
   | { readonly command: "openPrompt"; readonly path?: string }
   | { readonly command: "openAttachment"; readonly path?: string }
+  | { readonly command: "openExternalUrl"; readonly url?: string }
   | { readonly command: "openSettings" }
   | { readonly command: "attachFiles"; readonly kind?: string }
   | { readonly command: "addSuggestedContextFile"; readonly path?: string }
@@ -278,6 +279,11 @@ class WorkflowPanelController {
       case "openAttachment":
         if (message.path) {
           await openTextDocument(message.path);
+        }
+        return;
+      case "openExternalUrl":
+        if (message.url) {
+          await vscode.env.openExternal(vscode.Uri.parse(message.url));
         }
         return;
       case "openSettings":

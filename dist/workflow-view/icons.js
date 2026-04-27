@@ -6,6 +6,7 @@ exports.firstPhaseRewindIcon = firstPhaseRewindIcon;
 exports.pauseIcon = pauseIcon;
 exports.stopIcon = stopIcon;
 exports.fileIcon = fileIcon;
+exports.externalLinkIcon = externalLinkIcon;
 exports.lockClosedIcon = lockClosedIcon;
 exports.lockOpenIcon = lockOpenIcon;
 function playIcon() {
@@ -47,6 +48,13 @@ function fileIcon() {
     return `
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M7.5 3A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V9.2a2.5 2.5 0 0 0-.73-1.77l-3.7-3.7A2.5 2.5 0 0 0 12.8 3H7.5Zm5.3 1.75c.2 0 .39.08.53.22l3.7 3.7c.14.14.22.33.22.53v9.3c0 .41-.34.75-.75.75h-9a.75.75 0 0 1-.75-.75v-13c0-.41.34-.75.75-.75h5.3Zm-3.55 6.5h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1 0-1.5Zm0 3.5h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1 0-1.5Z"></path>
+    </svg>
+  `;
+}
+function externalLinkIcon() {
+    return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M14.25 4a.75.75 0 0 0 0 1.5h3.19l-7.72 7.72a.75.75 0 1 0 1.06 1.06L18.5 6.56v3.19a.75.75 0 0 0 1.5 0V4.75A.75.75 0 0 0 19.25 4h-5Zm-7.5 3A2.75 2.75 0 0 0 4 9.75v7.5A2.75 2.75 0 0 0 6.75 20h7.5A2.75 2.75 0 0 0 17 17.25v-4a.75.75 0 0 0-1.5 0v4c0 .69-.56 1.25-1.25 1.25h-7.5c-.69 0-1.25-.56-1.25-1.25v-7.5c0-.69.56-1.25 1.25-1.25h4a.75.75 0 0 0 0-1.5h-4Z"></path>
     </svg>
   `;
 }

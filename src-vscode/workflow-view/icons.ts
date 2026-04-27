@@ -46,6 +46,14 @@ export function fileIcon(): string {
   `;
 }
 
+export function externalLinkIcon(): string {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M14.25 4a.75.75 0 0 0 0 1.5h3.19l-7.72 7.72a.75.75 0 1 0 1.06 1.06L18.5 6.56v3.19a.75.75 0 0 0 1.5 0V4.75A.75.75 0 0 0 19.25 4h-5Zm-7.5 3A2.75 2.75 0 0 0 4 9.75v7.5A2.75 2.75 0 0 0 6.75 20h7.5A2.75 2.75 0 0 0 17 17.25v-4a.75.75 0 0 0-1.5 0v4c0 .69-.56 1.25-1.25 1.25h-7.5c-.69 0-1.25-.56-1.25-1.25v-7.5c0-.69.56-1.25 1.25-1.25h4a.75.75 0 0 0 0-1.5h-4Z"></path>
+    </svg>
+  `;
+}
+
 export function lockClosedIcon(): string {
   return `
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">

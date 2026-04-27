@@ -748,6 +748,16 @@ function phaseToneLabel(tone, fallbackState, playbackState, isCurrent) {
     }
     return tone;
 }
+function buildEffectiveCompletedPhaseIds(workflow, completedPhaseIds) {
+    const effectiveCompletedPhaseIds = new Set(completedPhaseIds);
+    if (workflow.status === "completed") {
+        effectiveCompletedPhaseIds.add("completed");
+        if (workflow.currentPhase === "pr-preparation") {
+            effectiveCompletedPhaseIds.add("pr-preparation");
+        }
+    }
+    return effectiveCompletedPhaseIds;
+}
 function canRerunCurrentReview(workflow, selectedPhase, playbackState) {
     if (playbackState !== "idle") {
         return false;
@@ -1103,6 +1113,10 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     const hasTokenTelemetry = selectedPhaseMetricEvents.some((event) => event.usage);
     const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
     const completedWorkflowLocked = workflow.status === "completed" && state.completedUsLockOnCompleted !== false;
+    const pullRequestUrl = workflow.pullRequest?.url?.trim() || null;
+    const pullRequestLabel = workflow.pullRequest?.number
+        ? `View PR #${workflow.pullRequest.number}`
+        : "View PR";
     const canRewindSelectedPhase = !completedWorkflowLocked && rewindablePhaseIds.has(selectedPhase.phaseId);
     const phaseSpecificSections = buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPreviewHtml, artifactQuestionBlock, refinementApprovalQuestions, unresolvedApprovalQuestionCount);
     const rejectPlan = selectedPhaseIsCurrent && selectedPhase.requiresApproval
@@ -2750,6 +2764,16 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         radial-gradient(circle at top left, rgba(92, 181, 255, 0.08), transparent 26%),
         linear-gradient(180deg, rgba(14, 19, 27, 0.94), rgba(10, 14, 20, 0.98));
     }
+    .detail-card__header--phase-overview {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+    .detail-card__header--phase-overview h2 {
+      margin: 0;
+    }
     .detail-card__header--iterations {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -2943,6 +2967,17 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       margin: 0;
       font-size: 0.82rem;
       color: rgba(214, 223, 236, 0.72);
+    }
+    .workflow-action-button--icon {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .workflow-action-button--icon svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+      flex: 0 0 auto;
     }
     .approval-question-list {
       display: grid;
@@ -4060,7 +4095,12 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
           <div class="detail-card-shell">
             ${detailActions}
             <section class="detail-card detail-card--phase-overview">
-            <h2>${(0, htmlEscape_1.escapeHtml)(selectedPhase.title)}</h2>
+            <div class="detail-card__header detail-card__header--phase-overview">
+              <h2>${(0, htmlEscape_1.escapeHtml)(selectedPhase.title)}</h2>
+              ${pullRequestUrl
+        ? `<button class="workflow-action-button workflow-action-button--document workflow-action-button--icon" data-command="openExternalUrl" data-url="${(0, htmlEscape_1.escapeHtmlAttr)(pullRequestUrl)}">${(0, icons_1.externalLinkIcon)()}<span>${(0, htmlEscape_1.escapeHtml)(pullRequestLabel)}</span></button>`
+        : ""}
+            </div>
             <div class="detail-meta">
               <span class="token">${(0, htmlEscape_1.escapeHtml)(phaseSecondaryLabel(selectedPhase))}</span>
               <span class="token${selectedPhaseStateClass}">${(0, htmlEscape_1.escapeHtml)(selectedPhaseDisplayState)}</span>
@@ -5280,7 +5320,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         ?? workflow.phases.find((phase) => phase.isCurrent)
         ?? workflow.phases[0];
     const pausedPhaseIds = new Set(state.pausedPhaseIds ?? []);
-    const completedPhaseIds = new Set(state.completedPhaseIds ?? []);
+    const completedPhaseIds = buildEffectiveCompletedPhaseIds(workflow, new Set(state.completedPhaseIds ?? []));
     const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
     const completedWorkflowLocked = workflow.status === "completed" && state.completedUsLockOnCompleted !== false;
     const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);

@@ -236,6 +236,16 @@ export interface UserStoryFileDetails {
   readonly path: string;
 }
 
+export interface PullRequestDetails {
+  readonly status: string;
+  readonly title: string;
+  readonly isDraft: boolean;
+  readonly number: number | null;
+  readonly url: string | null;
+  readonly remoteBranch: string | null;
+  readonly publishedAtUtc: string | null;
+}
+
 export interface UserStoryWorkflowDetails {
   readonly usId: string;
   readonly title: string;
@@ -248,6 +258,7 @@ export interface UserStoryWorkflowDetails {
   readonly mainArtifactPath: string;
   readonly timelinePath: string;
   readonly rawTimeline: string;
+  readonly pullRequest?: PullRequestDetails | null;
   readonly phases: readonly WorkflowPhaseDetails[];
   readonly controls: CurrentPhaseControls;
   readonly clarification: ClarificationSessionDetails | null;

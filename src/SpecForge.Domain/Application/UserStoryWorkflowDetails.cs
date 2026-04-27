@@ -14,6 +14,7 @@ public sealed record UserStoryWorkflowDetails(
     string RawTimeline,
     string? CreatedWithRuntimeVersion,
     string? LastRuntimeVersion,
+    PullRequestDetails? PullRequest,
     IReadOnlyCollection<WorkflowPhaseDetails> Phases,
     CurrentPhaseControls Controls,
     ClarificationSessionDetails? Clarification,
@@ -104,6 +105,15 @@ public sealed record ApprovalQuestionDetails(
 public sealed record UserStoryFileDetails(
     string Name,
     string Path);
+
+public sealed record PullRequestDetails(
+    string Status,
+    string Title,
+    bool IsDraft,
+    int? Number,
+    string? Url,
+    string? RemoteBranch,
+    string? PublishedAtUtc);
 
 public sealed record UserStoryFilesResult(
     string UsId,

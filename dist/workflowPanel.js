@@ -230,6 +230,11 @@ class WorkflowPanelController {
                     await openTextDocument(message.path);
                 }
                 return;
+            case "openExternalUrl":
+                if (message.url) {
+                    await vscode.env.openExternal(vscode.Uri.parse(message.url));
+                }
+                return;
             case "openSettings":
                 await vscode.commands.executeCommand("specForge.openExecutionSettings");
                 return;

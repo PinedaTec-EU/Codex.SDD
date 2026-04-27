@@ -4356,6 +4356,15 @@ test("buildWorkflowHtml renders completed phase reopen controls and lock state",
     mainArtifactPath: "/tmp/us.md",
     timelinePath: "/tmp/timeline.md",
     rawTimeline: "raw timeline",
+    pullRequest: {
+      status: "published",
+      title: "done(us-0200): prepare pull request",
+      isDraft: false,
+      number: 42,
+      url: "https://github.com/acme/specforge/pull/42",
+      remoteBranch: "feature/us-0200-completed",
+      publishedAtUtc: "2026-04-27T06:21:49.968Z"
+    },
     phases: [
       {
         phaseId: "pr-preparation",
@@ -4406,8 +4415,11 @@ test("buildWorkflowHtml renders completed phase reopen controls and lock state",
     completedUsLockOnCompleted: true
   }, "idle");
 
+  assert.match(html, /phase-node pr-preparation phase-tone-completed/);
   assert.match(html, /phase-node completed phase-tone-completed selected phase-node--current/);
   assert.match(html, /<div class="phase-slug">Workflow finished<\/div>/);
+  assert.match(html, /data-command="openExternalUrl" data-url="https:\/\/github.com\/acme\/specforge\/pull\/42"/);
+  assert.match(html, /View PR #42/);
   assert.match(html, /Completed and locked/);
   assert.match(html, /Reopen Completed Workflow/);
   assert.match(html, /data-completed-reopen-reason/);
