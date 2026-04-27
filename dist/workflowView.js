@@ -6835,6 +6835,15 @@ function graphPath(fromPhaseId, toPhaseId, positions, nodeWidth, graphLayoutMode
     return buildCrossColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth);
 }
 function buildHorizontalGraphPath(fromPhaseId, toPhaseId, fromPosition, toPosition, nodeWidth) {
+    if (fromPhaseId === "capture" && toPhaseId === "refinement") {
+        return buildHorizontalCaptureToRefinementPath(fromPosition, toPosition, nodeWidth);
+    }
+    if (fromPhaseId === "implementation" && toPhaseId === "review") {
+        return buildHorizontalImplementationToReviewPath(fromPosition, toPosition, nodeWidth);
+    }
+    if (fromPhaseId === "pr-preparation" && toPhaseId === "completed") {
+        return buildHorizontalPrPreparationToCompletedPath(fromPosition, toPosition, nodeWidth);
+    }
     const template = horizontalGraphTemplates[`${fromPhaseId}->${toPhaseId}`];
     if (template) {
         return buildHorizontalTemplateGraphPath(template, fromPosition, toPosition, nodeWidth);
@@ -6904,6 +6913,34 @@ function buildHorizontalGraphPath(fromPhaseId, toPhaseId, fromPosition, toPositi
         { x: end.x - (movingRight ? 48 : -48), y: end.y },
         end
     ]);
+}
+function buildHorizontalCaptureToRefinementPath(fromPosition, toPosition, nodeWidth) {
+    const start = getAnchorPoint(fromPosition, "exit-center-right", nodeWidth);
+    const end = getAnchorPoint(toPosition, "entry-top-left", nodeWidth);
+    const shoulderX = start.x + Math.max(34, Math.min(56, (end.x - start.x) * 0.34));
+    const shoulderY = start.y + Math.max(8, Math.min(18, (end.y - start.y) * 0.08));
+    return `M ${start.x} ${start.y}
+    C ${start.x + 26} ${start.y}, ${shoulderX - 14} ${start.y}, ${shoulderX} ${shoulderY}
+    S ${end.x - 34} ${end.y - 54}, ${end.x} ${end.y}`;
+}
+function buildHorizontalImplementationToReviewPath(fromPosition, toPosition, nodeWidth) {
+    const start = getAnchorPoint(fromPosition, "exit-bottom-mid", nodeWidth);
+    const end = getAnchorPoint(toPosition, "entry-top-right", nodeWidth);
+    const dropY = start.y + Math.max(26, Math.min(46, (end.y - start.y) * 0.24));
+    const bendX = start.x - Math.max(40, Math.min(82, Math.abs(end.x - start.x) * 0.8));
+    const approachY = end.y - Math.max(22, Math.min(38, (end.y - start.y) * 0.18));
+    return `M ${start.x} ${start.y}
+    C ${start.x} ${dropY}, ${bendX} ${dropY}, ${bendX} ${start.y + (end.y - start.y) * 0.58}
+    S ${end.x - 28} ${approachY}, ${end.x} ${end.y}`;
+}
+function buildHorizontalPrPreparationToCompletedPath(fromPosition, toPosition, nodeWidth) {
+    const start = getAnchorPoint(fromPosition, "exit-center-right", nodeWidth);
+    const end = getAnchorPoint(toPosition, "entry-center-right", nodeWidth);
+    const outerX = Math.max(start.x, end.x) + Math.max(42, Math.min(74, nodeWidth * 0.18));
+    const middleY = start.y + (end.y - start.y) * 0.56;
+    return `M ${start.x} ${start.y}
+    C ${outerX - 18} ${start.y}, ${outerX} ${start.y + 44}, ${outerX} ${middleY}
+    S ${outerX - 12} ${end.y - 28}, ${end.x} ${end.y}`;
 }
 function buildHorizontalTemplateGraphPath(template, fromPosition, toPosition, nodeWidth) {
     const from = getAnchorPoint(fromPosition, template.fromAnchor, nodeWidth);
