@@ -55,20 +55,96 @@ type PhaseGraphEdge = {
   readonly toPhaseId: string;
   readonly className: string;
 };
+type PhaseGraphHorizontalTemplate = {
+  readonly fromAnchor: GraphAnchor;
+  readonly toAnchor: GraphAnchor;
+  readonly guides: readonly { xFactor?: number; yFactor?: number; kind?: "from-x" | "to-x" | "mid-x" | "from-y" | "to-y" | "mid-y" }[];
+};
 type GraphAnchor =
   | "entry-top"
   | "entry-top-left"
   | "entry-top-right"
   | "entry-left"
+  | "entry-center-right"
   | "entry-right"
+  | "entry-center-left"
   | "exit-right"
+  | "exit-center-right"
   | "exit-left"
+  | "exit-center-left"
   | "exit-bottom-left"
   | "exit-bottom-mid"
   | "exit-bottom-right";
 const phaseNodeWidth = 300;
 const phaseNodeHeight = 142;
 const mobilePhaseNodeWidth = 258;
+const horizontalGraphTemplates: Readonly<Record<string, PhaseGraphHorizontalTemplate>> = {
+  "capture->refinement": {
+    fromAnchor: "exit-center-right",
+    toAnchor: "entry-top-left",
+    guides: [
+      { kind: "from-x", xFactor: 0.38, yFactor: 0 },
+      { kind: "mid-x", yFactor: 0.05 }
+    ]
+  },
+  "refinement->spec": {
+    fromAnchor: "exit-center-left",
+    toAnchor: "entry-top-right",
+    guides: [
+      { kind: "from-x", xFactor: -0.48, yFactor: 0.18 },
+      { kind: "from-x", xFactor: -0.52, yFactor: 0.54 },
+      { kind: "to-x", xFactor: -0.18, yFactor: -0.2 }
+    ]
+  },
+  "spec->technical-design": {
+    fromAnchor: "exit-center-left",
+    toAnchor: "entry-top",
+    guides: [
+      { kind: "from-x", xFactor: -0.5, yFactor: 0.14 },
+      { kind: "to-x", xFactor: 0.16, yFactor: -0.08 }
+    ]
+  },
+  "technical-design->implementation": {
+    fromAnchor: "exit-center-right",
+    toAnchor: "entry-center-left",
+    guides: [
+      { kind: "mid-x", yFactor: 0.2 }
+    ]
+  },
+  "implementation->review": {
+    fromAnchor: "exit-bottom-mid",
+    toAnchor: "entry-top-right",
+    guides: [
+      { kind: "from-x", xFactor: 0.34, yFactor: 0.28 },
+      { kind: "to-x", xFactor: -0.08, yFactor: -0.18 }
+    ]
+  },
+  "review->release-approval": {
+    fromAnchor: "exit-center-right",
+    toAnchor: "entry-top-left",
+    guides: [
+      { kind: "from-x", xFactor: 0.42, yFactor: 0.02 },
+      { kind: "to-x", xFactor: -0.12, yFactor: -0.18 }
+    ]
+  },
+  "release-approval->pr-preparation": {
+    fromAnchor: "exit-center-left",
+    toAnchor: "entry-top-right",
+    guides: [
+      { kind: "from-x", xFactor: -0.56, yFactor: 0.16 },
+      { kind: "to-x", xFactor: -0.24, yFactor: -0.12 }
+    ]
+  },
+  "pr-preparation->completed": {
+    fromAnchor: "exit-center-right",
+    toAnchor: "entry-center-right",
+    guides: [
+      { kind: "from-x", xFactor: 0.48, yFactor: 0.1 },
+      { kind: "from-x", xFactor: 0.48, yFactor: 0.56 },
+      { kind: "to-x", xFactor: 0.18, yFactor: 0.18 }
+    ]
+  }
+} as const;
 const defaultPhaseSequence: readonly LayoutPhaseDescriptor[] = [
   { phaseId: "capture", expectsHumanIntervention: false },
   { phaseId: "refinement", expectsHumanIntervention: true },
@@ -6891,10 +6967,10 @@ function buildPhaseGraph(
   const desktopVerticalLayout = buildVerticalPhaseLayout(layoutPhases, phaseNodeWidth);
   const mobileHorizontalLayout = buildHorizontalPhaseLayout(layoutPhases, mobilePhaseNodeWidth, true);
   const mobileVerticalLayout = buildVerticalPhaseLayout(layoutPhases, mobilePhaseNodeWidth, true);
-  const desktopHorizontalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopHorizontalLayout.positions, phaseNodeWidth);
-  const desktopVerticalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopVerticalLayout.positions, phaseNodeWidth);
-  const mobileHorizontalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileHorizontalLayout.positions, mobilePhaseNodeWidth);
-  const mobileVerticalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileVerticalLayout.positions, mobilePhaseNodeWidth);
+  const desktopHorizontalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopHorizontalLayout.positions, phaseNodeWidth, "horizontal");
+  const desktopVerticalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopVerticalLayout.positions, phaseNodeWidth, "vertical");
+  const mobileHorizontalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileHorizontalLayout.positions, mobilePhaseNodeWidth, "horizontal");
+  const mobileVerticalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileVerticalLayout.positions, mobilePhaseNodeWidth, "vertical");
   const nodes = visiblePhases.map((phase, index) => {
     const disabled = false;
     const visualTone = resolvePhaseVisualTone(
@@ -7047,7 +7123,8 @@ function buildGraphLinks(
   currentPhaseId: string,
   completedPhaseIds: ReadonlySet<string>,
   positions: Record<string, PhasePosition>,
-  nodeWidth: number
+  nodeWidth: number,
+  graphLayoutMode: "horizontal" | "vertical"
 ): string {
   const visiblePhaseMap = new Map(visiblePhases.map((phase) => [phase.phaseId, phase]));
   const edges: PhaseGraphEdge[] = buildPrimaryGraphEdges(visiblePhases, visiblePhaseMap, executingTargetPhaseId, currentPhaseId, completedPhaseIds);
@@ -7060,7 +7137,7 @@ function buildGraphLinks(
 
   return edges
     .sort((left, right) => (classPriority[left.className] ?? 0) - (classPriority[right.className] ?? 0))
-    .map((edge) => `<path class="${edge.className}" data-edge="${escapeHtmlAttribute(`${edge.fromPhaseId}->${edge.toPhaseId}`)}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth)}"></path>`)
+    .map((edge) => `<path class="${edge.className}" data-edge="${escapeHtmlAttribute(`${edge.fromPhaseId}->${edge.toPhaseId}`)}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth, graphLayoutMode)}"></path>`)
     .join("");
 }
 
@@ -7241,12 +7318,17 @@ function graphPath(
   fromPhaseId: string,
   toPhaseId: string,
   positions: Record<string, PhasePosition>,
-  nodeWidth: number
+  nodeWidth: number,
+  graphLayoutMode: "horizontal" | "vertical"
 ): string {
   const fromPosition = positions[fromPhaseId];
   const toPosition = positions[toPhaseId];
   if (!fromPosition || !toPosition) {
     return "";
+  }
+
+  if (graphLayoutMode === "horizontal") {
+    return buildHorizontalGraphPath(fromPhaseId, toPhaseId, fromPosition, toPosition, nodeWidth);
   }
 
   if (fromPhaseId === "technical-design" && toPhaseId === "implementation") {
@@ -7266,6 +7348,153 @@ function graphPath(
   }
 
   return buildCrossColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth);
+}
+
+function buildHorizontalGraphPath(
+  fromPhaseId: string,
+  toPhaseId: string,
+  fromPosition: PhasePosition,
+  toPosition: PhasePosition,
+  nodeWidth: number
+): string {
+  const template = horizontalGraphTemplates[`${fromPhaseId}->${toPhaseId}`];
+  if (template) {
+    return buildHorizontalTemplateGraphPath(template, fromPosition, toPosition, nodeWidth);
+  }
+
+  const deltaX = toPosition.left - fromPosition.left;
+  const deltaY = toPosition.top - fromPosition.top;
+  const movingRight = deltaX >= 0;
+  const mostlyLateral = Math.abs(deltaY) <= Math.max(54, phaseNodeHeight * 0.34);
+
+  if (mostlyLateral) {
+    const start = {
+      x: movingRight ? fromPosition.left + nodeWidth : fromPosition.left,
+      y: fromPosition.top + phaseNodeHeight * 0.64
+    };
+    const end = {
+      x: movingRight ? toPosition.left : toPosition.left + nodeWidth,
+      y: toPosition.top + phaseNodeHeight * 0.54
+    };
+    const spread = Math.max(34, Math.min(82, Math.abs(deltaX) * 0.22));
+    return buildSmoothGuidePath([
+      start,
+      { x: start.x + (movingRight ? spread : -spread), y: start.y },
+      { x: end.x - (movingRight ? spread : -spread), y: end.y },
+      end
+    ]);
+  }
+
+  if (deltaY > 0) {
+    const start = Math.abs(deltaX) <= 40
+      ? { x: fromPosition.left + nodeWidth * 0.5, y: fromPosition.top + phaseNodeHeight }
+      : {
+          x: movingRight ? fromPosition.left + nodeWidth : fromPosition.left,
+          y: fromPosition.top + phaseNodeHeight * 0.74
+        };
+    const end = {
+      x: Math.abs(deltaX) <= 40
+        ? toPosition.left + nodeWidth * 0.5
+        : movingRight
+          ? toPosition.left + nodeWidth * 0.28
+          : toPosition.left + nodeWidth * 0.72,
+      y: toPosition.top
+    };
+    const laneX = Math.abs(deltaX) <= 40
+      ? start.x
+      : start.x + (movingRight ? 1 : -1) * Math.max(56, Math.min(112, Math.abs(deltaX) * 0.26));
+    const approachY = end.y - Math.max(34, Math.min(76, Math.abs(deltaY) * 0.18));
+    return buildSmoothGuidePath([
+      start,
+      { x: laneX, y: start.y },
+      { x: laneX, y: approachY },
+      { x: end.x, y: approachY },
+      end
+    ]);
+  }
+
+  const start = {
+    x: movingRight ? fromPosition.left + nodeWidth : fromPosition.left,
+    y: fromPosition.top + phaseNodeHeight * 0.52
+  };
+  const end = {
+    x: movingRight ? toPosition.left : toPosition.left + nodeWidth,
+    y: toPosition.top + phaseNodeHeight * 0.52
+  };
+  const laneY = Math.min(start.y, end.y) - Math.max(44, Math.min(88, Math.abs(deltaY) * 0.28));
+  return buildSmoothGuidePath([
+    start,
+    { x: start.x + (movingRight ? 48 : -48), y: start.y },
+    { x: start.x + (movingRight ? 48 : -48), y: laneY },
+    { x: end.x - (movingRight ? 48 : -48), y: laneY },
+    { x: end.x - (movingRight ? 48 : -48), y: end.y },
+    end
+  ]);
+}
+
+function buildHorizontalTemplateGraphPath(
+  template: PhaseGraphHorizontalTemplate,
+  fromPosition: PhasePosition,
+  toPosition: PhasePosition,
+  nodeWidth: number
+): string {
+  const from = getAnchorPoint(fromPosition, template.fromAnchor, nodeWidth);
+  const to = getAnchorPoint(toPosition, template.toAnchor, nodeWidth);
+  const deltaX = to.x - from.x;
+  const deltaY = to.y - from.y;
+  const points: Array<{ x: number; y: number }> = [from];
+
+  for (const guide of template.guides) {
+    const baseX = guide.kind === "to-x"
+      ? to.x
+      : guide.kind === "mid-x"
+        ? from.x + deltaX * 0.5
+        : from.x;
+    const baseY = guide.kind === "to-y"
+      ? to.y
+      : guide.kind === "mid-y"
+        ? from.y + deltaY * 0.5
+        : from.y;
+    points.push({
+      x: baseX + deltaX * (guide.xFactor ?? 0),
+      y: baseY + deltaY * (guide.yFactor ?? 0)
+    });
+  }
+
+  points.push(to);
+  return buildSmoothGuidePath(points);
+}
+
+function buildSmoothGuidePath(
+  points: readonly { x: number; y: number }[]
+): string {
+  if (points.length === 0) {
+    return "";
+  }
+
+  if (points.length === 1) {
+    return `M ${points[0].x} ${points[0].y}`;
+  }
+
+  let path = `M ${points[0].x} ${points[0].y}`;
+
+  if (points.length === 2) {
+    path += ` L ${points[1].x} ${points[1].y}`;
+    return path;
+  }
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = points[index - 1] ?? points[index];
+    const current = points[index];
+    const next = points[index + 1];
+    const following = points[index + 2] ?? next;
+    const control1X = current.x + (next.x - previous.x) / 6;
+    const control1Y = current.y + (next.y - previous.y) / 6;
+    const control2X = next.x - (following.x - current.x) / 6;
+    const control2Y = next.y - (following.y - current.y) / 6;
+    path += ` C ${control1X} ${control1Y}, ${control2X} ${control2Y}, ${next.x} ${next.y}`;
+  }
+  return path;
 }
 
 function buildSameColumnGraphPath(
@@ -7402,12 +7631,20 @@ function getAnchorPoint(position: PhasePosition, anchor: GraphAnchor, nodeWidth:
       return { x: position.left + nodeWidth * 0.74, y: position.top };
     case "entry-left":
       return { x: position.left, y: position.top + phaseNodeHeight * 0.36 };
+    case "entry-center-left":
+      return { x: position.left, y: position.top + phaseNodeHeight * 0.5 };
     case "entry-right":
       return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.34 };
+    case "entry-center-right":
+      return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.5 };
     case "exit-right":
       return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.78 };
+    case "exit-center-right":
+      return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * 0.5 };
     case "exit-left":
       return { x: position.left, y: position.top + phaseNodeHeight * 0.78 };
+    case "exit-center-left":
+      return { x: position.left, y: position.top + phaseNodeHeight * 0.5 };
     case "exit-bottom-left":
       return { x: position.left + nodeWidth * 0.1, y: position.top + phaseNodeHeight * 0.96 };
     case "exit-bottom-mid":
@@ -7429,12 +7666,16 @@ function projectAwayFromNode(
     case "entry-top-right":
       return { x: point.x, y: position.top - offset };
     case "entry-left":
+    case "entry-center-left":
       return { x: position.left - offset, y: point.y };
     case "entry-right":
+    case "entry-center-right":
       return { x: point.x + offset, y: point.y };
     case "exit-right":
+    case "exit-center-right":
       return { x: point.x + offset, y: point.y };
     case "exit-left":
+    case "exit-center-left":
       return { x: position.left - offset, y: point.y };
     case "exit-bottom-left":
     case "exit-bottom-mid":
