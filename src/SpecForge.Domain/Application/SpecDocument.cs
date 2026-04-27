@@ -5,7 +5,7 @@ using SpecForge.Domain.Workflow;
 
 namespace SpecForge.Domain.Application;
 
-public sealed record RefinementSpecDocument(
+public sealed record SpecDocument(
     string? Title,
     IReadOnlyList<string> HistoryLog,
     string State,
@@ -21,16 +21,16 @@ public sealed record RefinementSpecDocument(
     IReadOnlyList<string> RedTeam,
     IReadOnlyList<string> BlueTeam,
     IReadOnlyList<string> AcceptanceCriteria,
-    IReadOnlyList<RefinementApprovalQuestionDocument> HumanApprovalQuestions);
+    IReadOnlyList<SpecApprovalQuestionDocument> HumanApprovalQuestions);
 
-public sealed record RefinementApprovalQuestionDocument(
+public sealed record SpecApprovalQuestionDocument(
     string Question,
     string Status,
     string? Answer,
     string? AnsweredBy,
     string? AnsweredAtUtc);
 
-public static class RefinementSpecJson
+public static class SpecJson
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -39,7 +39,7 @@ public static class RefinementSpecJson
         WriteIndented = true
     };
 
-    public static RefinementSpecDocument Parse(string json)
+    public static SpecDocument Parse(string json)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(json);
         try
@@ -48,11 +48,11 @@ public static class RefinementSpecJson
         }
         catch (JsonException)
         {
-            return RefinementSpecMarkdownImporter.Import(json);
+            return SpecMarkdownImporter.Import(json);
         }
     }
 
-    public static RefinementSpecDocument ParseCanonicalJson(string json)
+    public static SpecDocument ParseCanonicalJson(string json)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(json);
         JsonDocument parsed;
@@ -68,18 +68,18 @@ public static class RefinementSpecJson
         using (parsed)
         {
             var normalizedJson = NormalizeCanonicalJson(parsed.RootElement);
-            var document = JsonSerializer.Deserialize<RefinementSpecDocument>(normalizedJson, JsonOptions)
-                ?? throw new WorkflowDomainException("The refinement JSON artifact could not be deserialized.");
+            var document = JsonSerializer.Deserialize<SpecDocument>(normalizedJson, JsonOptions)
+                ?? throw new WorkflowDomainException("The spec JSON artifact could not be deserialized.");
             return Normalize(document);
         }
     }
 
-    public static string Serialize(RefinementSpecDocument document) =>
+    public static string Serialize(SpecDocument document) =>
         JsonSerializer.Serialize(Normalize(document), JsonOptions) + Environment.NewLine;
 
-    public static RefinementSpecDocument Normalize(RefinementSpecDocument document)
+    public static SpecDocument Normalize(SpecDocument document)
     {
-        return new RefinementSpecDocument(
+        return new SpecDocument(
             NormalizeScalar(document.Title),
             NormalizeLines(document.HistoryLog),
             NormalizeScalar(document.State),
@@ -98,7 +98,7 @@ public static class RefinementSpecJson
             NormalizeQuestions(document.HumanApprovalQuestions));
     }
 
-    public static string RenderMarkdown(RefinementSpecDocument document, string usId, int version)
+    public static string RenderMarkdown(SpecDocument document, string usId, int version)
     {
         var normalized = Normalize(document);
         var lines = new List<string>
@@ -154,8 +154,8 @@ public static class RefinementSpecJson
         return string.Join(Environment.NewLine, lines) + Environment.NewLine;
     }
 
-    public static RefinementSpecDocument ApplyApprovalAnswer(
-        RefinementSpecDocument document,
+    public static SpecDocument ApplyApprovalAnswer(
+        SpecDocument document,
         string question,
         string answer,
         string actor,
@@ -166,10 +166,10 @@ public static class RefinementSpecJson
         var matchIndex = items.FindIndex(item => string.Equals(item.Question, question, StringComparison.Ordinal));
         if (matchIndex < 0)
         {
-            throw new WorkflowDomainException($"Approval question not found in the current refinement artifact: '{question}'.");
+            throw new WorkflowDomainException($"Approval question not found in the current spec artifact: '{question}'.");
         }
 
-        items[matchIndex] = new RefinementApprovalQuestionDocument(
+        items[matchIndex] = new SpecApprovalQuestionDocument(
             items[matchIndex].Question,
             string.IsNullOrWhiteSpace(answer) ? "pending" : "resolved",
             NormalizeScalar(answer),
@@ -185,19 +185,19 @@ public static class RefinementSpecJson
         };
     }
 
-    public static IReadOnlyCollection<string> GetUnresolvedQuestions(RefinementSpecDocument document) =>
+    public static IReadOnlyCollection<string> GetUnresolvedQuestions(SpecDocument document) =>
         Normalize(document).HumanApprovalQuestions
             .Where(static item => !IsResolved(item))
             .Select(static item => item.Question)
             .ToArray();
 
-    public static bool IsResolved(RefinementApprovalQuestionDocument item) =>
+    public static bool IsResolved(SpecApprovalQuestionDocument item) =>
         string.Equals(NormalizeStatus(item.Status, item.Answer), "resolved", StringComparison.Ordinal);
 
-    private static IReadOnlyList<RefinementApprovalQuestionDocument> NormalizeQuestions(IReadOnlyList<RefinementApprovalQuestionDocument> items) =>
-        (items ?? Array.Empty<RefinementApprovalQuestionDocument>())
+    private static IReadOnlyList<SpecApprovalQuestionDocument> NormalizeQuestions(IReadOnlyList<SpecApprovalQuestionDocument> items) =>
+        (items ?? Array.Empty<SpecApprovalQuestionDocument>())
             .Where(static item => !string.IsNullOrWhiteSpace(item.Question))
-            .Select(item => new RefinementApprovalQuestionDocument(
+            .Select(item => new SpecApprovalQuestionDocument(
                 NormalizeScalar(item.Question),
                 NormalizeStatus(item.Status, item.Answer),
                 NormalizeScalar(item.Answer),
@@ -234,7 +234,7 @@ public static class RefinementSpecJson
     {
         if (root.ValueKind != JsonValueKind.Object)
         {
-            throw new WorkflowDomainException("The refinement JSON artifact must be a JSON object.");
+            throw new WorkflowDomainException("The spec JSON artifact must be a JSON object.");
         }
 
         using var stream = new MemoryStream();
@@ -385,7 +385,7 @@ public static class RefinementSpecJson
             .ToArray();
     }
 
-    private static IReadOnlyList<string> RenderApprovalQuestions(IReadOnlyList<RefinementApprovalQuestionDocument> items)
+    private static IReadOnlyList<string> RenderApprovalQuestions(IReadOnlyList<SpecApprovalQuestionDocument> items)
     {
         if (items.Count == 0)
         {

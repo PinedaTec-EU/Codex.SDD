@@ -119,7 +119,7 @@ public sealed class SpecForgeApplicationService
         var rawTimeline = File.Exists(paths.TimelineFilePath)
             ? await File.ReadAllTextAsync(paths.TimelineFilePath, cancellationToken)
             : string.Empty;
-        var clarification = await ReadClarificationSessionAsync(paths, cancellationToken);
+        var refinement = await ReadRefinementSessionAsync(paths, cancellationToken);
         var approvalQuestions = await ReadApprovalQuestionsAsync(paths, cancellationToken);
         var currentPhase = await GetCurrentPhaseAsync(workspaceRoot, usId, cancellationToken);
 
@@ -159,13 +159,13 @@ public sealed class SpecForgeApplicationService
                 BuildRewindTargets(workflowRun),
                 currentPhase.ExecutionPhase,
                 currentPhase.ExecutionReadiness),
-            clarification is null
+            refinement is null
                 ? null
-                : new ClarificationSessionDetails(
-                    clarification.Status,
-                    clarification.Tolerance,
-                    clarification.Reason,
-                    clarification.Items.Select(item => new ClarificationQuestionAnswerDetails(item.Index, item.Question, item.Answer)).ToArray()),
+                : new RefinementSessionDetails(
+                    refinement.Status,
+                    refinement.Tolerance,
+                    refinement.Reason,
+                    refinement.Items.Select(item => new RefinementQuestionAnswerDetails(item.Index, item.Question, item.Answer)).ToArray()),
             approvalQuestions,
             timelineEvents,
             WorkflowIterationDetailsBuilder.Build(paths, timelineEvents),
@@ -221,18 +221,18 @@ public sealed class SpecForgeApplicationService
                 WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase));
         }
 
-        if (workflowRun.CurrentPhase == Workflow.PhaseId.Clarification)
+        if (workflowRun.CurrentPhase == Workflow.PhaseId.Refinement)
         {
-            var clarification = await ReadClarificationSessionAsync(paths, cancellationToken);
-            var canAdvanceClarification = UserStoryClarificationMarkdown.HasAllAnswers(clarification);
+            var refinement = await ReadRefinementSessionAsync(paths, cancellationToken);
+            var canAdvanceRefinement = UserStoryRefinementMarkdown.HasAllAnswers(refinement);
             return new CurrentPhaseSummary(
                 workflowRun.UsId,
                 WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
                 WorkflowPresentation.ToStatusSlug(workflowRun.Status),
-                canAdvanceClarification,
+                canAdvanceRefinement,
                 false,
                 false,
-                canAdvanceClarification ? null : "clarification_pending_answers");
+                canAdvanceRefinement ? null : "refinement_pending_answers");
         }
 
         if (workflowRun.Status == UserStoryStatus.Completed)
@@ -253,21 +253,21 @@ public sealed class SpecForgeApplicationService
         string? blockingReason = null;
         string? executionPhase = null;
         PhaseExecutionReadiness? executionReadiness = null;
-        if (canApprove && workflowRun.CurrentPhase == Workflow.PhaseId.Refinement)
+        if (canApprove && workflowRun.CurrentPhase == Workflow.PhaseId.Spec)
         {
-            var refinementPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Refinement);
-            if (string.IsNullOrWhiteSpace(refinementPath) || !File.Exists(refinementPath))
+            var specPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Spec);
+            if (string.IsNullOrWhiteSpace(specPath) || !File.Exists(specPath))
             {
                 canApprove = false;
             }
             else
             {
-                var refinementMarkdown = await File.ReadAllTextAsync(refinementPath, cancellationToken);
-                canApprove = SpecBaselineSchemaValidator.Validate(refinementMarkdown).IsValid;
+                var specMarkdown = await File.ReadAllTextAsync(specPath, cancellationToken);
+                canApprove = SpecBaselineSchemaValidator.Validate(specMarkdown).IsValid;
                 if (canApprove)
                 {
-                    var refinementDocument = await LoadCurrentRefinementDocumentAsync(paths, cancellationToken);
-                    canApprove = RefinementSpecJson.GetUnresolvedQuestions(refinementDocument).Count == 0;
+                    var specDocument = await LoadCurrentSpecDocumentAsync(paths, cancellationToken);
+                    canApprove = SpecJson.GetUnresolvedQuestions(specDocument).Count == 0;
                 }
             }
         }
@@ -519,13 +519,13 @@ public sealed class SpecForgeApplicationService
         CancellationToken cancellationToken = default) =>
         workflowRunner.ResetUserStoryToCaptureAsync(workspaceRoot, usId, cancellationToken);
 
-    public Task<SubmitClarificationAnswersResult> SubmitClarificationAnswersAsync(
+    public Task<SubmitRefinementAnswersResult> SubmitRefinementAnswersAsync(
         string workspaceRoot,
         string usId,
         IReadOnlyList<string> answers,
         string actor = "user",
         CancellationToken cancellationToken = default) =>
-        workflowRunner.SubmitClarificationAnswersAsync(workspaceRoot, usId, answers, actor, cancellationToken);
+        workflowRunner.SubmitRefinementAnswersAsync(workspaceRoot, usId, answers, actor, cancellationToken);
 
     public Task<SubmitApprovalAnswerResult> SubmitApprovalAnswerAsync(
         string workspaceRoot,
@@ -647,8 +647,8 @@ public sealed class SpecForgeApplicationService
         var phases = new[]
         {
             Workflow.PhaseId.Capture,
-            Workflow.PhaseId.Clarification,
             Workflow.PhaseId.Refinement,
+            Workflow.PhaseId.Spec,
             Workflow.PhaseId.TechnicalDesign,
             Workflow.PhaseId.Implementation,
             Workflow.PhaseId.Review,
@@ -770,8 +770,8 @@ public sealed class SpecForgeApplicationService
     private static string ToPhaseTitle(Workflow.PhaseId phaseId) => phaseId switch
     {
         Workflow.PhaseId.Capture => "Capture",
-        Workflow.PhaseId.Clarification => "Refinement",
-        Workflow.PhaseId.Refinement => "Spec",
+        Workflow.PhaseId.Refinement => "Refinement",
+        Workflow.PhaseId.Spec => "Spec",
         Workflow.PhaseId.TechnicalDesign => "Technical Design",
         Workflow.PhaseId.Implementation => "Implementation",
         Workflow.PhaseId.Review => "Review",
@@ -792,7 +792,7 @@ public sealed class SpecForgeApplicationService
 
     private static string? TryGetLatestOperationLogPath(UserStoryFilePaths paths, Workflow.PhaseId phaseId)
     {
-        if (phaseId is Workflow.PhaseId.Capture or Workflow.PhaseId.Clarification)
+        if (phaseId is Workflow.PhaseId.Capture or Workflow.PhaseId.Refinement)
         {
             return null;
         }
@@ -805,8 +805,8 @@ public sealed class SpecForgeApplicationService
         var promptPaths = new PromptFilePaths(FindWorkspaceRoot(paths));
         var candidate = phaseId switch
         {
-            Workflow.PhaseId.Clarification => promptPaths.ClarificationExecutePromptPath,
             Workflow.PhaseId.Refinement => promptPaths.RefinementExecutePromptPath,
+            Workflow.PhaseId.Spec => promptPaths.SpecExecutePromptPath,
             Workflow.PhaseId.TechnicalDesign => promptPaths.TechnicalDesignExecutePromptPath,
             Workflow.PhaseId.Implementation => promptPaths.ImplementationExecutePromptPath,
             Workflow.PhaseId.Review => promptPaths.ReviewExecutePromptPath,
@@ -823,7 +823,7 @@ public sealed class SpecForgeApplicationService
         var promptPaths = new PromptFilePaths(FindWorkspaceRoot(paths));
         var candidate = phaseId switch
         {
-            Workflow.PhaseId.Refinement => promptPaths.RefinementApprovePromptPath,
+            Workflow.PhaseId.Spec => promptPaths.SpecApprovePromptPath,
             Workflow.PhaseId.ReleaseApproval => promptPaths.ReleaseApprovalApprovePromptPath,
             _ => null
         };
@@ -836,8 +836,8 @@ public sealed class SpecForgeApplicationService
         var promptPaths = new PromptFilePaths(FindWorkspaceRoot(paths));
         var candidate = phaseId switch
         {
-            Workflow.PhaseId.Clarification => promptPaths.ClarificationExecuteSystemPromptPath,
             Workflow.PhaseId.Refinement => promptPaths.RefinementExecuteSystemPromptPath,
+            Workflow.PhaseId.Spec => promptPaths.SpecExecuteSystemPromptPath,
             Workflow.PhaseId.TechnicalDesign => promptPaths.TechnicalDesignExecuteSystemPromptPath,
             Workflow.PhaseId.Implementation => promptPaths.ImplementationExecuteSystemPromptPath,
             Workflow.PhaseId.Review => promptPaths.ReviewExecuteSystemPromptPath,
@@ -854,7 +854,7 @@ public sealed class SpecForgeApplicationService
         var promptPaths = new PromptFilePaths(FindWorkspaceRoot(paths));
         var candidate = phaseId switch
         {
-            Workflow.PhaseId.Refinement => promptPaths.RefinementApproveSystemPromptPath,
+            Workflow.PhaseId.Spec => promptPaths.SpecApproveSystemPromptPath,
             Workflow.PhaseId.ReleaseApproval => promptPaths.ReleaseApprovalApproveSystemPromptPath,
             _ => null
         };
@@ -878,7 +878,7 @@ public sealed class SpecForgeApplicationService
     {
         var candidates = new[]
         {
-            Workflow.PhaseId.Refinement,
+            Workflow.PhaseId.Spec,
             Workflow.PhaseId.TechnicalDesign,
             Workflow.PhaseId.Implementation
         };
@@ -893,8 +893,8 @@ public sealed class SpecForgeApplicationService
     {
         var candidates = new[]
         {
-            Workflow.PhaseId.Clarification,
             Workflow.PhaseId.Refinement,
+            Workflow.PhaseId.Spec,
             Workflow.PhaseId.TechnicalDesign,
             Workflow.PhaseId.Implementation,
             Workflow.PhaseId.Review,
@@ -912,20 +912,20 @@ public sealed class SpecForgeApplicationService
         {
             "merge-conflict" => Workflow.PhaseId.Implementation,
             "defect" => Workflow.PhaseId.Implementation,
-            "functional-issue" => Workflow.PhaseId.Refinement,
+            "functional-issue" => Workflow.PhaseId.Spec,
             "technical-issue" => Workflow.PhaseId.TechnicalDesign,
             _ => throw new WorkflowDomainException(
                 $"Unsupported completed workflow reopen reason '{reasonKind}'. Expected 'merge-conflict', 'defect', 'functional-issue', or 'technical-issue'.")
         };
 
-    private static async Task<ClarificationSession?> ReadClarificationSessionAsync(
+    private static async Task<RefinementSession?> ReadRefinementSessionAsync(
         UserStoryFilePaths paths,
         CancellationToken cancellationToken)
     {
-        if (File.Exists(paths.ClarificationFilePath))
+        if (File.Exists(paths.RefinementFilePath))
         {
-            var clarificationMarkdown = await File.ReadAllTextAsync(paths.ClarificationFilePath, cancellationToken);
-            var session = UserStoryClarificationMarkdown.Parse(clarificationMarkdown);
+            var refinementMarkdown = await File.ReadAllTextAsync(paths.RefinementFilePath, cancellationToken);
+            var session = UserStoryRefinementMarkdown.Parse(refinementMarkdown);
             if (session is not null)
             {
                 return session;
@@ -938,41 +938,41 @@ public sealed class SpecForgeApplicationService
         }
 
         var userStoryMarkdown = await File.ReadAllTextAsync(paths.MainArtifactPath, cancellationToken);
-        return UserStoryClarificationMarkdown.Parse(userStoryMarkdown);
+        return UserStoryRefinementMarkdown.Parse(userStoryMarkdown);
     }
 
-    private static async Task<RefinementSpecDocument> LoadCurrentRefinementDocumentAsync(
+    private static async Task<SpecDocument> LoadCurrentSpecDocumentAsync(
         UserStoryFilePaths paths,
         CancellationToken cancellationToken)
     {
-        var jsonPath = paths.GetLatestExistingPhaseArtifactJsonPath(Workflow.PhaseId.Refinement);
+        var jsonPath = paths.GetLatestExistingPhaseArtifactJsonPath(Workflow.PhaseId.Spec);
         if (!string.IsNullOrWhiteSpace(jsonPath) && File.Exists(jsonPath))
         {
-            return RefinementSpecJson.Parse(await File.ReadAllTextAsync(jsonPath, cancellationToken));
+            return SpecJson.Parse(await File.ReadAllTextAsync(jsonPath, cancellationToken));
         }
 
-        var markdownPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Refinement)
-            ?? throw new WorkflowDomainException("The refinement artifact does not exist yet.");
-        return RefinementSpecMarkdownImporter.Import(await File.ReadAllTextAsync(markdownPath, cancellationToken));
+        var markdownPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Spec)
+            ?? throw new WorkflowDomainException("The spec artifact does not exist yet.");
+        return SpecMarkdownImporter.Import(await File.ReadAllTextAsync(markdownPath, cancellationToken));
     }
 
     private static async Task<IReadOnlyCollection<ApprovalQuestionDetails>> ReadApprovalQuestionsAsync(
         UserStoryFilePaths paths,
         CancellationToken cancellationToken)
     {
-        var refinementPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Refinement);
-        if (string.IsNullOrWhiteSpace(refinementPath))
+        var specPath = paths.GetLatestExistingPhaseArtifactPath(Workflow.PhaseId.Spec);
+        if (string.IsNullOrWhiteSpace(specPath))
         {
             return [];
         }
 
-        var refinementDocument = await LoadCurrentRefinementDocumentAsync(paths, cancellationToken);
-        return refinementDocument.HumanApprovalQuestions
+        var specDocument = await LoadCurrentSpecDocumentAsync(paths, cancellationToken);
+        return specDocument.HumanApprovalQuestions
             .Select((item, index) => new ApprovalQuestionDetails(
                 index + 1,
                 item.Question,
                 item.Status,
-                RefinementSpecJson.IsResolved(item),
+                SpecJson.IsResolved(item),
                 item.Answer,
                 item.AnsweredBy,
                 item.AnsweredAtUtc))

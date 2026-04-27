@@ -66,7 +66,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task RequestRegressionAsync_ToApprovedRefinement_NonDestructivePreservesContinuationControls()
+    public async Task RequestRegressionAsync_ToApprovedSpec_NonDestructivePreservesContinuationControls()
     {
         var runner = new WorkflowRunner();
         var applicationService = new SpecForgeApplicationService();
@@ -81,10 +81,10 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         var result = await applicationService.RequestRegressionAsync(
             workspaceRoot,
             "US-0001",
-            "refinement",
+            "spec",
             "Return to approved spec");
 
-        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("spec", result.CurrentPhase);
         Assert.Equal("active", result.Status);
 
         var currentPhase = await applicationService.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
@@ -95,7 +95,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task RewindWorkflowAsync_ToApprovedRefinement_NonDestructivePreservesContinuationControls()
+    public async Task RewindWorkflowAsync_ToApprovedSpec_NonDestructivePreservesContinuationControls()
     {
         var runner = new WorkflowRunner();
         var applicationService = new SpecForgeApplicationService();
@@ -108,9 +108,9 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         var result = await applicationService.RewindWorkflowAsync(
             workspaceRoot,
             "US-0001",
-            "refinement");
+            "spec");
 
-        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("spec", result.CurrentPhase);
         Assert.Equal("active", result.Status);
 
         var currentPhase = await applicationService.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
@@ -199,7 +199,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task RestartUserStoryFromSourceAsync_ReturnsRegeneratedRefinementState()
+    public async Task RestartUserStoryFromSourceAsync_ReturnsRegeneratedSpecState()
     {
         var runner = new WorkflowRunner();
         var applicationService = new SpecForgeApplicationService();
@@ -212,10 +212,10 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         var result = await applicationService.RestartUserStoryFromSourceAsync(
             workspaceRoot,
             "US-0001",
-            "Source changed after refinement");
+            "Source changed after spec");
 
         Assert.Equal("US-0001", result.UsId);
-        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("spec", result.CurrentPhase);
         Assert.Equal("waiting-user", result.Status);
         Assert.NotNull(result.GeneratedArtifactPath);
     }
@@ -239,40 +239,40 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         var workflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
 
         Assert.Equal("US-0001", workflow.UsId);
-        Assert.Equal("refinement", workflow.CurrentPhase);
+        Assert.Equal("spec", workflow.CurrentPhase);
         Assert.Equal("workflow", workflow.Category);
         Assert.Equal("waiting-user", workflow.Status);
         Assert.Equal(8, workflow.Phases.Count);
-        Assert.NotNull(workflow.Clarification);
-        Assert.Equal("ready_for_refinement", workflow.Clarification!.Status);
-        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "clarification" && phase.ExpectsHumanIntervention);
+        Assert.NotNull(workflow.Refinement);
+        Assert.Equal("ready_for_spec", workflow.Refinement!.Status);
+        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.ExpectsHumanIntervention);
         Assert.Contains(workflow.Phases, phase => phase.PhaseId == "technical-design" && !phase.ExpectsHumanIntervention);
-        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "clarification" && phase.Title == "Refinement" && phase.ExecutePromptPath is not null);
-        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.IsCurrent && phase.Title == "Spec" && phase.ArtifactPath is not null && phase.OperationLogPath is not null);
-        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.ExecutePromptPath is not null && phase.ApprovePromptPath is not null);
+        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "refinement" && phase.Title == "Refinement" && phase.ExecutePromptPath is not null);
+        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "spec" && phase.IsCurrent && phase.Title == "Spec" && phase.ArtifactPath is not null && phase.OperationLogPath is not null);
+        Assert.Contains(workflow.Phases, phase => phase.PhaseId == "spec" && phase.ExecutePromptPath is not null && phase.ApprovePromptPath is not null);
         Assert.All(workflow.ApprovalQuestions, question => Assert.Equal(question.IsResolved, string.Equals(question.Status, "resolved", StringComparison.Ordinal)));
         Assert.False(workflow.Controls.CanApprove);
         Assert.False(workflow.Controls.CanContinue);
         Assert.Empty(workflow.Controls.RegressionTargets);
-        Assert.Contains("clarification", workflow.Controls.RewindTargets);
+        Assert.Contains("refinement", workflow.Controls.RewindTargets);
         Assert.Single(workflow.ContextFiles);
         Assert.Equal(paths.ContextDirectoryPath, workflow.ContextFilesDirectoryPath);
         Assert.Single(workflow.Attachments);
         Assert.Equal(paths.AttachmentsDirectoryPath, workflow.AttachmentsDirectoryPath);
-        Assert.True(File.Exists(paths.ClarificationFilePath));
+        Assert.True(File.Exists(paths.RefinementFilePath));
         var userStory = await File.ReadAllTextAsync(paths.MainArtifactPath);
-        Assert.DoesNotContain("## Clarification Log", userStory);
+        Assert.DoesNotContain("## Refinement Log", userStory);
         Assert.Contains("`phase_completed`", workflow.RawTimeline);
         Assert.Contains("`artifact_operated`", workflow.RawTimeline);
         Assert.Contains(workflow.Events, timelineEvent => timelineEvent.Code == "phase_completed");
         Assert.Contains(workflow.Events, timelineEvent => timelineEvent.Code == "artifact_operated" && timelineEvent.Actor == "alice");
-        var refinementIterations = workflow.PhaseIterations
-            .Where(iteration => iteration.PhaseId == "refinement")
+        var specIterations = workflow.PhaseIterations
+            .Where(iteration => iteration.PhaseId == "spec")
             .OrderBy(iteration => iteration.Attempt)
             .ToArray();
-        Assert.Equal(2, refinementIterations.Length);
-        Assert.EndsWith(".ops.md", refinementIterations[1].OperationLogPath, StringComparison.OrdinalIgnoreCase);
-        Assert.EndsWith(".md", refinementIterations[1].OutputArtifactPath, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(2, specIterations.Length);
+        Assert.EndsWith(".ops.md", specIterations[1].OperationLogPath, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(".md", specIterations[1].OutputArtifactPath, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -338,7 +338,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ReopenCompletedWorkflowAsync_FunctionalIssue_ReturnsWorkflowToRefinement()
+    public async Task ReopenCompletedWorkflowAsync_FunctionalIssue_ReturnsWorkflowToSpec()
     {
         var runner = new WorkflowRunner(
             new UserStoryFileStore(),
@@ -367,18 +367,18 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
             actor: "alice");
 
         Assert.Equal("US-0001", result.UsId);
-        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("spec", result.CurrentPhase);
         Assert.Equal("waiting-user", result.Status);
 
         var workflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
-        Assert.Equal("refinement", workflow.CurrentPhase);
+        Assert.Equal("spec", workflow.CurrentPhase);
         Assert.Equal("waiting-user", workflow.Status);
         Assert.Contains(workflow.Events, timelineEvent =>
             timelineEvent.Code == "workflow_reopened"
             && timelineEvent.Actor == "alice"
             && timelineEvent.Summary is not null
             && timelineEvent.Summary.Contains("functional-issue", StringComparison.Ordinal)
-            && timelineEvent.Summary.Contains("refinement", StringComparison.Ordinal));
+            && timelineEvent.Summary.Contains("spec", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -479,7 +479,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
             new NoOpWorkBranchManager(),
             new RecordingPullRequestPublisher(),
             runtimeVersion: null,
-            captureTolerance: "balanced",
+            refinementTolerance: "balanced",
             completedUsLockOnCompleted: true);
         var applicationService = new SpecForgeApplicationService();
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
@@ -501,7 +501,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetCurrentPhaseAsync_WithUnresolvedRefinementApprovalQuestions_CannotApprove()
+    public async Task GetCurrentPhaseAsync_WithUnresolvedSpecApprovalQuestions_CannotApprove()
     {
         var runner = new WorkflowRunner();
         var applicationService = new SpecForgeApplicationService();
@@ -510,11 +510,11 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
 
         var currentPhase = await applicationService.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
 
-        Assert.Equal("refinement", currentPhase.CurrentPhase);
+        Assert.Equal("spec", currentPhase.CurrentPhase);
         Assert.False(currentPhase.CanAdvance);
         Assert.False(currentPhase.CanApprove);
         Assert.True(currentPhase.RequiresApproval);
-        Assert.Equal("refinement_pending_user_approval", currentPhase.BlockingReason);
+        Assert.Equal("spec_pending_user_approval", currentPhase.BlockingReason);
     }
 
     [Fact]
@@ -599,7 +599,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
 
         provider.Release();
         var result = await runningTask;
-        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("spec", result.CurrentPhase);
 
         var runtimeAfterCompletion = await applicationService.GetUserStoryRuntimeStatusAsync(workspaceRoot, "US-0001");
         Assert.Equal("idle", runtimeAfterCompletion.Status);
@@ -641,7 +641,7 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
 
         var result = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
 
-        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("spec", result.CurrentPhase);
     }
 
     [Fact]
@@ -686,8 +686,8 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     private async Task ResolvePendingApprovalQuestionsAsync(WorkflowRunner runner, string usId)
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
-        var artifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Refinement)
-            ?? throw new InvalidOperationException("Expected a refinement artifact before resolving approval questions.");
+        var artifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Spec)
+            ?? throw new InvalidOperationException("Expected a spec artifact before resolving approval questions.");
         var markdown = await File.ReadAllTextAsync(artifactPath);
         var pendingQuestions = ApprovalQuestionMarkdown.ParseFromMarkdown(markdown)
             .Where(static item => !item.Resolved)
@@ -721,11 +721,11 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
             return await inner.ExecuteAsync(context, cancellationToken);
         }
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
 
         public Task WaitUntilStartedAsync() => started.Task;
 
@@ -747,11 +747,11 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
                 ? readiness
                 : inner.GetPhaseExecutionReadiness(phaseId);
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
 
         public Task<PhaseExecutionResult> ExecuteAsync(PhaseExecutionContext context, CancellationToken cancellationToken = default) =>
             inner.ExecuteAsync(context, cancellationToken);
@@ -764,11 +764,11 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
             inner.GetPhaseExecutionReadiness(phaseId);
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
 
         public async Task<PhaseExecutionResult> ExecuteAsync(
             PhaseExecutionContext context,
@@ -828,11 +828,11 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
         public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
             inner.GetPhaseExecutionReadiness(phaseId);
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
 
         public async Task<PhaseExecutionResult> ExecuteAsync(
             PhaseExecutionContext context,

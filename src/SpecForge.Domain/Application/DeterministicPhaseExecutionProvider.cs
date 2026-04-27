@@ -18,9 +18,9 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                 NativeCliAvailable: true),
             ValidationMessage: "Phase permission precheck passed for the deterministic provider.");
 
-    public async Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+    public async Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
         PhaseExecutionContext context,
-        ClarificationSession session,
+        RefinementSession session,
         CancellationToken cancellationToken = default)
     {
         if (session.Items.Count == 0)
@@ -40,14 +40,14 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
 
         var answers = session.Items
             .OrderBy(static item => item.Index)
-            .Select(item => BuildDeterministicClarificationAnswer(item.Question, objective))
+            .Select(item => BuildDeterministicRefinementAnswer(item.Question, objective))
             .Cast<string?>()
             .ToArray();
 
-        return new AutoClarificationAnswersResult(
+        return new AutoRefinementAnswersResult(
             true,
             answers,
-            "Deterministic provider inferred clarification answers from the current user story objective.",
+            "Deterministic provider inferred refinement answers from the current user story objective.",
             Execution: new PhaseExecutionMetadata("deterministic", "deterministic"));
     }
 
@@ -57,8 +57,8 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
     {
         var content = context.PhaseId switch
         {
-            PhaseId.Clarification => await ComposeClarificationAsync(context, cancellationToken),
             PhaseId.Refinement => await ComposeRefinementAsync(context, cancellationToken),
+            PhaseId.Spec => await ComposeSpecAsync(context, cancellationToken),
             PhaseId.TechnicalDesign => await ComposeTechnicalDesignAsync(context, cancellationToken),
             PhaseId.Implementation => await ComposeImplementationAsync(context, cancellationToken),
             PhaseId.Review => await ComposeReviewAsync(context, cancellationToken),
@@ -73,14 +73,14 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
             Execution: new PhaseExecutionMetadata("deterministic", "deterministic"));
     }
 
-    private static async Task<string> ComposeClarificationAsync(
+    private static async Task<string> ComposeRefinementAsync(
         PhaseExecutionContext context,
         CancellationToken cancellationToken)
     {
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
         var objective = MarkdownHelper.ReadSection(userStory, "## Objective", "## Objetivo");
-        var clarification = await ReadClarificationSessionAsync(context.UserStoryPath, cancellationToken);
-        var hasAnswers = clarification is not null && clarification.Items.Any(item => !string.IsNullOrWhiteSpace(item.Answer));
+        var refinement = await ReadRefinementSessionAsync(context.UserStoryPath, cancellationToken);
+        var hasAnswers = refinement is not null && refinement.Items.Any(item => !string.IsNullOrWhiteSpace(item.Answer));
         var looksPlaceholder = objective.Contains("sample", StringComparison.OrdinalIgnoreCase)
             || objective.Contains("...", StringComparison.Ordinal)
             || objective.Contains("todo", StringComparison.OrdinalIgnoreCase)
@@ -100,26 +100,26 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                    Environment.NewLine,
                    new[]
                    {
-                       $"# Clarification · {context.UsId} · v01",
+                       $"# Refinement · {context.UsId} · v01",
                        string.Empty,
                        "## State",
                        $"- State: `{(isReady ? "ready" : "pending_user_input")}`",
                        string.Empty,
                        "## Decision",
-                       isReady ? "ready_for_refinement" : "needs_clarification",
+                       isReady ? "ready_for_spec" : "needs_refinement",
                        string.Empty,
                        "## Reason",
                        isReady
-                           ? "The current user story plus recorded clarification answers are concrete enough to proceed to refinement."
-                           : "The current user story still reads like a placeholder and needs minimum business detail before refinement can be useful.",
+                           ? "The current user story plus recorded refinement answers are concrete enough to proceed to spec."
+                           : "The current user story still reads like a placeholder and needs minimum business detail before spec can be useful.",
                        string.Empty,
                        "## Questions",
-                       questions.Length == 0 ? "1. No clarification questions remain." : string.Join(Environment.NewLine, questions.Select((question, index) => $"{index + 1}. {question}"))
+                       questions.Length == 0 ? "1. No refinement questions remain." : string.Join(Environment.NewLine, questions.Select((question, index) => $"{index + 1}. {question}"))
                    }) +
                Environment.NewLine;
     }
 
-    private static string BuildDeterministicClarificationAnswer(string question, string objective)
+    private static string BuildDeterministicRefinementAnswer(string question, string objective)
     {
         if (question.Contains("actor", StringComparison.OrdinalIgnoreCase)
             || question.Contains("role", StringComparison.OrdinalIgnoreCase))
@@ -134,10 +134,10 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
             return $"The observable behavior should stay bounded to this objective and its direct outcome: {objective}";
         }
 
-        return $"Use the current objective as the governing clarification answer unless the repository later proves otherwise: {objective}";
+        return $"Use the current objective as the governing refinement answer unless the repository later proves otherwise: {objective}";
     }
 
-    private static async Task<string> ComposeRefinementAsync(
+    private static async Task<string> ComposeSpecAsync(
         PhaseExecutionContext context,
         CancellationToken cancellationToken)
     {
@@ -147,7 +147,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         {
             var currentArtifact = await File.ReadAllTextAsync(context.CurrentArtifactPath, cancellationToken);
             return ApplyDeterministicArtifactOperation(
-                RefinementSpecMarkdownImporter.Import(currentArtifact),
+                SpecMarkdownImporter.Import(currentArtifact),
                 context.OperationPrompt);
         }
 
@@ -160,8 +160,8 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
             ? "The source does not yet distinguish clearly between in-scope behavior and deliberate exclusions."
             : "The source identifies baseline scope, but edge cases and non-functional expectations still need explicit validation.";
 
-        return RefinementSpecJson.Serialize(
-            new RefinementSpecDocument(
+        return SpecJson.Serialize(
+            new SpecDocument(
                 Title: title,
                 HistoryLog: [$"`{DateTimeOffset.UtcNow:O}` · Initial spec generated from `us.md`."],
                 State: "pending_approval",
@@ -170,7 +170,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                 Inputs:
                 [
                     "Source intent from `us.md`.",
-                    "Clarification answers when available."
+                    "Refinement answers when available."
                 ],
                 Outputs:
                 [
@@ -190,7 +190,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                 ],
                 ErrorsAndFailureModes:
                 [
-                    "If the spec leaves business-critical ambiguity unresolved, technical design must stop and request clarification or regression.",
+                    "If the spec leaves business-critical ambiguity unresolved, technical design must stop and request refinement or regression.",
                     "If implementation cannot be validated against these criteria, review must fail and point to the correction phase."
                 ],
                 Constraints:
@@ -201,7 +201,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                 DetectedAmbiguities:
                 [
                     ambiguity,
-                    "Non-functional thresholds are not explicit unless the user story or clarification already makes them explicit."
+                    "Non-functional thresholds are not explicit unless the user story or refinement already makes them explicit."
                 ],
                 RedTeam:
                 [
@@ -232,12 +232,12 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         PhaseExecutionContext context,
         CancellationToken cancellationToken)
     {
-        var refinement = await File.ReadAllTextAsync(
-            GetRequiredPath(context, PhaseId.Refinement),
+        var spec = await File.ReadAllTextAsync(
+            GetRequiredPath(context, PhaseId.Spec),
             cancellationToken);
-        var specSummary = MarkdownHelper.ReadSection(refinement, "## Spec Summary");
-        var businessRules = MarkdownHelper.ReadSection(refinement, "## Business Rules");
-        var constraints = MarkdownHelper.ReadSection(refinement, "## Constraints");
+        var specSummary = MarkdownHelper.ReadSection(spec, "## Spec Summary");
+        var businessRules = MarkdownHelper.ReadSection(spec, "## Business Rules");
+        var constraints = MarkdownHelper.ReadSection(spec, "## Constraints");
 
         return string.Join(
                    Environment.NewLine,
@@ -323,10 +323,10 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         PhaseExecutionContext context,
         CancellationToken cancellationToken)
     {
-        var refinementExists = context.PreviousArtifactPaths.ContainsKey(PhaseId.Refinement);
+        var specExists = context.PreviousArtifactPaths.ContainsKey(PhaseId.Spec);
         var technicalDesignExists = context.PreviousArtifactPaths.ContainsKey(PhaseId.TechnicalDesign);
         var implementationExists = context.PreviousArtifactPaths.ContainsKey(PhaseId.Implementation);
-        var result = refinementExists && technicalDesignExists && implementationExists ? "pass" : "fail";
+        var result = specExists && technicalDesignExists && implementationExists ? "pass" : "fail";
         var recommendation = result == "pass"
             ? "Advance to `release_approval`."
             : "Regress to the missing or inconsistent phase before continuing.";
@@ -341,7 +341,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                        $"- Result: `{result}`",
                        string.Empty,
                        "## Validation Checklist",
-                       $"- \u2705 Review must compare implementation back to the approved spec before final release approval. \u2014 Evidence: Spec artifact present: `{refinementExists}`; technical design artifact present: `{technicalDesignExists}`; implementation artifact present: `{implementationExists}`.",
+                       $"- \u2705 Review must compare implementation back to the approved spec before final release approval. \u2014 Evidence: Spec artifact present: `{specExists}`; technical design artifact present: `{technicalDesignExists}`; implementation artifact present: `{implementationExists}`.",
                        string.Empty,
                        "## Findings",
                        result == "pass"
@@ -409,15 +409,15 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         return path;
     }
 
-    private static async Task<ClarificationSession?> ReadClarificationSessionAsync(
+    private static async Task<RefinementSession?> ReadRefinementSessionAsync(
         string userStoryPath,
         CancellationToken cancellationToken)
     {
-        var clarificationPath = Path.Combine(Path.GetDirectoryName(userStoryPath)!, "clarification.md");
-        if (File.Exists(clarificationPath))
+        var refinementPath = Path.Combine(Path.GetDirectoryName(userStoryPath)!, "refinement.md");
+        if (File.Exists(refinementPath))
         {
-            var clarificationMarkdown = await File.ReadAllTextAsync(clarificationPath, cancellationToken);
-            var session = UserStoryClarificationMarkdown.Parse(clarificationMarkdown);
+            var refinementMarkdown = await File.ReadAllTextAsync(refinementPath, cancellationToken);
+            var session = UserStoryRefinementMarkdown.Parse(refinementMarkdown);
             if (session is not null)
             {
                 return session;
@@ -425,15 +425,15 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         }
 
         var userStoryMarkdown = await File.ReadAllTextAsync(userStoryPath, cancellationToken);
-        return UserStoryClarificationMarkdown.Parse(userStoryMarkdown);
+        return UserStoryRefinementMarkdown.Parse(userStoryMarkdown);
     }
 
-    private static string ApplyDeterministicArtifactOperation(RefinementSpecDocument currentArtifact, string operationPrompt)
+    private static string ApplyDeterministicArtifactOperation(SpecDocument currentArtifact, string operationPrompt)
     {
         var summary = NormalizeOperationSummary(operationPrompt);
         var history = currentArtifact.HistoryLog.ToList();
         history.Insert(0, $"`{DateTimeOffset.UtcNow:O}` · Applied artifact operation: {summary}");
-        return RefinementSpecJson.Serialize(currentArtifact with { HistoryLog = history });
+        return SpecJson.Serialize(currentArtifact with { HistoryLog = history });
     }
 
     private static string NormalizeOperationSummary(string operationPrompt)

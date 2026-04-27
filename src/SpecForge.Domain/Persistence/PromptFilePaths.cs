@@ -20,12 +20,12 @@ public sealed class PromptFilePaths
         SharedSystemPromptPath = Path.Combine(SharedPromptsDirectoryPath, "system.md");
         SharedStylePromptPath = Path.Combine(SharedPromptsDirectoryPath, "style.md");
         SharedOutputRulesPromptPath = Path.Combine(SharedPromptsDirectoryPath, "output-rules.md");
-        ClarificationExecuteSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "clarification.execute.system.md");
-        ClarificationExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "clarification.execute.md");
         RefinementExecuteSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "refinement.execute.system.md");
         RefinementExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "refinement.execute.md");
-        RefinementApproveSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "refinement.approve.system.md");
-        RefinementApprovePromptPath = Path.Combine(PhasePromptsDirectoryPath, "refinement.approve.md");
+        SpecExecuteSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "spec.execute.system.md");
+        SpecExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "spec.execute.md");
+        SpecApproveSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "spec.approve.system.md");
+        SpecApprovePromptPath = Path.Combine(PhasePromptsDirectoryPath, "spec.approve.md");
         TechnicalDesignExecuteSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "technical-design.execute.system.md");
         TechnicalDesignExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "technical-design.execute.md");
         ImplementationExecuteSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "implementation.execute.system.md");
@@ -38,7 +38,7 @@ public sealed class PromptFilePaths
         ReleaseApprovalApprovePromptPath = Path.Combine(PhasePromptsDirectoryPath, "release-approval.approve.md");
         PrPreparationExecuteSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "pr-preparation.execute.system.md");
         PrPreparationExecutePromptPath = Path.Combine(PhasePromptsDirectoryPath, "pr-preparation.execute.md");
-        AutoClarificationAnswersSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "clarification.auto-answer.system.md");
+        AutoRefinementAnswersSystemPromptPath = Path.Combine(PhasePromptsDirectoryPath, "refinement.auto-answer.system.md");
     }
 
     public string WorkspaceRoot { get; }
@@ -63,17 +63,17 @@ public sealed class PromptFilePaths
 
     public string SharedOutputRulesPromptPath { get; }
 
-    public string ClarificationExecuteSystemPromptPath { get; }
-
-    public string ClarificationExecutePromptPath { get; }
-
     public string RefinementExecuteSystemPromptPath { get; }
 
     public string RefinementExecutePromptPath { get; }
 
-    public string RefinementApproveSystemPromptPath { get; }
+    public string SpecExecuteSystemPromptPath { get; }
 
-    public string RefinementApprovePromptPath { get; }
+    public string SpecExecutePromptPath { get; }
+
+    public string SpecApproveSystemPromptPath { get; }
+
+    public string SpecApprovePromptPath { get; }
 
     public string TechnicalDesignExecuteSystemPromptPath { get; }
 
@@ -99,5 +99,5 @@ public sealed class PromptFilePaths
 
     public string PrPreparationExecutePromptPath { get; }
 
-    public string AutoClarificationAnswersSystemPromptPath { get; }
+    public string AutoRefinementAnswersSystemPromptPath { get; }
 }

@@ -28,7 +28,7 @@ Keep workflow business rules centralized in the .NET domain/application layer so
 Examples:
 
 - `WorkflowPresentation.ExpectsHumanIntervention(...)`
-- `RefinementSpecJson.IsResolved(...)`
+- `SpecJson.IsResolved(...)`
 - `CurrentPhaseControls.CanApprove`
 - `CurrentPhaseControls.BlockingReason`
 

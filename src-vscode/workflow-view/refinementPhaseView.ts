@@ -1,247 +1,105 @@
-import type { WorkflowPhaseDetails, UserStoryWorkflowDetails } from "../backendClient";
-import type { ApprovalQuestionItem, WorkflowViewState, PhaseSectionFragments } from "./models";
-
-interface ArtifactQuestionBlock {
-  readonly state: string | null;
-  readonly decision: string | null;
-  readonly reason: string | null;
-  readonly questions: readonly string[];
-}
+import type { UserStoryWorkflowDetails, WorkflowPhaseDetails } from "../backendClient";
+import type { WorkflowViewState, PhaseSectionFragments } from "./models";
 
 interface RefinementPhaseViewArgs {
   readonly workflow: UserStoryWorkflowDetails;
   readonly selectedPhase: WorkflowPhaseDetails;
   readonly state: WorkflowViewState;
-  readonly artifactQuestionBlock: ArtifactQuestionBlock | null;
-  readonly refinementApprovalQuestions: readonly ApprovalQuestionItem[];
-  readonly unresolvedApprovalQuestionCount: number;
+  readonly heroTokenClass: (value: string) => string;
   readonly escapeHtml: (value: string) => string;
   readonly escapeHtmlAttribute: (value: string) => string;
-  readonly heroTokenClass: (value: string) => string;
-  readonly formatUtcTimestamp: (value: string | null | undefined) => string;
 }
 
 export function buildRefinementPhaseSections(args: RefinementPhaseViewArgs): PhaseSectionFragments {
-  const {
-    workflow,
-    selectedPhase,
-    state,
-    artifactQuestionBlock,
-    refinementApprovalQuestions,
-    unresolvedApprovalQuestionCount,
-    escapeHtml,
-    escapeHtmlAttribute,
-    heroTokenClass,
-    formatUtcTimestamp
-  } = args;
-
-  const approvalBranchEditorVisible = selectedPhase.phaseId === "refinement"
-    && selectedPhase.isCurrent
-    && workflow.controls.requiresApproval;
-  const branchAlreadyCreated = selectedPhase.phaseId === "refinement"
-    && !selectedPhase.isCurrent
-    && Boolean(workflow.workBranch?.trim());
-  const approvalBranchSectionVisible = approvalBranchEditorVisible || (selectedPhase.phaseId === "refinement" && branchAlreadyCreated);
-  const approvalBaseBranchProposal = state.approvalBaseBranchProposal?.trim() || "main";
-  const approvalWorkBranchProposal = state.approvalWorkBranchProposal?.trim() || workflow.workBranch?.trim() || "";
-  const requiresExplicitApprovalBranchAcceptance = Boolean(state.requireExplicitApprovalBranchAcceptance);
-  const approvalBranchSection = approvalBranchSectionVisible
-    ? `
-      <section class="detail-card detail-card--approval-branch" data-approval-branch-shell data-require-explicit-approval-branch-acceptance="${requiresExplicitApprovalBranchAcceptance ? "true" : "false"}">
-        <div class="approval-branch__copy">
-          <h3>Approval Branch</h3>
-          <p>${branchAlreadyCreated
-            ? "This is the work branch captured when the refinement was approved."
-            : "Confirm the base branch used to create the user story work branch before approving the refinement."}</p>
-        </div>
-        <div class="approval-branch__controls">
-          ${branchAlreadyCreated
-            ? ""
-            : `
-              <label class="approval-branch__field" for="approval-base-branch">Base Branch</label>
-              <div class="approval-branch__input-row">
-                <input
-                  id="approval-base-branch"
-                  class="approval-branch__input"
-                  type="text"
-                  value="${escapeHtmlAttribute(approvalBaseBranchProposal)}"
-                  data-approval-base-branch-input
-                  spellcheck="false"
-                  autocomplete="off" />
-                ${requiresExplicitApprovalBranchAcceptance
-                  ? `<button type="button" class="workflow-action-button workflow-action-button--progress approval-branch__accept" data-approval-branch-accept>Accept</button>`
-                  : ""}
-                <span class="approval-branch__accepted" data-approval-branch-accepted hidden>Accepted ✓</span>
-              </div>
-              <p class="approval-branch__hint" data-approval-branch-hint>
-                ${unresolvedApprovalQuestionCount > 0
-                  ? "Approve stays disabled until all human approval questions are resolved below."
-                  : requiresExplicitApprovalBranchAcceptance
-                  ? "Approve stays disabled until you accept this branch value explicitly."
-                  : "You can approve directly, and the current branch value will be sent with the action."}
-              </p>
-            `}
-          <label class="approval-branch__field" for="approval-work-branch">Work Branch</label>
-          <input
-            id="approval-work-branch"
-            class="approval-branch__input"
-            type="text"
-            value="${escapeHtmlAttribute(approvalWorkBranchProposal)}"
-            data-approval-work-branch-input
-            spellcheck="false"
-            autocomplete="off"
-            ${branchAlreadyCreated ? "readonly" : ""} />
-          <p class="approval-branch__hint">${branchAlreadyCreated
-            ? "The work branch has already been created for this user story and is now shown here as read only."
-            : "This is the branch that will be created after approval. You can edit the proposed name before continuing."}</p>
-        </div>
-      </section>
-    `
-    : "";
-
-  const refinementApprovalQuestionsSection = refinementApprovalQuestions.length > 0
-    ? `
-      <section class="detail-card detail-card--approval-questions">
-        <h3>Human Approval Questions</h3>
-        <p class="panel-copy">These are the open decisions the approver still needs to resolve before freezing the spec baseline. Pending questions stay amber. Answered questions turn green. Approval stays disabled until all are resolved.</p>
-        <div class="approval-question-list">
-          ${refinementApprovalQuestions.map((item) => `
-            <article
-              class="approval-question-item${item.resolved ? " approval-question-item--resolved" : " approval-question-item--pending"}"
-              data-approval-question-item
-              data-approval-question-index="${item.index}">
-              <div class="approval-question-item__head">
-                <button
-                  class="approval-question-item__toggle"
-                  type="button"
-                  data-approval-question-toggle
-                  data-approval-question-index="${item.index}">
-                  <span class="approval-question-item__index">${item.index}</span>
-                  <span class="approval-question-item__body">${escapeHtml(item.question)}</span>
-                  <span class="approval-question-item__status">${item.resolved ? "Resolved" : "Pending"}</span>
-                </button>
-                <span class="approval-question-item__actions">
-                  <button
-                    type="button"
-                    class="copy-question-button"
-                    data-copy-text="${escapeHtmlAttribute(item.question)}"
-                    aria-label="Copy approval question ${item.index}">${renderCopyQuestionIcon()}</button>
-                </span>
-              </div>
-              <div class="approval-question-item__editor" data-approval-question-editor${item.resolved ? " hidden" : ""}>
-                <label class="approval-question-item__label" for="approval-answer-${item.index}">
-                  ${item.resolved ? "Update answer" : "Provide answer"}
-                </label>
-                ${item.resolved && (item.answeredBy || item.answeredAtUtc)
-                  ? `<div class="approval-question-item__meta">${[
-                    item.answeredBy ? `Answered by ${escapeHtml(item.answeredBy)}` : "",
-                    item.answeredAtUtc ? escapeHtml(formatUtcTimestamp(item.answeredAtUtc)) : ""
-                  ].filter(Boolean).join(" · ")}</div>`
-                  : ""}
-                <textarea
-                  id="approval-answer-${item.index}"
-                  class="approval-question-item__textarea"
-                  data-approval-answer-input
-                  data-index="${item.index}"
-                  data-question="${escapeHtmlAttribute(item.question)}"
-                  rows="4"
-                  placeholder="Write the human answer that should be reflected in the spec and persisted in the approval questions section.">${escapeHtml(item.answer ?? "")}</textarea>
-                <div class="detail-actions">
-                  <button
-                    class="workflow-action-button workflow-action-button--progress"
-                    type="button"
-                    data-approval-answer-apply
-                    data-index="${item.index}"
-                    ${selectedPhase.isCurrent ? "" : "disabled"}>
-                    ${item.resolved ? "Update Answer" : "Apply Answer"}
-                  </button>
+  const { workflow, selectedPhase, state, heroTokenClass, escapeHtml, escapeHtmlAttribute } = args;
+  const refinementSuggestionsSection = `
+    <div class="refinement-context">
+      <div class="refinement-context__copy">
+        <h4>Need more repo context?</h4>
+        <p>
+          If the model is blocked by missing repository knowledge, add code, tests, configs, or docs as
+          <strong> Context</strong>. Those files are injected into execution. <strong>US Info</strong> stays attached
+          to the story, but is not sent to the model by default.
+        </p>
+      </div>
+      <div class="detail-actions detail-actions--files detail-actions--refinement">
+        <button class="workflow-action-button workflow-action-button--document" data-command="attachFiles" data-kind="context">Add Context Files</button>
+        ${state.contextSuggestions.length > 1
+          ? `<button class="workflow-action-button workflow-action-button--document" data-add-suggested-context-files='${escapeHtmlAttribute(JSON.stringify(state.contextSuggestions.map((item) => item.path)))}'>Add All Suggested</button>`
+          : ""}
+      </div>
+      ${state.contextSuggestions.length > 0
+        ? `
+          <div class="refinement-suggestions">
+            ${state.contextSuggestions.map((suggestion) => `
+              <div class="refinement-suggestion">
+                <div class="refinement-suggestion__body">
+                  <strong>${escapeHtml(suggestion.relativePath)}</strong>
+                  <span>${escapeHtml(suggestion.reason)}</span>
                 </div>
+                <button class="workflow-action-button workflow-action-button--document workflow-action-button--compact" data-command="addSuggestedContextFile" data-path="${escapeHtmlAttribute(suggestion.path)}">Add to Context</button>
               </div>
-            </article>
-          `).join("")}
-        </div>
-      </section>
-    `
-    : "";
+            `).join("")}
+          </div>
+        `
+        : `<p class="muted">No local context suggestions matched this refinement yet. You can still add files manually.</p>`}
+    </div>
+  `;
 
-  const refinementClarificationSection = selectedPhase.phaseId === "refinement"
-    && artifactQuestionBlock?.decision?.toLowerCase() === "needs_clarification"
+  const refinementSection = selectedPhase.phaseId === "refinement" && workflow.refinement
     ? `
-      <section class="detail-card detail-card--artifact-questions">
-        <h3>Refinement Questions</h3>
-        <div class="clarification-meta">
-          ${artifactQuestionBlock.state ? `<span class="badge">${escapeHtml(artifactQuestionBlock.state)}</span>` : ""}
-          <span class="badge${heroTokenClass(artifactQuestionBlock.decision)}">${escapeHtml(artifactQuestionBlock.decision)}</span>
+      <div class="refinement-shell">
+        <div class="refinement-meta">
+          <span class="badge${heroTokenClass(workflow.refinement.status)}">${escapeHtml(workflow.refinement.status)}</span>
+          <span class="badge">${escapeHtml(workflow.refinement.tolerance)}</span>
         </div>
-        ${artifactQuestionBlock.reason ? `<p class="clarification-reason">${escapeHtml(artifactQuestionBlock.reason)}</p>` : ""}
-        ${artifactQuestionBlock.questions.length > 0
-          ? `
-            <div class="clarification-list">
-              ${artifactQuestionBlock.questions.map((question, index) => `
-                <label class="clarification-item">
-                  <span class="clarification-question-row">
-                    <span class="clarification-question">${index + 1}. ${escapeHtml(question)}</span>
+        ${workflow.refinement.reason ? `<p class="refinement-reason">${escapeHtml(workflow.refinement.reason)}</p>` : ""}
+        ${workflow.refinement.items.length > 0
+      ? `
+            <div class="refinement-list">
+              ${workflow.refinement.items.map((item) => `
+                <label class="refinement-item">
+                  <span class="refinement-question-row">
+                    <span class="refinement-question">${item.index}. ${escapeHtml(item.question)}</span>
                     <button
                       type="button"
                       class="copy-question-button"
-                      data-copy-text="${escapeHtmlAttribute(question)}"
-                      aria-label="Copy refinement question ${index + 1}">${renderCopyQuestionIcon()}</button>
+                      data-copy-text="${escapeHtmlAttribute(item.question)}"
+                      aria-label="Copy question ${item.index}">${renderCopyQuestionIcon()}</button>
                   </span>
                   <textarea
-                    class="clarification-answer"
-                    data-refinement-question-answer
-                    data-index="${index + 1}"
+                    class="refinement-answer"
+                    data-refinement-answer
+                    data-index="${item.index}"
                     rows="3"
-                    placeholder="Write the answer and apply it back into the current spec via model."></textarea>
+                    placeholder="Write the answer that should remain persisted in us.md">${escapeHtml(item.answer ?? "")}</textarea>
                 </label>
               `).join("")}
             </div>
             <div class="detail-actions">
-              <button id="submit-refinement-questions" class="workflow-action-button workflow-action-button--progress" ${selectedPhase.isCurrent ? "" : "disabled"}>
-                Apply Answers via Model
+              <button id="submit-refinement-answers" class="workflow-action-button workflow-action-button--progress" ${selectedPhase.isCurrent ? "" : "disabled"}>
+                Submit Answers
               </button>
             </div>
           `
-          : "<p class=\"muted\">The artifact requests clarification, but no structured questions were detected.</p>"}
-      </section>
-    `
-    : "";
-
-  const phaseOperationSection = selectedPhase.phaseId === "refinement"
-    ? `
-      <section class="detail-card">
-        <h3>Operate Current Spec</h3>
-        <div class="phase-input-shell">
-          <p class="phase-input-copy">
-            Operate over the current spec without leaving the workflow. The prompt is recorded as an auditable operation with
-            source artifact, actor, UTC timestamp, and resulting spec version.
-          </p>
-          <label class="phase-input-label" for="phase-input-textarea">Operate Current Spec</label>
-          <textarea
-            id="phase-input-textarea"
-            class="phase-input-textarea"
-            rows="8"
-            placeholder="Describe the correction or adjustment to apply over the current spec. Example: the background color is not green, it is blue."
-            ${selectedPhase.isCurrent ? "" : "disabled"}></textarea>
-          <div class="detail-actions detail-actions--phase-input">
-            <button class="workflow-action-button workflow-action-button--document" data-command="openArtifact" data-path="${escapeHtmlAttribute(selectedPhase.operationLogPath ?? "")}" ${selectedPhase.operationLogPath ? "" : "disabled"}>Open Operation Log</button>
-            <button id="submit-phase-input" class="workflow-action-button workflow-action-button--progress" ${selectedPhase.isCurrent ? "" : "disabled"}>Apply via Model</button>
-          </div>
-          ${state.selectedOperationContent
-            ? `<div class="phase-input-log"><div class="phase-input-log__header">Current operation log</div><pre class="artifact-preview">${escapeHtml(state.selectedOperationContent)}</pre></div>`
-            : "<p class=\"muted\">No model-assisted operations have been recorded for this spec yet.</p>"}
-        </div>
-      </section>
+      : "<p class=\"muted\">No refinement questions are currently registered for this user story.</p>"}
+        ${refinementSuggestionsSection}
+      </div>
     `
     : "";
 
   return {
-    beforeArtifact: [
-      ...(approvalBranchSection ? [approvalBranchSection] : []),
-      ...(refinementClarificationSection ? [refinementClarificationSection] : []),
-      ...(refinementApprovalQuestionsSection ? [refinementApprovalQuestionsSection] : [])
-    ],
-    afterArtifact: phaseOperationSection ? [phaseOperationSection] : []
+    beforeArtifact: [],
+    afterArtifact: refinementSection
+      ? [
+          `
+            <section class="detail-card">
+              <h3>Refinement</h3>
+              ${refinementSection}
+            </section>
+          `
+        ]
+      : []
   };
 }
 

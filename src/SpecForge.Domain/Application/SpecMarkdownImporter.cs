@@ -2,12 +2,12 @@ using SpecForge.Domain.Workflow;
 
 namespace SpecForge.Domain.Application;
 
-internal static class RefinementSpecMarkdownImporter
+internal static class SpecMarkdownImporter
 {
-    public static RefinementSpecDocument Import(string markdown)
+    public static SpecDocument Import(string markdown)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(markdown);
-        return new RefinementSpecDocument(
+        return new SpecDocument(
             Title: MarkdownHelper.ReadHeading(markdown, "Spec"),
             HistoryLog: ReadBulletSection(markdown, "## History Log"),
             State: ParseStateLine(markdown, "State"),
@@ -64,7 +64,7 @@ internal static class RefinementSpecMarkdownImporter
         return string.Empty;
     }
 
-    private static IReadOnlyList<RefinementApprovalQuestionDocument> ReadApprovalQuestions(string markdown)
+    private static IReadOnlyList<SpecApprovalQuestionDocument> ReadApprovalQuestions(string markdown)
     {
         var content = MarkdownHelper.TryReadSection(markdown, "## Human Approval Questions");
         if (string.IsNullOrWhiteSpace(content))
@@ -72,8 +72,8 @@ internal static class RefinementSpecMarkdownImporter
             return [];
         }
 
-        var items = new List<RefinementApprovalQuestionDocument>();
-        RefinementApprovalQuestionDocument? pending = null;
+        var items = new List<SpecApprovalQuestionDocument>();
+        SpecApprovalQuestionDocument? pending = null;
         foreach (var rawLine in content.Split('\n'))
         {
             var trimmed = rawLine.Trim();
@@ -114,7 +114,7 @@ internal static class RefinementSpecMarkdownImporter
                 continue;
             }
 
-            pending = new RefinementApprovalQuestionDocument(parsed.Value.Question, parsed.Value.Resolved ? "resolved" : "pending", null, null, null);
+            pending = new SpecApprovalQuestionDocument(parsed.Value.Question, parsed.Value.Resolved ? "resolved" : "pending", null, null, null);
             items.Add(pending);
         }
 

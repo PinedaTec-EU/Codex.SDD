@@ -65,8 +65,8 @@ const repoPromptsStatus_1 = require("./repoPromptsStatus");
 const backendClients = new Map();
 const pendingBackendClientResets = new Set();
 const REGRESSION_TARGETS = {
-    review: ["implementation", "technical-design", "refinement"],
-    "release-approval": ["implementation", "technical-design", "refinement"]
+    review: ["implementation", "technical-design", "spec"],
+    "release-approval": ["implementation", "technical-design", "spec"]
 };
 const USER_STORY_KINDS = ["feature", "bug", "hotfix"];
 let backendHostRoot;
@@ -323,7 +323,7 @@ async function approveCurrentPhase(summary) {
         return;
     }
     let baseBranch;
-    if (summary.currentPhase === "refinement") {
+    if (summary.currentPhase === "spec") {
         baseBranch = await vscode.window.showInputBox({
             prompt: "Base branch used to create the work branch",
             value: "main",

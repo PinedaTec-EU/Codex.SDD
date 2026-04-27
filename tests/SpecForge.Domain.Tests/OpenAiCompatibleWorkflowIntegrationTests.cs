@@ -16,7 +16,7 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
     private readonly string workspaceRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
 
     [Fact]
-    public async Task GenerateNextPhaseAsync_TransitionsFromCaptureToClarificationThenRefinement_ThroughHttpModelStub()
+    public async Task GenerateNextPhaseAsync_TransitionsFromCaptureToRefinementThenSpec_ThroughHttpModelStub()
     {
         await new RepositoryPromptInitializer().InitializeAsync(workspaceRoot);
 
@@ -25,7 +25,7 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             """
             {
               "state": "pending_user_input",
-              "decision": "needs_clarification",
+              "decision": "needs_refinement",
               "reason": "The story does not identify who publishes the article or how bilingual content is selected.",
               "questions": [
                 "Which role publishes the article?",
@@ -36,8 +36,8 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             """
             {
               "state": "ready",
-              "decision": "ready_for_refinement",
-              "reason": "The current user story and clarification answers are concrete enough to proceed to refinement.",
+              "decision": "ready_for_spec",
+              "reason": "The current user story and refinement answers are concrete enough to proceed to spec.",
               "questions": []
             }
             """,
@@ -45,10 +45,10 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             {
               "title": "Persist LinkedIn bilingual article rendering",
               "historyLog": [
-                "`2026-04-22T12:09:02Z` · Initial refinement baseline generated."
+                "`2026-04-22T12:09:02Z` · Initial spec baseline generated."
               ],
               "state": "pending_approval",
-              "basedOn": "clarification.md",
+              "basedOn": "refinement.md",
               "specSummary": "Persist LinkedIn article content in `articles.json` and render both Spanish and English variants.",
               "inputs": [
                 "Marketing editors publish bilingual article content."
@@ -95,7 +95,7 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(),
             new OpenAiCompatibleProviderOptions(
-                ClarificationTolerance: "inferential",
+                RefinementTolerance: "inferential",
                 ModelProfiles:
                 [
                     new OpenAiCompatibleModelProfile(
@@ -124,25 +124,25 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             "workflow",
             "Como editor quiero publicar un articulo bilingue en LinkedIn para mostrarlo en la landing.");
 
-        var clarificationResult = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
-        Assert.Equal("clarification", clarificationResult.CurrentPhase);
-        Assert.Equal("waiting-user", clarificationResult.Status);
+        var refinementResult = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
+        Assert.Equal("refinement", refinementResult.CurrentPhase);
+        Assert.Equal("waiting-user", refinementResult.Status);
 
-        var clarificationWorkflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
-        Assert.Equal("clarification", clarificationWorkflow.CurrentPhase);
-        Assert.Equal("waiting-user", clarificationWorkflow.Status);
-        Assert.NotNull(clarificationWorkflow.Clarification);
-        Assert.Equal("needs_clarification", clarificationWorkflow.Clarification!.Status);
-        Assert.Equal(2, clarificationWorkflow.Clarification.Items.Count);
-        Assert.Contains(clarificationWorkflow.Phases, phase => phase.PhaseId == "clarification" && phase.IsCurrent && phase.State == "current");
-        Assert.Contains(clarificationWorkflow.Events, timelineEvent => timelineEvent.Code == "clarification_requested");
-        Assert.Contains(clarificationWorkflow.Events, timelineEvent =>
-            timelineEvent.Code == "clarification_requested"
+        var refinementWorkflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
+        Assert.Equal("refinement", refinementWorkflow.CurrentPhase);
+        Assert.Equal("waiting-user", refinementWorkflow.Status);
+        Assert.NotNull(refinementWorkflow.Refinement);
+        Assert.Equal("needs_refinement", refinementWorkflow.Refinement!.Status);
+        Assert.Equal(2, refinementWorkflow.Refinement.Items.Count);
+        Assert.Contains(refinementWorkflow.Phases, phase => phase.PhaseId == "refinement" && phase.IsCurrent && phase.State == "current");
+        Assert.Contains(refinementWorkflow.Events, timelineEvent => timelineEvent.Code == "refinement_requested");
+        Assert.Contains(refinementWorkflow.Events, timelineEvent =>
+            timelineEvent.Code == "refinement_requested"
             && timelineEvent.Actor == "user"
             && timelineEvent.Execution is not null
             && timelineEvent.Execution.Model == "stub-model");
 
-        await applicationService.SubmitClarificationAnswersAsync(
+        await applicationService.SubmitRefinementAnswersAsync(
             workspaceRoot,
             "US-0001",
             [
@@ -150,21 +150,21 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
                 "La landing selecciona el idioma por locale (`es` o `en`) en la ruta."
             ]);
 
-        var refinementResult = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
-        Assert.Equal("refinement", refinementResult.CurrentPhase);
-        Assert.Equal("waiting-user", refinementResult.Status);
-        Assert.NotNull(refinementResult.GeneratedArtifactPath);
-        Assert.EndsWith("01-spec.md", refinementResult.GeneratedArtifactPath, StringComparison.Ordinal);
+        var specResult = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
+        Assert.Equal("spec", specResult.CurrentPhase);
+        Assert.Equal("waiting-user", specResult.Status);
+        Assert.NotNull(specResult.GeneratedArtifactPath);
+        Assert.EndsWith("01-spec.md", specResult.GeneratedArtifactPath, StringComparison.Ordinal);
 
-        var refinementWorkflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
-        Assert.Equal("refinement", refinementWorkflow.CurrentPhase);
-        Assert.Equal("waiting-user", refinementWorkflow.Status);
-        Assert.NotNull(refinementWorkflow.Clarification);
-        Assert.Equal("ready_for_refinement", refinementWorkflow.Clarification!.Status);
-        Assert.Contains(refinementWorkflow.Phases, phase => phase.PhaseId == "clarification" && phase.State == "completed");
-        Assert.Contains(refinementWorkflow.Phases, phase => phase.PhaseId == "refinement" && phase.IsCurrent && phase.State == "current");
-        Assert.Contains(refinementWorkflow.Events, timelineEvent => timelineEvent.Code == "clarification_passed");
-        Assert.Contains(refinementWorkflow.Events, timelineEvent => timelineEvent.Code == "phase_completed" && timelineEvent.Phase == "refinement");
+        var specWorkflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
+        Assert.Equal("spec", specWorkflow.CurrentPhase);
+        Assert.Equal("waiting-user", specWorkflow.Status);
+        Assert.NotNull(specWorkflow.Refinement);
+        Assert.Equal("ready_for_spec", specWorkflow.Refinement!.Status);
+        Assert.Contains(specWorkflow.Phases, phase => phase.PhaseId == "refinement" && phase.State == "completed");
+        Assert.Contains(specWorkflow.Phases, phase => phase.PhaseId == "spec" && phase.IsCurrent && phase.State == "current");
+        Assert.Contains(specWorkflow.Events, timelineEvent => timelineEvent.Code == "refinement_passed");
+        Assert.Contains(specWorkflow.Events, timelineEvent => timelineEvent.Code == "phase_completed" && timelineEvent.Phase == "spec");
 
         Assert.Equal(3, modelStub.Requests.Count);
         Assert.All(modelStub.Requests, request => Assert.Equal("/v1/chat/completions", request.Path));
@@ -172,21 +172,21 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Equal(0.4d, OpenAiCompatibleRequestJson.ReadTemperature(modelStub.Requests[1].Body));
         Assert.Equal(0.2d, OpenAiCompatibleRequestJson.ReadTemperature(modelStub.Requests[2].Body));
         Assert.Equal("json_schema", OpenAiCompatibleRequestJson.ReadResponseFormatType(modelStub.Requests[0].Body));
-        Assert.Equal("clarification_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[0].Body));
-        Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[2].Body));
-        Assert.Contains("Role: clarification analyst.", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[0].Body));
-        Assert.Contains("- Phase: `Clarification`", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[0].Body));
+        Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[0].Body));
+        Assert.Equal("spec_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[2].Body));
+        Assert.Contains("Role: refinement analyst.", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[0].Body));
+        Assert.Contains("- Phase: `Refinement`", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[0].Body));
         Assert.Contains("Active tolerance: `inferential`", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[0].Body));
-        Assert.Contains("Role: clarification analyst.", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[1].Body));
-        Assert.Contains("- Phase: `Clarification`", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[1].Body));
-        Assert.Contains("Role: refinement analyst.", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[2].Body));
-        Assert.Contains("- Phase: `Refinement`", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[2].Body));
-        Assert.Contains("## Clarification Log", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[1].Body));
+        Assert.Contains("Role: refinement analyst.", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[1].Body));
+        Assert.Contains("- Phase: `Refinement`", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[1].Body));
+        Assert.Contains("Role: spec analyst.", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[2].Body));
+        Assert.Contains("- Phase: `Spec`", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[2].Body));
+        Assert.Contains("## Refinement Log", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[1].Body));
         Assert.Contains("El editor de marketing publica el articulo.", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[1].Body));
     }
 
     [Fact]
-    public async Task GenerateNextPhaseAsync_AutoClarificationAnswers_ContinuesToRefinementWithSelectedProfile()
+    public async Task GenerateNextPhaseAsync_AutoRefinementAnswers_ContinuesToSpecWithSelectedProfile()
     {
         await new RepositoryPromptInitializer().InitializeAsync(workspaceRoot);
 
@@ -195,7 +195,7 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             """
             {
               "state": "pending_user_input",
-              "decision": "needs_clarification",
+              "decision": "needs_refinement",
               "reason": "The story does not identify who publishes the article.",
               "questions": [
                 "Which role publishes the article?"
@@ -214,8 +214,8 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             """
             {
               "state": "ready",
-              "decision": "ready_for_refinement",
-              "reason": "The current user story and clarification answers are concrete enough to proceed to refinement.",
+              "decision": "ready_for_spec",
+              "reason": "The current user story and refinement answers are concrete enough to proceed to spec.",
               "questions": []
             }
             """,
@@ -223,10 +223,10 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             {
               "title": "Persist LinkedIn bilingual article rendering",
               "historyLog": [
-                "`2026-04-22T12:09:02Z` · Initial refinement baseline generated."
+                "`2026-04-22T12:09:02Z` · Initial spec baseline generated."
               ],
               "state": "pending_approval",
-              "basedOn": "clarification.md",
+              "basedOn": "refinement.md",
               "specSummary": "Persist LinkedIn article content in `articles.json` and render both Spanish and English variants.",
               "inputs": [
                 "Marketing editors publish bilingual article content."
@@ -273,9 +273,9 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(),
             new OpenAiCompatibleProviderOptions(
-                ClarificationTolerance: "balanced",
-                AutoClarificationAnswersEnabled: true,
-                AutoClarificationAnswersProfile: "resolver",
+                RefinementTolerance: "balanced",
+                AutoRefinementAnswersEnabled: true,
+                AutoRefinementAnswersProfile: "resolver",
                 ModelProfiles:
                 [
                     new OpenAiCompatibleModelProfile(
@@ -312,24 +312,24 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
 
         var result = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
 
-        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("spec", result.CurrentPhase);
         Assert.Equal("waiting-user", result.Status);
         Assert.NotNull(result.GeneratedArtifactPath);
 
         var workflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
-        Assert.Equal("refinement", workflow.CurrentPhase);
-        Assert.Contains(workflow.Events, eventItem => eventItem.Code == "clarification_auto_answered");
+        Assert.Equal("spec", workflow.CurrentPhase);
+        Assert.Contains(workflow.Events, eventItem => eventItem.Code == "refinement_auto_answered");
         Assert.Contains(workflow.Events, eventItem =>
-            eventItem.Code == "clarification_auto_answered"
+            eventItem.Code == "refinement_auto_answered"
             && eventItem.Execution is not null
             && eventItem.Execution.ProfileName == "resolver"
             && eventItem.Execution.Model == "stub-resolver");
 
         Assert.Equal(4, modelStub.Requests.Count);
-        Assert.Equal("clarification_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[0].Body));
-        Assert.Equal("auto_clarification_answers", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[1].Body));
-        Assert.Equal("clarification_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[2].Body));
-        Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[3].Body));
+        Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[0].Body));
+        Assert.Equal("auto_refinement_answers", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[1].Body));
+        Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[2].Body));
+        Assert.Equal("spec_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[3].Body));
         Assert.Contains("\"model\":\"stub-resolver\"", modelStub.Requests[1].Body);
     }
 
@@ -343,7 +343,7 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             """
             {
               "state": "pending_user_input",
-              "decision": "needs_clarification",
+              "decision": "needs_refinement",
               "reason": "The story does not identify who configures suite agent sampling or where limits are enforced.",
               "questions": [
                 "Which role configures the sampling controls?"
@@ -362,8 +362,8 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             """
             {
               "state": "ready",
-              "decision": "ready_for_refinement",
-              "reason": "The story and inferred clarification answer are concrete enough to proceed.",
+              "decision": "ready_for_spec",
+              "reason": "The story and inferred refinement answer are concrete enough to proceed.",
               "questions": []
             }
             """,
@@ -371,10 +371,10 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             {
               "title": "Control suite agent sampling",
               "historyLog": [
-                "`2026-04-23T12:00:00Z` · Initial refinement baseline generated."
+                "`2026-04-23T12:00:00Z` · Initial spec baseline generated."
               ],
               "state": "pending_approval",
-              "basedOn": "clarification.md",
+              "basedOn": "refinement.md",
               "specSummary": "Allow a suite administrator to configure bounded agent sampling defaults and validation rules.",
               "inputs": [
                 "Suite administrator updates sampling settings."
@@ -526,9 +526,9 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(),
             new OpenAiCompatibleProviderOptions(
-                ClarificationTolerance: "balanced",
-                AutoClarificationAnswersEnabled: true,
-                AutoClarificationAnswersProfile: "resolver",
+                RefinementTolerance: "balanced",
+                AutoRefinementAnswersEnabled: true,
+                AutoRefinementAnswersProfile: "resolver",
                 ModelProfiles:
                 [
                     new OpenAiCompatibleModelProfile(
@@ -563,9 +563,9 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             "workflow",
             "Como administrador quiero configurar controles de sampling para los agentes de una suite y asegurar que solo se persistan valores validos.");
 
-        var refinementResult = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
-        Assert.Equal("refinement", refinementResult.CurrentPhase);
-        Assert.Equal("waiting-user", refinementResult.Status);
+        var specResult = await applicationService.GenerateNextPhaseAsync(workspaceRoot, "US-0001");
+        Assert.Equal("spec", specResult.CurrentPhase);
+        Assert.Equal("waiting-user", specResult.Status);
 
         await ResolvePendingApprovalQuestionsAsync(applicationService, "US-0001");
         await applicationService.ApprovePhaseAsync(workspaceRoot, "US-0001", "main");
@@ -590,7 +590,7 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Equal("release-approval", workflow.CurrentPhase);
         Assert.Equal("waiting-user", workflow.Status);
         Assert.Contains(workflow.Events, eventItem =>
-            eventItem.Code == "clarification_auto_answered"
+            eventItem.Code == "refinement_auto_answered"
             && eventItem.Execution is not null
             && eventItem.Execution.ProfileName == "resolver");
         Assert.Contains(workflow.Events, eventItem => eventItem.Code == "phase_completed" && eventItem.Phase == "technical-design");
@@ -607,10 +607,10 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Equal(8, modelStub.Requests.Count);
         Assert.Equal(
             [
-                "clarification_artifact",
-                "auto_clarification_answers",
-                "clarification_artifact",
                 "refinement_artifact",
+                "auto_refinement_answers",
+                "refinement_artifact",
+                "spec_artifact",
                 "technical_design_artifact",
                 "implementation_artifact",
                 "review_artifact",

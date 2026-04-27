@@ -105,7 +105,7 @@ class WorkflowPanelController {
     transientCompletedPhaseIds = [];
     pendingRewindPhaseId = null;
     pausedPhaseIds = new Set();
-    refinementApprovalBaseBranchProposal = "main";
+    specApprovalBaseBranchProposal = "main";
     lastRenderedViewState = null;
     constructor(workspaceRoot, summary, getBackendClient, callbacks) {
         this.workspaceRoot = workspaceRoot;
@@ -286,8 +286,8 @@ class WorkflowPanelController {
             case "rewind":
                 await this.rewindWorkflowAsync(message.phaseId, message.iterationKey);
                 return;
-            case "submitClarificationAnswers":
-                await this.submitClarificationAnswersAsync(message.answers ?? []);
+            case "submitRefinementAnswers":
+                await this.submitRefinementAnswersAsync(message.answers ?? []);
                 return;
             case "submitApprovalAnswer":
                 if (message.question && message.answer) {
@@ -432,16 +432,16 @@ class WorkflowPanelController {
             logMessage: `Autoplay requested from ${sourceLabel} for '${this.summary.usId}' at phase '${workflow.currentPhase}'.`
         };
     }
-    async submitClarificationAnswersAsync(answers) {
-        await this.materializePendingRewindAsync("clarification answers");
-        await this.getBackendClient().submitClarificationAnswers(this.summary.usId, answers, (0, userActor_1.getCurrentActor)());
-        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' stored ${answers.length} clarification answer(s).`);
+    async submitRefinementAnswersAsync(answers) {
+        await this.materializePendingRewindAsync("refinement answers");
+        await this.getBackendClient().submitRefinementAnswers(this.summary.usId, answers, (0, userActor_1.getCurrentActor)());
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' stored ${answers.length} refinement answer(s).`);
         this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
         this.clearTransientExecutionPhase();
-        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' submitClarificationAnswersAsync requested explorer refresh.`);
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' submitRefinementAnswersAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
-        await this.refreshAsync("submitClarificationAnswersAsync");
-        await this.maybeAutoPlayAfterManualContinuationAsync("clarification answers");
+        await this.refreshAsync("submitRefinementAnswersAsync");
+        await this.maybeAutoPlayAfterManualContinuationAsync("refinement answers");
     }
     async submitPhaseInputAsync(prompt) {
         const normalizedPrompt = prompt.trim();
@@ -678,11 +678,11 @@ class WorkflowPanelController {
         await this.materializePendingRewindAsync("approval");
         const approvedPhase = this.summary.currentPhase;
         await this.focusPhaseForAction(this.summary.currentPhase, "approveCurrentPhaseAsync:focus");
-        const normalizedBaseBranch = this.summary.currentPhase === "refinement"
-            ? (baseBranch?.trim() || this.refinementApprovalBaseBranchProposal)
+        const normalizedBaseBranch = this.summary.currentPhase === "spec"
+            ? (baseBranch?.trim() || this.specApprovalBaseBranchProposal)
             : undefined;
-        const normalizedWorkBranch = this.summary.currentPhase === "refinement"
-            ? (workBranch?.trim() || this.buildRefinementApprovalWorkBranchProposal(this.lastWorkflow))
+        const normalizedWorkBranch = this.summary.currentPhase === "spec"
+            ? (workBranch?.trim() || this.buildSpecApprovalWorkBranchProposal(this.lastWorkflow))
             : undefined;
         this.summary = await this.getBackendClient().approveCurrentPhase(this.summary.usId, normalizedBaseBranch, normalizedWorkBranch, (0, userActor_1.getCurrentActor)());
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' approved phase '${this.summary.currentPhase}' with base='${normalizedBaseBranch ?? "(none)"}' and work='${normalizedWorkBranch ?? "(none)"}'.`);
@@ -1102,7 +1102,7 @@ class WorkflowPanelController {
         if (!settingsStatus.executionConfigured) {
             (0, outputChannel_1.appendSpecForgeLog)(`Workflow settings warning for '${this.workspaceRoot}' (${workflow.usId}): ${settingsStatus.message}. Diagnostics: ${settingsStatus.diagnostics}`);
         }
-        const contextSuggestions = settings.contextSuggestionsEnabled && workflow.currentPhase === "clarification"
+        const contextSuggestions = settings.contextSuggestionsEnabled && workflow.currentPhase === "refinement"
             ? await (0, contextSuggestions_1.suggestContextFiles)(this.workspaceRoot, workflow, sourceText)
             : [];
         const runtimeVersion = await (0, runtimeVersion_1.readRuntimeVersionAsync)();
@@ -1134,8 +1134,8 @@ class WorkflowPanelController {
             maxImplementationReviewCycles: settings.maxImplementationReviewCycles,
             completedUsLockOnCompleted: settings.completedUsLockOnCompleted,
             debugMode: (0, outputChannel_1.isSpecForgeDebugLoggingEnabled)(),
-            approvalBaseBranchProposal: this.refinementApprovalBaseBranchProposal,
-            approvalWorkBranchProposal: this.buildRefinementApprovalWorkBranchProposal(workflow),
+            approvalBaseBranchProposal: this.specApprovalBaseBranchProposal,
+            approvalWorkBranchProposal: this.buildSpecApprovalWorkBranchProposal(workflow),
             requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance
         };
         this.panel.title = `${workflow.usId} workflow`;
@@ -1146,7 +1146,7 @@ class WorkflowPanelController {
         }
         return contextSuggestions.length;
     }
-    buildRefinementApprovalWorkBranchProposal(workflow) {
+    buildSpecApprovalWorkBranchProposal(workflow) {
         if (workflow?.workBranch?.trim()) {
             return workflow.workBranch.trim();
         }
@@ -1181,14 +1181,14 @@ class WorkflowPanelController {
     }
     deriveExecutionPhaseFromWatchedPath(filePath) {
         const normalizedPath = filePath.replace(/\\/g, "/");
-        // clarification.md is the input to refinement: when it changes (human answered questions),
-        // drive the UI progress indicator to "refinement" rather than "clarification".
-        if (normalizedPath.endsWith("/clarification.md") || normalizedPath.endsWith("/phases/00-clarification.md")) {
-            return "refinement";
+        // refinement.md is the input to spec: when it changes (human answered questions),
+        // drive the UI progress indicator to "spec" rather than "refinement".
+        if (normalizedPath.endsWith("/refinement.md") || normalizedPath.endsWith("/phases/00-refinement.md")) {
+            return "spec";
         }
-        // 01-spec.md / 01-refinement.md are the refinement artifact; show refinement as the active phase.
-        if (normalizedPath.endsWith("/phases/01-spec.md") || normalizedPath.endsWith("/phases/01-refinement.md")) {
-            return "refinement";
+        // 01-spec.md / 01-spec.md are the spec artifact; show spec as the active phase.
+        if (normalizedPath.endsWith("/phases/01-spec.md") || normalizedPath.endsWith("/phases/01-spec.md")) {
+            return "spec";
         }
         return null;
     }
@@ -1224,7 +1224,7 @@ class WorkflowPanelController {
             ...this.summary,
             currentPhase: result.currentPhase,
             status: result.status,
-            workBranch: destructiveRewindEnabled && (result.currentPhase === "clarification" || result.currentPhase === "refinement")
+            workBranch: destructiveRewindEnabled && (result.currentPhase === "refinement" || result.currentPhase === "spec")
                 ? null
                 : this.summary.workBranch
         };
@@ -1238,7 +1238,7 @@ class WorkflowPanelController {
         await this.callbacks.refreshExplorer();
     }
     computeCompletedPhaseIds(executionPhaseId) {
-        const phaseOrder = ["capture", "clarification", "refinement", "technical-design", "implementation", "review", "release-approval", "pr-preparation"];
+        const phaseOrder = ["capture", "refinement", "spec", "technical-design", "implementation", "review", "release-approval", "pr-preparation"];
         const executionPhaseIndex = phaseOrder.indexOf(executionPhaseId);
         if (executionPhaseIndex <= 0) {
             return [];

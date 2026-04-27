@@ -17,8 +17,8 @@ Define the minimum MCP backend interface required to execute the canonical phase
 - all user-story identifiers use `usId`
 - phases use these canonical ids:
   - `capture`
-  - `clarification`
   - `refinement`
+  - `spec`
   - `technical-design`
   - `implementation`
   - `review`
@@ -35,8 +35,8 @@ Define the minimum MCP backend interface required to execute the canonical phase
 ```yaml
 usId: US-0001
 status: waiting-user
-currentPhase: clarification
-blockingReason: clarification_pending_answers
+currentPhase: refinement
+blockingReason: refinement_pending_answers
 ```
 
 ## Minimum Tools
@@ -119,7 +119,7 @@ items:
     title: Create SDD foundation for SpecForge
     category: workflow
     status: waiting-user
-    currentPhase: clarification
+    currentPhase: refinement
     directoryPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001
     mainArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/us.md
     workBranch: null
@@ -143,7 +143,7 @@ Minimum output:
 ```yaml
 usId: US-0001
 status: waiting-user
-currentPhase: clarification
+currentPhase: refinement
 category: workflow
 directoryPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001
 mainArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/us.md
@@ -154,7 +154,7 @@ workBranch: null
 
 Purpose:
 
-- retrieve the workflow DTO used by the extension, including phases, controls, clarification state, audit trail, and attached files
+- retrieve the workflow DTO used by the extension, including phases, controls, refinement state, audit trail, and attached files
 
 Minimum input:
 
@@ -168,7 +168,7 @@ Minimum output:
 ```yaml
 usId: US-0001
 status: waiting-user
-currentPhase: clarification
+currentPhase: refinement
 directoryPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001
 mainArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/us.md
 timelinePath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/timeline.md
@@ -176,11 +176,11 @@ controls:
   canContinue: false
   canApprove: false
   requiresApproval: false
-  blockingReason: clarification_pending_answers
+  blockingReason: refinement_pending_answers
   canRestartFromSource: true
   regressionTargets: []
   rewindTargets: []
-clarification:
+refinement:
   status: waiting-user
   tolerance: balanced
   reason: missing_required_detail
@@ -213,12 +213,12 @@ Minimum output:
 
 ```yaml
 usId: US-0001
-currentPhase: clarification
+currentPhase: refinement
 status: waiting-user
 canAdvance: false
 canApprove: false
 requiresApproval: false
-blockingReason: clarification_pending_answers
+blockingReason: refinement_pending_answers
 ```
 
 Business errors:
@@ -278,8 +278,8 @@ Minimum output:
 ```yaml
 usId: US-0001
 status: waiting-user
-currentPhase: clarification
-generatedArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/00-clarification.md
+currentPhase: refinement
+generatedArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/00-refinement.md
 usage:
   inputTokens: 0
   outputTokens: 0
@@ -313,7 +313,7 @@ baseBranch: main
 
 Notes:
 
-- `baseBranch` is required when approving `refinement`, because that is when the work branch is created
+- `baseBranch` is required when approving `spec`, because that is when the work branch is created
 - for other checkpoints `baseBranch` is optional or not applicable
 - in phase 1, branch creation is integrated into this operation and is not exposed as a separate tool
 - this operation marks the current phase as approved but does not itself advance to the next phase
@@ -327,7 +327,7 @@ title: Create SDD foundation for SpecForge
 category: workflow
 directoryPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001
 mainArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/us.md
-currentPhase: refinement
+currentPhase: spec
 workBranch: feature/us-0001-specforge-foundation
 ```
 
@@ -381,7 +381,7 @@ Minimum input:
 workspaceRoot: /repo/SpecForge.AI
 usId: US-0001
 actor: alice
-reason: The user story changed after refinement started
+reason: The user story changed after spec started
 ```
 
 Minimum output:
@@ -389,8 +389,8 @@ Minimum output:
 ```yaml
 usId: US-0001
 status: waiting-user
-currentPhase: clarification
-generatedArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/00-clarification.md
+currentPhase: refinement
+generatedArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/00-refinement.md
 ```
 
 Business errors:
@@ -409,7 +409,7 @@ Minimum input:
 ```yaml
 workspaceRoot: /repo/SpecForge.AI
 usId: US-0001
-targetPhase: refinement
+targetPhase: spec
 actor: alice
 destructive: false
 ```
@@ -419,7 +419,7 @@ Minimum output:
 ```yaml
 usId: US-0001
 status: waiting-user
-currentPhase: refinement
+currentPhase: spec
 deletedPaths: []
 preservedPaths:
   - /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/02-technical-design.md
@@ -450,8 +450,8 @@ usId: US-0001
 status: active
 currentPhase: capture
 deletedPaths:
-  - /repo/SpecForge.AI/.specs/us/workflow/US-0001/clarification.md
-  - /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/00-clarification.md
+  - /repo/SpecForge.AI/.specs/us/workflow/US-0001/refinement.md
+  - /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/00-refinement.md
 preservedPaths:
   - /repo/SpecForge.AI/.specs/us/workflow/US-0001/us.md
   - /repo/SpecForge.AI/.specs/us/workflow/US-0001/state.yaml
@@ -461,11 +461,11 @@ Business errors:
 
 - `us_not_found`
 
-### `submit_clarification_answers`
+### `submit_refinement_answers`
 
 Purpose:
 
-- persist ordered answers for the current clarification session so the workflow can continue from `clarification`
+- persist ordered answers for the current refinement session so the workflow can continue from `refinement`
 
 Minimum input:
 
@@ -493,7 +493,7 @@ Business errors:
 
 Purpose:
 
-- persist a human answer into the current refinement approval questions without invoking a model run
+- persist a human answer into the current spec approval questions without invoking a model run
 
 Minimum input:
 
@@ -510,7 +510,7 @@ Minimum output:
 ```yaml
 usId: US-0001
 status: waiting-user
-currentPhase: refinement
+currentPhase: spec
 generatedArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/01-spec.v02.md
 ```
 
@@ -541,7 +541,7 @@ Minimum output:
 ```yaml
 usId: US-0001
 status: waiting-user
-currentPhase: refinement
+currentPhase: spec
 operationLogPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/01-spec.ops.md
 sourceArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/01-spec.md
 generatedArtifactPath: /repo/SpecForge.AI/.specs/us/workflow/US-0001/phases/01-spec.v02.md

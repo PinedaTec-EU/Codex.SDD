@@ -16,12 +16,12 @@ internal sealed class RepositoryPromptCatalog
             paths.SharedSystemPromptPath,
             paths.SharedStylePromptPath,
             paths.SharedOutputRulesPromptPath,
-            paths.ClarificationExecuteSystemPromptPath,
-            paths.ClarificationExecutePromptPath,
             paths.RefinementExecuteSystemPromptPath,
             paths.RefinementExecutePromptPath,
-            paths.RefinementApproveSystemPromptPath,
-            paths.RefinementApprovePromptPath,
+            paths.SpecExecuteSystemPromptPath,
+            paths.SpecExecutePromptPath,
+            paths.SpecApproveSystemPromptPath,
+            paths.SpecApprovePromptPath,
             paths.TechnicalDesignExecuteSystemPromptPath,
             paths.TechnicalDesignExecutePromptPath,
             paths.ImplementationExecuteSystemPromptPath,
@@ -33,7 +33,7 @@ internal sealed class RepositoryPromptCatalog
             paths.ReleaseApprovalApproveSystemPromptPath,
             paths.PrPreparationExecuteSystemPromptPath,
             paths.PrPreparationExecutePromptPath,
-            paths.AutoClarificationAnswersSystemPromptPath,
+            paths.AutoRefinementAnswersSystemPromptPath,
             paths.ReleaseApprovalApprovePromptPath
         };
 
@@ -53,8 +53,8 @@ internal sealed class RepositoryPromptCatalog
 
         return phaseId switch
         {
-            PhaseId.Clarification => paths.ClarificationExecutePromptPath,
             PhaseId.Refinement => paths.RefinementExecutePromptPath,
+            PhaseId.Spec => paths.SpecExecutePromptPath,
             PhaseId.TechnicalDesign => paths.TechnicalDesignExecutePromptPath,
             PhaseId.Implementation => paths.ImplementationExecutePromptPath,
             PhaseId.Review => paths.ReviewExecutePromptPath,
@@ -70,8 +70,8 @@ internal sealed class RepositoryPromptCatalog
 
         return phaseId switch
         {
-            PhaseId.Clarification => paths.ClarificationExecuteSystemPromptPath,
             PhaseId.Refinement => paths.RefinementExecuteSystemPromptPath,
+            PhaseId.Spec => paths.SpecExecuteSystemPromptPath,
             PhaseId.TechnicalDesign => paths.TechnicalDesignExecuteSystemPromptPath,
             PhaseId.Implementation => paths.ImplementationExecuteSystemPromptPath,
             PhaseId.Review => paths.ReviewExecuteSystemPromptPath,
@@ -87,7 +87,7 @@ internal sealed class RepositoryPromptCatalog
 
         return phaseId switch
         {
-            PhaseId.Refinement => paths.RefinementApprovePromptPath,
+            PhaseId.Spec => paths.SpecApprovePromptPath,
             PhaseId.ReleaseApproval => paths.ReleaseApprovalApprovePromptPath,
             _ => throw new InvalidOperationException($"Phase '{phaseId}' does not have an approve prompt.")
         };
@@ -99,7 +99,7 @@ internal sealed class RepositoryPromptCatalog
 
         return phaseId switch
         {
-            PhaseId.Refinement => paths.RefinementApproveSystemPromptPath,
+            PhaseId.Spec => paths.SpecApproveSystemPromptPath,
             PhaseId.ReleaseApproval => paths.ReleaseApprovalApproveSystemPromptPath,
             _ => throw new InvalidOperationException($"Phase '{phaseId}' does not have an approve system prompt.")
         };

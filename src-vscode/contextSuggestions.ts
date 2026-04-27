@@ -125,8 +125,8 @@ function buildQueryTokens(workflow: UserStoryWorkflowDetails, sourceText: string
     workflow.category,
     workflow.currentPhase,
     workflow.status,
-    workflow.clarification?.reason ?? "",
-    ...((workflow.clarification?.items ?? []).map((item) => item.question)),
+    workflow.refinement?.reason ?? "",
+    ...((workflow.refinement?.items ?? []).map((item) => item.question)),
     sourceText
   ].join(" ");
 
@@ -290,7 +290,7 @@ function buildHeuristicReason(candidate: FileCandidate, tokens: readonly string[
     .slice(0, 3);
 
   if (matchedTokens.length > 0) {
-    return `Matches clarification keywords: ${matchedTokens.join(", ")}.`;
+    return `Matches refinement keywords: ${matchedTokens.join(", ")}.`;
   }
 
   return "Matches the current user story wording and likely implementation area.";

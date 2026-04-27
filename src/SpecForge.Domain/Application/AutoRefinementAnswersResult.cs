@@ -1,6 +1,6 @@
 namespace SpecForge.Domain.Application;
 
-public sealed record AutoClarificationAnswersResult(
+public sealed record AutoRefinementAnswersResult(
     bool CanResolve,
     IReadOnlyList<string?> Answers,
     string? Reason = null,

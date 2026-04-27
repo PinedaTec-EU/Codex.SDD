@@ -6,8 +6,8 @@ export { escapeHtml };
 
 const PHASES = [
   "capture",
-  "clarification",
   "refinement",
+  "spec",
   "technical-design",
   "implementation",
   "review",

@@ -174,8 +174,8 @@ class StdioMcpBackendClient {
             usId
         });
     }
-    async submitClarificationAnswers(usId, answers, actor) {
-        await this.callTool("submit_clarification_answers", {
+    async submitRefinementAnswers(usId, answers, actor) {
+        await this.callTool("submit_refinement_answers", {
             workspaceRoot: this.workspaceRoot,
             usId,
             answers,

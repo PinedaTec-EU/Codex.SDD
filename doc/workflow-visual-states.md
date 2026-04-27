@@ -8,7 +8,7 @@ Phase identity is shown by text and ordering, not by color.
 
 The current workflow UI already shows this state language clearly in practice.
 
-![Workflow overview with waiting-user refinement state](./images/workflow-overview.png)
+![Workflow overview with waiting-user spec state](./images/workflow-overview.png)
 
 The playback overlay keeps active execution in the same visual system instead of inventing a separate status surface.
 

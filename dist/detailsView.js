@@ -7,8 +7,8 @@ Object.defineProperty(exports, "escapeHtml", { enumerable: true, get: function (
 const webviewTypography_1 = require("./webviewTypography");
 const PHASES = [
     "capture",
-    "clarification",
     "refinement",
+    "spec",
     "technical-design",
     "implementation",
     "review",

@@ -26,11 +26,11 @@ public sealed class UserStoryFilePathsTests
     }
 
     [Fact]
-    public void GetPhaseArtifactPath_ForRefinement_UsesSpecArtifactName()
+    public void GetPhaseArtifactPath_ForSpec_UsesSpecArtifactName()
     {
         var paths = UserStoryFilePaths.FromWorkspaceRoot("/repo", "workflow", "US-0001");
 
-        var artifactPath = paths.GetPhaseArtifactPath(SpecForge.Domain.Workflow.PhaseId.Refinement);
+        var artifactPath = paths.GetPhaseArtifactPath(SpecForge.Domain.Workflow.PhaseId.Spec);
 
         Assert.Equal("/repo/.specs/us/workflow/US-0001/phases/01-spec.md", artifactPath);
     }

@@ -17,19 +17,19 @@ public static class StructuredPhaseArtifactContracts
     private static readonly IReadOnlyDictionary<PhaseId, StructuredPhaseArtifactContract> Contracts =
         new Dictionary<PhaseId, StructuredPhaseArtifactContract>
         {
-            [PhaseId.Clarification] = new(
-                SchemaName: "clarification_artifact",
-                JsonSchema: BuildClarificationSchema(),
-                NormalizeJsonContent: static content => ClarificationArtifactJson.Serialize(ClarificationArtifactJson.ParseCanonicalJson(content)),
-                NormalizeContent: static (context, content) => ClarificationArtifactJson.RenderMarkdown(
-                    ClarificationArtifactJson.ParseCanonicalJson(content),
-                    context.UsId,
-                    version: 1)),
             [PhaseId.Refinement] = new(
                 SchemaName: "refinement_artifact",
                 JsonSchema: BuildRefinementSchema(),
-                NormalizeJsonContent: static content => RefinementSpecJson.Serialize(RefinementSpecJson.ParseCanonicalJson(content)),
-                NormalizeContent: static (_, content) => RefinementSpecJson.Serialize(RefinementSpecJson.ParseCanonicalJson(content))),
+                NormalizeJsonContent: static content => RefinementArtifactJson.Serialize(RefinementArtifactJson.ParseCanonicalJson(content)),
+                NormalizeContent: static (context, content) => RefinementArtifactJson.RenderMarkdown(
+                    RefinementArtifactJson.ParseCanonicalJson(content),
+                    context.UsId,
+                    version: 1)),
+            [PhaseId.Spec] = new(
+                SchemaName: "spec_artifact",
+                JsonSchema: BuildSpecSchema(),
+                NormalizeJsonContent: static content => SpecJson.Serialize(SpecJson.ParseCanonicalJson(content)),
+                NormalizeContent: static (_, content) => SpecJson.Serialize(SpecJson.ParseCanonicalJson(content))),
             [PhaseId.TechnicalDesign] = new(
                 SchemaName: "technical_design_artifact",
                 JsonSchema: BuildTechnicalDesignSchema(),
@@ -75,18 +75,18 @@ public static class StructuredPhaseArtifactContracts
     public static bool TryGet(PhaseId phaseId, out StructuredPhaseArtifactContract contract) =>
         Contracts.TryGetValue(phaseId, out contract!);
 
-    private static JsonElement BuildClarificationSchema() =>
+    private static JsonElement BuildRefinementSchema() =>
         ToJsonElement(ObjectSchema(
             properties: new Dictionary<string, JsonNode?>
             {
                 ["state"] = EnumStringSchema("pending_user_input", "ready"),
-                ["decision"] = EnumStringSchema("needs_clarification", "ready_for_refinement"),
+                ["decision"] = EnumStringSchema("needs_refinement", "ready_for_spec"),
                 ["reason"] = StringSchema(),
                 ["questions"] = ArraySchema(StringSchema())
             },
             required: ["state", "decision", "reason", "questions"]));
 
-    private static JsonElement BuildRefinementSchema() =>
+    private static JsonElement BuildSpecSchema() =>
         ToJsonElement(ObjectSchema(
             properties: new Dictionary<string, JsonNode?>
             {
@@ -343,7 +343,7 @@ public static class StructuredPhaseArtifactContracts
     }
 }
 
-public sealed record ClarificationArtifactDocument(
+public sealed record RefinementArtifactDocument(
     string State,
     string Decision,
     string Reason,
@@ -411,22 +411,22 @@ public sealed record ReviewValidationChecklistItem(
     string Item,
     string Evidence);
 
-public static class ClarificationArtifactJson
+public static class RefinementArtifactJson
 {
-    public static ClarificationArtifactDocument ParseCanonicalJson(string json) =>
-        StructuredPhaseArtifactJson.DeserializeAndNormalize<ClarificationArtifactDocument>(
+    public static RefinementArtifactDocument ParseCanonicalJson(string json) =>
+        StructuredPhaseArtifactJson.DeserializeAndNormalize<RefinementArtifactDocument>(
             json,
             normalize: Normalize);
 
-    public static string Serialize(ClarificationArtifactDocument document) =>
+    public static string Serialize(RefinementArtifactDocument document) =>
         StructuredPhaseArtifactJson.Serialize(Normalize(document));
 
-    public static string RenderMarkdown(ClarificationArtifactDocument document, string usId, int version)
+    public static string RenderMarkdown(RefinementArtifactDocument document, string usId, int version)
     {
         var normalized = Normalize(document);
         var lines = new List<string>
         {
-            $"# Clarification · {usId} · v{version:00}",
+            $"# Refinement · {usId} · v{version:00}",
             string.Empty,
             "## State",
             $"- State: `{normalized.State}`",
@@ -440,12 +440,12 @@ public static class ClarificationArtifactJson
             "## Questions"
         };
         lines.AddRange(normalized.Questions.Count == 0
-            ? ["1. No clarification questions remain."]
+            ? ["1. No refinement questions remain."]
             : normalized.Questions.Select((question, index) => $"{index + 1}. {question}"));
         return string.Join(Environment.NewLine, lines) + Environment.NewLine;
     }
 
-    private static ClarificationArtifactDocument Normalize(ClarificationArtifactDocument document) =>
+    private static RefinementArtifactDocument Normalize(RefinementArtifactDocument document) =>
         new(
             State: StructuredPhaseArtifactJson.NormalizeScalar(document.State),
             Decision: StructuredPhaseArtifactJson.NormalizeScalar(document.Decision),

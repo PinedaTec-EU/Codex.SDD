@@ -31,8 +31,8 @@ test("validatePhasePermissionAssignments rejects implementation and review when 
     { name: "planner", repositoryAccess: "read" }
   ], {
     defaultProfile: "planner",
-    clarificationProfile: null,
     refinementProfile: null,
+    specProfile: null,
     technicalDesignProfile: null,
     implementationProfile: null,
     reviewProfile: null,
@@ -50,8 +50,8 @@ test("validatePhasePermissionAssignments accepts read phases on read and write p
     { name: "implementer", repositoryAccess: "read-write" }
   ], {
     defaultProfile: "planner",
-    clarificationProfile: null,
     refinementProfile: null,
+    specProfile: null,
     technicalDesignProfile: null,
     implementationProfile: "implementer",
     reviewProfile: "implementer",

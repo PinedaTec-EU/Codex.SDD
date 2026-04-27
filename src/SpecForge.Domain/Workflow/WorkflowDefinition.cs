@@ -5,9 +5,9 @@ public sealed class WorkflowDefinition
     private static readonly IReadOnlyDictionary<PhaseId, PhaseId> LinearTransitions =
         new Dictionary<PhaseId, PhaseId>
         {
-            [PhaseId.Capture] = PhaseId.Clarification,
-            [PhaseId.Clarification] = PhaseId.Refinement,
-            [PhaseId.Refinement] = PhaseId.TechnicalDesign,
+            [PhaseId.Capture] = PhaseId.Refinement,
+            [PhaseId.Refinement] = PhaseId.Spec,
+            [PhaseId.Spec] = PhaseId.TechnicalDesign,
             [PhaseId.TechnicalDesign] = PhaseId.Implementation,
             [PhaseId.Implementation] = PhaseId.Review,
             [PhaseId.Review] = PhaseId.ReleaseApproval,
@@ -19,13 +19,13 @@ public sealed class WorkflowDefinition
         {
             [PhaseId.Review] = new HashSet<PhaseId>
             {
-                PhaseId.Refinement,
+                PhaseId.Spec,
                 PhaseId.TechnicalDesign,
                 PhaseId.Implementation
             },
             [PhaseId.ReleaseApproval] = new HashSet<PhaseId>
             {
-                PhaseId.Refinement,
+                PhaseId.Spec,
                 PhaseId.TechnicalDesign,
                 PhaseId.Implementation
             }
@@ -34,7 +34,7 @@ public sealed class WorkflowDefinition
     private static readonly IReadOnlySet<PhaseId> ApprovalRequiredPhases =
         new HashSet<PhaseId>
         {
-            PhaseId.Refinement,
+            PhaseId.Spec,
             PhaseId.ReleaseApproval
         };
 

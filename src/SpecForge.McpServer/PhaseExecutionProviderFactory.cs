@@ -16,10 +16,13 @@ internal static class PhaseExecutionProviderFactory
 
     private const string ModelProfilesJsonEnvVar = "SPECFORGE_OPENAI_MODEL_PROFILES_JSON";
     private const string PhaseModelAssignmentsJsonEnvVar = "SPECFORGE_OPENAI_PHASE_MODEL_ASSIGNMENTS_JSON";
-    private const string ClarificationToleranceEnvVar = "SPECFORGE_CAPTURE_TOLERANCE";
+    private const string RefinementToleranceEnvVar = "SPECFORGE_REFINEMENT_TOLERANCE";
+    private const string LegacyRefinementToleranceEnvVar = "SPECFORGE_CAPTURE_TOLERANCE";
     private const string ReviewToleranceEnvVar = "SPECFORGE_REVIEW_TOLERANCE";
-    private const string AutoClarificationAnswersEnabledEnvVar = "SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED";
-    private const string AutoClarificationAnswersProfileEnvVar = "SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE";
+    private const string AutoRefinementAnswersEnabledEnvVar = "SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED";
+    private const string LegacyAutoRefinementAnswersEnabledEnvVar = "SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED";
+    private const string AutoRefinementAnswersProfileEnvVar = "SPECFORGE_AUTO_REFINEMENT_ANSWERS_PROFILE";
+    private const string LegacyAutoRefinementAnswersProfileEnvVar = "SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE";
     private const string SystemPromptEnvVar = "SPECFORGE_OPENAI_SYSTEM_PROMPT";
     private const string TimeoutSecondsEnvVar = "SPECFORGE_OPENAI_TIMEOUT_SECONDS";
     private static readonly TimeSpan DefaultOpenAiTimeout = TimeSpan.FromMinutes(10);
@@ -54,13 +57,17 @@ internal static class PhaseExecutionProviderFactory
     private static IPhaseExecutionProvider CreateOpenAiCompatibleProvider(IReadOnlyList<OpenAiCompatibleModelProfile> modelProfiles)
     {
         var assignments = ReadPhaseModelAssignmentsFromEnvironment();
-        var clarificationTolerance = Environment.GetEnvironmentVariable(ClarificationToleranceEnvVar) ?? "balanced";
+        var refinementTolerance = Environment.GetEnvironmentVariable(RefinementToleranceEnvVar)
+            ?? Environment.GetEnvironmentVariable(LegacyRefinementToleranceEnvVar)
+            ?? "balanced";
         var reviewTolerance = Environment.GetEnvironmentVariable(ReviewToleranceEnvVar) ?? "balanced";
-        var autoClarificationAnswersEnabled = string.Equals(
-            Environment.GetEnvironmentVariable(AutoClarificationAnswersEnabledEnvVar),
+        var autoRefinementAnswersEnabled = string.Equals(
+            Environment.GetEnvironmentVariable(AutoRefinementAnswersEnabledEnvVar)
+                ?? Environment.GetEnvironmentVariable(LegacyAutoRefinementAnswersEnabledEnvVar),
             "true",
             StringComparison.OrdinalIgnoreCase);
-        var autoClarificationAnswersProfile = Environment.GetEnvironmentVariable(AutoClarificationAnswersProfileEnvVar);
+        var autoRefinementAnswersProfile = Environment.GetEnvironmentVariable(AutoRefinementAnswersProfileEnvVar)
+            ?? Environment.GetEnvironmentVariable(LegacyAutoRefinementAnswersProfileEnvVar);
         var systemPrompt = Environment.GetEnvironmentVariable(SystemPromptEnvVar) ??
                            "You generate structured JSON for SpecForge workflow phases. Return only JSON that conforms to the supplied response schema.";
         var httpClient = new HttpClient
@@ -69,10 +76,10 @@ internal static class PhaseExecutionProviderFactory
         };
         var options = new OpenAiCompatibleProviderOptions(
             SystemPrompt: systemPrompt,
-            ClarificationTolerance: clarificationTolerance,
+            RefinementTolerance: refinementTolerance,
             ReviewTolerance: reviewTolerance,
-            AutoClarificationAnswersEnabled: autoClarificationAnswersEnabled,
-            AutoClarificationAnswersProfile: string.IsNullOrWhiteSpace(autoClarificationAnswersProfile) ? null : autoClarificationAnswersProfile.Trim(),
+            AutoRefinementAnswersEnabled: autoRefinementAnswersEnabled,
+            AutoRefinementAnswersProfile: string.IsNullOrWhiteSpace(autoRefinementAnswersProfile) ? null : autoRefinementAnswersProfile.Trim(),
             ModelProfiles: modelProfiles,
             PhaseModelAssignments: assignments);
         return new OpenAiCompatiblePhaseExecutionProvider(httpClient, options);

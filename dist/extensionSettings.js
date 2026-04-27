@@ -12,19 +12,19 @@ function getSpecForgeSettings() {
 function readSpecForgeSettings(configuration) {
     const modelProfiles = normalizeModelProfiles(configuration.get("execution.modelProfiles", []));
     const phaseModelAssignments = normalizePhaseModelAssignments(configuration.get("execution.phaseModels"));
-    const autoClarificationAnswersProfile = normalizeUnknownOptional(configuration.get("execution.autoClarificationAnswersProfile"));
+    const autoRefinementAnswersProfile = normalizeUnknownOptional(configuration.get("execution.autoRefinementAnswersProfile"));
     return {
         modelProfiles,
         phaseModelAssignments,
         effectivePhaseModelAssignments: resolveEffectivePhaseModelAssignments(modelProfiles, phaseModelAssignments),
-        autoClarificationAnswersProfile,
-        clarificationTolerance: normalizeTolerance(configuration.get("execution.clarificationTolerance", "balanced")),
+        autoRefinementAnswersProfile,
+        refinementTolerance: normalizeTolerance(configuration.get("execution.refinementTolerance", "balanced")),
         reviewTolerance: normalizeTolerance(configuration.get("execution.reviewTolerance", "balanced")),
         watcherEnabled: configuration.get("ui.enableWatcher", true),
         attentionNotificationsEnabled: configuration.get("ui.notifyOnAttention", true),
         contextSuggestionsEnabled: configuration.get("features.enableContextSuggestions", true),
         requireExplicitApprovalBranchAcceptance: configuration.get("features.requireApprovalBranchAcceptance", false),
-        autoClarificationAnswersEnabled: configuration.get("features.autoClarificationAnswersEnabled", false),
+        autoRefinementAnswersEnabled: configuration.get("features.autoRefinementAnswersEnabled", false),
         autoPlayEnabled: configuration.get("features.autoPlayEnabled", false),
         autoReviewEnabled: configuration.get("features.autoReviewEnabled", false),
         maxImplementationReviewCycles: normalizeOptionalPositiveInteger(configuration.get("features.maxImplementationReviewCycles", 5)),
@@ -39,12 +39,12 @@ function buildBackendEnvironment(settings) {
         env.SPECFORGE_OPENAI_MODEL_PROFILES_JSON = JSON.stringify(settings.modelProfiles);
         env.SPECFORGE_OPENAI_PHASE_MODEL_ASSIGNMENTS_JSON = JSON.stringify(settings.phaseModelAssignments);
     }
-    env.SPECFORGE_CAPTURE_TOLERANCE = settings.clarificationTolerance;
+    env.SPECFORGE_CAPTURE_TOLERANCE = settings.refinementTolerance;
     env.SPECFORGE_REVIEW_TOLERANCE = settings.reviewTolerance;
-    env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED = settings.autoClarificationAnswersEnabled ? "true" : "false";
+    env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED = settings.autoRefinementAnswersEnabled ? "true" : "false";
     env.SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED = settings.completedUsLockOnCompleted ? "true" : "false";
-    if (settings.autoClarificationAnswersProfile) {
-        env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE = settings.autoClarificationAnswersProfile;
+    if (settings.autoRefinementAnswersProfile) {
+        env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE = settings.autoRefinementAnswersProfile;
     }
     return env;
 }
@@ -115,15 +115,15 @@ function getModelProfileSettingsStatus(settings) {
     if (!defaultProfileName && !hasExplicitProfilesForAllModelDrivenPhases(settings.phaseModelAssignments)) {
         return {
             executionConfigured: false,
-            message: "SpecForge.AI needs either a default phase model assignment or explicit profiles for clarification, refinement, technical design, implementation, and review.",
+            message: "SpecForge.AI needs either a default phase model assignment or explicit profiles for refinement, spec, technical design, implementation, and review.",
             diagnostics
         };
     }
     const namedAssignments = [
         ["default", defaultProfileName],
         ["capture", settings.phaseModelAssignments.captureProfile],
-        ["clarification", settings.phaseModelAssignments.clarificationProfile],
         ["refinement", settings.phaseModelAssignments.refinementProfile],
+        ["spec", settings.phaseModelAssignments.specProfile],
         ["technicalDesign", settings.phaseModelAssignments.technicalDesignProfile],
         ["implementation", settings.phaseModelAssignments.implementationProfile],
         ["review", settings.phaseModelAssignments.reviewProfile],
@@ -139,17 +139,17 @@ function getModelProfileSettingsStatus(settings) {
             };
         }
     }
-    if (settings.autoClarificationAnswersEnabled && !settings.autoClarificationAnswersProfile) {
+    if (settings.autoRefinementAnswersEnabled && !settings.autoRefinementAnswersProfile) {
         return {
             executionConfigured: false,
-            message: "SpecForge.AI needs an auto-clarification answers profile when model-driven clarification answers are enabled.",
+            message: "SpecForge.AI needs an auto-refinement answers profile when model-driven refinement answers are enabled.",
             diagnostics
         };
     }
-    if (settings.autoClarificationAnswersProfile && !profilesByName.has(settings.autoClarificationAnswersProfile)) {
+    if (settings.autoRefinementAnswersProfile && !profilesByName.has(settings.autoRefinementAnswersProfile)) {
         return {
             executionConfigured: false,
-            message: `SpecForge.AI auto-clarification answers profile references unknown profile '${settings.autoClarificationAnswersProfile}'.`,
+            message: `SpecForge.AI auto-refinement answers profile references unknown profile '${settings.autoRefinementAnswersProfile}'.`,
             diagnostics
         };
     }
@@ -172,8 +172,8 @@ function isNativeCliModelProvider(provider) {
 }
 function hasExplicitProfilesForAllModelDrivenPhases(assignments) {
     return [
-        assignments.clarificationProfile,
         assignments.refinementProfile,
+        assignments.specProfile,
         assignments.technicalDesignProfile,
         assignments.implementationProfile,
         assignments.reviewProfile
@@ -201,22 +201,22 @@ function buildSettingsDiagnostics(settings) {
         `catalog=[${profiles.join(", ")}]`,
         `phaseModels.default=${settings.phaseModelAssignments.defaultProfile ?? "<unset>"}`,
         `phaseModels.capture=${settings.phaseModelAssignments.captureProfile ?? "<unset>"}`,
-        `phaseModels.clarification=${settings.phaseModelAssignments.clarificationProfile ?? "<unset>"}`,
         `phaseModels.refinement=${settings.phaseModelAssignments.refinementProfile ?? "<unset>"}`,
+        `phaseModels.spec=${settings.phaseModelAssignments.specProfile ?? "<unset>"}`,
         `phaseModels.technicalDesign=${settings.phaseModelAssignments.technicalDesignProfile ?? "<unset>"}`,
         `phaseModels.implementation=${settings.phaseModelAssignments.implementationProfile ?? "<unset>"}`,
         `phaseModels.review=${settings.phaseModelAssignments.reviewProfile ?? "<unset>"}`,
         `phaseModels.releaseApproval=${settings.phaseModelAssignments.releaseApprovalProfile ?? "<unset>"}`,
         `phaseModels.prPreparation=${settings.phaseModelAssignments.prPreparationProfile ?? "<unset>"}`,
-        `autoClarificationAnswers.enabled=${settings.autoClarificationAnswersEnabled}`,
-        `autoClarificationAnswers.profile=${settings.autoClarificationAnswersProfile ?? "<unset>"}`,
+        `autoRefinementAnswers.enabled=${settings.autoRefinementAnswersEnabled}`,
+        `autoRefinementAnswers.profile=${settings.autoRefinementAnswersProfile ?? "<unset>"}`,
         `autoReviewEnabled=${settings.autoReviewEnabled}`,
         `maxImplementationReviewCycles=${settings.maxImplementationReviewCycles ?? "<unset>"}`,
         `pauseOnFailedReview=${settings.pauseOnFailedReview}`,
         `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
         `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,
-        `effective.clarification=${settings.effectivePhaseModelAssignments.clarificationProfileName ?? "<unset>"}`,
         `effective.refinement=${settings.effectivePhaseModelAssignments.refinementProfileName ?? "<unset>"}`,
+        `effective.spec=${settings.effectivePhaseModelAssignments.specProfileName ?? "<unset>"}`,
         `effective.technicalDesign=${settings.effectivePhaseModelAssignments.technicalDesignProfileName ?? "<unset>"}`,
         `effective.implementation=${settings.effectivePhaseModelAssignments.implementationProfileName ?? "<unset>"}`,
         `effective.review=${settings.effectivePhaseModelAssignments.reviewProfileName ?? "<unset>"}`,
@@ -276,8 +276,8 @@ function normalizePhaseModelAssignments(value) {
         return {
             defaultProfile: null,
             captureProfile: null,
-            clarificationProfile: null,
             refinementProfile: null,
+            specProfile: null,
             technicalDesignProfile: null,
             implementationProfile: null,
             reviewProfile: null,
@@ -289,8 +289,8 @@ function normalizePhaseModelAssignments(value) {
     return {
         defaultProfile: normalizeUnknownOptional(candidate.defaultProfile),
         captureProfile: normalizeUnknownOptional(candidate.captureProfile),
-        clarificationProfile: normalizeUnknownOptional(candidate.clarificationProfile),
         refinementProfile: normalizeUnknownOptional(candidate.refinementProfile),
+        specProfile: normalizeUnknownOptional(candidate.specProfile),
         technicalDesignProfile: normalizeUnknownOptional(candidate.technicalDesignProfile),
         implementationProfile: normalizeUnknownOptional(candidate.implementationProfile),
         reviewProfile: normalizeUnknownOptional(candidate.reviewProfile),
@@ -302,8 +302,8 @@ function resolveEffectivePhaseModelAssignments(modelProfiles, assignments) {
     const defaultProfile = resolveDefaultModelProfile(modelProfiles, assignments);
     const defaultProfileName = defaultProfile?.name ?? null;
     const captureProfileName = resolveAssignedModelProfile(modelProfiles, assignments.captureProfile)?.name ?? defaultProfileName;
-    const clarificationProfileName = resolveAssignedModelProfile(modelProfiles, assignments.clarificationProfile)?.name ?? defaultProfileName;
     const refinementProfileName = resolveAssignedModelProfile(modelProfiles, assignments.refinementProfile)?.name ?? defaultProfileName;
+    const specProfileName = resolveAssignedModelProfile(modelProfiles, assignments.specProfile)?.name ?? defaultProfileName;
     const technicalDesignProfileName = resolveAssignedModelProfile(modelProfiles, assignments.technicalDesignProfile)?.name ?? defaultProfileName;
     const implementationProfileName = resolveAssignedModelProfile(modelProfiles, assignments.implementationProfile)?.name ?? defaultProfileName;
     const reviewProfileName = resolveAssignedModelProfile(modelProfiles, assignments.reviewProfile)?.name ?? defaultProfileName;
@@ -312,8 +312,8 @@ function resolveEffectivePhaseModelAssignments(modelProfiles, assignments) {
     return {
         defaultProfileName,
         captureProfileName,
-        clarificationProfileName,
         refinementProfileName,
+        specProfileName,
         technicalDesignProfileName,
         implementationProfileName,
         reviewProfileName,

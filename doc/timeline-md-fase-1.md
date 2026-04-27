@@ -42,7 +42,7 @@ It should reference those artifacts when needed.
 ## Summary
 
 - Current status: `waiting_user`
-- Current phase: `refinement`
+- Current phase: `spec`
 - Active branch: `not created`
 - Last updated: `2026-04-18T10:30:00Z`
 
@@ -60,13 +60,13 @@ It should reference those artifacts when needed.
 ### 2026-04-18T09:04:00Z · `phase_started`
 
 - Actor: `system`
-- Phase: `refinement`
-- Summary: Refinement generation started.
+- Phase: `spec`
+- Summary: Spec generation started.
 
 ### 2026-04-18T09:06:00Z · `phase_completed`
 
 - Actor: `system`
-- Phase: `refinement`
+- Phase: `spec`
 - Summary: The spec baseline was generated with `red-team` evaluation and `blue-team` reconstruction.
 - Artifacts:
   - `.specs/us/us.US-0001/phases/01-spec.md`
@@ -74,13 +74,13 @@ It should reference those artifacts when needed.
 ### 2026-04-18T09:10:00Z · `phase_approved`
 
 - Actor: `user`
-- Phase: `refinement`
+- Phase: `spec`
 - Summary: The user approved the spec baseline and chose `main` as the base branch.
 
 ### 2026-04-18T09:11:00Z · `branch_created`
 
 - Actor: `system`
-- Phase: `refinement`
+- Phase: `spec`
 - Summary: The branch `feature/us-0001-specforge-foundation` was created.
 - Artifacts:
   - `.specs/us/us.US-0001/branch.yaml`

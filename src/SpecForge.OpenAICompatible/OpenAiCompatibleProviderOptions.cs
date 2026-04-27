@@ -12,8 +12,8 @@ public sealed record OpenAiCompatibleModelProfile(
 public sealed record OpenAiCompatiblePhaseModelAssignments(
     string? DefaultProfile = null,
     string? CaptureProfile = null,
-    string? ClarificationProfile = null,
     string? RefinementProfile = null,
+    string? SpecProfile = null,
     string? TechnicalDesignProfile = null,
     string? ImplementationProfile = null,
     string? ReviewProfile = null,
@@ -22,9 +22,9 @@ public sealed record OpenAiCompatiblePhaseModelAssignments(
 
 public sealed record OpenAiCompatibleProviderOptions(
     string? SystemPrompt = null,
-    string ClarificationTolerance = "balanced",
+    string RefinementTolerance = "balanced",
     string ReviewTolerance = "balanced",
-    bool AutoClarificationAnswersEnabled = false,
-    string? AutoClarificationAnswersProfile = null,
+    bool AutoRefinementAnswersEnabled = false,
+    string? AutoRefinementAnswersProfile = null,
     IReadOnlyList<OpenAiCompatibleModelProfile>? ModelProfiles = null,
     OpenAiCompatiblePhaseModelAssignments? PhaseModelAssignments = null);

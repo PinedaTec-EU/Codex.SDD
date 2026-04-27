@@ -29,12 +29,12 @@ public sealed class RepositoryPromptInitializer
             [paths.SharedSystemPromptPath] = BuildSharedSystemPrompt(),
             [paths.SharedStylePromptPath] = BuildSharedStylePrompt(),
             [paths.SharedOutputRulesPromptPath] = BuildSharedOutputRulesPrompt(),
-            [paths.ClarificationExecuteSystemPromptPath] = BuildClarificationExecuteSystemPrompt(),
-            [paths.ClarificationExecutePromptPath] = BuildClarificationExecutePrompt(),
             [paths.RefinementExecuteSystemPromptPath] = BuildRefinementExecuteSystemPrompt(),
             [paths.RefinementExecutePromptPath] = BuildRefinementExecutePrompt(),
-            [paths.RefinementApproveSystemPromptPath] = BuildRefinementApproveSystemPrompt(),
-            [paths.RefinementApprovePromptPath] = BuildRefinementApprovePrompt(),
+            [paths.SpecExecuteSystemPromptPath] = BuildSpecExecuteSystemPrompt(),
+            [paths.SpecExecutePromptPath] = BuildSpecExecutePrompt(),
+            [paths.SpecApproveSystemPromptPath] = BuildSpecApproveSystemPrompt(),
+            [paths.SpecApprovePromptPath] = BuildSpecApprovePrompt(),
             [paths.TechnicalDesignExecuteSystemPromptPath] = BuildTechnicalDesignExecuteSystemPrompt(),
             [paths.TechnicalDesignExecutePromptPath] = BuildTechnicalDesignExecutePrompt(),
             [paths.ImplementationExecuteSystemPromptPath] = BuildImplementationExecuteSystemPrompt(),
@@ -47,7 +47,7 @@ public sealed class RepositoryPromptInitializer
             [paths.ReleaseApprovalApprovePromptPath] = BuildReleaseApprovalApprovePrompt(),
             [paths.PrPreparationExecuteSystemPromptPath] = BuildPrPreparationExecuteSystemPrompt(),
             [paths.PrPreparationExecutePromptPath] = BuildPrPreparationExecutePrompt(),
-            [paths.AutoClarificationAnswersSystemPromptPath] = BuildAutoClarificationAnswersSystemPrompt()
+            [paths.AutoRefinementAnswersSystemPromptPath] = BuildAutoRefinementAnswersSystemPrompt()
         };
 
         foreach (var file in files)
@@ -106,17 +106,17 @@ public sealed class RepositoryPromptInitializer
           style: .specs/prompts/shared/style.md
           outputRules: .specs/prompts/shared/output-rules.md
         phases:
-          clarification:
-            execute:
-              system: .specs/prompts/phases/clarification.execute.system.md
-              user: .specs/prompts/phases/clarification.execute.md
           refinement:
             execute:
               system: .specs/prompts/phases/refinement.execute.system.md
               user: .specs/prompts/phases/refinement.execute.md
+          spec:
+            execute:
+              system: .specs/prompts/phases/spec.execute.system.md
+              user: .specs/prompts/phases/spec.execute.md
             approve:
-              system: .specs/prompts/phases/refinement.approve.system.md
-              user: .specs/prompts/phases/refinement.approve.md
+              system: .specs/prompts/phases/spec.approve.system.md
+              user: .specs/prompts/phases/spec.approve.md
           technical_design:
             execute:
               system: .specs/prompts/phases/technical-design.execute.system.md
@@ -141,8 +141,8 @@ public sealed class RepositoryPromptInitializer
               system: .specs/prompts/phases/pr-preparation.execute.system.md
               user: .specs/prompts/phases/pr-preparation.execute.md
         internalCalls:
-          autoClarificationAnswers:
-            system: .specs/prompts/phases/clarification.auto-answer.system.md
+          autoRefinementAnswers:
+            system: .specs/prompts/phases/refinement.auto-answer.system.md
         """;
 
     private static string BuildSharedSystemPrompt() =>
@@ -155,25 +155,25 @@ public sealed class RepositoryPromptInitializer
         Do not invent missing repository facts.
         """;
 
-    private static string BuildClarificationExecuteSystemPrompt() =>
-        """
-        This is the system prompt for the clarification execute template.
-
-        Diagnose readiness for refinement conservatively and keep every unresolved gap explicit.
-        Ask only concrete blocking questions, and never invent answers that were not provided by the repository context.
-        """;
-
     private static string BuildRefinementExecuteSystemPrompt() =>
         """
         This is the system prompt for the refinement execute template.
+
+        Diagnose readiness for spec conservatively and keep every unresolved gap explicit.
+        Ask only concrete blocking questions, and never invent answers that were not provided by the repository context.
+        """;
+
+    private static string BuildSpecExecuteSystemPrompt() =>
+        """
+        This is the system prompt for the spec execute template.
 
         Convert the story into an auditable, implementation-ready specification.
         Keep section completeness and schema fidelity above narrative style, and do not hide missing business facts.
         """;
 
-    private static string BuildRefinementApproveSystemPrompt() =>
+    private static string BuildSpecApproveSystemPrompt() =>
         """
-        This is the system prompt for the refinement approve template.
+        This is the system prompt for the spec approve template.
 
         Evaluate readiness for technical design strictly against ambiguity, hidden scope, and unanswered approval questions.
         Preserve blocking issues explicitly rather than softening them.
@@ -235,12 +235,12 @@ public sealed class RepositoryPromptInitializer
         The final artifact must be publishable as a draft PR without manual reconstruction.
         """;
 
-    private static string BuildAutoClarificationAnswersSystemPrompt() =>
+    private static string BuildAutoRefinementAnswersSystemPrompt() =>
         """
-        This is the system prompt for the internal auto clarification answer task.
+        This is the system prompt for the internal auto refinement answer task.
 
-        Resolve pending clarification questions only from grounded repository evidence.
-        Return resolvable answers only when the provided context supports them directly enough to retry clarification without user input.
+        Resolve pending refinement questions only from grounded repository evidence.
+        Return resolvable answers only when the provided context supports them directly enough to retry refinement without user input.
         If the evidence is insufficient, preserve uncertainty explicitly instead of guessing.
         """;
 
@@ -260,12 +260,12 @@ public sealed class RepositoryPromptInitializer
         If required context is missing or contradictory, state it explicitly inside the structured payload instead of hiding the issue.
         """;
 
-    private static string BuildClarificationExecutePrompt() =>
+    private static string BuildRefinementExecutePrompt() =>
         """
-        Role: clarification analyst.
+        Role: refinement analyst.
 
         Goal:
-        - inspect `us.md` and decide whether the story is ready for refinement
+        - inspect `us.md` and decide whether the story is ready for spec
         - if it is not ready, ask only the minimum concrete questions needed
         - if it is ready, say so explicitly and avoid inventing new questions
 
@@ -276,19 +276,19 @@ public sealed class RepositoryPromptInitializer
         - Questions
 
         Decision rules:
-        - use `ready_for_refinement` when the story is concrete enough to produce a meaningful refinement
-        - use `needs_clarification` when actors, business behavior, inputs, outputs, rules, or acceptance intent are too vague
-        - if there are already answers in `clarification.md`, use them as first-class context
+        - use `ready_for_spec` when the story is concrete enough to produce a meaningful spec
+        - use `needs_refinement` when actors, business behavior, inputs, outputs, rules, or acceptance intent are too vague
+        - if there are already answers in `refinement.md`, use them as first-class context
         - keep the questions concrete and answerable by the user inside the extension
         """;
 
-    private static string BuildRefinementExecutePrompt() =>
+    private static string BuildSpecExecutePrompt() =>
         """
-        Role: refinement analyst.
+        Role: spec analyst.
 
         Goal:
         - transform `us.md` into a formalized `01-spec.md`
-        - force a practical spec instead of narrative-only refinement
+        - force a practical spec instead of narrative-only spec
         - include red-team criticism
         - include blue-team corrections
         - leave a concrete, reviewable spec that can anchor technical design
@@ -315,9 +315,9 @@ public sealed class RepositoryPromptInitializer
         - the resulting artifact must be approvable without inventing missing business facts later
         """;
 
-    private static string BuildRefinementApprovePrompt() =>
+    private static string BuildSpecApprovePrompt() =>
         """
-        Role: approval assistant for refinement.
+        Role: approval assistant for spec.
 
         Goal:
         - evaluate whether the spec is precise enough for technical design

@@ -2,15 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { resolveWorkflowRejectPlan } from "../src-vscode/workflowRejectPlan";
 
-test("resolveWorkflowRejectPlan maps refinement approval to operate on the current artifact", () => {
-  const plan = resolveWorkflowRejectPlan("refinement");
+test("resolveWorkflowRejectPlan maps spec approval to operate on the current artifact", () => {
+  const plan = resolveWorkflowRejectPlan("spec");
 
   assert.deepEqual(plan, {
-    targetPhaseId: "refinement",
+    targetPhaseId: "spec",
     mode: "operate-current",
-    modalTitle: "Reject Refinement Approval",
-    modalPrompt: "Describe what is wrong so SpecForge can apply the correction directly to the refinement artifact.",
-    helperText: "Confirming keeps the workflow in refinement, records your note, and applies it through the model over the current spec artifact.",
+    modalTitle: "Reject Spec Approval",
+    modalPrompt: "Describe what is wrong so SpecForge can apply the correction directly to the spec artifact.",
+    helperText: "Confirming keeps the workflow in spec, records your note, and applies it through the model over the current spec artifact.",
     confirmLabel: "Reject and Apply"
   });
 });

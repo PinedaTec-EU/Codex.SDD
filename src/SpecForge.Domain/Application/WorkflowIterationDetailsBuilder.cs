@@ -41,7 +41,7 @@ public static class WorkflowIterationDetailsBuilder
             var inputArtifactPath = operationEntry?.SourceArtifactPath ?? implicitInputArtifactPath;
             var contextArtifactPaths = operationEntry?.ContextArtifactPaths
                 ?? Array.Empty<string>();
-            var operationLogPath = phaseId is PhaseId.Refinement or PhaseId.TechnicalDesign or PhaseId.Implementation or PhaseId.Review or PhaseId.ReleaseApproval or PhaseId.PrPreparation
+            var operationLogPath = phaseId is PhaseId.Spec or PhaseId.TechnicalDesign or PhaseId.Implementation or PhaseId.Review or PhaseId.ReleaseApproval or PhaseId.PrPreparation
                 ? paths.GetLatestExistingPhaseOperationLogPath(phaseId)
                 : null;
 
@@ -76,7 +76,7 @@ public static class WorkflowIterationDetailsBuilder
     private static Dictionary<string, ArtifactOperationLogEntry> BuildOperationEntriesByResult(UserStoryFilePaths paths)
     {
         var map = new Dictionary<string, ArtifactOperationLogEntry>(StringComparer.Ordinal);
-        foreach (var phaseId in new[] { PhaseId.Refinement, PhaseId.TechnicalDesign, PhaseId.Implementation, PhaseId.Review, PhaseId.ReleaseApproval, PhaseId.PrPreparation })
+        foreach (var phaseId in new[] { PhaseId.Spec, PhaseId.TechnicalDesign, PhaseId.Implementation, PhaseId.Review, PhaseId.ReleaseApproval, PhaseId.PrPreparation })
         {
             var operationLogPath = paths.GetLatestExistingPhaseOperationLogPath(phaseId);
             if (string.IsNullOrWhiteSpace(operationLogPath) || !File.Exists(operationLogPath))
@@ -110,9 +110,9 @@ public static class WorkflowIterationDetailsBuilder
 
         return phaseId switch
         {
-            PhaseId.Clarification => File.Exists(paths.MainArtifactPath) ? paths.MainArtifactPath : null,
-            PhaseId.Refinement => FindLatestArtifact(latestArtifactsByPhase, PhaseId.Clarification) ?? (File.Exists(paths.MainArtifactPath) ? paths.MainArtifactPath : null),
-            PhaseId.TechnicalDesign => FindLatestArtifact(latestArtifactsByPhase, PhaseId.Refinement),
+            PhaseId.Refinement => File.Exists(paths.MainArtifactPath) ? paths.MainArtifactPath : null,
+            PhaseId.Spec => FindLatestArtifact(latestArtifactsByPhase, PhaseId.Refinement) ?? (File.Exists(paths.MainArtifactPath) ? paths.MainArtifactPath : null),
+            PhaseId.TechnicalDesign => FindLatestArtifact(latestArtifactsByPhase, PhaseId.Spec),
             PhaseId.Implementation => FindLatestArtifact(latestArtifactsByPhase, PhaseId.TechnicalDesign),
             PhaseId.Review => FindLatestArtifact(latestArtifactsByPhase, PhaseId.Implementation),
             PhaseId.ReleaseApproval => FindLatestArtifact(latestArtifactsByPhase, PhaseId.Review),

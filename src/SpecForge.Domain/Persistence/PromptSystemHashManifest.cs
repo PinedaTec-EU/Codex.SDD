@@ -9,14 +9,14 @@ public static class PromptSystemHashManifest
     public static IReadOnlyCollection<string> EnumerateTrackedPromptPaths(PromptFilePaths paths) =>
     [
         paths.SharedSystemPromptPath,
-        paths.ClarificationExecuteSystemPromptPath,
         paths.RefinementExecuteSystemPromptPath,
-        paths.RefinementApproveSystemPromptPath,
+        paths.SpecExecuteSystemPromptPath,
+        paths.SpecApproveSystemPromptPath,
         paths.TechnicalDesignExecuteSystemPromptPath,
         paths.ImplementationExecuteSystemPromptPath,
         paths.ReviewExecuteSystemPromptPath,
         paths.ReleaseApprovalApproveSystemPromptPath,
-        paths.AutoClarificationAnswersSystemPromptPath
+        paths.AutoRefinementAnswersSystemPromptPath
     ];
 
     public static async Task WriteAsync(PromptFilePaths paths, CancellationToken cancellationToken)

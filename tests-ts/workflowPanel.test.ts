@@ -16,12 +16,12 @@ test("normalizePlaybackStateAfterManualWorkflowChange clears stale paused overla
 });
 
 test("workflow playback helpers resolve executable and next pauseable phases", () => {
-  assert.equal(resolveWorkflowExecutionPhaseId("capture"), "clarification");
+  assert.equal(resolveWorkflowExecutionPhaseId("capture"), "refinement");
   assert.equal(resolveWorkflowExecutionPhaseId("technical-design"), "implementation");
   assert.equal(resolveWorkflowExecutionPhaseId("review"), "release-approval");
   assert.equal(resolveWorkflowExecutionPhaseId("pr-preparation"), null);
   assert.equal(resolveWorkflowExecutionPhaseId("unknown"), null);
-  assert.equal(resolveNextWorkflowExecutionPhaseId("clarification"), "refinement");
+  assert.equal(resolveNextWorkflowExecutionPhaseId("refinement"), "spec");
   assert.equal(resolveNextWorkflowExecutionPhaseId("pr-preparation"), null);
   assert.equal(canPauseWorkflowExecutionPhase("implementation"), true);
   assert.equal(canPauseWorkflowExecutionPhase("capture"), false);
@@ -49,7 +49,7 @@ test("resolvePreferredSelectedWorkflowPhaseId keeps the real last phase selected
       regressionTargets: [],
       rewindTargets: []
     },
-    clarification: null,
+    refinement: null,
     events: [],
     attachmentsDirectoryPath: "/tmp/attachments",
     attachments: []

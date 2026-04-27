@@ -10,15 +10,16 @@ var serverVersion = typeof(Program).Assembly
     .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
     ?.InformationalVersion ?? "0.0.1";
 
-var captureTolerance = Environment.GetEnvironmentVariable("SPECFORGE_CAPTURE_TOLERANCE")?.Trim().ToLowerInvariant();
-captureTolerance = captureTolerance is "strict" or "balanced" or "inferential" ? captureTolerance : "balanced";
+var refinementTolerance = (Environment.GetEnvironmentVariable("SPECFORGE_REFINEMENT_TOLERANCE")
+    ?? Environment.GetEnvironmentVariable("SPECFORGE_CAPTURE_TOLERANCE"))?.Trim().ToLowerInvariant();
+refinementTolerance = refinementTolerance is "strict" or "balanced" or "inferential" ? refinementTolerance : "balanced";
 var completedUsLockOnCompleted = string.Equals(
     Environment.GetEnvironmentVariable("SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED")?.Trim(),
     "true",
     StringComparison.OrdinalIgnoreCase);
 
 var phaseExecutionProvider = PhaseExecutionProviderFactory.Create();
-var workflowRunner = new WorkflowRunner(phaseExecutionProvider, serverVersion, captureTolerance, completedUsLockOnCompleted);
+var workflowRunner = new WorkflowRunner(phaseExecutionProvider, serverVersion, refinementTolerance, completedUsLockOnCompleted);
 var applicationService = new SpecForgeApplicationService(new UserStoryFileStore(), workflowRunner, runtimeVersion: serverVersion, completedUsLockOnCompleted: completedUsLockOnCompleted);
 var serializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 var stdin = Console.OpenStandardInput();
@@ -180,7 +181,7 @@ static async Task<JsonNode> HandleToolCallAsync(
             "reset_user_story_to_capture" => await applicationService.ResetUserStoryToCaptureAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
                 usId: GetRequired(arguments, "usId")),
-            "submit_clarification_answers" => await applicationService.SubmitClarificationAnswersAsync(
+            "submit_refinement_answers" => await applicationService.SubmitRefinementAnswersAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
                 usId: GetRequired(arguments, "usId"),
                 answers: GetStringArray(arguments, "answers"),
@@ -287,7 +288,7 @@ static JsonObject BuildToolsList()
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
                         ("usId",          Prop("string", "User story identifier."))))),
 
-            Tool("get_user_story_workflow", "Get workflow phases, controls, clarification session, and audit trail for a user story.",
+            Tool("get_user_story_workflow", "Get workflow phases, controls, refinement session, and audit trail for a user story.",
                 Schema(
                     required: ["workspaceRoot", "usId"],
                     Props(
@@ -341,7 +342,7 @@ static JsonObject BuildToolsList()
                     Props(
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
                         ("usId",          Prop("string", "User story identifier.")),
-                        ("targetPhase",   Prop("string", "Phase slug to regress to, e.g. clarification, refinement, technical-design.")),
+                        ("targetPhase",   Prop("string", "Phase slug to regress to, e.g. refinement, spec, technical-design.")),
                         ("reason",        Prop("string", "Optional reason for the regression.")),
                         ("destructive",   Prop("boolean", "Whether to delete later derived artifacts while regressing. Defaults to false.")),
                         ("actor",         Prop("string", "Actor requesting the regression. Defaults to 'user'."))))),
@@ -361,7 +362,7 @@ static JsonObject BuildToolsList()
                     Props(
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
                         ("usId",          Prop("string", "User story identifier.")),
-                        ("targetPhase",   Prop("string", "Phase slug to rewind to, e.g. clarification, refinement, technical-design.")),
+                        ("targetPhase",   Prop("string", "Phase slug to rewind to, e.g. refinement, spec, technical-design.")),
                         ("destructive",   Prop("boolean", "Whether to delete later derived artifacts while rewinding. Defaults to false.")),
                         ("actor",         Prop("string", "Actor requesting the rewind. Defaults to 'user'."))))),
 
@@ -382,23 +383,23 @@ static JsonObject BuildToolsList()
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
                         ("usId",          Prop("string", "User story identifier."))))),
 
-            Tool("submit_clarification_answers", "Store clarification answers so the clarification phase can re-run with the new context.",
+            Tool("submit_refinement_answers", "Store refinement answers so the refinement phase can re-run with the new context.",
                 Schema(
                     required: ["workspaceRoot", "usId", "answers"],
                     Props(
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
                         ("usId",          Prop("string", "User story identifier.")),
-                        ("answers",       ArrayProp("string", "Ordered list of answers matching the clarification questions.")),
+                        ("answers",       ArrayProp("string", "Ordered list of answers matching the refinement questions.")),
                         ("actor",         Prop("string", "Actor submitting the answers. Defaults to 'user'."))))),
 
-            Tool("submit_approval_answer", "Persist a human approval answer into the current refinement artifact without invoking the model.",
+            Tool("submit_approval_answer", "Persist a human approval answer into the current spec artifact without invoking the model.",
                 Schema(
                     required: ["workspaceRoot", "usId", "question", "answer"],
                     Props(
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
                         ("usId",          Prop("string", "User story identifier.")),
                         ("question",      Prop("string", "Approval question being answered.")),
-                        ("answer",        Prop("string", "Human answer to persist into the refinement artifact.")),
+                        ("answer",        Prop("string", "Human answer to persist into the spec artifact.")),
                         ("actor",         Prop("string", "Actor submitting the answer. Defaults to 'user'."))))),
 
             Tool("operate_current_phase_artifact", "Apply a model-assisted operation over the current phase artifact and persist the trace.",

@@ -39,7 +39,7 @@ function buildWorkflow(): UserStoryWorkflowDetails {
     title: "Add workflow runner tests",
     category: "tests",
     status: "waiting-user",
-    currentPhase: "clarification",
+    currentPhase: "refinement",
     directoryPath: "/tmp/us.US-0001",
     workBranch: null,
     mainArtifactPath: "/tmp/us.md",
@@ -47,8 +47,8 @@ function buildWorkflow(): UserStoryWorkflowDetails {
     rawTimeline: "raw timeline",
     phases: [
       {
-        phaseId: "clarification",
-        title: "Clarification",
+        phaseId: "refinement",
+        title: "Refinement",
         order: 1,
         requiresApproval: false,
         expectsHumanIntervention: true,
@@ -64,12 +64,12 @@ function buildWorkflow(): UserStoryWorkflowDetails {
       canContinue: false,
       canApprove: false,
       requiresApproval: false,
-      blockingReason: "clarification_pending_answers",
+      blockingReason: "refinement_pending_answers",
       canRestartFromSource: false,
       regressionTargets: []
     },
-    clarification: {
-      status: "needs_clarification",
+    refinement: {
+      status: "needs_refinement",
       tolerance: "balanced",
       reason: "The repo area affected by the tests is unclear.",
       items: [

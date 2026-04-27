@@ -23,8 +23,8 @@ function emptyAssignments() {
   return {
     defaultProfile: null,
     captureProfile: null,
-    clarificationProfile: null,
     refinementProfile: null,
+    specProfile: null,
     technicalDesignProfile: null,
     implementationProfile: null,
     reviewProfile: null,
@@ -37,8 +37,8 @@ function emptyEffectiveAssignments() {
   return {
     defaultProfileName: null,
     captureProfileName: null,
-    clarificationProfileName: null,
     refinementProfileName: null,
+    specProfileName: null,
     technicalDesignProfileName: null,
     implementationProfileName: null,
     reviewProfileName: null,
@@ -72,7 +72,7 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
       implementationProfile: " top ",
       reviewProfile: " light "
     }],
-    ["execution.clarificationTolerance", " inferential "],
+    ["execution.refinementTolerance", " inferential "],
     ["execution.reviewTolerance", " strict "],
     ["ui.enableWatcher", false],
     ["ui.notifyOnAttention", true],
@@ -117,22 +117,22 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
     effectivePhaseModelAssignments: effective({
       defaultProfileName: "light",
       captureProfileName: "light",
-      clarificationProfileName: "light",
       refinementProfileName: "light",
+      specProfileName: "light",
       technicalDesignProfileName: "light",
       implementationProfileName: "top",
       reviewProfileName: "light",
       releaseApprovalProfileName: "light",
       prPreparationProfileName: "light"
     }),
-    autoClarificationAnswersProfile: null,
-    clarificationTolerance: "inferential",
+    autoRefinementAnswersProfile: null,
+    refinementTolerance: "inferential",
     reviewTolerance: "strict",
     watcherEnabled: false,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: true,
-    autoClarificationAnswersEnabled: false,
+    autoRefinementAnswersEnabled: false,
     autoPlayEnabled: false,
     autoReviewEnabled: true,
     maxImplementationReviewCycles: 3,
@@ -193,14 +193,14 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
       implementationProfileName: "top",
       reviewProfileName: "light"
     }),
-    autoClarificationAnswersProfile: null,
-    clarificationTolerance: "strict",
+    autoRefinementAnswersProfile: null,
+    refinementTolerance: "strict",
     reviewTolerance: "inferential",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
-    autoClarificationAnswersEnabled: false,
+    autoRefinementAnswersEnabled: false,
     autoPlayEnabled: false,
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
@@ -231,9 +231,9 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
       implementationProfile: "top",
       reviewProfile: "light"
     })),
-    SPECFORGE_CAPTURE_TOLERANCE: "strict",
+    SPECFORGE_REFINEMENT_TOLERANCE: "strict",
     SPECFORGE_REVIEW_TOLERANCE: "inferential",
-    SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED: "false",
+    SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED: "false",
     SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED: "true"
   });
 });
@@ -243,14 +243,14 @@ test("getSpecForgeSettingsStatus requires at least one model profile", () => {
     modelProfiles: [],
     phaseModelAssignments: assignments(),
     effectivePhaseModelAssignments: effective(),
-    autoClarificationAnswersProfile: null,
-    clarificationTolerance: "balanced",
+    autoRefinementAnswersProfile: null,
+    refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
-    autoClarificationAnswersEnabled: false,
+    autoRefinementAnswersEnabled: false,
     autoPlayEnabled: false,
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
@@ -282,14 +282,14 @@ test("getSpecForgeSettingsStatus rejects a single fallback profile when phase pe
       implementationProfileName: "light",
       reviewProfileName: "light"
     }),
-    autoClarificationAnswersProfile: null,
-    clarificationTolerance: "balanced",
+    autoRefinementAnswersProfile: null,
+    refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
-    autoClarificationAnswersEnabled: false,
+    autoRefinementAnswersEnabled: false,
     autoPlayEnabled: false,
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
@@ -299,7 +299,7 @@ test("getSpecForgeSettingsStatus rejects a single fallback profile when phase pe
   });
 
   assert.equal(status.executionConfigured, false);
-  assert.equal(status.message, "Clarification requires repository access 'read', but profile 'light' only grants 'none'.");
+  assert.equal(status.message, "Refinement requires repository access 'read', but profile 'light' only grants 'none'.");
   assert.match(status.diagnostics, /catalog=\[light\{provider=openai-compatible,baseUrl=http:\/\/localhost:11434\/v1,model=llama3\.1,apiKey=empty,repositoryAccess=none\}\]/);
 });
 
@@ -321,14 +321,14 @@ test("getSpecForgeSettingsStatus still requires an api key for remote profiles",
       implementationProfileName: "light",
       reviewProfileName: "light"
     }),
-    autoClarificationAnswersProfile: null,
-    clarificationTolerance: "balanced",
+    autoRefinementAnswersProfile: null,
+    refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
-    autoClarificationAnswersEnabled: false,
+    autoRefinementAnswersEnabled: false,
     autoPlayEnabled: false,
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
@@ -356,14 +356,14 @@ test("getSpecForgeSettingsStatus accepts profiles using the default provider", (
     ],
     phaseModelAssignments: assignments(),
     effectivePhaseModelAssignments: effective(),
-    autoClarificationAnswersProfile: null,
-    clarificationTolerance: "balanced",
+    autoRefinementAnswersProfile: null,
+    refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
-    autoClarificationAnswersEnabled: false,
+    autoRefinementAnswersEnabled: false,
     autoPlayEnabled: false,
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
@@ -415,14 +415,14 @@ test("getSpecForgeSettingsStatus accepts codex, copilot, and claude providers", 
       implementationProfileName: "implementer",
       reviewProfileName: "reviewer"
     }),
-    autoClarificationAnswersProfile: null,
-    clarificationTolerance: "balanced",
+    autoRefinementAnswersProfile: null,
+    refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
-    autoClarificationAnswersEnabled: false,
+    autoRefinementAnswersEnabled: false,
     autoPlayEnabled: false,
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
@@ -457,14 +457,14 @@ test("getSpecForgeSettingsStatus allows native CLI providers without baseUrl api
         implementationProfileName: `${provider}-main`,
         reviewProfileName: `${provider}-main`
       }),
-      autoClarificationAnswersProfile: null,
-      clarificationTolerance: "balanced",
+      autoRefinementAnswersProfile: null,
+      refinementTolerance: "balanced",
       reviewTolerance: "balanced",
       watcherEnabled: true,
       attentionNotificationsEnabled: true,
       contextSuggestionsEnabled: true,
       requireExplicitApprovalBranchAcceptance: false,
-      autoClarificationAnswersEnabled: false,
+      autoRefinementAnswersEnabled: false,
       autoPlayEnabled: false,
       autoReviewEnabled: false,
       maxImplementationReviewCycles: null,
@@ -493,14 +493,14 @@ test("getSpecForgeSettingsStatus rejects unsupported providers", () => {
     ],
     phaseModelAssignments: assignments(),
     effectivePhaseModelAssignments: effective(),
-    autoClarificationAnswersProfile: null,
-    clarificationTolerance: "balanced",
+    autoRefinementAnswersProfile: null,
+    refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
-    autoClarificationAnswersEnabled: false,
+    autoRefinementAnswersEnabled: false,
     autoPlayEnabled: false,
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
@@ -530,14 +530,14 @@ test("getSpecForgeSettingsStatus validates named profile assignments", () => {
       defaultProfile: "missing"
     }),
     effectivePhaseModelAssignments: effective(),
-    autoClarificationAnswersProfile: null,
-    clarificationTolerance: "balanced",
+    autoRefinementAnswersProfile: null,
+    refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
-    autoClarificationAnswersEnabled: false,
+    autoRefinementAnswersEnabled: false,
     autoPlayEnabled: false,
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
@@ -580,27 +580,27 @@ test("getSpecForgeSettingsStatus allows multiple profiles without default when a
       }
     ],
     phaseModelAssignments: assignments({
-      clarificationProfile: "planner",
       refinementProfile: "planner",
+      specProfile: "planner",
       technicalDesignProfile: "planner",
       implementationProfile: "implementer",
       reviewProfile: "reviewer"
     }),
     effectivePhaseModelAssignments: effective({
-      clarificationProfileName: "planner",
       refinementProfileName: "planner",
+      specProfileName: "planner",
       technicalDesignProfileName: "planner",
       implementationProfileName: "implementer",
       reviewProfileName: "reviewer"
     }),
-    autoClarificationAnswersProfile: null,
-    clarificationTolerance: "balanced",
+    autoRefinementAnswersProfile: null,
+    refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
-    autoClarificationAnswersEnabled: false,
+    autoRefinementAnswersEnabled: false,
     autoPlayEnabled: false,
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
@@ -640,20 +640,20 @@ test("getSpecForgeSettingsStatus rejects review when its assigned profile lacks 
     }),
     effectivePhaseModelAssignments: effective({
       defaultProfileName: "planner",
-      clarificationProfileName: "planner",
       refinementProfileName: "planner",
+      specProfileName: "planner",
       technicalDesignProfileName: "planner",
       implementationProfileName: "implementer",
       reviewProfileName: "planner"
     }),
-    autoClarificationAnswersProfile: null,
-    clarificationTolerance: "balanced",
+    autoRefinementAnswersProfile: null,
+    refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
-    autoClarificationAnswersEnabled: false,
+    autoRefinementAnswersEnabled: false,
     autoPlayEnabled: false,
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
@@ -666,7 +666,7 @@ test("getSpecForgeSettingsStatus rejects review when its assigned profile lacks 
   assert.equal(status.message, "Review requires repository access 'read-write', but profile 'planner' only grants 'read'.");
 });
 
-test("getSpecForgeSettingsStatus requires an explicit auto-clarification profile when enabled", () => {
+test("getSpecForgeSettingsStatus requires an explicit auto-refinement profile when enabled", () => {
   const status = getSpecForgeSettingsStatus({
     modelProfiles: [
       {
@@ -682,14 +682,14 @@ test("getSpecForgeSettingsStatus requires an explicit auto-clarification profile
     effectivePhaseModelAssignments: effective({
       defaultProfileName: "planner"
     }),
-    autoClarificationAnswersProfile: null,
-    clarificationTolerance: "balanced",
+    autoRefinementAnswersProfile: null,
+    refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
-    autoClarificationAnswersEnabled: true,
+    autoRefinementAnswersEnabled: true,
     autoPlayEnabled: false,
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
@@ -699,10 +699,10 @@ test("getSpecForgeSettingsStatus requires an explicit auto-clarification profile
   });
 
   assert.equal(status.executionConfigured, false);
-  assert.equal(status.message, "SpecForge.AI needs an auto-clarification answers profile when model-driven clarification answers are enabled.");
+  assert.equal(status.message, "SpecForge.AI needs an auto-refinement answers profile when model-driven refinement answers are enabled.");
 });
 
-test("buildBackendEnvironment serializes auto-clarification settings", () => {
+test("buildBackendEnvironment serializes auto-refinement settings", () => {
   const env = buildBackendEnvironment({
     modelProfiles: [
       {
@@ -720,14 +720,14 @@ test("buildBackendEnvironment serializes auto-clarification settings", () => {
     effectivePhaseModelAssignments: effective({
       defaultProfileName: "planner"
     }),
-    autoClarificationAnswersProfile: "planner",
-    clarificationTolerance: "balanced",
+    autoRefinementAnswersProfile: "planner",
+    refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
     contextSuggestionsEnabled: true,
     requireExplicitApprovalBranchAcceptance: false,
-    autoClarificationAnswersEnabled: true,
+    autoRefinementAnswersEnabled: true,
     autoPlayEnabled: false,
     autoReviewEnabled: false,
     maxImplementationReviewCycles: null,
@@ -736,14 +736,14 @@ test("buildBackendEnvironment serializes auto-clarification settings", () => {
     completedUsLockOnCompleted: true
   });
 
-  assert.equal(env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED, "true");
-  assert.equal(env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE, "planner");
+  assert.equal(env.SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED, "true");
+  assert.equal(env.SPECFORGE_AUTO_REFINEMENT_ANSWERS_PROFILE, "planner");
 });
 
-test("readSpecForgeSettings falls back to balanced clarification tolerance for unsupported values", () => {
+test("readSpecForgeSettings falls back to balanced refinement tolerance for unsupported values", () => {
   const settings = readSpecForgeSettings({
     get<T>(section: string, defaultValue?: T): T {
-      if (section === "execution.clarificationTolerance" || section === "execution.reviewTolerance") {
+      if (section === "execution.refinementTolerance" || section === "execution.reviewTolerance") {
         return "chaotic" as T;
       }
 
@@ -751,10 +751,10 @@ test("readSpecForgeSettings falls back to balanced clarification tolerance for u
     }
   });
 
-  assert.equal(settings.clarificationTolerance, "balanced");
+  assert.equal(settings.refinementTolerance, "balanced");
   assert.equal(settings.reviewTolerance, "balanced");
   assert.equal(settings.requireExplicitApprovalBranchAcceptance, false);
-  assert.equal(settings.autoClarificationAnswersEnabled, false);
-  assert.equal(settings.autoClarificationAnswersProfile, null);
+  assert.equal(settings.autoRefinementAnswersEnabled, false);
+  assert.equal(settings.autoRefinementAnswersProfile, null);
   assert.deepEqual(settings.phaseModelAssignments, assignments());
 });

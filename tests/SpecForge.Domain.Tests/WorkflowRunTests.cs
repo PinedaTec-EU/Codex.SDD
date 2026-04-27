@@ -5,13 +5,13 @@ namespace SpecForge.Domain.Tests;
 public sealed class WorkflowRunTests
 {
     [Fact]
-    public void GenerateNextPhase_FromCapture_MovesToClarificationAndStaysActive()
+    public void GenerateNextPhase_FromCapture_MovesToRefinementAndStaysActive()
     {
         var run = CreateRun();
 
         run.GenerateNextPhase();
 
-        Assert.Equal(PhaseId.Clarification, run.CurrentPhase);
+        Assert.Equal(PhaseId.Refinement, run.CurrentPhase);
         Assert.Equal(UserStoryStatus.Active, run.Status);
     }
 
@@ -29,7 +29,7 @@ public sealed class WorkflowRunTests
     }
 
     [Fact]
-    public void ApproveCurrentPhase_OnRefinement_CreatesWorkBranch()
+    public void ApproveCurrentPhase_OnSpec_CreatesWorkBranch()
     {
         var run = CreateRun();
         run.GenerateNextPhase();
@@ -44,7 +44,7 @@ public sealed class WorkflowRunTests
             ".specs/us/workflow/US-0001/us.md",
             new DateTimeOffset(2026, 4, 18, 10, 0, 0, TimeSpan.Zero));
 
-        Assert.True(run.IsPhaseApproved(PhaseId.Refinement));
+        Assert.True(run.IsPhaseApproved(PhaseId.Spec));
         Assert.Equal(UserStoryStatus.Active, run.Status);
         Assert.NotNull(run.Branch);
         Assert.Equal("main", run.Branch!.BaseBranch);
@@ -54,7 +54,7 @@ public sealed class WorkflowRunTests
     }
 
     [Fact]
-    public void ApproveCurrentPhase_OnRefinementWithoutBaseBranch_Throws()
+    public void ApproveCurrentPhase_OnSpecWithoutBaseBranch_Throws()
     {
         var run = CreateRun();
         run.GenerateNextPhase();
@@ -67,7 +67,7 @@ public sealed class WorkflowRunTests
     }
 
     [Fact]
-    public void ApprovedRefinement_CanAdvanceLinearlyToTechnicalDesign()
+    public void ApprovedSpec_CanAdvanceLinearlyToTechnicalDesign()
     {
         var run = CreateRun();
         run.GenerateNextPhase();
@@ -94,12 +94,12 @@ public sealed class WorkflowRunTests
     }
 
     [Fact]
-    public void RequestRegression_FromImplementationToRefinement_Throws()
+    public void RequestRegression_FromImplementationToSpec_Throws()
     {
         var run = CreateRun();
         AdvanceToImplementation(run);
 
-        var act = () => run.RequestRegression(PhaseId.Refinement);
+        var act = () => run.RequestRegression(PhaseId.Spec);
 
         Assert.Throws<WorkflowDomainException>(act);
     }
@@ -110,9 +110,9 @@ public sealed class WorkflowRunTests
         var run = CreateRun();
         AdvanceToReleaseApproval(run);
 
-        run.RequestRegression(PhaseId.Refinement);
+        run.RequestRegression(PhaseId.Spec);
 
-        Assert.False(run.IsPhaseApproved(PhaseId.Refinement));
+        Assert.False(run.IsPhaseApproved(PhaseId.Spec));
         Assert.False(run.IsPhaseApproved(PhaseId.TechnicalDesign));
         Assert.Equal(UserStoryStatus.WaitingUser, run.Status);
     }

@@ -7,8 +7,8 @@ function requiresDefaultFallback(modelProfiles, phaseModelAssignments) {
     return nonEmptyProfiles.length > 1 && !(phaseModelAssignments.defaultProfile?.trim());
 }
 const modelDrivenPhaseRequirements = [
-    { assignmentKey: "clarificationProfile", label: "Clarification", requiredRepositoryAccess: "read" },
     { assignmentKey: "refinementProfile", label: "Refinement", requiredRepositoryAccess: "read" },
+    { assignmentKey: "specProfile", label: "Spec", requiredRepositoryAccess: "read" },
     { assignmentKey: "technicalDesignProfile", label: "Technical Design", requiredRepositoryAccess: "read" },
     { assignmentKey: "implementationProfile", label: "Implementation", requiredRepositoryAccess: "read-write" },
     { assignmentKey: "reviewProfile", label: "Review", requiredRepositoryAccess: "read-write" },

@@ -81,28 +81,28 @@ public sealed class WorkflowRun
             throw new WorkflowDomainException($"Phase '{CurrentPhase}' does not require approval.");
         }
 
-        if (CurrentPhase == PhaseId.Refinement)
+        if (CurrentPhase == PhaseId.Spec)
         {
             if (Branch is null)
             {
                 if (string.IsNullOrWhiteSpace(baseBranch))
                 {
-                    throw new WorkflowDomainException("Base branch is required to approve refinement.");
+                    throw new WorkflowDomainException("Base branch is required to approve spec.");
                 }
 
                 if (string.IsNullOrWhiteSpace(workBranchName))
                 {
-                    throw new WorkflowDomainException("Work branch name is required to approve refinement.");
+                    throw new WorkflowDomainException("Work branch name is required to approve spec.");
                 }
 
                 if (string.IsNullOrWhiteSpace(workBranchKind))
                 {
-                    throw new WorkflowDomainException("Work branch kind is required to approve refinement.");
+                    throw new WorkflowDomainException("Work branch kind is required to approve spec.");
                 }
 
                 if (string.IsNullOrWhiteSpace(workBranchCategory))
                 {
-                    throw new WorkflowDomainException("Work branch category is required to approve refinement.");
+                    throw new WorkflowDomainException("Work branch category is required to approve spec.");
                 }
 
                 Branch = new WorkBranch(

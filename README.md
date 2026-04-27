@@ -35,13 +35,13 @@ Not implemented yet:
 The workflow view is one of the strongest parts of the product already: it makes phase state, checkpoints, runtime metrics, and model routing visible in one place instead of scattering them across logs and prompts.
 
 <p align="center">
-  <img loading="lazy" alt="Workflow overview showing the constellation graph and refinement detail" src="./doc/images/workflow-overview.png" width="92%"/>
+  <img loading="lazy" alt="Workflow overview showing the constellation graph and spec detail" src="./doc/images/workflow-overview.png" width="92%"/>
 </p>
 
-The clarification step is also designed as an operational screen, not just a modal interruption. It keeps the blocked questions, repo-context suggestions, and current artifact visible together.
+The refinement step is also designed as an operational screen, not just a modal interruption. It keeps the blocked questions, repo-context suggestions, and current artifact visible together.
 
 <p align="center">
-  <img loading="lazy" alt="Clarification view showing suggested context files and pending answers" src="./doc/images/workflow-clarification-context.png" width="92%"/>
+  <img loading="lazy" alt="Refinement view showing suggested context files and pending answers" src="./doc/images/workflow-refinement-context.png" width="92%"/>
 </p>
 
 Playback is intentionally theatrical enough to communicate that the workflow is moving without becoming noisy. The execution overlay pushes the current run state above the graph instead of burying it in the timeline.
@@ -54,7 +54,7 @@ Playback is intentionally theatrical enough to communicate that the workflow is 
 
 - Canonical user story workflow:
   - `capture`
-  - `refinement`
+  - `spec`
   - `technical-design`
   - `implementation`
   - `review`
@@ -62,7 +62,7 @@ Playback is intentionally theatrical enough to communicate that the workflow is 
   - `pr-preparation`
 - Phase execution semantics are explicit:
   - automatic/system-driven phases: `capture`, `technical-design`, `implementation`, `review`, `pr-preparation`
-  - human checkpoint phases: `clarification`, `refinement`, and `release-approval`
+  - human checkpoint phases: `refinement`, `spec`, and `release-approval`
 - Explicit approval gates and regression rules
 - Local workspace persistence under `.specs/us/<category>/<US-ID>/`
 - Human-readable artifacts in Markdown
@@ -230,7 +230,7 @@ Full example with routing:
 }
 ```
 
-With that setup, capture, clarification, refinement, technical design, release approval, and PR preparation use `defaultProfile`; implementation can be routed to the developer's preferred executor; review can use a separate provider family. `repositoryAccess` is part of the contract now:
+With that setup, capture, refinement, spec, technical design, release approval, and PR preparation use `defaultProfile`; implementation can be routed to the developer's preferred executor; review can use a separate provider family. `repositoryAccess` is part of the contract now:
 
 - `none`: planning-only, no repo execution claims allowed
 - `read`: enough for repository-aware review
@@ -299,7 +299,7 @@ export SPECFORGE_CODEX_CLI_PATH="/Applications/Codex.app/Contents/Resources/code
 Tolerance can still be controlled through environment variables when launching the backend manually:
 
 ```bash
-export SPECFORGE_CAPTURE_TOLERANCE=balanced
+export SPECFORGE_REFINEMENT_TOLERANCE=balanced
 export SPECFORGE_REVIEW_TOLERANCE=balanced
 ```
 
@@ -308,8 +308,8 @@ The current supported `provider` values are `openai-compatible`, `codex`, `copil
 - `codex` uses the native local Codex CLI.
 - `openai-compatible` uses the OpenAI-compatible HTTP chat-completions path.
 - `copilot` and `claude` currently use that same HTTP bridge while preserving provider identity in routing and audit metadata.
-For clarification, the backend supports three tolerance levels: `strict`, `balanced`, and `inferential`.
-This value is sent as `SPECFORGE_CAPTURE_TOLERANCE`, adds explicit guidance to the clarification prompt, and maps clarification-only `temperature` as follows:
+For refinement, the backend supports three tolerance levels: `strict`, `balanced`, and `inferential`.
+This value is sent as `SPECFORGE_REFINEMENT_TOLERANCE`, adds explicit guidance to the refinement prompt, and maps refinement-only `temperature` as follows:
 
 - `strict` -> `0.0`
 - `balanced` -> `0.2`
@@ -321,7 +321,7 @@ For review, the backend supports the same three levels through `SPECFORGE_REVIEW
 - `balanced` -> `0.2`
 - `inferential` -> `0.4`
 
-`temperature` is not exposed as an independent extension setting. The supported knobs are `clarificationTolerance` and `reviewTolerance`, and the backend derives `temperature` from them for the corresponding phases only.
+`temperature` is not exposed as an independent extension setting. The supported knobs are `refinementTolerance` and `reviewTolerance`, and the backend derives `temperature` from them for the corresponding phases only.
 
 Before executing real model-backed phases, initialize the repository prompt set through the MCP backend. This materializes `.specs/config.yaml` and `.specs/prompts/`, and the engine will fail fast if the required prompt files are missing.
 
@@ -336,7 +336,7 @@ The .NET core already supports:
 - validating explicit user-story categories against the repo catalog in `.specs/config.yaml`
 - advancing to the next valid phase
 - approving approval-required phases
-- creating the work branch metadata when the refinement/spec phase is approved using `<kind>/us-xxxx-short-slug`
+- creating the work branch metadata when the spec phase is approved using `<kind>/us-xxxx-short-slug`
 - generating minimal phase artifacts and timeline entries
 - initializing versioned repo prompts under `.specs/prompts/`
 - requiring prompt initialization for real model-backed phase execution
@@ -360,9 +360,9 @@ The extension currently provides:
 - user-story file management inside the workflow view, split between `context files` and `user story info`
 - only `context files` are injected into model-backed runtime context; `user story info` remains attached to the workflow without entering the model prompt by default
 - MCP tools to list, add, and reclassify workflow files so models can attach repo context without going through the VS Code UI
-- clarification guidance inside the workflow view inviting the user to add more repo context when the model gets blocked
-- local context-file suggestions during clarification using two default-enabled strategies: keyword heuristics and repo-neighborhood discovery
-- a feature flag to disable clarification context suggestions without removing manual context-file intake
+- refinement guidance inside the workflow view inviting the user to add more repo context when the model gets blocked
+- local context-file suggestions during refinement using two default-enabled strategies: keyword heuristics and repo-neighborhood discovery
+- a feature flag to disable refinement context suggestions without removing manual context-file intake
 - persisted runtime status per user story so MCP clients can see whether a long-running phase generation is still active
 - duplicate `generate_next_phase` requests are rejected while the same user story already has a live runtime operation
 - inline audit stream sourced from `timeline.md`
@@ -410,7 +410,7 @@ The sidebar intake keeps the original freeform source box, but also offers an op
 
 ### Spec baseline
 
-The `refinement` phase is the functional checkpoint of the workflow. Its output is no longer treated as lightweight prose; it is the approved baseline spec for downstream work.
+The `spec` phase is the functional checkpoint of the workflow. Its output is no longer treated as lightweight prose; it is the approved baseline spec for downstream work.
 
 Current expectation for `01-spec.md`:
 
@@ -423,7 +423,7 @@ Current expectation for `01-spec.md`:
 - acceptance criteria
 - explicit ambiguities and approval questions
 
-This reduces approval fatigue versus forcing the user to approve both a weak refinement and a separate technical design by default. The technical design remains important, but phase 1 now treats it as a derived execution artifact rather than as a mandatory blocking checkpoint in every story.
+This reduces approval fatigue versus forcing the user to approve both a weak spec and a separate technical design by default. The technical design remains important, but phase 1 now treats it as a derived execution artifact rather than as a mandatory blocking checkpoint in every story.
 
 The exact required schema for that artifact lives in [doc/spec-schema-fase-1.md](doc/spec-schema-fase-1.md). The approval path now validates that schema before the spec baseline can be frozen.
 
@@ -434,7 +434,7 @@ The workflow view intentionally distinguishes between:
 - automatic phases that the system can execute when model configuration and prompts are ready
 - user-driven checkpoints that require explicit approval before the next transition
 
-Today the canonical checkpoints are `refinement` as the spec baseline and `release-approval` as the final human release gate. The graph and phase detail make this visible so the operator can see where the workflow will stop and wait for attention.
+Today the canonical checkpoints are `spec` as the spec baseline and `release-approval` as the final human release gate. The graph and phase detail make this visible so the operator can see where the workflow will stop and wait for attention.
 
 ### Running the extension locally
 
@@ -449,14 +449,14 @@ The extension contributes these settings:
 
 - `specForge.execution.modelProfiles`
 - `specForge.execution.phaseModels`
-- `specForge.execution.clarificationTolerance`
+- `specForge.execution.refinementTolerance`
 - `specForge.execution.reviewTolerance`
-- `specForge.execution.autoClarificationAnswersProfile`
+- `specForge.execution.autoRefinementAnswersProfile`
 - `specForge.ui.enableWatcher`
 - `specForge.ui.notifyOnAttention`
 - `specForge.features.enableContextSuggestions`
 - `specForge.features.requireApprovalBranchAcceptance`
-- `specForge.features.autoClarificationAnswersEnabled`
+- `specForge.features.autoRefinementAnswersEnabled`
 - `specForge.features.autoPlayEnabled`
 - `specForge.features.destructiveRewindEnabled`
 - `specForge.features.pauseOnFailedReview`
@@ -493,8 +493,8 @@ Example persisted shape:
   ],
   "specForge.execution.phaseModels": {
     "defaultProfile": "compat-review",
-    "clarificationProfile": "compat-review",
     "refinementProfile": "compat-review",
+    "specProfile": "compat-review",
     "technicalDesignProfile": "compat-review",
     "implementationProfile": "codex-main",
     "reviewProfile": "compat-review"
@@ -515,7 +515,7 @@ Typical contents:
 ```text
 .specs/us/workflow/US-0001/
   us.md
-  clarification.md
+  refinement.md
   state.yaml
   runtime.yaml
   branch.yaml
@@ -524,7 +524,7 @@ Typical contents:
   attachments/
   restarts/
   phases/
-    00-clarification.md
+    00-refinement.md
     01-spec.md
     02-technical-design.md
     03-implementation.md
@@ -539,7 +539,7 @@ Per-user VS Code workspace preferences are stored separately:
 
 This preference file currently stores the starred user story that should reopen automatically for that same developer. It is ignored by git by default, so several developers can share the same workspace without overwriting each other's VS Code UX state.
 
-`clarification.md` is persisted separately from `us.md`. The workflow UI keeps the accumulated clarification questions there, while `us.md` remains the stable source artifact instead of being rewritten with each clarification round.
+`refinement.md` is persisted separately from `us.md`. The workflow UI keeps the accumulated refinement questions there, while `us.md` remains the stable source artifact instead of being rewritten with each refinement round.
 
 ## Roadmap
 
@@ -572,7 +572,7 @@ This preference file currently stores the starred user story that should reopen 
 - [x] add watcher-driven refresh, attention notifications, and playback controls with best-effort stop
 - [x] keep the default navigation focused on active user stories and workflows for the MVP
 - [x] persist a per-user starred user story on disk and autoopen it when reopening the workspace
-- [x] suggest clarification-time context files through local heuristics and repo neighborhood, behind a default-enabled feature flag
+- [x] suggest refinement-time context files through local heuristics and repo neighborhood, behind a default-enabled feature flag
 - [x] expose persisted runtime status so MCP clients can avoid duplicating long-running workflow executions
 - [ ] finalize richer branch lifecycle rules and Git/PR metadata
 - [x] add richer phase detail UI and graph visualization

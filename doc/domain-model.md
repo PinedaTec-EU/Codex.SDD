@@ -115,7 +115,7 @@ These stay outside the initial domain and should return only if implementation r
 - The next phase cannot start if the required checkpoint is not approved.
 - Every regression must target a phase allowed by `WorkflowDefinition`.
 - Every `ReviewFinding` must reference the affected phase or artifact.
-- If the original source changes after `refinement` begins, the workflow does not incorporate it automatically.
+- If the original source changes after `spec` begins, the workflow does not incorporate it automatically.
 - Every regeneration of an approved or already consumed output creates a new artifact version.
 - A `completed` `UserStory` should not be reopened for substantial changes; the recommended path is to create a new user story.
 

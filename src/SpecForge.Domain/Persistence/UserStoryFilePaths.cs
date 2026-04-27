@@ -17,7 +17,7 @@ public sealed class UserStoryFilePaths
 
         RootDirectory = rootDirectory;
         MainArtifactPath = Path.Combine(rootDirectory, "us.md");
-        ClarificationFilePath = Path.Combine(rootDirectory, "clarification.md");
+        RefinementFilePath = Path.Combine(rootDirectory, "refinement.md");
         StateFilePath = Path.Combine(rootDirectory, "state.yaml");
         RuntimeFilePath = Path.Combine(rootDirectory, "runtime.yaml");
         TimelineFilePath = Path.Combine(rootDirectory, "timeline.md");
@@ -90,7 +90,7 @@ public sealed class UserStoryFilePaths
 
     public string MainArtifactPath { get; }
 
-    public string ClarificationFilePath { get; }
+    public string RefinementFilePath { get; }
 
     public string StateFilePath { get; }
 
@@ -218,8 +218,8 @@ public sealed class UserStoryFilePaths
 
     private static string GetPhaseArtifactFileStem(PhaseId phaseId) => phaseId switch
     {
-        PhaseId.Clarification => "00-clarification",
-        PhaseId.Refinement => "01-spec",
+        PhaseId.Refinement => "00-refinement",
+        PhaseId.Spec => "01-spec",
         PhaseId.TechnicalDesign => "02-technical-design",
         PhaseId.Implementation => "03-implementation",
         PhaseId.Review => "04-review",
@@ -230,7 +230,8 @@ public sealed class UserStoryFilePaths
 
     private static IReadOnlyList<string> GetPhaseArtifactFileStems(PhaseId phaseId) => phaseId switch
     {
-        PhaseId.Refinement => ["01-spec", "01-refinement"],
+        PhaseId.Refinement => ["00-refinement", "00-clarification"],
+        PhaseId.Spec => ["01-spec", "01-refinement"],
         _ => [GetPhaseArtifactFileStem(phaseId)]
     };
 }

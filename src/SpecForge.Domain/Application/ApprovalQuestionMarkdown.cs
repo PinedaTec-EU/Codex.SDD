@@ -60,7 +60,7 @@ internal static class ApprovalQuestionMarkdown
         var matchIndex = items.FindIndex(item => string.Equals(item.Question, question, StringComparison.Ordinal));
         if (matchIndex < 0)
         {
-            throw new WorkflowDomainException($"Approval question not found in the current refinement artifact: '{question}'.");
+            throw new WorkflowDomainException($"Approval question not found in the current spec artifact: '{question}'.");
         }
 
         items[matchIndex] = items[matchIndex] with

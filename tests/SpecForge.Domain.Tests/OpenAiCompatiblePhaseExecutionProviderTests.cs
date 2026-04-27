@@ -15,10 +15,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     private readonly string workspaceRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
 
     [Fact]
-    public async Task ExecuteAsync_SendsOpenAiCompatibleRequestAndParsesRefinementJson()
+    public async Task ExecuteAsync_SendsOpenAiCompatibleRequestAndParsesSpecJson()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecJson());
         var httpClient = new HttpClient(handler);
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             httpClient,
@@ -28,7 +28,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Refinement,
+            PhaseId: PhaseId.Spec,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
@@ -36,7 +36,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var result = await provider.ExecuteAsync(context);
 
         Assert.Equal("openai-compatible", result.ExecutionKind);
-        Assert.Contains("\"title\": \"Generated refinement\"", result.Content);
+        Assert.Contains("\"title\": \"Generated spec\"", result.Content);
         Assert.NotNull(result.Usage);
         Assert.Equal(120, result.Usage!.InputTokens);
         Assert.Equal(48, result.Usage.OutputTokens);
@@ -53,17 +53,17 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Contains("\"model\":\"llama3.1\"", handler.LastBody);
         Assert.Equal(0.2d, OpenAiCompatibleRequestJson.ReadTemperature(handler.LastBody));
         Assert.Equal("json_schema", OpenAiCompatibleRequestJson.ReadResponseFormatType(handler.LastBody));
-        Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(handler.LastBody));
-        Assert.Contains("Role: refinement analyst.", handler.LastBody);
+        Assert.Equal("spec_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(handler.LastBody));
+        Assert.Contains("Role: spec analyst.", handler.LastBody);
         Assert.Contains("Initial text", handler.LastBody);
-        Assert.Contains("This is the system prompt for the refinement execute template.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
+        Assert.Contains("This is the system prompt for the spec execute template.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
     }
 
     [Fact]
     public async Task ExecuteAsync_SendsReasoningEffortForHttpProfiles()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(
@@ -74,7 +74,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Refinement,
+            PhaseId: PhaseId.Spec,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
@@ -116,7 +116,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         await File.WriteAllTextAsync(
             timelinePath,
             """
-            - 2026-04-22T12:00:00Z | alice | refinement | Generated the approved refinement artifact.
+            - 2026-04-22T12:00:00Z | alice | spec | Generated the approved spec artifact.
             - 2026-04-22T12:10:00Z | bob | implementation | Implemented the approved workflow changes.
             """);
         var context = new PhaseExecutionContext(
@@ -145,25 +145,25 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Theory]
-    [InlineData("strict", 0.0d, "Be conservative. Ask for clarification whenever actor, trigger, business behavior, inputs, outputs, rules, or acceptance intent are materially ambiguous.")]
-    [InlineData("balanced", 0.2d, "Use balanced judgment. Ask only for gaps that would block a credible refinement, but do not invent business-critical facts.")]
-    [InlineData("inferential", 0.4d, "Be permissive. Prefer `ready_for_refinement` when the core actor, outcome, and flow are understandable, and infer reasonable defaults unless a missing detail would likely invalidate refinement.")]
-    public async Task ExecuteAsync_ClarificationTolerance_ChangesTemperatureAndPrompt(
-        string clarificationTolerance,
+    [InlineData("strict", 0.0d, "Be conservative. Ask for refinement whenever actor, trigger, business behavior, inputs, outputs, rules, or acceptance intent are materially ambiguous.")]
+    [InlineData("balanced", 0.2d, "Use balanced judgment. Ask only for gaps that would block a credible spec, but do not invent business-critical facts.")]
+    [InlineData("inferential", 0.4d, "Be permissive. Prefer `ready_for_spec` when the core actor, outcome, and flow are understandable, and infer reasonable defaults unless a missing detail would likely invalidate spec.")]
+    public async Task ExecuteAsync_RefinementTolerance_ChangesTemperatureAndPrompt(
+        string refinementTolerance,
         double expectedTemperature,
         string expectedGuidance)
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildReadyClarificationJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildReadyRefinementJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(
                 model: "llama3.1",
-                clarificationTolerance: clarificationTolerance));
+                refinementTolerance: refinementTolerance));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Clarification,
+            PhaseId: PhaseId.Refinement,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
@@ -172,21 +172,21 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         Assert.Equal(expectedTemperature, OpenAiCompatibleRequestJson.ReadTemperature(handler.LastBody));
         var userPrompt = OpenAiCompatibleRequestJson.ReadUserPrompt(handler.LastBody);
-        Assert.Contains($"Active tolerance: `{clarificationTolerance}`", userPrompt);
+        Assert.Contains($"Active tolerance: `{refinementTolerance}`", userPrompt);
         Assert.Contains(expectedGuidance, userPrompt);
     }
 
     [Fact]
-    public async Task TryAutoAnswerClarificationAsync_UsesConfiguredProfileAndStructuredPrompt()
+    public async Task TryAutoAnswerRefinementAsync_UsesConfiguredProfileAndStructuredPrompt()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildAutoClarificationAnswersJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildAutoRefinementAnswersJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             new OpenAiCompatibleProviderOptions(
-                ClarificationTolerance: "inferential",
-                AutoClarificationAnswersEnabled: true,
-                AutoClarificationAnswersProfile: "resolver",
+                RefinementTolerance: "inferential",
+                AutoRefinementAnswersEnabled: true,
+                AutoRefinementAnswersProfile: "resolver",
                 ModelProfiles:
                 [
                     new OpenAiCompatibleModelProfile(
@@ -206,35 +206,35 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                 ],
                 PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
                     DefaultProfile: "default",
-                    ClarificationProfile: "default")));
+                    RefinementProfile: "default")));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Clarification,
+            PhaseId: PhaseId.Refinement,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
 
-        var result = await provider.TryAutoAnswerClarificationAsync(
+        var result = await provider.TryAutoAnswerRefinementAsync(
             context,
-            new ClarificationSession(
-                "needs_clarification",
+            new RefinementSession(
+                "needs_refinement",
                 "inferential",
                 "Missing business details.",
-                [new ClarificationItem(1, "Which role publishes the article?", null)]));
+                [new RefinementItem(1, "Which role publishes the article?", null)]));
 
         Assert.NotNull(result);
-        Assert.Equal("The available context is enough to answer the pending clarification.", result!.Reason);
+        Assert.Equal("The available context is enough to answer the pending refinement.", result!.Reason);
         Assert.Equal("Marketing editor", result.Answers[0]);
         Assert.NotNull(result.Execution);
         Assert.Equal("resolver", result.Execution!.ProfileName);
         Assert.Equal("llama-resolver", result.Execution.Model);
         Assert.Equal("http://localhost:22434/v1/chat/completions", handler.LastRequest!.RequestUri!.ToString());
-        Assert.Equal("auto_clarification_answers", OpenAiCompatibleRequestJson.ReadResponseSchemaName(handler.LastBody));
+        Assert.Equal("auto_refinement_answers", OpenAiCompatibleRequestJson.ReadResponseSchemaName(handler.LastBody));
         Assert.Contains("\"model\":\"llama-resolver\"", handler.LastBody);
-        Assert.Contains("This is the system prompt for the clarification execute template.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
-        Assert.Contains("This is the system prompt for the internal auto clarification answer task.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
-        Assert.Contains("## Auto Clarification Answer Task", OpenAiCompatibleRequestJson.ReadUserPrompt(handler.LastBody));
+        Assert.Contains("This is the system prompt for the refinement execute template.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
+        Assert.Contains("This is the system prompt for the internal auto refinement answer task.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
+        Assert.Contains("## Auto Refinement Answer Task", OpenAiCompatibleRequestJson.ReadUserPrompt(handler.LastBody));
         Assert.Contains("Which role publishes the article?", OpenAiCompatibleRequestJson.ReadUserPrompt(handler.LastBody));
     }
 
@@ -244,12 +244,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         await PrepareInitializedWorkspaceAsync();
         var paths = new PromptFilePaths(workspaceRoot);
         await File.WriteAllTextAsync(
-            paths.RefinementExecuteSystemPromptPath,
+            paths.SpecExecuteSystemPromptPath,
             """
-            This refinement system prompt was modified outside the engine.
+            This spec system prompt was modified outside the engine.
             """
         );
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(
@@ -258,7 +258,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Refinement,
+            PhaseId: PhaseId.Spec,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
@@ -267,9 +267,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         Assert.NotNull(result.Execution);
         Assert.NotNull(result.Execution!.Warnings);
-        Assert.Contains(result.Execution.Warnings!, warning => warning.Contains("refinement.execute.system.md", StringComparison.Ordinal));
+        Assert.Contains(result.Execution.Warnings!, warning => warning.Contains("spec.execute.system.md", StringComparison.Ordinal));
         Assert.Contains("modified outside the engine", result.Execution.Warnings!.First());
-        Assert.Contains("This refinement system prompt was modified outside the engine.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
+        Assert.Contains("This spec system prompt was modified outside the engine.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
     }
 
     [Theory]
@@ -312,7 +312,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Directory.CreateDirectory(attachmentDirectory);
         var attachmentPath = Path.Combine(attachmentDirectory, "notes.md");
         await File.WriteAllTextAsync(attachmentPath, "# Notes\nUseful attachment");
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(
@@ -321,7 +321,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Refinement,
+            PhaseId: PhaseId.Spec,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: [attachmentPath]);
@@ -337,14 +337,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_LocalEndpointWithoutApiKey_OmitsAuthorizationHeader()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(model: "llama3.1"));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Refinement,
+            PhaseId: PhaseId.Spec,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
@@ -459,7 +459,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         await PrepareInitializedWorkspaceAsync();
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "workflow", "US-0001");
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
-        await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Refinement), "# Spec · US-0001 · v01");
+        await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Spec), "# Spec · US-0001 · v01");
         await File.WriteAllTextAsync(
             paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign),
             """
@@ -493,7 +493,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             UserStoryPath: paths.MainArtifactPath,
             PreviousArtifactPaths: new Dictionary<PhaseId, string>
             {
-                [PhaseId.Refinement] = paths.GetPhaseArtifactPath(PhaseId.Refinement),
+                [PhaseId.Spec] = paths.GetPhaseArtifactPath(PhaseId.Spec),
                 [PhaseId.TechnicalDesign] = paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign),
                 [PhaseId.Implementation] = paths.GetPhaseArtifactPath(PhaseId.Implementation)
             },
@@ -585,7 +585,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             new RepositoryPromptCatalog(),
             [new FakeNativeCliRunner(providerKind, isAvailable: false)]);
 
-        var readiness = provider.GetPhaseExecutionReadiness(PhaseId.Refinement);
+        var readiness = provider.GetPhaseExecutionReadiness(PhaseId.Spec);
 
         Assert.False(readiness.CanExecute);
         Assert.Equal(expectedBlockingReason, readiness.BlockingReason);
@@ -595,7 +595,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_EmptyProfileProvider_DefaultsToOpenAiCompatible()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             new OpenAiCompatibleProviderOptions(
@@ -613,7 +613,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Refinement,
+            PhaseId: PhaseId.Spec,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
@@ -630,7 +630,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_SupportedBridgeProvider_PreservesConfiguredProviderKind(string providerKind)
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalRefinementJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             new OpenAiCompatibleProviderOptions(
@@ -651,7 +651,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Refinement,
+            PhaseId: PhaseId.Spec,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
@@ -670,7 +670,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         string expectedPromptMarker)
     {
         await PrepareInitializedWorkspaceAsync();
-        var fakeRunner = new FakeNativeCliRunner(providerKind, isAvailable: true, responseJson: BuildMinimalRefinementJson());
+        var fakeRunner = new FakeNativeCliRunner(providerKind, isAvailable: true, responseJson: BuildMinimalSpecJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(new ThrowingHttpMessageHandler()),
             CreateOptions(model: "native-model", providerKind: providerKind, baseUrl: string.Empty, apiKey: string.Empty),
@@ -679,7 +679,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Refinement,
+            PhaseId: PhaseId.Spec,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
@@ -747,7 +747,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var fakeRunner = new FakeNativeCliRunner(
             "codex",
             isAvailable: true,
-            responseJson: BuildMinimalRefinementJson());
+            responseJson: BuildMinimalSpecJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(new ThrowingHttpMessageHandler()),
             CreateOptions(
@@ -761,7 +761,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Refinement,
+            PhaseId: PhaseId.Spec,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
@@ -948,8 +948,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                         RepositoryAccess: "read-write")
                 ],
                 PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
-                    ClarificationProfile: "planner",
                     RefinementProfile: "planner",
+                    SpecProfile: "planner",
                     TechnicalDesignProfile: "planner",
                     ImplementationProfile: "implementer",
                     ReviewProfile: "planner")));
@@ -958,17 +958,17 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteAsync_ClarificationOk_NormalizesToCanonicalReadyArtifact()
+    public async Task ExecuteAsync_RefinementOk_NormalizesToCanonicalReadyArtifact()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildReadyClarificationJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildReadyRefinementJson());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(model: "llama3.1"));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Clarification,
+            PhaseId: PhaseId.Refinement,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
@@ -976,19 +976,19 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var result = await provider.ExecuteAsync(context);
 
         Assert.Contains("## Decision", result.Content);
-        Assert.Contains("ready_for_refinement", result.Content);
-        Assert.Contains("No clarification questions remain.", result.Content);
+        Assert.Contains("ready_for_spec", result.Content);
+        Assert.Contains("No refinement questions remain.", result.Content);
     }
 
     [Fact]
-    public async Task ExecuteAsync_ClarificationNeedsClarification_RendersMarkdownArtifactFromStructuredResponse()
+    public async Task ExecuteAsync_RefinementNeedsRefinement_RendersMarkdownArtifactFromStructuredResponse()
     {
         await PrepareInitializedWorkspaceAsync();
         var handler = new CapturingFakeHttpMessageHandler(
             """
             {
               "state": "pending_user_input",
-              "decision": "needs_clarification",
+              "decision": "needs_refinement",
               "reason": "Missing actor and acceptance details.",
               "questions": [
                 "Who performs the action?"
@@ -1002,20 +1002,20 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Clarification,
+            PhaseId: PhaseId.Refinement,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
 
         var result = await provider.ExecuteAsync(context);
 
-        Assert.StartsWith("# Clarification · US-0001 · v01", result.Content);
-        Assert.Contains("needs_clarification", result.Content);
+        Assert.StartsWith("# Refinement · US-0001 · v01", result.Content);
+        Assert.Contains("needs_refinement", result.Content);
         Assert.Contains("## Questions", result.Content);
     }
 
     [Fact]
-    public async Task ExecuteAsync_RefinementMarkdownPayload_ThrowsInsteadOfBackfillingPlaceholderSpec()
+    public async Task ExecuteAsync_SpecMarkdownPayload_ThrowsInsteadOfBackfillingPlaceholderSpec()
     {
         await PrepareInitializedWorkspaceAsync();
         var handler = new CapturingFakeHttpMessageHandler("# generated markdown");
@@ -1025,7 +1025,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Refinement,
+            PhaseId: PhaseId.Spec,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
@@ -1062,7 +1062,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
-            PhaseId: PhaseId.Refinement,
+            PhaseId: PhaseId.Spec,
             UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
@@ -1131,19 +1131,19 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         string profileName = "default",
         string baseUrl = "http://localhost:11434/v1",
         string apiKey = "",
-        string clarificationTolerance = "balanced",
+        string refinementTolerance = "balanced",
         string reviewTolerance = "balanced",
         string? reasoningEffort = null,
         string repositoryAccess = "read-write",
         string providerKind = "openai-compatible",
-        bool autoClarificationAnswersEnabled = false,
-        string? autoClarificationAnswersProfile = null)
+        bool autoRefinementAnswersEnabled = false,
+        string? autoRefinementAnswersProfile = null)
     {
         return new OpenAiCompatibleProviderOptions(
-            ClarificationTolerance: clarificationTolerance,
+            RefinementTolerance: refinementTolerance,
             ReviewTolerance: reviewTolerance,
-            AutoClarificationAnswersEnabled: autoClarificationAnswersEnabled,
-            AutoClarificationAnswersProfile: autoClarificationAnswersProfile,
+            AutoRefinementAnswersEnabled: autoRefinementAnswersEnabled,
+            AutoRefinementAnswersProfile: autoRefinementAnswersProfile,
             ModelProfiles:
             [
                 new OpenAiCompatibleModelProfile(
@@ -1165,7 +1165,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         public CapturingFakeHttpMessageHandler(string responseContent = "")
         {
-            this.responseContent = string.IsNullOrWhiteSpace(responseContent) ? BuildMinimalRefinementJson() : responseContent;
+            this.responseContent = string.IsNullOrWhiteSpace(responseContent) ? BuildMinimalSpecJson() : responseContent;
         }
 
         public HttpRequestMessage? LastRequest { get; private set; }
@@ -1300,23 +1300,23 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         }
     }
 
-    private static string BuildMinimalRefinementJson() =>
+    private static string BuildMinimalSpecJson() =>
         """
         {
-          "title": "Generated refinement",
-          "historyLog": ["`2026-04-22T13:25:00Z` · Initial refinement baseline generated."],
+          "title": "Generated spec",
+          "historyLog": ["`2026-04-22T13:25:00Z` · Initial spec baseline generated."],
           "state": "pending_approval",
           "basedOn": "us.md",
-          "specSummary": "A valid refinement baseline.",
+          "specSummary": "A valid spec baseline.",
           "inputs": ["A concrete source objective."],
-          "outputs": ["A concrete refinement artifact."],
+          "outputs": ["A concrete spec artifact."],
           "businessRules": ["The workflow must preserve the approved scope."],
           "edgeCases": ["Missing context should be surfaced explicitly."],
-          "errorsAndFailureModes": ["Invalid repository state should stop refinement."],
+          "errorsAndFailureModes": ["Invalid repository state should stop spec."],
           "constraints": ["Stay within the current repository."],
           "detectedAmbiguities": ["Non-functional targets remain explicit only when provided."],
           "redTeam": ["Implicit assumptions may still exist if the source is weak."],
-          "blueTeam": ["Keep the refinement executable and bounded."],
+          "blueTeam": ["Keep the spec executable and bounded."],
           "acceptanceCriteria": ["The spec is concrete enough for technical design."],
           "humanApprovalQuestions": [
             { "question": "Is the scope bounded enough for design?", "status": "pending" }
@@ -1324,21 +1324,21 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         }
         """;
 
-    private static string BuildReadyClarificationJson() =>
+    private static string BuildReadyRefinementJson() =>
         """
         {
           "state": "ready",
-          "decision": "ready_for_refinement",
-          "reason": "The user story is concrete enough to proceed to refinement.",
+          "decision": "ready_for_spec",
+          "reason": "The user story is concrete enough to proceed to spec.",
           "questions": []
         }
         """;
 
-    private static string BuildAutoClarificationAnswersJson() =>
+    private static string BuildAutoRefinementAnswersJson() =>
         """
         {
           "canResolve": true,
-          "reason": "The available context is enough to answer the pending clarification.",
+          "reason": "The available context is enough to answer the pending refinement.",
           "answers": [
             "Marketing editor"
           ]

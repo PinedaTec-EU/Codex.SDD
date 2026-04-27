@@ -89,7 +89,7 @@ test("buildSidebarHtml exposes a compact prompt reset action when repo prompts a
       usId: "US-0001",
       title: "Workflow graph",
       category: "workflow",
-      currentPhase: "refinement",
+      currentPhase: "spec",
       status: "waiting-user",
       mainArtifactPath: "/tmp/us.md",
       directoryPath: "/tmp/us.US-0001",
@@ -111,7 +111,7 @@ test("buildSidebarHtml uses compact actions instead of a separate create card wh
       usId: "US-0001",
       title: "Workflow graph",
       category: "workflow",
-      currentPhase: "refinement",
+      currentPhase: "spec",
       status: "active",
       mainArtifactPath: "/tmp/us.md",
       directoryPath: "/tmp/us.US-0001",
@@ -123,7 +123,7 @@ test("buildSidebarHtml uses compact actions instead of a separate create card wh
   assert.match(html, /aria-label="Create new user story"/);
   assert.match(html, /aria-label="Star US-0001"/);
   assert.match(html, /aria-label="Delete US-0001"/);
-  assert.match(html, /story-card--active story-card--phase-refinement/);
+  assert.match(html, /story-card--active story-card--phase-spec/);
   assert.match(html, /story-card__phase-label">SPEC</);
   assert.doesNotMatch(html, /Start another user story/);
   assert.doesNotMatch(html, /Keep the backlog focused on active work/);
@@ -195,7 +195,7 @@ test("buildSidebarHtml shows a bootstrap block above the backlog when prompts ar
       usId: "US-0001",
       title: "Workflow graph",
       category: "workflow",
-      currentPhase: "refinement",
+      currentPhase: "spec",
       status: "active",
       mainArtifactPath: "/tmp/us.md",
       directoryPath: "/tmp/us.US-0001",

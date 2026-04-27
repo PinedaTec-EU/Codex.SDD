@@ -4,7 +4,7 @@ export function resolveCompletedWorkflowReopenTargetPhase(reasonKind: string | u
     case "defect":
       return "implementation";
     case "functional-issue":
-      return "refinement";
+      return "spec";
     case "technical-issue":
       return "technical-design";
     default:
@@ -24,10 +24,10 @@ export function buildCompletedWorkflowReopenOperationPrompt(
   }
 
   switch (targetPhase) {
-    case "refinement":
+    case "spec":
       return [
-        "Apply this completed-workflow reopen note directly to the current refinement artifact.",
-        "Treat this as a corrective refinement pass over the approved spec, not a restart.",
+        "Apply this completed-workflow reopen note directly to the current spec artifact.",
+        "Treat this as a corrective spec pass over the approved spec, not a restart.",
         "Update scope, constraints, acceptance criteria, and approval-facing details so the reopened issue is explicit and reviewable.",
         "",
         "Reopen note:",

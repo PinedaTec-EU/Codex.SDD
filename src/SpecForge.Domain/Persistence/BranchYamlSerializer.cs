@@ -18,7 +18,7 @@ internal static class BranchYamlSerializer
                        $"workBranch: {branch.WorkBranchName}",
                        $"status: {branch.Status}",
                        $"createdAt: {branch.CreatedAtUtc:O}",
-                       "createdFromPhase: refinement",
+                       "createdFromPhase: spec",
                        $"strategy: {branch.Strategy}",
                        $"titleSnapshot: {branch.TitleSnapshot ?? string.Empty}",
                        $"sourceUsPath: {branch.SourceUsPath ?? string.Empty}",

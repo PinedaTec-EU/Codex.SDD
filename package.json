@@ -193,7 +193,7 @@
                   "read",
                   "read-write"
                 ],
-                "description": "Repository access granted to this profile. Clarification, refinement, and technical design require read. Implementation and review require read-write."
+                "description": "Repository access granted to this profile. Refinement, spec, and technical design require read. Implementation and review require read-write."
               }
             }
           }
@@ -213,15 +213,15 @@
               "default": "",
               "description": "Optional profile override for capture."
             },
-            "clarificationProfile": {
-              "type": "string",
-              "default": "",
-              "description": "Optional profile override for clarification."
-            },
             "refinementProfile": {
               "type": "string",
               "default": "",
               "description": "Optional profile override for refinement."
+            },
+            "specProfile": {
+              "type": "string",
+              "default": "",
+              "description": "Optional profile override for spec."
             },
             "technicalDesignProfile": {
               "type": "string",
@@ -250,7 +250,7 @@
             }
           }
         },
-        "specForge.execution.clarificationTolerance": {
+        "specForge.execution.refinementTolerance": {
           "type": "string",
           "default": "balanced",
           "enum": [
@@ -258,7 +258,7 @@
             "balanced",
             "inferential"
           ],
-          "description": "How demanding clarification should be before the workflow advances to refinement. This also adjusts the temperature sent for the clarification phase."
+          "description": "How demanding refinement should be before the workflow advances to spec. This also adjusts the temperature sent for the refinement phase."
         },
         "specForge.execution.reviewTolerance": {
           "type": "string",
@@ -270,10 +270,10 @@
           ],
           "description": "How demanding the review phase should be when assessing findings and pass/fail readiness. This also adjusts the temperature sent for the review phase."
         },
-        "specForge.execution.autoClarificationAnswersProfile": {
+        "specForge.execution.autoRefinementAnswersProfile": {
           "type": "string",
           "default": "",
-          "description": "Named profile used to auto-answer clarification questions before handing refinement/spec back to the user."
+          "description": "Named profile used to auto-answer refinement questions before handing spec back to the user."
         },
         "specForge.ui.enableWatcher": {
           "type": "boolean",
@@ -288,22 +288,22 @@
         "specForge.features.enableContextSuggestions": {
           "type": "boolean",
           "default": true,
-          "description": "Suggest repository context files during clarification using local heuristics and repo neighborhood rules."
+          "description": "Suggest repository context files during refinement using local heuristics and repo neighborhood rules."
         },
         "specForge.features.requireApprovalBranchAcceptance": {
           "type": "boolean",
           "default": false,
-          "description": "Require explicit acceptance of the proposed base branch in the workflow detail before approving refinement."
+          "description": "Require explicit acceptance of the proposed base branch in the workflow detail before approving spec."
         },
-        "specForge.features.autoClarificationAnswersEnabled": {
+        "specForge.features.autoRefinementAnswersEnabled": {
           "type": "boolean",
           "default": false,
-          "description": "When clarification blocks refinement/spec, let the selected model try to answer the pending questions once with the full workflow context before handing the phase to the user."
+          "description": "When refinement blocks spec, let the selected model try to answer the pending questions once with the full workflow context before handing the phase to the user."
         },
         "specForge.features.autoPlayEnabled": {
           "type": "boolean",
           "default": false,
-          "description": "Automatically resume workflow playback after manual actions such as approving refinement when the next phase can continue."
+          "description": "Automatically resume workflow playback after manual actions such as approving spec when the next phase can continue."
         },
         "specForge.features.autoReviewEnabled": {
           "type": "boolean",

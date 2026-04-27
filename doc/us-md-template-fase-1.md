@@ -7,8 +7,8 @@ Define the minimum `us.md` template as the stable source artifact for a user sto
 ## Principles
 
 - it must be brief
-- it must remain stable once `refinement` starts
-- it must not try to contain the refinement or the technical design
+- it must remain stable once `spec` starts
+- it must not try to contain the spec or the technical design
 - it must capture intent, initial scope, and known constraints
 
 ## Proposed Template
@@ -60,5 +60,5 @@ Notes, references, internal links, or known dependencies.
 - `us.md` is the workflow entry point
 - `Kind` controls the prefix of the future work branch
 - `Category` controls the operational grouping of the user story in the UI
-- once `refinement` starts, its contents stop mutating the workflow automatically
+- once `spec` starts, its contents stop mutating the workflow automatically
 - if it changes and the user wants to incorporate it, the user story must be restarted

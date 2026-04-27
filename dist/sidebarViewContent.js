@@ -1716,8 +1716,8 @@ function buildStoryDisplayTitle(summary) {
 function phaseLabelFor(currentPhase) {
     const phaseLabels = {
         "capture": "CAP",
-        "clarification": "CLAR",
-        "refinement": "SPEC",
+        "refinement": "CLAR",
+        "spec": "SPEC",
         "technical-design": "TECH",
         "implementation": "IMP",
         "review": "REV",
@@ -1765,8 +1765,8 @@ function phaseRailStatus(status) {
 function phaseSortOrder(phaseId) {
     const order = {
         "capture": 0,
-        "clarification": 1,
-        "refinement": 2,
+        "refinement": 1,
+        "spec": 2,
         "technical-design": 3,
         "implementation": 4,
         "review": 5,

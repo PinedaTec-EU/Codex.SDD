@@ -54,44 +54,44 @@ Checkpoint:
 Operational Notes:
 
 - `capture` is persisted as the initial state in `state.yaml`, but it does not produce a dedicated phase artifact
-- the next linear transition from `capture` is always `clarification`
+- the next linear transition from `capture` is always `refinement`
 
-### 2. `clarification`
+### 2. `refinement`
 
 Purpose:
 
-- determine whether the source user story is specific enough to enter refinement
+- determine whether the source user story is specific enough to enter spec
 - persist open questions and human answers without mutating `us.md`
 
 Input:
 
 - `us.md`
-- current clarification tolerance
+- current refinement tolerance
 - attached `context files` when available
 - attached `user story info` files for operator context
 
 Output:
 
-- `clarification.md`
-- `phases/00-clarification.md` when a clarification artifact is generated for the workflow phase
+- `refinement.md`
+- `phases/00-refinement.md` when a refinement artifact is generated for the workflow phase
 
 Definition of Done:
 
-- either the clarification log contains the required questions and answers
-- or the workflow can prove that no additional clarification is needed and advance directly to refinement semantics
+- either the refinement log contains the required questions and answers
+- or the workflow can prove that no additional refinement is needed and advance directly to spec semantics
 
 Checkpoint:
 
-- no formal approval gate, but the workflow may stop in `waiting-user` until all clarification answers are present
+- no formal approval gate, but the workflow may stop in `waiting-user` until all refinement answers are present
 
 Operational Notes:
 
-- `clarification` is a first-class persisted phase in the canonical workflow
-- `clarification.md` accumulates the question and answer log across iterations
-- `us.md` remains the stable source artifact and is not rewritten on each clarification round
+- `refinement` is a first-class persisted phase in the canonical workflow
+- `refinement.md` accumulates the question and answer log across iterations
+- `us.md` remains the stable source artifact and is not rewritten on each refinement round
 - only files classified as `context` are injected into model-backed runtime context by default
 
-### 3. `refinement`
+### 3. `spec`
 
 Purpose:
 
@@ -125,7 +125,7 @@ Operational Notes:
 
 - once this phase starts, `us.md` stops being a mutable source of truth for the running workflow
 - the system must compare the source-content hash to detect later manual changes
-- if the user story changes after `refinement` starts, those changes are not incorporated automatically
+- if the user story changes after `spec` starts, those changes are not incorporated automatically
 - if the user wants to restart from the new user story, the system must clean already-processed derived work and reinitialize the flow
 - every agent modification to the spec file must add a `history log` block at the top with date and a short multiline summary
 - model-assisted operations over the current spec must persist actor, UTC timestamp, source artifact, prompt text, and result artifact as one traceable unit
@@ -222,7 +222,7 @@ Checkpoint:
 Operational Notes:
 
 - the phase output must still record an explicit `pass` or `fail` verdict
-- when review fails, the operator can request regression to `refinement`, `technical-design`, or `implementation`
+- when review fails, the operator can request regression to `spec`, `technical-design`, or `implementation`
 
 ### 7. `release-approval`
 
@@ -276,9 +276,9 @@ Checkpoint:
 
 ## Valid Transitions
 
-- `capture -> clarification`
-- `clarification -> refinement`
-- `refinement -> technical-design`
+- `capture -> refinement`
+- `refinement -> spec`
+- `spec -> technical-design`
 - `technical-design -> implementation`
 - `implementation -> review`
 - `review -> release-approval`
@@ -287,10 +287,10 @@ Checkpoint:
 
 ## Valid Regressions
 
-- `review -> refinement`
+- `review -> spec`
 - `review -> technical-design`
 - `review -> implementation`
-- `release-approval -> refinement`
+- `release-approval -> spec`
 - `release-approval -> technical-design`
 - `release-approval -> implementation`
 
@@ -301,7 +301,7 @@ Checkpoint:
 - every regression must record reason and evidence
 - every human intervention must be associated with a phase or checkpoint
 - if a phase fails repeatedly without new information, the user story moves to `waiting-user`
-- if a user story is already `completed` and the user wants to change `us.md`, `refinement`, or equivalent artifacts, the system should recommend creating a new user story
+- if a user story is already `completed` and the user wants to change `us.md`, `spec`, or equivalent artifacts, the system should recommend creating a new user story
 - `us.md` is the source of truth only to start the flow, not to silently mutate an already started execution
 
 ## Initial Escalation Policy
@@ -311,7 +311,7 @@ Escalate to the user when one of these conditions happens:
 - critical ambiguity cannot be resolved with existing artifacts
 - two consecutive regressions target the same phase for the same reason
 - conflict between manual edits and generated output remains unreconciled
-- a change is detected in `us.md` after `refinement` started
+- a change is detected in `us.md` after `spec` started
 
 ## Minimum Persistence Per User Story
 
@@ -325,11 +325,11 @@ Convention:
 
 Input resolution by phase:
 
-- `clarification` takes `us.md`
 - `refinement` takes `us.md`
+- `spec` takes `us.md`
 - `technical-design` takes the approved active version of `01-spec.md`
 - `implementation` takes the approved active version of `02-technical-design*.md`
-- `review` takes `us.md` and the active versions of `refinement`, `technical-design`, and `implementation`
+- `review` takes `us.md` and the active versions of `spec`, `technical-design`, and `implementation`
 - `release-approval` and `pr-preparation` take the active version of `04-review.md` and branch metadata
 
 ```text
@@ -338,7 +338,7 @@ Input resolution by phase:
     <category>/
       US-0001/
         us.md
-        clarification.md
+        refinement.md
         state.yaml
         runtime.yaml
         timeline.md
@@ -347,7 +347,7 @@ Input resolution by phase:
         attachments/
         restarts/
         phases/
-          00-clarification.md
+          00-refinement.md
           01-spec.md
           01-spec.ops.md
           02-technical-design.md
@@ -368,7 +368,7 @@ Location rule:
 usId: US-0001
 workflowId: canonical-v1
 status: waiting-user
-currentPhase: clarification
+currentPhase: refinement
 sourceHash: sha256:...
 approvedPhases:
   []

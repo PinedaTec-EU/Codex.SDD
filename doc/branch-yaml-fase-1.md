@@ -36,7 +36,7 @@ Does not include:
 
 ## Creation Time
 
-`branch.yaml` must be created in `refinement`, when:
+`branch.yaml` must be created in `spec`, when:
 
 - the user approves the spec baseline for the first time
 - the system can already open an isolated work branch
@@ -60,7 +60,7 @@ baseBranch: main
 workBranch: feature/us-0001-specforge-foundation
 status: active
 createdAt: 2026-04-17T10:30:00Z
-createdFromPhase: refinement
+createdFromPhase: spec
 strategy: single-branch-per-user-story
 titleSnapshot: Group specs explorer by category
 sourceUsPath: .specs/us/us.US-0001/us.md
@@ -128,7 +128,7 @@ Timestamp when the branch was created.
 
 ### `createdFromPhase`
 
-Workflow phase that originated branch creation. In phase 1 it must be `refinement`.
+Workflow phase that originated branch creation. In phase 1 it must be `spec`.
 
 ### `strategy`
 

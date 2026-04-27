@@ -6,7 +6,7 @@ exports.buildWorkflowHtml = buildWorkflowHtml;
 const htmlEscape_1 = require("./htmlEscape");
 Object.defineProperty(exports, "escapeHtml", { enumerable: true, get: function () { return htmlEscape_1.escapeHtml; } });
 const capturePhaseView_1 = require("./workflow-view/capturePhaseView");
-const clarificationPhaseView_1 = require("./workflow-view/clarificationPhaseView");
+const refinementPhaseView_1 = require("./workflow-view/refinementPhaseView");
 const completedPhaseView_1 = require("./workflow-view/completedPhaseView");
 const implementationPhaseView_1 = require("./workflow-view/implementationPhaseView");
 const icons_1 = require("./workflow-view/icons");
@@ -17,7 +17,7 @@ const workflowCompletedReopen_1 = require("./workflowCompletedReopen");
 const workflowPlaybackState_1 = require("./workflowPlaybackState");
 const workflowRewind_1 = require("./workflowRewind");
 const workflowRejectPlan_1 = require("./workflowRejectPlan");
-const refinementPhaseView_1 = require("./workflow-view/refinementPhaseView");
+const specPhaseView_1 = require("./workflow-view/specPhaseView");
 const releaseApprovalPhaseView_1 = require("./workflow-view/releaseApprovalPhaseView");
 const reviewPhaseView_1 = require("./workflow-view/reviewPhaseView");
 const technicalDesignPhaseView_1 = require("./workflow-view/technicalDesignPhaseView");
@@ -27,9 +27,8 @@ const phaseNodeHeight = 142;
 const mobilePhaseNodeWidth = 258;
 const defaultPhaseSequence = [
     { phaseId: "capture", expectsHumanIntervention: false },
-    { phaseId: "clarification", expectsHumanIntervention: true },
     { phaseId: "refinement", expectsHumanIntervention: true },
-    { phaseId: "spec", expectsHumanIntervention: false },
+    { phaseId: "spec", expectsHumanIntervention: true },
     { phaseId: "technical-design", expectsHumanIntervention: false },
     { phaseId: "implementation", expectsHumanIntervention: false },
     { phaseId: "review", expectsHumanIntervention: false },
@@ -58,8 +57,7 @@ function buildHorizontalPhaseLayout(phases, nodeWidth, compact = false) {
     const scale = compact ? 0.72 : 1;
     const map = {
         capture: { left: Math.round(298 * scale), top: Math.round(36 * scale) },
-        clarification: { left: Math.round(632 * scale), top: Math.round(198 * scale) },
-        refinement: { left: Math.round(520 * scale), top: Math.round(208 * scale) },
+        refinement: { left: Math.round(632 * scale), top: Math.round(198 * scale) },
         spec: { left: Math.round(360 * scale), top: Math.round(418 * scale) },
         "technical-design": { left: Math.round(72 * scale), top: Math.round(590 * scale) },
         implementation: { left: Math.round(470 * scale), top: Math.round(612 * scale) },
@@ -82,8 +80,7 @@ function buildVerticalPhaseLayout(phases, nodeWidth, compact = false) {
     const scale = compact ? 0.72 : 1;
     const map = {
         capture: { left: Math.round(298 * scale), top: Math.round(36 * scale) },
-        clarification: { left: Math.round(632 * scale), top: Math.round(198 * scale) },
-        refinement: { left: Math.round(520 * scale), top: Math.round(208 * scale) },
+        refinement: { left: Math.round(632 * scale), top: Math.round(198 * scale) },
         spec: { left: Math.round(360 * scale), top: Math.round(418 * scale) },
         "technical-design": { left: Math.round(72 * scale), top: Math.round(590 * scale) },
         implementation: { left: Math.round(470 * scale), top: Math.round(612 * scale) },
@@ -391,7 +388,7 @@ function findConfiguredModelForProfile(state, profileName) {
     const model = state.modelProfiles?.find((profile) => profile.name === profileName)?.model?.trim();
     return model && model.length > 0 ? model : null;
 }
-function buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPreviewHtml, artifactQuestionBlock, refinementApprovalQuestions, unresolvedApprovalQuestionCount) {
+function buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPreviewHtml, artifactQuestionBlock, specApprovalQuestions, unresolvedApprovalQuestionCount) {
     switch (selectedPhase.phaseId) {
         case "capture":
             return (0, capturePhaseView_1.buildCapturePhaseSections)({
@@ -401,8 +398,8 @@ function buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPrev
                 artifactPreviewHtml,
                 buildArtifactPreviewSection
             });
-        case "clarification":
-            return (0, clarificationPhaseView_1.buildClarificationPhaseSections)({
+        case "refinement":
+            return (0, refinementPhaseView_1.buildRefinementPhaseSections)({
                 workflow,
                 selectedPhase,
                 state,
@@ -410,13 +407,13 @@ function buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPrev
                 escapeHtml: htmlEscape_1.escapeHtml,
                 escapeHtmlAttribute: htmlEscape_1.escapeHtmlAttr
             });
-        case "refinement":
-            return (0, refinementPhaseView_1.buildRefinementPhaseSections)({
+        case "spec":
+            return (0, specPhaseView_1.buildSpecPhaseSections)({
                 workflow,
                 selectedPhase,
                 state,
                 artifactQuestionBlock,
-                refinementApprovalQuestions,
+                specApprovalQuestions,
                 unresolvedApprovalQuestionCount,
                 escapeHtml: htmlEscape_1.escapeHtml,
                 escapeHtmlAttribute: htmlEscape_1.escapeHtmlAttr,
@@ -471,16 +468,16 @@ const phaseExecutionMessages = {
     capture: [
         "Turning the initial ask into something the workflow can actually execute.",
         "Pulling signal out of the first draft of the user story.",
-        "Sorting intent from noise before refinement takes over.",
+        "Sorting intent from noise before spec takes over.",
         "Trying to spot ambiguity while it is still cheap."
     ],
-    clarification: [
+    refinement: [
         "Preparing the awkward but necessary questions.",
         "Looking for the one missing answer that blocks everything else.",
         "Trying to convert vague scope into answerable prompts.",
         "Holding the line until the user story becomes actionable."
     ],
-    refinement: [
+    spec: [
         "Turning the user story into a formal spec the rest of the flow can trust.",
         "Checking that acceptance criteria, constraints, and edge cases still agree.",
         "Trying to leave fewer surprises for technical design.",
@@ -647,12 +644,12 @@ function heroTokenTone(value) {
     switch (value) {
         case "waiting-user":
         case "needs-user-input":
-        case "needs_clarification":
+        case "needs_refinement":
         case "runner:paused":
             return "attention";
         case "ready":
         case "ready-for-execution":
-        case "ready_for_refinement":
+        case "ready_for_spec":
             return "success";
         case "runner:stopping":
             return "paused";
@@ -822,10 +819,8 @@ function phaseSecondaryLabel(phase) {
     switch (phase.phaseId) {
         case "capture":
             return "Capture story intent";
-        case "clarification":
-            return "Resolve open questions";
         case "refinement":
-            return "Shape approved scope";
+            return "Resolve open questions";
         case "spec":
             return "Shape approved scope";
         case "technical-design":
@@ -845,55 +840,15 @@ function phaseSecondaryLabel(phase) {
     }
 }
 function graphPhaseSecondaryLabel(phase) {
-    if (phase.phaseId === "refinement") {
-        return "Resolve open questions";
-    }
     return phaseSecondaryLabel(phase);
 }
 function graphPhaseTitle(phase) {
     switch (phase.phaseId) {
-        case "refinement":
-            return "Refinement";
         case "spec":
             return "Spec";
         default:
             return phase.title;
     }
-}
-function ensureSpecGraphPhase(phases) {
-    if (phases.some((phase) => phase.phaseId === "spec")) {
-        return phases;
-    }
-    const refinement = phases.find((phase) => phase.phaseId === "refinement");
-    const technicalDesign = phases.find((phase) => phase.phaseId === "technical-design");
-    if (!refinement && !technicalDesign) {
-        return phases;
-    }
-    const specPhase = {
-        phaseId: "spec",
-        title: "Spec",
-        order: refinement ? refinement.order + 0.5 : 2.5,
-        requiresApproval: false,
-        expectsHumanIntervention: false,
-        isApproved: refinement?.isApproved ?? false,
-        isCurrent: false,
-        state: refinement?.state === "completed" || refinement?.isApproved ? "completed" : "pending",
-        artifactPath: refinement?.artifactPath ?? null,
-        operationLogPath: refinement?.operationLogPath ?? null,
-        executePromptPath: null,
-        approvePromptPath: null,
-        executeSystemPromptPath: null,
-        approveSystemPromptPath: null,
-        executionReadiness: null
-    };
-    const nextPhases = [...phases];
-    const technicalDesignIndex = nextPhases.findIndex((phase) => phase.phaseId === "technical-design");
-    if (technicalDesignIndex >= 0) {
-        nextPhases.splice(technicalDesignIndex, 0, specPhase);
-        return nextPhases;
-    }
-    nextPhases.push(specPhase);
-    return nextPhases;
 }
 function phaseModelProfileLabel(phase, state) {
     const assignments = state.phaseModelAssignments;
@@ -903,10 +858,10 @@ function phaseModelProfileLabel(phase, state) {
     switch (phase.phaseId) {
         case "capture":
             return assignments.captureProfileName ?? assignments.defaultProfileName;
-        case "clarification":
-            return assignments.clarificationProfileName ?? assignments.defaultProfileName;
         case "refinement":
             return assignments.refinementProfileName ?? assignments.defaultProfileName;
+        case "spec":
+            return assignments.specProfileName ?? assignments.defaultProfileName;
         case "technical-design":
             return assignments.technicalDesignProfileName ?? assignments.defaultProfileName;
         case "implementation":
@@ -939,7 +894,7 @@ function buildWorkflowHeroTitle(workflow) {
     return `${workflow.usId} · ${normalizedTitle}`;
 }
 function shouldRenderApprovalBranchEditor(workflow, selectedPhase, selectedPhaseIsCurrent) {
-    return selectedPhase.phaseId === "refinement"
+    return selectedPhase.phaseId === "spec"
         && selectedPhaseIsCurrent
         && workflow.controls.requiresApproval;
 }
@@ -1173,7 +1128,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
             : state.selectedPhaseId;
     const selectedPhase = workflow.phases.find((phase) => phase.phaseId === selectedPhaseId) ?? workflow.phases[0];
     const selectedPhaseIsCurrent = selectedPhase.phaseId === displayedCurrentPhaseId;
-    const isClarificationDetail = selectedPhase.phaseId === "clarification" && workflow.clarification !== null;
+    const isRefinementDetail = selectedPhase.phaseId === "refinement" && workflow.refinement !== null;
     const phaseGraph = buildPhaseGraph(workflow, state, selectedPhase.phaseId, playbackState, effectiveExecutionPhaseId);
     const executionOverlay = buildExecutionOverlay(workflow, state, playbackState);
     const selectedPhaseVisualTone = resolvePhaseVisualTone(workflow.status, workflow, playbackState, selectedPhase, false, playbackState === "playing" ? effectiveExecutionPhaseId : null, pausedExecutionPhaseId, new Set(state.completedPhaseIds ?? []));
@@ -1211,7 +1166,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         ? (0, markdownRenderer_1.renderMarkdownToHtml)(state.selectedArtifactContent ?? "Artifact content unavailable.")
         : null;
     const artifactQuestionBlock = extractArtifactQuestionBlock(state.selectedArtifactContent);
-    const refinementApprovalQuestions = selectedPhase.phaseId === "refinement"
+    const specApprovalQuestions = selectedPhase.phaseId === "spec"
         ? (workflow.approvalQuestions ?? []).map((item) => ({
             index: item.index,
             question: item.question,
@@ -1221,7 +1176,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
             answeredAtUtc: item.answeredAtUtc
         }))
         : [];
-    const unresolvedApprovalQuestionCount = refinementApprovalQuestions.filter((item) => !item.resolved).length;
+    const unresolvedApprovalQuestionCount = specApprovalQuestions.filter((item) => !item.resolved).length;
     const phaseIterations = buildPhaseIterations(workflow, selectedPhase.phaseId);
     const expandedIterationPhaseIds = new Set(state.expandedIterationPhaseIds ?? []);
     const isIterationRailExpanded = expandedIterationPhaseIds.has(selectedPhase.phaseId);
@@ -1304,7 +1259,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       </div>
     `
         : "";
-    const phaseSpecificSections = buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPreviewHtml, artifactQuestionBlock, refinementApprovalQuestions, unresolvedApprovalQuestionCount);
+    const phaseSpecificSections = buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPreviewHtml, artifactQuestionBlock, specApprovalQuestions, unresolvedApprovalQuestionCount);
     const rejectPlan = selectedPhaseIsCurrent && selectedPhase.requiresApproval
         ? (0, workflowRejectPlan_1.resolveWorkflowRejectPlan)(selectedPhase.phaseId)
         : null;
@@ -1563,10 +1518,10 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     `
         : "";
     const artifactSection = selectedPhase.artifactPath
-        ? isClarificationDetail
+        ? isRefinementDetail
             ? buildArtifactPreviewSection(selectedIteration?.outputArtifactPath ?? selectedPhase.artifactPath, artifactPreviewHtml, state.selectedArtifactContent ?? "Artifact content unavailable.", {
                 rawArtifact: true,
-                footerNote: "The raw artifact stays visible here to preserve model context beyond the structured clarification questions below."
+                footerNote: "The raw artifact stays visible here to preserve model context beyond the structured refinement questions below."
             })
             : buildArtifactPreviewSection(selectedIteration?.outputArtifactPath ?? selectedPhase.artifactPath, artifactPreviewHtml, state.selectedArtifactContent ?? "Artifact content unavailable.")
         : "<p class=\"muted\">No artifact is persisted for this phase.</p>";
@@ -1592,7 +1547,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     <section class="file-group">
       <div class="file-group__header">
         <h4>User Story</h4>
-        <p>The main source file and clarification history for this workflow.</p>
+        <p>The main source file and refinement history for this workflow.</p>
       </div>
       <div class="attachment-list">
         <div class="file-item">
@@ -4165,7 +4120,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       min-width: 132px;
       white-space: nowrap;
     }
-    .clarification-shell {
+    .refinement-shell {
       display: grid;
       gap: 12px;
     }
@@ -4227,37 +4182,37 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       text-transform: uppercase;
       color: rgba(226, 232, 240, 0.68);
     }
-    .clarification-meta {
+    .refinement-meta {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
     }
-    .clarification-reason {
+    .refinement-reason {
       margin: 0;
       line-height: 1.5;
       color: rgba(255, 255, 255, 0.82);
     }
-    .clarification-list {
+    .refinement-list {
       display: grid;
       gap: 12px;
     }
-    .clarification-context {
+    .refinement-context {
       margin-top: 18px;
       padding-top: 18px;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
       display: grid;
       gap: 14px;
     }
-    .clarification-context__copy h4 {
+    .refinement-context__copy h4 {
       margin: 0 0 8px;
       font-size: 1rem;
     }
-    .clarification-context__copy p {
+    .refinement-context__copy p {
       margin: 0;
       color: rgba(241, 246, 255, 0.78);
       line-height: 1.55;
     }
-    .detail-actions--clarification {
+    .detail-actions--refinement {
       justify-content: flex-start;
     }
     .workflow-action-button {
@@ -4334,11 +4289,11 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       align-self: center;
       min-width: 156px;
     }
-    .clarification-suggestions {
+    .refinement-suggestions {
       display: grid;
       gap: 10px;
     }
-    .clarification-suggestion {
+    .refinement-suggestion {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 12px;
@@ -4348,36 +4303,36 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       border: 1px solid rgba(114, 241, 184, 0.12);
       background: rgba(255, 255, 255, 0.03);
     }
-    .clarification-suggestion__body {
+    .refinement-suggestion__body {
       display: grid;
       gap: 4px;
       min-width: 0;
     }
-    .clarification-suggestion__body strong {
+    .refinement-suggestion__body strong {
       display: block;
       font-size: 0.96rem;
       line-height: 1.35;
       overflow-wrap: anywhere;
       word-break: break-word;
     }
-    .clarification-suggestion__body span {
+    .refinement-suggestion__body span {
       display: block;
       color: rgba(241, 246, 255, 0.7);
       line-height: 1.4;
       overflow-wrap: anywhere;
       word-break: break-word;
     }
-    .clarification-item {
+    .refinement-item {
       display: grid;
       gap: 8px;
     }
-    .clarification-question-row {
+    .refinement-question-row {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
       gap: 10px;
     }
-    .clarification-question {
+    .refinement-question {
       font-size: 0.92rem;
       font-weight: 600;
       line-height: 1.45;
@@ -4428,7 +4383,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     .copy-question-button.is-copied .copy-question-button__icon--done {
       display: inline-flex;
     }
-    .clarification-answer {
+    .refinement-answer {
       width: 100%;
       min-height: 84px;
       resize: vertical;
@@ -4440,7 +4395,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       font: inherit;
       line-height: 1.45;
     }
-    .clarification-answer:focus {
+    .refinement-answer:focus {
       outline: 2px solid rgba(114, 241, 184, 0.22);
       border-color: rgba(114, 241, 184, 0.36);
     }
@@ -4789,7 +4744,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       .file-item {
         grid-template-columns: 1fr;
       }
-      .clarification-suggestion {
+      .refinement-suggestion {
         grid-template-columns: 1fr;
       }
       .workflow-action-button--compact {
@@ -6151,28 +6106,28 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       });
     }
 
-    const clarificationSubmit = document.getElementById("submit-clarification-answers");
-    if (clarificationSubmit) {
-      clarificationSubmit.addEventListener("click", () => {
-        const answers = Array.from(document.querySelectorAll("[data-clarification-answer]"))
+    const refinementSubmit = document.getElementById("submit-refinement-answers");
+    if (refinementSubmit) {
+      refinementSubmit.addEventListener("click", () => {
+        const answers = Array.from(document.querySelectorAll("[data-refinement-answer]"))
           .sort((left, right) => Number(left.dataset.index) - Number(right.dataset.index))
           .map((element) => element.value ?? "");
 
         vscode.postMessage({
-          command: "submitClarificationAnswers",
+          command: "submitRefinementAnswers",
           answers
         });
       });
     }
 
-    const refinementQuestionSubmit = document.getElementById("submit-refinement-questions");
-    if (refinementQuestionSubmit) {
-      refinementQuestionSubmit.addEventListener("click", () => {
-        const pairs = Array.from(document.querySelectorAll("[data-refinement-question-answer]"))
+    const specQuestionSubmit = document.getElementById("submit-spec-questions");
+    if (specQuestionSubmit) {
+      specQuestionSubmit.addEventListener("click", () => {
+        const pairs = Array.from(document.querySelectorAll("[data-spec-question-answer]"))
           .sort((left, right) => Number(left.dataset.index) - Number(right.dataset.index))
           .map((element) => {
             const answer = (element.value ?? "").trim();
-            const questionElement = element.parentElement?.querySelector(".clarification-question");
+            const questionElement = element.parentElement?.querySelector(".refinement-question");
             const question = (questionElement?.textContent ?? "").replace(/^\\d+\\.\\s*/, "").trim();
             return question && answer ? { question, answer } : null;
           })
@@ -6183,9 +6138,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         }
 
         const prompt = [
-          "Update the current refinement artifact using these human answers.",
+          "Update the current spec artifact using these human answers.",
           "Preserve the existing section structure unless the artifact itself needs a structural correction.",
-          "Resolve the blocking clarification points concretely inside the spec and remove or rewrite the blocking questions if they are no longer needed.",
+          "Resolve the blocking refinement points concretely inside the spec and remove or rewrite the blocking questions if they are no longer needed.",
           "",
           "Human answers:",
           ...pairs.map((pair, index) => (index + 1) + ". Q: " + pair.question + "\\n   A: " + pair.answer)
@@ -6593,8 +6548,8 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
     const pausedPhaseIds = new Set(state.pausedPhaseIds ?? []);
     const completedPhaseIds = buildEffectiveCompletedPhaseIds(workflow, new Set(state.completedPhaseIds ?? []));
     const completedWorkflowLocked = workflow.status === "completed" && state.completedUsLockOnCompleted !== false;
-    const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);
-    const visiblePhases = ensureSpecGraphPhase(workflow.phases.filter((phase) => shouldShowPhase(phase.phaseId, clarificationVisible, currentPhase.phaseId, executionPhaseId)));
+    const refinementVisible = shouldShowRefinementPhase(workflow, executionPhaseId);
+    const visiblePhases = workflow.phases.filter((phase) => shouldShowPhase(phase.phaseId, refinementVisible, currentPhase.phaseId, executionPhaseId));
     const layoutPhases = visiblePhases.map((phase) => ({
         phaseId: phase.phaseId,
         expectsHumanIntervention: phase.expectsHumanIntervention
@@ -6622,7 +6577,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         const pauseArmed = pausedPhaseIds.has(phase.phaseId);
         const phaseIsCurrent = phase.phaseId === displayedCurrentPhaseId;
         const phaseIsSelected = phase.phaseId === selectedPhaseId;
-        const phaseSelectTargetId = phase.phaseId === "spec" ? "refinement" : phase.phaseId;
+        const phaseSelectTargetId = phase.phaseId;
         const phaseRoleIcon = phase.expectsHumanIntervention ? (0, icons_1.userPhaseIcon)() : (0, icons_1.automationPhaseIcon)();
         const phaseRoleLabel = phase.expectsHumanIntervention ? "User step" : "Automated step";
         const pauseButtonLabel = pauseArmed
@@ -6645,7 +6600,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
           <div class="phase-node-header-main">
             <span class="phase-index${phase.phaseId === "completed" ? " phase-index--icon" : ""}">${phase.phaseId === "completed"
             ? (state.completedUsLockOnCompleted !== false ? (0, icons_1.lockClosedIcon)() : (0, icons_1.lockOpenIcon)())
-            : String(index + 1)}</span>
+            : String(graphPhaseDisplayIndex(phase, index))}</span>
             ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
           </div>
           ${canPausePhase
@@ -6816,14 +6771,37 @@ function renderGraphPhaseStatusIcon(phase, tone, completedWorkflowLocked) {
     }
     return "";
 }
+function graphPhaseDisplayIndex(phase, fallbackIndex) {
+    switch (phase.phaseId) {
+        case "capture":
+            return 1;
+        case "refinement":
+            return 2;
+        case "spec":
+            return 3;
+        case "technical-design":
+            return 4;
+        case "implementation":
+            return 5;
+        case "review":
+            return 6;
+        case "release-approval":
+            return 7;
+        case "pr-preparation":
+            return 8;
+        case "completed":
+            return 9;
+        default:
+            return fallbackIndex + 1;
+    }
+}
 function buildPrimaryGraphEdges(visiblePhases, visiblePhaseMap, executingTargetPhaseId, currentPhaseId, completedPhaseIds) {
     const edges = [];
-    const hasClarification = visiblePhaseMap.has("clarification");
+    const hasRefinement = visiblePhaseMap.has("refinement");
     const primaryDefinitions = [
-        ...(hasClarification ? [{ fromPhaseId: "capture", toPhaseId: "clarification" }] : []),
-        { fromPhaseId: "capture", toPhaseId: "refinement" },
-        ...(hasClarification ? [{ fromPhaseId: "clarification", toPhaseId: "spec" }] : []),
-        { fromPhaseId: "refinement", toPhaseId: "spec" },
+        ...(hasRefinement ? [{ fromPhaseId: "capture", toPhaseId: "refinement" }] : []),
+        { fromPhaseId: "capture", toPhaseId: "spec" },
+        ...(hasRefinement ? [{ fromPhaseId: "refinement", toPhaseId: "spec" }] : []),
         { fromPhaseId: "spec", toPhaseId: "technical-design" },
         { fromPhaseId: "technical-design", toPhaseId: "implementation" },
         { fromPhaseId: "implementation", toPhaseId: "review" },
@@ -6905,7 +6883,7 @@ function resolveCompletedReopenTargetPhases() {
             (0, workflowCompletedReopen_1.resolveCompletedWorkflowReopenTargetPhase)("technical-issue")
         ].filter((phaseId) => phaseId.length > 0))];
 }
-function shouldShowClarificationPhase(_workflow, _executionPhaseId) {
+function shouldShowRefinementPhase(_workflow, _executionPhaseId) {
     return true;
 }
 function linkClass(targetPhase, executingTargetPhaseId, currentPhaseId, completedPhaseIds) {
@@ -6917,11 +6895,11 @@ function linkClass(targetPhase, executingTargetPhaseId, currentPhaseId, complete
     }
     return "pending";
 }
-function shouldShowPhase(phaseId, clarificationVisible, currentPhaseId, executionPhaseId) {
-    return phaseId !== "clarification"
-        || clarificationVisible
-        || currentPhaseId === "clarification"
-        || executionPhaseId === "clarification";
+function shouldShowPhase(phaseId, refinementVisible, currentPhaseId, executionPhaseId) {
+    return phaseId !== "refinement"
+        || refinementVisible
+        || currentPhaseId === "refinement"
+        || executionPhaseId === "refinement";
 }
 function graphPath(fromPhaseId, toPhaseId, positions, nodeWidth) {
     const fromPosition = positions[fromPhaseId];

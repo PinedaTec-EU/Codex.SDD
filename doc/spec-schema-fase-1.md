@@ -7,7 +7,7 @@ Define the exact schema that the approved spec baseline must satisfy before the 
 ## Why This Exists
 
 - a user story is not a contract
-- the refinement phase now produces the operational baseline spec
+- the spec phase now produces the operational baseline spec
 - approval should validate structure, not only rely on human goodwill
 
 ## Required Sections
@@ -145,6 +145,6 @@ The artifact must contain these headings exactly once:
 
 ## Phase-1 Runtime Enforcement
 
-- the approval path validates this schema before approving `refinement`
-- if validation fails, the workflow stays on `refinement`
+- the approval path validates this schema before approving `spec`
+- if validation fails, the workflow stays on `spec`
 - the failure message must identify missing or placeholder-only sections

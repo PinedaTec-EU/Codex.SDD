@@ -11,7 +11,7 @@ Deliverables:
 - ✅ mandatory checkpoints
 - ✅ regression criteria
 - ✅ artifact versioning rules
-- ✅ practical source immutability rule once `refinement` starts
+- ✅ practical source immutability rule once `spec` starts
 - ✅ work-branch creation timing
 
 ### ✅ Step 2. Define minimum persistence
@@ -185,10 +185,10 @@ Included in the MVP:
 - ✅ separation between `context files` and `user story info` within a user story
 - ✅ only `context files` are reused as model runtime context
 - ✅ management of `context files` and `user story info` through MCP as well as through the extension
-- ✅ local `context files` suggestions during `clarification` using heuristics and repo neighborhood
+- ✅ local `context files` suggestions during `refinement` using heuristics and repo neighborhood
 - ✅ extension feature flag to enable or disable those suggestions, enabled by default
 - ✅ persisted runtime status per user story to detect long-running executions and block duplicate reentry
-- ✅ separate `clarification.md` artifact to accumulate clarification questions and answers without mutating `us.md`
+- ✅ separate `refinement.md` artifact to accumulate refinement questions and answers without mutating `us.md`
 - ✅ per-user starring of a user story with disk persistence and auto-reopen when VS Code is reopened
 
 Does not block the MVP:
@@ -232,11 +232,11 @@ Recently completed subtasks:
 - ✅ allow attaching files to a user story from workflow view and opening them from the same screen
 - ✅ expose buttons to open the selected phase `execute` and `approve` prompts when they exist
 - ✅ allow a user story to be marked as `starred` per user and automatically reopened in visual mode when the workspace is reopened
-- ✅ suggest adding `context files` when a user story enters `clarification` because repo context is missing
+- ✅ suggest adding `context files` when a user story enters `refinement` because repo context is missing
 - ✅ suggest `context files` candidates using local heuristics and file neighborhood
 - ✅ expose persisted runtime status through MCP so a model can check whether a user story is still running
 - ✅ block a second `generate_next_phase` while a recent live execution exists for the same user story
-- ✅ keep accumulated clarification questions in the visual workflow while removing them from `us.md`
+- ✅ keep accumulated refinement questions in the visual workflow while removing them from `us.md`
 - [ ] complete rich prompt inspection/editing from the extension with diff or visible effective prompt
 
 Pending subtasks before the MVP is considered complete:

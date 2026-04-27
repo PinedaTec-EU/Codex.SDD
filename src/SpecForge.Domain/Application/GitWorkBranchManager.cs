@@ -101,7 +101,7 @@ internal sealed class GitWorkBranchManager : IWorkBranchManager
         if (!await LocalBranchExistsAsync(workspaceRoot, branchName, cancellationToken))
         {
             throw new WorkflowDomainException(
-                $"Base branch '{branchName}' does not exist locally. Create or fetch it before approving refinement.");
+                $"Base branch '{branchName}' does not exist locally. Create or fetch it before approving spec.");
         }
     }
 

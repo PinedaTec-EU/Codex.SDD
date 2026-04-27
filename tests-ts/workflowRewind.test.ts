@@ -29,10 +29,10 @@ test("buildTimelineRewindPhaseHistory ignores explicit rewind events and preserv
       regressionTargets: [],
       rewindTargets: ["technical-design", "implementation"]
     },
-    clarification: null,
+    refinement: null,
     events: [
-      { timestampUtc: "2026-04-27T08:00:00Z", code: "phase_completed", actor: "system", phase: "clarification", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
-      { timestampUtc: "2026-04-27T08:10:00Z", code: "phase_completed", actor: "system", phase: "refinement", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
+      { timestampUtc: "2026-04-27T08:00:00Z", code: "phase_completed", actor: "system", phase: "refinement", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
+      { timestampUtc: "2026-04-27T08:10:00Z", code: "phase_completed", actor: "system", phase: "spec", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
       { timestampUtc: "2026-04-27T08:20:00Z", code: "phase_completed", actor: "system", phase: "technical-design", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
       { timestampUtc: "2026-04-27T08:30:00Z", code: "phase_completed", actor: "system", phase: "implementation", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
       { timestampUtc: "2026-04-27T08:40:00Z", code: "workflow_rewound", actor: "alice", phase: "technical-design", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
@@ -45,8 +45,8 @@ test("buildTimelineRewindPhaseHistory ignores explicit rewind events and preserv
 
   assert.deepEqual(buildTimelineRewindPhaseHistory(workflow), [
     "capture",
-    "clarification",
     "refinement",
+    "spec",
     "technical-design",
     "implementation",
     "review"
@@ -75,10 +75,10 @@ test("resolveTimelineRewindTargetPhase walks backwards through the effective tim
       regressionTargets: [],
       rewindTargets: ["technical-design", "implementation"]
     },
-    clarification: null,
+    refinement: null,
     events: [
-      { timestampUtc: "2026-04-27T08:00:00Z", code: "phase_completed", actor: "system", phase: "clarification", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
-      { timestampUtc: "2026-04-27T08:10:00Z", code: "phase_completed", actor: "system", phase: "refinement", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
+      { timestampUtc: "2026-04-27T08:00:00Z", code: "phase_completed", actor: "system", phase: "refinement", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
+      { timestampUtc: "2026-04-27T08:10:00Z", code: "phase_completed", actor: "system", phase: "spec", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
       { timestampUtc: "2026-04-27T08:20:00Z", code: "phase_completed", actor: "system", phase: "technical-design", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
       { timestampUtc: "2026-04-27T08:30:00Z", code: "phase_completed", actor: "system", phase: "implementation", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
       { timestampUtc: "2026-04-27T09:00:00Z", code: "phase_completed", actor: "system", phase: "review", summary: null, artifacts: [], usage: null, durationMs: null, execution: null }
@@ -112,11 +112,11 @@ test("resolveTimelineRewindDecision blocks the reopened landing phase", () => {
       blockingReason: null,
       canRestartFromSource: true,
       regressionTargets: [],
-      rewindTargets: ["refinement"]
+      rewindTargets: ["spec"]
     },
-    clarification: null,
+    refinement: null,
     events: [
-      { timestampUtc: "2026-04-27T08:00:00Z", code: "phase_completed", actor: "system", phase: "refinement", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
+      { timestampUtc: "2026-04-27T08:00:00Z", code: "phase_completed", actor: "system", phase: "spec", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
       { timestampUtc: "2026-04-27T09:00:00Z", code: "workflow_reopened", actor: "alice", phase: "technical-design", summary: null, artifacts: [], usage: null, durationMs: null, execution: null }
     ],
     attachmentsDirectoryPath: "/tmp/attachments",
@@ -152,7 +152,7 @@ test("resolveTimelineRewindDecision blocks ambiguous implementation review histo
       regressionTargets: [],
       rewindTargets: ["technical-design", "implementation"]
     },
-    clarification: null,
+    refinement: null,
     events: [
       { timestampUtc: "2026-04-27T08:00:00Z", code: "phase_completed", actor: "system", phase: "technical-design", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
       { timestampUtc: "2026-04-27T08:10:00Z", code: "phase_completed", actor: "system", phase: "implementation", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
@@ -200,7 +200,7 @@ test("buildTimelineRewindPoints carries iteration identity for repeated temporal
       regressionTargets: [],
       rewindTargets: ["release-approval"]
     },
-    clarification: null,
+    refinement: null,
     events: [
       { timestampUtc: "2026-04-27T08:00:00Z", code: "phase_completed", actor: "system", phase: "release-approval", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
       { timestampUtc: "2026-04-27T08:10:00Z", code: "phase_completed", actor: "system", phase: "pr-preparation", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },

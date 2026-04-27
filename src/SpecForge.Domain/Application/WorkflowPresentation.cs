@@ -7,8 +7,8 @@ public static class WorkflowPresentation
     public static string ToPhaseSlug(PhaseId phaseId) => phaseId switch
     {
         PhaseId.Capture => "capture",
-        PhaseId.Clarification => "clarification",
         PhaseId.Refinement => "refinement",
+        PhaseId.Spec => "spec",
         PhaseId.TechnicalDesign => "technical-design",
         PhaseId.Implementation => "implementation",
         PhaseId.Review => "review",
@@ -30,8 +30,9 @@ public static class WorkflowPresentation
     public static PhaseId ParsePhaseSlug(string phaseSlug) => phaseSlug switch
     {
         "capture" => PhaseId.Capture,
-        "clarification" => PhaseId.Clarification,
+        "clarification" => PhaseId.Refinement,
         "refinement" => PhaseId.Refinement,
+        "spec" => PhaseId.Spec,
         "technical-design" => PhaseId.TechnicalDesign,
         "implementation" => PhaseId.Implementation,
         "review" => PhaseId.Review,
@@ -41,5 +42,5 @@ public static class WorkflowPresentation
     };
 
     public static bool ExpectsHumanIntervention(PhaseId phaseId, bool requiresApproval) =>
-        phaseId == PhaseId.Clarification || requiresApproval;
+        phaseId == PhaseId.Refinement || requiresApproval;
 }

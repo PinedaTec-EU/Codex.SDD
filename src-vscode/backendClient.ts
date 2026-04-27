@@ -166,17 +166,17 @@ export interface PhaseExecutionReadiness {
   readonly validationMessage?: string | null;
 }
 
-export interface ClarificationQuestionAnswerDetails {
+export interface RefinementQuestionAnswerDetails {
   readonly index: number;
   readonly question: string;
   readonly answer: string | null;
 }
 
-export interface ClarificationSessionDetails {
+export interface RefinementSessionDetails {
   readonly status: string;
   readonly tolerance: string;
   readonly reason: string | null;
-  readonly items: readonly ClarificationQuestionAnswerDetails[];
+  readonly items: readonly RefinementQuestionAnswerDetails[];
 }
 
 export interface ApprovalQuestionDetails {
@@ -261,7 +261,7 @@ export interface UserStoryWorkflowDetails {
   readonly pullRequest?: PullRequestDetails | null;
   readonly phases: readonly WorkflowPhaseDetails[];
   readonly controls: CurrentPhaseControls;
-  readonly clarification: ClarificationSessionDetails | null;
+  readonly refinement: RefinementSessionDetails | null;
   readonly approvalQuestions?: readonly ApprovalQuestionDetails[];
   readonly events: readonly TimelineEventDetails[];
   readonly phaseIterations?: readonly PhaseIterationDetails[];
@@ -287,7 +287,7 @@ export interface SpecForgeBackendClient {
   restartUserStoryFromSource(usId: string, reason?: string, actor?: string): Promise<RestartUserStoryResult>;
   rewindWorkflow(usId: string, targetPhase: string, actor?: string, destructive?: boolean): Promise<RewindWorkflowResult>;
   resetUserStoryToCapture(usId: string): Promise<ResetUserStoryResult>;
-  submitClarificationAnswers(usId: string, answers: readonly string[], actor?: string): Promise<void>;
+  submitRefinementAnswers(usId: string, answers: readonly string[], actor?: string): Promise<void>;
   submitApprovalAnswer(usId: string, question: string, answer: string, actor?: string): Promise<SubmitApprovalAnswerResult>;
   operateCurrentPhaseArtifact(
     usId: string,
@@ -479,8 +479,8 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     });
   }
 
-  public async submitClarificationAnswers(usId: string, answers: readonly string[], actor?: string): Promise<void> {
-    await this.callTool<void>("submit_clarification_answers", {
+  public async submitRefinementAnswers(usId: string, answers: readonly string[], actor?: string): Promise<void> {
+    await this.callTool<void>("submit_refinement_answers", {
       workspaceRoot: this.workspaceRoot,
       usId,
       answers,

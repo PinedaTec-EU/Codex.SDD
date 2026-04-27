@@ -12,7 +12,7 @@ public sealed class UserStoryFileStoreTests : IDisposable
     {
         Directory.CreateDirectory(tempDirectory);
         var store = new UserStoryFileStore();
-        var run = CreateApprovedRefinementRun(runtimeVersion: "0.1.3.224");
+        var run = CreateApprovedSpecRun(runtimeVersion: "0.1.3.224");
 
         await store.SaveAsync(run, tempDirectory);
 
@@ -26,7 +26,7 @@ public sealed class UserStoryFileStoreTests : IDisposable
         var branchContent = await File.ReadAllTextAsync(branchPath);
 
         Assert.Contains("usId: US-0001", stateContent);
-        Assert.Contains("currentPhase: refinement", stateContent);
+        Assert.Contains("currentPhase: spec", stateContent);
         Assert.Contains("createdWithRuntimeVersion: 0.1.3.224", stateContent);
         Assert.Contains("lastRuntimeVersion: 0.1.3.224", stateContent);
         Assert.Contains("approvedPhases:", stateContent);
@@ -42,7 +42,7 @@ public sealed class UserStoryFileStoreTests : IDisposable
     {
         Directory.CreateDirectory(tempDirectory);
         var store = new UserStoryFileStore();
-        var savedRun = CreateApprovedRefinementRun(runtimeVersion: "0.1.3.224");
+        var savedRun = CreateApprovedSpecRun(runtimeVersion: "0.1.3.224");
         savedRun.Branch!.RecordPublishedPullRequest(
             new PullRequestRecord(
                 Status: "draft",
@@ -67,7 +67,7 @@ public sealed class UserStoryFileStoreTests : IDisposable
         Assert.Equal(savedRun.Status, loadedRun.Status);
         Assert.Equal("0.1.3.224", loadedRun.CreatedWithRuntimeVersion);
         Assert.Equal("0.1.3.224", loadedRun.LastRuntimeVersion);
-        Assert.True(loadedRun.IsPhaseApproved(PhaseId.Refinement));
+        Assert.True(loadedRun.IsPhaseApproved(PhaseId.Spec));
         Assert.NotNull(loadedRun.Branch);
         Assert.Equal("main", loadedRun.Branch!.BaseBranch);
         Assert.Equal("feature", loadedRun.Branch.Kind);
@@ -83,7 +83,7 @@ public sealed class UserStoryFileStoreTests : IDisposable
     {
         Directory.CreateDirectory(tempDirectory);
         var store = new UserStoryFileStore();
-        var withBranch = CreateApprovedRefinementRun();
+        var withBranch = CreateApprovedSpecRun();
         await store.SaveAsync(withBranch, tempDirectory);
 
         var withoutBranch = new WorkflowRun("US-0001", "sha256:def", WorkflowDefinition.CanonicalV1);
@@ -100,7 +100,7 @@ public sealed class UserStoryFileStoreTests : IDisposable
         }
     }
 
-    private static WorkflowRun CreateApprovedRefinementRun(string? runtimeVersion = null)
+    private static WorkflowRun CreateApprovedSpecRun(string? runtimeVersion = null)
     {
         var run = new WorkflowRun("US-0001", "sha256:abc", WorkflowDefinition.CanonicalV1, runtimeVersion);
         run.GenerateNextPhase();

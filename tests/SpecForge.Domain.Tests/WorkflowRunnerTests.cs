@@ -25,114 +25,114 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task ContinuePhaseAsync_FromCapture_GeneratesRefinementArtifact()
+    public async Task ContinuePhaseAsync_FromCapture_GeneratesSpecArtifact()
     {
         var runner = new WorkflowRunner();
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
 
         var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
-        Assert.Equal(PhaseId.Refinement, result.CurrentPhase);
+        Assert.Equal(PhaseId.Spec, result.CurrentPhase);
         Assert.Equal(UserStoryStatus.WaitingUser, result.Status);
         Assert.NotNull(result.GeneratedArtifactPath);
         Assert.True(File.Exists(result.GeneratedArtifactPath!));
         Assert.True(File.Exists(Path.ChangeExtension(result.GeneratedArtifactPath!, ".json")));
-        var refinementContent = await File.ReadAllTextAsync(result.GeneratedArtifactPath!);
-        Assert.Contains("# Spec · US-0001 · v01", refinementContent);
-        Assert.Contains("Initial source text", refinementContent);
-        Assert.Contains("## Inputs", refinementContent);
-        Assert.Contains("## Acceptance Criteria", refinementContent);
-        Assert.Contains("## Red Team", refinementContent);
-        Assert.Contains("## Blue Team", refinementContent);
+        var specContent = await File.ReadAllTextAsync(result.GeneratedArtifactPath!);
+        Assert.Contains("# Spec · US-0001 · v01", specContent);
+        Assert.Contains("Initial source text", specContent);
+        Assert.Contains("## Inputs", specContent);
+        Assert.Contains("## Acceptance Criteria", specContent);
+        Assert.Contains("## Red Team", specContent);
+        Assert.Contains("## Blue Team", specContent);
     }
 
     [Fact]
-    public async Task ContinuePhaseAsync_FromCapture_WithInsufficientSource_RequestsClarification()
+    public async Task ContinuePhaseAsync_FromCapture_WithInsufficientSource_RequestsRefinement()
     {
         var runner = new WorkflowRunner();
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "sample US");
 
         var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
-        Assert.Equal(PhaseId.Clarification, result.CurrentPhase);
+        Assert.Equal(PhaseId.Refinement, result.CurrentPhase);
         Assert.Equal(UserStoryStatus.WaitingUser, result.Status);
         Assert.NotNull(result.GeneratedArtifactPath);
         var loadedRun = await new UserStoryFileStore().LoadAsync(
             UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
-        Assert.Equal(PhaseId.Clarification, loadedRun.CurrentPhase);
+        Assert.Equal(PhaseId.Refinement, loadedRun.CurrentPhase);
 
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         var userStoryPath = paths.MainArtifactPath;
         var userStory = await File.ReadAllTextAsync(userStoryPath);
-        Assert.DoesNotContain("## Clarification Log", userStory);
-        Assert.True(File.Exists(paths.ClarificationFilePath));
-        var clarification = await File.ReadAllTextAsync(paths.ClarificationFilePath);
-        Assert.Contains("## Clarification Log", clarification);
-        Assert.Contains("### Questions", clarification);
-        Assert.Contains("### Answers", clarification);
+        Assert.DoesNotContain("## Refinement Log", userStory);
+        Assert.True(File.Exists(paths.RefinementFilePath));
+        var refinement = await File.ReadAllTextAsync(paths.RefinementFilePath);
+        Assert.Contains("## Refinement Log", refinement);
+        Assert.Contains("### Questions", refinement);
+        Assert.Contains("### Answers", refinement);
 
         var timelinePath = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
         var timeline = await File.ReadAllTextAsync(timelinePath);
-        Assert.Contains("`clarification_requested`", timeline);
+        Assert.Contains("`refinement_requested`", timeline);
     }
 
     [Fact]
-    public async Task SubmitClarificationAnswersAsync_AllowsClarificationToAdvanceToRefinement()
+    public async Task SubmitRefinementAnswersAsync_AllowsRefinementToAdvanceToSpec()
     {
         var runner = new WorkflowRunner();
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "sample US");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
-        var answerResult = await runner.SubmitClarificationAnswersAsync(
+        var answerResult = await runner.SubmitRefinementAnswersAsync(
             workspaceRoot,
             "US-0001",
             [
                 "El analista funcional.",
-                "It receives form data and must produce a refinement specification that can be validated.",
+                "It receives form data and must produce a spec specification that can be validated.",
                 "A clear objective and verifiable acceptance criteria must remain."
             ]);
 
-        Assert.Equal("clarification", answerResult.CurrentPhase);
+        Assert.Equal("refinement", answerResult.CurrentPhase);
         Assert.Equal("active", answerResult.Status);
         Assert.Equal(3, answerResult.AnsweredQuestions);
 
         var continueResult = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
-        Assert.Equal(PhaseId.Refinement, continueResult.CurrentPhase);
+        Assert.Equal(PhaseId.Spec, continueResult.CurrentPhase);
         Assert.Equal(UserStoryStatus.WaitingUser, continueResult.Status);
         Assert.NotNull(continueResult.GeneratedArtifactPath);
 
         var timelinePath = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath;
         var timeline = await File.ReadAllTextAsync(timelinePath);
-        Assert.Contains("`clarification_answered`", timeline);
-        Assert.Contains("`clarification_passed`", timeline);
+        Assert.Contains("`refinement_answered`", timeline);
+        Assert.Contains("`refinement_passed`", timeline);
 
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         var userStory = await File.ReadAllTextAsync(paths.MainArtifactPath);
-        Assert.DoesNotContain("## Clarification Log", userStory);
-        var clarification = await File.ReadAllTextAsync(paths.ClarificationFilePath);
-        Assert.Contains("- Status: `ready_for_refinement`", clarification);
-        Assert.DoesNotContain("El analista funcional.", clarification);
+        Assert.DoesNotContain("## Refinement Log", userStory);
+        var refinement = await File.ReadAllTextAsync(paths.RefinementFilePath);
+        Assert.Contains("- Status: `ready_for_spec`", refinement);
+        Assert.DoesNotContain("El analista funcional.", refinement);
     }
 
     [Fact]
-    public async Task ContinuePhaseAsync_WithAutoClarificationAnswers_ContinuesToRefinementWithoutUserInput()
+    public async Task ContinuePhaseAsync_WithAutoRefinementAnswers_ContinuesToSpecWithoutUserInput()
     {
         var runner = new WorkflowRunner(new AutoAnsweringPhaseExecutionProvider());
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "sample US");
 
         var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
-        Assert.Equal(PhaseId.Refinement, result.CurrentPhase);
+        Assert.Equal(PhaseId.Spec, result.CurrentPhase);
         Assert.Equal(UserStoryStatus.WaitingUser, result.Status);
         Assert.NotNull(result.GeneratedArtifactPath);
 
         var timeline = await File.ReadAllTextAsync(UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath);
-        Assert.Contains("`clarification_auto_answered`", timeline);
-        Assert.Contains("after automatic clarification answers", timeline);
+        Assert.Contains("`refinement_auto_answered`", timeline);
+        Assert.Contains("after automatic refinement answers", timeline);
 
-        var clarification = await File.ReadAllTextAsync(UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").ClarificationFilePath);
-        Assert.Contains("- Status: `ready_for_refinement`", clarification);
+        var refinement = await File.ReadAllTextAsync(UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").RefinementFilePath);
+        Assert.Contains("- Status: `ready_for_spec`", refinement);
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public sealed class WorkflowRunnerTests : IDisposable
             actor: "bob");
 
         Assert.Equal("US-0001", result.UsId);
-        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("spec", result.CurrentPhase);
         Assert.Equal("waiting-user", result.Status);
         Assert.True(File.Exists(result.OperationLogPath));
         Assert.True(File.Exists(result.SourceArtifactPath));
@@ -173,40 +173,40 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task ContinuePhaseAsync_FromClarification_ReplacesPreviousQuestionsWithNewOnes()
+    public async Task ContinuePhaseAsync_FromRefinement_ReplacesPreviousQuestionsWithNewOnes()
     {
         var runner = new WorkflowRunner();
         var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "workflow", "US-0001");
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "sample US");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         await File.WriteAllTextAsync(
-            paths.ClarificationFilePath,
-            UserStoryClarificationMarkdown.Serialize(
-                new ClarificationSession(
-                    "needs_clarification",
+            paths.RefinementFilePath,
+            UserStoryRefinementMarkdown.Serialize(
+                new RefinementSession(
+                    "needs_refinement",
                     "balanced",
                     "Need more detail.",
                     [
-                        new ClarificationItem(1, "Question A", "Answer A"),
-                        new ClarificationItem(2, "Question B", null)
+                        new RefinementItem(1, "Question A", "Answer A"),
+                        new RefinementItem(2, "Question B", null)
                     ])));
 
-        await runner.SubmitClarificationAnswersAsync(
+        await runner.SubmitRefinementAnswersAsync(
             workspaceRoot,
             "US-0001",
             ["Answer A updated", "Answer B updated"]);
 
-        var generatedClarificationPath = paths.GetPhaseArtifactPath(PhaseId.Clarification);
+        var generatedRefinementPath = paths.GetPhaseArtifactPath(PhaseId.Refinement);
         await File.WriteAllTextAsync(
-            generatedClarificationPath,
+            generatedRefinementPath,
             """
-            # Clarification · US-0001 · v02
+            # Refinement · US-0001 · v02
 
             ## State
             - State: `pending_user_input`
 
             ## Decision
-            needs_clarification
+            needs_refinement
 
             ## Reason
             Still missing one more detail.
@@ -216,30 +216,30 @@ public sealed class WorkflowRunnerTests : IDisposable
             """
         );
 
-        var parseMethod = typeof(WorkflowRunner).GetMethod("ParseClarificationArtifact", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
-        var updateMethod = typeof(WorkflowRunner).GetMethod("UpdateClarificationLogAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
-        var assessment = parseMethod.Invoke(null, [await File.ReadAllTextAsync(generatedClarificationPath)])!;
+        var parseMethod = typeof(WorkflowRunner).GetMethod("ParseRefinementArtifact", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var updateMethod = typeof(WorkflowRunner).GetMethod("UpdateRefinementLogAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var assessment = parseMethod.Invoke(null, [await File.ReadAllTextAsync(generatedRefinementPath)])!;
         await (Task)updateMethod.Invoke(null, [paths, assessment, "balanced", CancellationToken.None])!;
 
-        var updatedClarification = await File.ReadAllTextAsync(paths.ClarificationFilePath);
-        Assert.DoesNotContain("Question A", updatedClarification);
-        Assert.DoesNotContain("Question B", updatedClarification);
-        Assert.Contains("1. Question C", updatedClarification);
-        Assert.Contains("1. ...", updatedClarification);
+        var updatedRefinement = await File.ReadAllTextAsync(paths.RefinementFilePath);
+        Assert.DoesNotContain("Question A", updatedRefinement);
+        Assert.DoesNotContain("Question B", updatedRefinement);
+        Assert.Contains("1. Question C", updatedRefinement);
+        Assert.Contains("1. ...", updatedRefinement);
     }
 
     [Fact]
-    public void ParseClarificationArtifact_DeduplicatesSemanticallyEquivalentQuestions()
+    public void ParseRefinementArtifact_DeduplicatesSemanticallyEquivalentQuestions()
     {
-        const string clarificationMarkdown =
+        const string refinementMarkdown =
             """
-            # Clarification · US-0001 · v01
+            # Refinement · US-0001 · v01
 
             ## State
             - State: `pending_user_input`
 
             ## Decision
-            needs_clarification
+            needs_refinement
 
             ## Reason
             More detail is required.
@@ -251,8 +251,8 @@ public sealed class WorkflowRunnerTests : IDisposable
             4. Must the source filter be exact, or can it use case-insensitive partial matching?
             """;
 
-        var parseMethod = typeof(WorkflowRunner).GetMethod("ParseClarificationArtifact", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
-        var assessment = parseMethod.Invoke(null, [clarificationMarkdown])!;
+        var parseMethod = typeof(WorkflowRunner).GetMethod("ParseRefinementArtifact", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var assessment = parseMethod.Invoke(null, [refinementMarkdown])!;
         var questions = (IReadOnlyCollection<string>)assessment.GetType().GetProperty("Questions")!.GetValue(assessment)!;
 
         Assert.Equal(2, questions.Count);
@@ -261,7 +261,7 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task ContinuePhaseAsync_FromCapture_WithShortButConcreteSource_AllowsRefinement()
+    public async Task ContinuePhaseAsync_FromCapture_WithShortButConcreteSource_AllowsSpec()
     {
         var runner = new WorkflowRunner();
         await runner.CreateUserStoryAsync(
@@ -274,7 +274,7 @@ public sealed class WorkflowRunnerTests : IDisposable
 
         var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
-        Assert.Equal(PhaseId.Refinement, result.CurrentPhase);
+        Assert.Equal(PhaseId.Spec, result.CurrentPhase);
         Assert.NotNull(result.GeneratedArtifactPath);
     }
 
@@ -349,7 +349,7 @@ public sealed class WorkflowRunnerTests : IDisposable
 
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         await File.WriteAllTextAsync(
-            paths.GetPhaseArtifactPath(PhaseId.Refinement),
+            paths.GetPhaseArtifactPath(PhaseId.Spec),
             """
             # Spec · US-0001 · v01
 
@@ -491,7 +491,7 @@ public sealed class WorkflowRunnerTests : IDisposable
             "APR found a technical design issue.");
 
         var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
-            runner.RewindWorkflowAsync(workspaceRoot, "US-0001", PhaseId.Refinement));
+            runner.RewindWorkflowAsync(workspaceRoot, "US-0001", PhaseId.Spec));
 
         Assert.Contains("recovery phase", error.Message);
     }
@@ -661,7 +661,7 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task RestartUserStoryFromSourceAsync_WhenSourceChanged_ArchivesDerivedStateAndRegeneratesRefinement()
+    public async Task RestartUserStoryFromSourceAsync_WhenSourceChanged_ArchivesDerivedStateAndRegeneratesSpec()
     {
         var runner = new WorkflowRunner();
         await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
@@ -680,17 +680,17 @@ public sealed class WorkflowRunnerTests : IDisposable
             "US-0001",
             "Source changed after technical design");
 
-        Assert.Equal("refinement", result.CurrentPhase);
+        Assert.Equal("spec", result.CurrentPhase);
         Assert.Equal("waiting-user", result.Status);
         Assert.NotNull(result.GeneratedArtifactPath);
         Assert.True(File.Exists(result.GeneratedArtifactPath!));
 
-        var refinementContent = await File.ReadAllTextAsync(result.GeneratedArtifactPath!);
-        Assert.Contains("Updated source text", refinementContent);
+        var specContent = await File.ReadAllTextAsync(result.GeneratedArtifactPath!);
+        Assert.Contains("Updated source text", specContent);
 
         var loadedRun = await new UserStoryFileStore().LoadAsync(paths.RootDirectory);
-        Assert.Equal(PhaseId.Refinement, loadedRun.CurrentPhase);
-        Assert.False(loadedRun.IsPhaseApproved(PhaseId.Refinement));
+        Assert.Equal(PhaseId.Spec, loadedRun.CurrentPhase);
+        Assert.False(loadedRun.IsPhaseApproved(PhaseId.Spec));
         Assert.Null(loadedRun.Branch);
 
         var archiveDirectory = Directory.GetDirectories(paths.RestartsDirectoryPath).Single();
@@ -735,9 +735,9 @@ public sealed class WorkflowRunnerTests : IDisposable
         var workflowRun = await new UserStoryFileStore().LoadAsync(paths.RootDirectory);
         Assert.Equal(PhaseId.Capture, workflowRun.CurrentPhase);
         Assert.Equal(UserStoryStatus.Active, workflowRun.Status);
-        Assert.False(workflowRun.IsPhaseApproved(PhaseId.Refinement));
+        Assert.False(workflowRun.IsPhaseApproved(PhaseId.Spec));
         Assert.False(File.Exists(paths.BranchFilePath));
-        Assert.False(File.Exists(paths.ClarificationFilePath));
+        Assert.False(File.Exists(paths.RefinementFilePath));
         Assert.True(Directory.Exists(paths.PhasesDirectoryPath));
         Assert.Empty(Directory.EnumerateFileSystemEntries(paths.PhasesDirectoryPath));
 
@@ -771,8 +771,8 @@ public sealed class WorkflowRunnerTests : IDisposable
 ### 2026-04-18T09:10:00Z · `phase_approved`
 
 - Actor: `user`
-- Phase: `refinement`
-- Summary: Phase `refinement` approved.
+- Phase: `spec`
+- Summary: Phase `spec` approved.
 - Artifacts:
   - .specs/us/workflow/US-0001/branch.yaml
 """;
@@ -783,8 +783,8 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal("2026-04-18T09:10:00Z", timelineEvent.TimestampUtc);
         Assert.Equal("phase_approved", timelineEvent.Code);
         Assert.Equal("user", timelineEvent.Actor);
-        Assert.Equal("refinement", timelineEvent.Phase);
-        Assert.Equal("Phase `refinement` approved.", timelineEvent.Summary);
+        Assert.Equal("spec", timelineEvent.Phase);
+        Assert.Equal("Phase `spec` approved.", timelineEvent.Summary);
         Assert.Single(timelineEvent.Artifacts);
         Assert.Equal(".specs/us/workflow/US-0001/branch.yaml", timelineEvent.Artifacts.First());
     }
@@ -800,8 +800,8 @@ public sealed class WorkflowRunnerTests : IDisposable
 ### 2026-04-18T09:10:00Z · `phase_completed`
 
 - Actor: `system`
-- Phase: `refinement`
-- Summary: Generated artifact for phase `refinement`.
+- Phase: `spec`
+- Summary: Generated artifact for phase `spec`.
 - Artifacts:
   - .specs/us/workflow/US-0001/phases/01-spec.md
 - Tokens:
@@ -1348,8 +1348,8 @@ public sealed class WorkflowRunnerTests : IDisposable
     private async Task ResolvePendingApprovalQuestionsAsync(WorkflowRunner runner, string usId)
     {
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
-        var artifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Refinement)
-            ?? throw new InvalidOperationException("Expected a refinement artifact before resolving approval questions.");
+        var artifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Spec)
+            ?? throw new InvalidOperationException("Expected a spec artifact before resolving approval questions.");
         var markdown = await File.ReadAllTextAsync(artifactPath);
         var pendingQuestions = ApprovalQuestionMarkdown.ParseFromMarkdown(markdown)
             .Where(static item => !item.Resolved)
@@ -1372,11 +1372,11 @@ public sealed class WorkflowRunnerTests : IDisposable
         public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
             new(phaseId, CanExecute: true);
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult<AutoClarificationAnswersResult?>(null);
+            Task.FromResult<AutoRefinementAnswersResult?>(null);
 
         public Task<PhaseExecutionResult> ExecuteAsync(
             PhaseExecutionContext context,
@@ -1404,11 +1404,11 @@ public sealed class WorkflowRunnerTests : IDisposable
                 ? readiness
                 : inner.GetPhaseExecutionReadiness(phaseId);
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
 
         public Task<PhaseExecutionResult> ExecuteAsync(
             PhaseExecutionContext context,
@@ -1443,11 +1443,11 @@ public sealed class WorkflowRunnerTests : IDisposable
             return await inner.ExecuteAsync(context, cancellationToken);
         }
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
 
         public Task WaitUntilStartedAsync() => started.Task;
     }
@@ -1459,19 +1459,19 @@ public sealed class WorkflowRunnerTests : IDisposable
         public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
             inner.GetPhaseExecutionReadiness(phaseId);
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult<AutoClarificationAnswersResult?>(
-                new AutoClarificationAnswersResult(
+            Task.FromResult<AutoRefinementAnswersResult?>(
+                new AutoRefinementAnswersResult(
                     true,
                     session.Items
                         .OrderBy(static item => item.Index)
                         .Select(item => $"Auto answer for: {item.Question}")
                         .Cast<string?>()
                         .ToArray(),
-                    "The model answered the clarification questions from the available context.",
+                    "The model answered the refinement questions from the available context.",
                     Execution: new PhaseExecutionMetadata("test-double", "auto-answer-model", "auto-answer-profile", "http://stub.test/v1")));
 
         public Task<PhaseExecutionResult> ExecuteAsync(
@@ -1489,11 +1489,11 @@ public sealed class WorkflowRunnerTests : IDisposable
         public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
             inner.GetPhaseExecutionReadiness(phaseId);
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
 
         public async Task<PhaseExecutionResult> ExecuteAsync(
             PhaseExecutionContext context,
@@ -1525,11 +1525,11 @@ public sealed class WorkflowRunnerTests : IDisposable
         public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
             inner.GetPhaseExecutionReadiness(phaseId);
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
 
         public Task<PhaseExecutionResult> ExecuteAsync(
             PhaseExecutionContext context,
@@ -1546,11 +1546,11 @@ public sealed class WorkflowRunnerTests : IDisposable
         public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
             inner.GetPhaseExecutionReadiness(phaseId);
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
 
         public async Task<PhaseExecutionResult> ExecuteAsync(
             PhaseExecutionContext context,
@@ -1582,11 +1582,11 @@ public sealed class WorkflowRunnerTests : IDisposable
         public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
             inner.GetPhaseExecutionReadiness(phaseId);
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
 
         public async Task<PhaseExecutionResult> ExecuteAsync(
             PhaseExecutionContext context,
@@ -1642,11 +1642,11 @@ public sealed class WorkflowRunnerTests : IDisposable
         public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
             inner.GetPhaseExecutionReadiness(phaseId);
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
 
         public async Task<PhaseExecutionResult> ExecuteAsync(
             PhaseExecutionContext context,
@@ -1789,11 +1789,11 @@ public sealed class WorkflowRunnerTests : IDisposable
             return inner.ExecuteAsync(context, cancellationToken);
         }
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
     }
 
     private sealed class PassingReviewPhaseExecutionProvider : IPhaseExecutionProvider
@@ -1802,11 +1802,11 @@ public sealed class WorkflowRunnerTests : IDisposable
 
         public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) => inner.GetPhaseExecutionReadiness(phaseId);
 
-        public Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
             PhaseExecutionContext context,
-            ClarificationSession session,
+            RefinementSession session,
             CancellationToken cancellationToken = default) =>
-            inner.TryAutoAnswerClarificationAsync(context, session, cancellationToken);
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
 
         public async Task<PhaseExecutionResult> ExecuteAsync(
             PhaseExecutionContext context,

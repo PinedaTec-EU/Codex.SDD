@@ -13,14 +13,14 @@ type ExecutionSettingsMessage =
       readonly command: "saveExecutionSettings";
       readonly modelProfiles?: readonly Partial<SpecForgeModelProfile>[];
       readonly phaseModelAssignments?: Partial<SpecForgePhaseModelAssignments>;
-      readonly clarificationTolerance?: string;
+      readonly refinementTolerance?: string;
       readonly reviewTolerance?: string;
       readonly watcherEnabled?: boolean;
       readonly attentionNotificationsEnabled?: boolean;
       readonly contextSuggestionsEnabled?: boolean;
       readonly requireExplicitApprovalBranchAcceptance?: boolean;
-      readonly autoClarificationAnswersEnabled?: boolean;
-      readonly autoClarificationAnswersProfile?: string | null;
+      readonly autoRefinementAnswersEnabled?: boolean;
+      readonly autoRefinementAnswersProfile?: string | null;
       readonly autoPlayEnabled?: boolean;
       readonly autoReviewEnabled?: boolean;
       readonly maxImplementationReviewCycles?: number | null;
@@ -82,14 +82,14 @@ class ExecutionSettingsPanelController {
             await saveExecutionSettingsAsync(
               message.modelProfiles ?? [],
               message.phaseModelAssignments ?? {},
-              message.clarificationTolerance ?? "balanced",
+              message.refinementTolerance ?? "balanced",
               message.reviewTolerance ?? "balanced",
               message.watcherEnabled ?? true,
               message.attentionNotificationsEnabled ?? true,
               message.contextSuggestionsEnabled ?? true,
               message.requireExplicitApprovalBranchAcceptance ?? false,
-              message.autoClarificationAnswersEnabled ?? false,
-              message.autoClarificationAnswersProfile,
+              message.autoRefinementAnswersEnabled ?? false,
+              message.autoRefinementAnswersProfile,
               message.autoPlayEnabled ?? false,
               message.autoReviewEnabled ?? false,
               message.maxImplementationReviewCycles ?? null,
@@ -116,14 +116,14 @@ class ExecutionSettingsPanelController {
     this.panel.webview.html = buildExecutionSettingsHtml({
       modelProfiles: settings.modelProfiles,
       phaseModelAssignments: settings.phaseModelAssignments,
-      clarificationTolerance: settings.clarificationTolerance,
+      refinementTolerance: settings.refinementTolerance,
       reviewTolerance: settings.reviewTolerance,
       watcherEnabled: settings.watcherEnabled,
       attentionNotificationsEnabled: settings.attentionNotificationsEnabled,
       contextSuggestionsEnabled: settings.contextSuggestionsEnabled,
       requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance,
-      autoClarificationAnswersEnabled: settings.autoClarificationAnswersEnabled,
-      autoClarificationAnswersProfile: settings.autoClarificationAnswersProfile,
+      autoRefinementAnswersEnabled: settings.autoRefinementAnswersEnabled,
+      autoRefinementAnswersProfile: settings.autoRefinementAnswersProfile,
       autoPlayEnabled: settings.autoPlayEnabled,
       autoReviewEnabled: settings.autoReviewEnabled,
       maxImplementationReviewCycles: settings.maxImplementationReviewCycles,
@@ -138,14 +138,14 @@ class ExecutionSettingsPanelController {
 type ExecutionSettingsViewModel = {
   readonly modelProfiles: readonly SpecForgeModelProfile[];
   readonly phaseModelAssignments: SpecForgePhaseModelAssignments;
-  readonly clarificationTolerance: string;
+  readonly refinementTolerance: string;
   readonly reviewTolerance: string;
   readonly watcherEnabled: boolean;
   readonly attentionNotificationsEnabled: boolean;
   readonly contextSuggestionsEnabled: boolean;
   readonly requireExplicitApprovalBranchAcceptance: boolean;
-  readonly autoClarificationAnswersEnabled: boolean;
-  readonly autoClarificationAnswersProfile: string | null;
+  readonly autoRefinementAnswersEnabled: boolean;
+  readonly autoRefinementAnswersProfile: string | null;
   readonly autoPlayEnabled: boolean;
   readonly autoReviewEnabled: boolean;
   readonly maxImplementationReviewCycles: number | null;
@@ -158,8 +158,8 @@ type ExecutionSettingsViewModel = {
 const executionPhases: ReadonlyArray<{ key: keyof SpecForgePhaseModelAssignments; label: string; }> = [
   { key: "defaultProfile", label: "Default / fallback" },
   { key: "captureProfile", label: "Capture" },
-  { key: "clarificationProfile", label: "Clarification" },
   { key: "refinementProfile", label: "Refinement" },
+  { key: "specProfile", label: "Spec" },
   { key: "technicalDesignProfile", label: "Technical Design" },
   { key: "implementationProfile", label: "Implementation" },
   { key: "reviewProfile", label: "Review" },
@@ -463,20 +463,20 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       </div>
       <div class="section-header">
         <div>
-          <p class="eyebrow">Clarification Automation</p>
+          <p class="eyebrow">Refinement Automation</p>
           <h2>Model-assisted answers</h2>
-          <p class="copy">When clarification blocks refinement, let a selected model try to answer the pending questions once before handing the phase back to the user.</p>
+          <p class="copy">When refinement blocks spec, let a selected model try to answer the pending questions once before handing the phase back to the user.</p>
         </div>
       </div>
       <div class="feature-grid">
         <label class="phase-field">
-          <span>Clarification tolerance</span>
-          <select data-clarification-tolerance>
-            <option value="strict"${model.clarificationTolerance === "strict" ? " selected" : ""}>Strict</option>
-            <option value="balanced"${model.clarificationTolerance === "balanced" ? " selected" : ""}>Balanced</option>
-            <option value="inferential"${model.clarificationTolerance === "inferential" ? " selected" : ""}>Inferential</option>
+          <span>Refinement tolerance</span>
+          <select data-refinement-tolerance>
+            <option value="strict"${model.refinementTolerance === "strict" ? " selected" : ""}>Strict</option>
+            <option value="balanced"${model.refinementTolerance === "balanced" ? " selected" : ""}>Balanced</option>
+            <option value="inferential"${model.refinementTolerance === "inferential" ? " selected" : ""}>Inferential</option>
           </select>
-          <span class="phase-field__hint">Controls how much ambiguity clarification tolerates before refinement can continue.</span>
+          <span class="phase-field__hint">Controls how much ambiguity refinement tolerates before spec can continue.</span>
         </label>
         <label class="phase-field">
           <span>Review tolerance</span>
@@ -489,14 +489,14 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         </label>
         <label class="phase-field">
           <span>Enable auto answers</span>
-          <select data-auto-clarification-enabled>
-            <option value="false"${model.autoClarificationAnswersEnabled ? "" : " selected"}>Disabled</option>
-            <option value="true"${model.autoClarificationAnswersEnabled ? " selected" : ""}>Enabled</option>
+          <select data-auto-refinement-enabled>
+            <option value="false"${model.autoRefinementAnswersEnabled ? "" : " selected"}>Disabled</option>
+            <option value="true"${model.autoRefinementAnswersEnabled ? " selected" : ""}>Enabled</option>
           </select>
         </label>
-        <label class="phase-field" data-auto-clarification-profile-wrapper>
+        <label class="phase-field" data-auto-refinement-profile-wrapper>
           <span>Auto-answer profile</span>
-          <select data-auto-clarification-profile></select>
+          <select data-auto-refinement-profile></select>
         </label>
         <label class="phase-field">
           <span>Context suggestions</span>
@@ -504,7 +504,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
             <option value="true"${model.contextSuggestionsEnabled ? " selected" : ""}>Enabled</option>
             <option value="false"${model.contextSuggestionsEnabled ? "" : " selected"}>Disabled</option>
           </select>
-          <span class="phase-field__hint">Suggest nearby repository files during clarification to improve local context selection.</span>
+          <span class="phase-field__hint">Suggest nearby repository files during refinement to improve local context selection.</span>
         </label>
         <label class="phase-field">
           <span>Require approval branch acceptance</span>
@@ -512,7 +512,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
             <option value="false"${model.requireExplicitApprovalBranchAcceptance ? "" : " selected"}>Disabled</option>
             <option value="true"${model.requireExplicitApprovalBranchAcceptance ? " selected" : ""}>Enabled</option>
           </select>
-          <span class="phase-field__hint">Force explicit confirmation of the proposed base branch before approving refinement.</span>
+          <span class="phase-field__hint">Force explicit confirmation of the proposed base branch before approving spec.</span>
         </label>
       </div>
       <div class="section-header">
@@ -612,8 +612,8 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     const vscode = acquireVsCodeApi();
     const executionPhases = ${JSON.stringify(executionPhases)};
     const permissionRequirements = ${JSON.stringify([
-      { assignmentKey: "clarificationProfile", label: "Clarification", requiredRepositoryAccess: "read" },
       { assignmentKey: "refinementProfile", label: "Refinement", requiredRepositoryAccess: "read" },
+      { assignmentKey: "specProfile", label: "Spec", requiredRepositoryAccess: "read" },
       { assignmentKey: "technicalDesignProfile", label: "Technical Design", requiredRepositoryAccess: "read" },
       { assignmentKey: "implementationProfile", label: "Implementation", requiredRepositoryAccess: "read-write" },
       { assignmentKey: "reviewProfile", label: "Review", requiredRepositoryAccess: "read-write" }
@@ -621,14 +621,14 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     let state = {
       modelProfiles: ${JSON.stringify(model.modelProfiles)},
       phaseModelAssignments: ${JSON.stringify(model.phaseModelAssignments)},
-      clarificationTolerance: ${JSON.stringify(model.clarificationTolerance)},
+      refinementTolerance: ${JSON.stringify(model.refinementTolerance)},
       reviewTolerance: ${JSON.stringify(model.reviewTolerance)},
       watcherEnabled: ${JSON.stringify(model.watcherEnabled)},
       attentionNotificationsEnabled: ${JSON.stringify(model.attentionNotificationsEnabled)},
       contextSuggestionsEnabled: ${JSON.stringify(model.contextSuggestionsEnabled)},
       requireExplicitApprovalBranchAcceptance: ${JSON.stringify(model.requireExplicitApprovalBranchAcceptance)},
-      autoClarificationAnswersEnabled: ${JSON.stringify(model.autoClarificationAnswersEnabled)},
-      autoClarificationAnswersProfile: ${JSON.stringify(model.autoClarificationAnswersProfile)},
+      autoRefinementAnswersEnabled: ${JSON.stringify(model.autoRefinementAnswersEnabled)},
+      autoRefinementAnswersProfile: ${JSON.stringify(model.autoRefinementAnswersProfile)},
       autoPlayEnabled: ${JSON.stringify(model.autoPlayEnabled)},
       autoReviewEnabled: ${JSON.stringify(model.autoReviewEnabled)},
       maxImplementationReviewCycles: ${JSON.stringify(model.maxImplementationReviewCycles ?? 5)},
@@ -687,7 +687,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       return options.join("");
     }
 
-    function autoClarificationProfileOptions(selectedValue) {
+    function autoRefinementProfileOptions(selectedValue) {
       const options = ['<option value="">Select a profile</option>'];
       for (const profile of state.modelProfiles) {
         options.push('<option value="' + escapeHtml(profile.name || "") + '"' + ((profile.name || "") === selectedValue ? " selected" : "") + '>' + escapeHtml(profile.name || "") + '</option>');
@@ -700,8 +700,8 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       return nonEmptyProfiles.length > 1 && !String(state.phaseModelAssignments.defaultProfile || "").trim();
     }
 
-    function hasAutoClarificationProblem() {
-      return state.autoClarificationAnswersEnabled && !String(state.autoClarificationAnswersProfile || "").trim();
+    function hasAutoRefinementProblem() {
+      return state.autoRefinementAnswersEnabled && !String(state.autoRefinementAnswersProfile || "").trim();
     }
 
     function validatePermissionIssues() {
@@ -753,15 +753,15 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       const profilesHost = document.querySelector("[data-profiles]");
       const phaseGrid = document.querySelector("[data-phase-grid]");
       const warning = document.querySelector("[data-default-warning]");
-      const autoClarificationProfile = document.querySelector("[data-auto-clarification-profile]");
-      const autoClarificationWrapper = document.querySelector("[data-auto-clarification-profile-wrapper]");
-      const clarificationTolerance = document.querySelector("[data-clarification-tolerance]");
+      const autoRefinementProfile = document.querySelector("[data-auto-refinement-profile]");
+      const autoRefinementWrapper = document.querySelector("[data-auto-refinement-profile-wrapper]");
+      const refinementTolerance = document.querySelector("[data-refinement-tolerance]");
       const reviewTolerance = document.querySelector("[data-review-tolerance]");
       const watcherEnabled = document.querySelector("[data-watcher-enabled]");
       const attentionNotificationsEnabled = document.querySelector("[data-attention-notifications-enabled]");
       const contextSuggestionsEnabled = document.querySelector("[data-context-suggestions-enabled]");
       const requireApprovalBranchAcceptance = document.querySelector("[data-require-approval-branch-acceptance]");
-      const autoClarificationEnabled = document.querySelector("[data-auto-clarification-enabled]");
+      const autoRefinementEnabled = document.querySelector("[data-auto-refinement-enabled]");
       const autoPlayEnabled = document.querySelector("[data-auto-play-enabled]");
       const autoReviewEnabled = document.querySelector("[data-auto-review-enabled]");
       const maxImplementationReviewCycles = document.querySelector("[data-max-implementation-review-cycles]");
@@ -821,18 +821,18 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         });
       }
 
-      if (autoClarificationProfile instanceof HTMLSelectElement) {
-        autoClarificationProfile.innerHTML = autoClarificationProfileOptions(state.autoClarificationAnswersProfile || "");
-        autoClarificationProfile.value = state.autoClarificationAnswersProfile || "";
-        autoClarificationProfile.addEventListener("change", () => {
-          state.autoClarificationAnswersProfile = autoClarificationProfile.value;
+      if (autoRefinementProfile instanceof HTMLSelectElement) {
+        autoRefinementProfile.innerHTML = autoRefinementProfileOptions(state.autoRefinementAnswersProfile || "");
+        autoRefinementProfile.value = state.autoRefinementAnswersProfile || "";
+        autoRefinementProfile.addEventListener("change", () => {
+          state.autoRefinementAnswersProfile = autoRefinementProfile.value;
         });
       }
 
-      if (clarificationTolerance instanceof HTMLSelectElement) {
-        clarificationTolerance.value = state.clarificationTolerance || "balanced";
-        clarificationTolerance.addEventListener("change", () => {
-          state.clarificationTolerance = clarificationTolerance.value || "balanced";
+      if (refinementTolerance instanceof HTMLSelectElement) {
+        refinementTolerance.value = state.refinementTolerance || "balanced";
+        refinementTolerance.addEventListener("change", () => {
+          state.refinementTolerance = refinementTolerance.value || "balanced";
         });
       }
 
@@ -871,10 +871,10 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         });
       }
 
-      if (autoClarificationEnabled instanceof HTMLSelectElement) {
-        autoClarificationEnabled.value = state.autoClarificationAnswersEnabled ? "true" : "false";
-        autoClarificationEnabled.addEventListener("change", () => {
-          state.autoClarificationAnswersEnabled = autoClarificationEnabled.value === "true";
+      if (autoRefinementEnabled instanceof HTMLSelectElement) {
+        autoRefinementEnabled.value = state.autoRefinementAnswersEnabled ? "true" : "false";
+        autoRefinementEnabled.addEventListener("change", () => {
+          state.autoRefinementAnswersEnabled = autoRefinementEnabled.value === "true";
           render();
         });
       }
@@ -926,7 +926,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       }
 
       const fallbackProblem = hasFallbackProblem();
-      const autoClarificationProblem = hasAutoClarificationProblem();
+      const autoRefinementProblem = hasAutoRefinementProblem();
       const permissionIssues = validatePermissionIssues();
       if (warning instanceof HTMLElement) {
         warning.classList.toggle("warning-banner--visible", fallbackProblem);
@@ -935,8 +935,8 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       if (defaultWrapper instanceof HTMLElement) {
         defaultWrapper.classList.toggle("phase-field--invalid", fallbackProblem);
       }
-      if (autoClarificationWrapper instanceof HTMLElement) {
-        autoClarificationWrapper.classList.toggle("phase-field--invalid", autoClarificationProblem);
+      if (autoRefinementWrapper instanceof HTMLElement) {
+        autoRefinementWrapper.classList.toggle("phase-field--invalid", autoRefinementProblem);
       }
       for (const phase of executionPhases) {
         if (phase.key === "defaultProfile") {
@@ -953,11 +953,11 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         }
       }
       if (saveButton instanceof HTMLButtonElement) {
-        saveButton.disabled = fallbackProblem || autoClarificationProblem || permissionIssues.length > 0;
+        saveButton.disabled = fallbackProblem || autoRefinementProblem || permissionIssues.length > 0;
         saveButton.title = fallbackProblem
           ? "Define the default fallback profile before saving."
-          : autoClarificationProblem
-            ? "Select the profile that should answer clarification questions."
+          : autoRefinementProblem
+            ? "Select the profile that should answer refinement questions."
             : permissionIssues.length > 0
               ? permissionIssues[0].message
             : "";
@@ -965,8 +965,8 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       if (saveError instanceof HTMLElement) {
         const errorMessage = fallbackProblem
           ? "Define the default fallback profile before saving."
-          : autoClarificationProblem
-            ? "Select the profile that should answer clarification questions."
+          : autoRefinementProblem
+            ? "Select the profile that should answer refinement questions."
             : permissionIssues[0]?.message || "";
         saveError.textContent = errorMessage;
         saveError.classList.toggle("save-error--visible", errorMessage.length > 0);
@@ -1101,9 +1101,9 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         }
       }
 
-      const autoClarificationProfile = String(state.autoClarificationAnswersProfile || "").trim();
-      if (autoClarificationProfile && renameMap.has(autoClarificationProfile)) {
-        state.autoClarificationAnswersProfile = renameMap.get(autoClarificationProfile);
+      const autoRefinementProfile = String(state.autoRefinementAnswersProfile || "").trim();
+      if (autoRefinementProfile && renameMap.has(autoRefinementProfile)) {
+        state.autoRefinementAnswersProfile = renameMap.get(autoRefinementProfile);
       }
     }
 
@@ -1115,8 +1115,8 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
           state.phaseModelAssignments[phase.key] = "";
         }
       }
-      if (state.autoClarificationAnswersProfile && !names.has(state.autoClarificationAnswersProfile)) {
-        state.autoClarificationAnswersProfile = "";
+      if (state.autoRefinementAnswersProfile && !names.has(state.autoRefinementAnswersProfile)) {
+        state.autoRefinementAnswersProfile = "";
       }
     }
 
@@ -1153,21 +1153,21 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     document.getElementById("execution-settings-form")?.addEventListener("submit", (event) => {
       event.preventDefault();
       syncFromDom();
-      if (hasFallbackProblem() || hasAutoClarificationProblem() || validatePermissionIssues().length > 0) {
+      if (hasFallbackProblem() || hasAutoRefinementProblem() || validatePermissionIssues().length > 0) {
         return;
       }
       vscode.postMessage({
         command: "saveExecutionSettings",
         modelProfiles: state.modelProfiles,
         phaseModelAssignments: state.phaseModelAssignments,
-        clarificationTolerance: state.clarificationTolerance,
+        refinementTolerance: state.refinementTolerance,
         reviewTolerance: state.reviewTolerance,
         watcherEnabled: state.watcherEnabled,
         attentionNotificationsEnabled: state.attentionNotificationsEnabled,
         contextSuggestionsEnabled: state.contextSuggestionsEnabled,
         requireExplicitApprovalBranchAcceptance: state.requireExplicitApprovalBranchAcceptance,
-        autoClarificationAnswersEnabled: state.autoClarificationAnswersEnabled,
-        autoClarificationAnswersProfile: state.autoClarificationAnswersProfile,
+        autoRefinementAnswersEnabled: state.autoRefinementAnswersEnabled,
+        autoRefinementAnswersProfile: state.autoRefinementAnswersProfile,
         autoPlayEnabled: state.autoPlayEnabled,
         autoReviewEnabled: state.autoReviewEnabled,
         maxImplementationReviewCycles: state.maxImplementationReviewCycles,
@@ -1186,14 +1186,14 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
 async function saveExecutionSettingsAsync(
   modelProfiles: readonly Partial<SpecForgeModelProfile>[],
   phaseModelAssignments: Partial<SpecForgePhaseModelAssignments>,
-  clarificationTolerance = "balanced",
+  refinementTolerance = "balanced",
   reviewTolerance = "balanced",
   watcherEnabled = true,
   attentionNotificationsEnabled = true,
   contextSuggestionsEnabled = true,
   requireExplicitApprovalBranchAcceptance = false,
-  autoClarificationAnswersEnabled = false,
-  autoClarificationAnswersProfile?: string | null,
+  autoRefinementAnswersEnabled = false,
+  autoRefinementAnswersProfile?: string | null,
   autoPlayEnabled = false,
   autoReviewEnabled = false,
   maxImplementationReviewCycles?: number | null,
@@ -1224,8 +1224,8 @@ async function saveExecutionSettingsAsync(
   const normalizedAssignments: SpecForgePhaseModelAssignments = {
     defaultProfile: normalizeOptionalAssignment(phaseModelAssignments.defaultProfile),
     captureProfile: normalizeOptionalAssignment(phaseModelAssignments.captureProfile),
-    clarificationProfile: normalizeOptionalAssignment(phaseModelAssignments.clarificationProfile),
     refinementProfile: normalizeOptionalAssignment(phaseModelAssignments.refinementProfile),
+    specProfile: normalizeOptionalAssignment(phaseModelAssignments.specProfile),
     technicalDesignProfile: normalizeOptionalAssignment(phaseModelAssignments.technicalDesignProfile),
     implementationProfile: normalizeOptionalAssignment(phaseModelAssignments.implementationProfile),
     reviewProfile: normalizeOptionalAssignment(phaseModelAssignments.reviewProfile),
@@ -1236,8 +1236,8 @@ async function saveExecutionSettingsAsync(
   if (requiresDefaultFallback(normalizedProfiles, normalizedAssignments)) {
     throw new Error("Define the default fallback profile before saving execution settings.");
   }
-  if (autoClarificationAnswersEnabled && !normalizeOptionalAssignment(autoClarificationAnswersProfile)) {
-    throw new Error("Select the profile that should answer clarification questions before saving execution settings.");
+  if (autoRefinementAnswersEnabled && !normalizeOptionalAssignment(autoRefinementAnswersProfile)) {
+    throw new Error("Select the profile that should answer refinement questions before saving execution settings.");
   }
   if (permissionIssues.length > 0) {
     throw new Error(permissionIssues[0]?.message ?? "Execution settings include a phase model permission mismatch.");
@@ -1245,16 +1245,16 @@ async function saveExecutionSettingsAsync(
 
   await configuration.update("execution.modelProfiles", normalizedProfiles, vscode.ConfigurationTarget.Workspace);
   await configuration.update("execution.phaseModels", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
-  await configuration.update("execution.clarificationTolerance", clarificationTolerance, vscode.ConfigurationTarget.Workspace);
+  await configuration.update("execution.refinementTolerance", refinementTolerance, vscode.ConfigurationTarget.Workspace);
   await configuration.update("execution.reviewTolerance", reviewTolerance, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.enableWatcher", watcherEnabled, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.notifyOnAttention", attentionNotificationsEnabled, vscode.ConfigurationTarget.Workspace);
   await configuration.update("features.enableContextSuggestions", contextSuggestionsEnabled, vscode.ConfigurationTarget.Workspace);
   await configuration.update("features.requireApprovalBranchAcceptance", requireExplicitApprovalBranchAcceptance, vscode.ConfigurationTarget.Workspace);
-  await configuration.update("features.autoClarificationAnswersEnabled", autoClarificationAnswersEnabled, vscode.ConfigurationTarget.Workspace);
+  await configuration.update("features.autoRefinementAnswersEnabled", autoRefinementAnswersEnabled, vscode.ConfigurationTarget.Workspace);
   await configuration.update(
-    "execution.autoClarificationAnswersProfile",
-    normalizeOptionalAssignment(autoClarificationAnswersProfile),
+    "execution.autoRefinementAnswersProfile",
+    normalizeOptionalAssignment(autoRefinementAnswersProfile),
     vscode.ConfigurationTarget.Workspace);
   await configuration.update("features.autoPlayEnabled", autoPlayEnabled, vscode.ConfigurationTarget.Workspace);
   await configuration.update("features.autoReviewEnabled", autoReviewEnabled, vscode.ConfigurationTarget.Workspace);

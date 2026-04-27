@@ -16,12 +16,12 @@ export async function getRepoPromptsStatusAsync(workspaceRoot: string): Promise<
     path.join(workspaceRoot, ".specs", "prompts", "shared", "system.md"),
     path.join(workspaceRoot, ".specs", "prompts", "shared", "style.md"),
     path.join(workspaceRoot, ".specs", "prompts", "shared", "output-rules.md"),
-    path.join(workspaceRoot, ".specs", "prompts", "phases", "clarification.execute.system.md"),
-    path.join(workspaceRoot, ".specs", "prompts", "phases", "clarification.execute.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "refinement.execute.system.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "refinement.execute.md"),
-    path.join(workspaceRoot, ".specs", "prompts", "phases", "refinement.approve.system.md"),
-    path.join(workspaceRoot, ".specs", "prompts", "phases", "refinement.approve.md"),
+    path.join(workspaceRoot, ".specs", "prompts", "phases", "spec.execute.system.md"),
+    path.join(workspaceRoot, ".specs", "prompts", "phases", "spec.execute.md"),
+    path.join(workspaceRoot, ".specs", "prompts", "phases", "spec.approve.system.md"),
+    path.join(workspaceRoot, ".specs", "prompts", "phases", "spec.approve.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "technical-design.execute.system.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "technical-design.execute.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "implementation.execute.system.md"),
@@ -34,7 +34,7 @@ export async function getRepoPromptsStatusAsync(workspaceRoot: string): Promise<
     path.join(workspaceRoot, ".specs", "prompts", "phases", "release-approval.approve.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "pr-preparation.execute.system.md"),
     path.join(workspaceRoot, ".specs", "prompts", "phases", "pr-preparation.execute.md"),
-    path.join(workspaceRoot, ".specs", "prompts", "phases", "clarification.auto-answer.system.md")
+    path.join(workspaceRoot, ".specs", "prompts", "phases", "refinement.auto-answer.system.md")
   ];
 
   const missingPaths: string[] = [];

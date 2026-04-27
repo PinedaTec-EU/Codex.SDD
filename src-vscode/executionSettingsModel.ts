@@ -9,8 +9,8 @@ export function requiresDefaultFallback(
 }
 
 type ModelDrivenPhaseAssignmentKey =
-  | "clarificationProfile"
   | "refinementProfile"
+  | "specProfile"
   | "technicalDesignProfile"
   | "implementationProfile"
   | "reviewProfile"
@@ -33,8 +33,8 @@ export type PhasePermissionIssue = {
 };
 
 const modelDrivenPhaseRequirements: readonly PhasePermissionRequirement[] = [
-  { assignmentKey: "clarificationProfile", label: "Clarification", requiredRepositoryAccess: "read" },
   { assignmentKey: "refinementProfile", label: "Refinement", requiredRepositoryAccess: "read" },
+  { assignmentKey: "specProfile", label: "Spec", requiredRepositoryAccess: "read" },
   { assignmentKey: "technicalDesignProfile", label: "Technical Design", requiredRepositoryAccess: "read" },
   { assignmentKey: "implementationProfile", label: "Implementation", requiredRepositoryAccess: "read-write" },
   { assignmentKey: "reviewProfile", label: "Review", requiredRepositoryAccess: "read-write" },

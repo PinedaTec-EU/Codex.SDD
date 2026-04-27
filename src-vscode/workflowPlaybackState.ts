@@ -1,8 +1,8 @@
 export type WorkflowPlaybackState = "idle" | "playing" | "paused" | "stopping";
 
 const workflowExecutionPhaseOrder = [
-  "clarification",
   "refinement",
+  "spec",
   "technical-design",
   "implementation",
   "review",
@@ -17,13 +17,13 @@ export function normalizePlaybackStateAfterManualWorkflowChange(
 }
 
 export function canPauseWorkflowExecutionPhase(phaseId: string): boolean {
-  // Capture is intentionally excluded: the first pauseable boundary is before clarification.
+  // Capture is intentionally excluded: the first pauseable boundary is before refinement.
   return workflowExecutionPhaseOrder.includes(phaseId as typeof workflowExecutionPhaseOrder[number]);
 }
 
 export function resolveWorkflowExecutionPhaseId(currentPhaseId: string): string | null {
   if (currentPhaseId === "capture") {
-    return "clarification";
+    return "refinement";
   }
 
   const phaseIndex = workflowExecutionPhaseOrder.indexOf(currentPhaseId as typeof workflowExecutionPhaseOrder[number]);

@@ -18,19 +18,19 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.Equal(paths.ConfigFilePath, result.ConfigPath);
         Assert.Equal(paths.PromptManifestPath, result.PromptManifestPath);
         Assert.Equal(paths.PromptSystemHashesPath, result.PromptSystemHashesPath);
-        Assert.Contains(paths.RefinementExecutePromptPath, result.CreatedFiles);
+        Assert.Contains(paths.SpecExecutePromptPath, result.CreatedFiles);
         Assert.True(File.Exists(paths.ConfigFilePath));
         Assert.True(File.Exists(paths.PromptManifestPath));
         Assert.True(File.Exists(paths.PromptSystemHashesPath));
         Assert.True(File.Exists(paths.SharedSystemPromptPath));
-        Assert.True(File.Exists(paths.ClarificationExecuteSystemPromptPath));
         Assert.True(File.Exists(paths.RefinementExecuteSystemPromptPath));
-        Assert.True(File.Exists(paths.RefinementApproveSystemPromptPath));
+        Assert.True(File.Exists(paths.SpecExecuteSystemPromptPath));
+        Assert.True(File.Exists(paths.SpecApproveSystemPromptPath));
         Assert.True(File.Exists(paths.TechnicalDesignExecuteSystemPromptPath));
         Assert.True(File.Exists(paths.ImplementationExecuteSystemPromptPath));
         Assert.True(File.Exists(paths.ReviewExecuteSystemPromptPath));
         Assert.True(File.Exists(paths.ReleaseApprovalApproveSystemPromptPath));
-        Assert.True(File.Exists(paths.AutoClarificationAnswersSystemPromptPath));
+        Assert.True(File.Exists(paths.AutoRefinementAnswersSystemPromptPath));
         Assert.True(File.Exists(paths.ReviewExecutePromptPath));
         var configContent = await File.ReadAllTextAsync(paths.ConfigFilePath);
         var manifestContent = await File.ReadAllTextAsync(paths.PromptManifestPath);
@@ -42,7 +42,7 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         var reviewPrompt = await File.ReadAllTextAsync(paths.ReviewExecutePromptPath);
         Assert.Contains("categories:", configContent);
         Assert.Contains("- workflow", configContent);
-        Assert.Contains("clarification.execute.system.md", manifestContent);
+        Assert.Contains("refinement.execute.system.md", manifestContent);
         Assert.Contains("release-approval.approve.system.md", manifestContent);
         Assert.Contains("internalCalls:", manifestContent);
         Assert.Contains("Return structured JSON", sharedSystemPrompt);
@@ -53,7 +53,7 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.Contains("implementation evidence is missing, empty", reviewSystemPrompt);
         Assert.Contains("if implementation evidence shows zero touched files, the review must fail", reviewPrompt);
         var hashContent = await File.ReadAllTextAsync(paths.PromptSystemHashesPath);
-        Assert.Contains("clarification.execute.system.md", hashContent);
+        Assert.Contains("refinement.execute.system.md", hashContent);
     }
 
     [Fact]

@@ -8,7 +8,7 @@ import {
 test("resolveCompletedWorkflowReopenTargetPhase routes technical issues to technical design", () => {
   assert.equal(resolveCompletedWorkflowReopenTargetPhase("merge-conflict"), "implementation");
   assert.equal(resolveCompletedWorkflowReopenTargetPhase("defect"), "implementation");
-  assert.equal(resolveCompletedWorkflowReopenTargetPhase("functional-issue"), "refinement");
+  assert.equal(resolveCompletedWorkflowReopenTargetPhase("functional-issue"), "spec");
   assert.equal(resolveCompletedWorkflowReopenTargetPhase("technical-issue"), "technical-design");
   assert.equal(resolveCompletedWorkflowReopenTargetPhase(""), "");
 });

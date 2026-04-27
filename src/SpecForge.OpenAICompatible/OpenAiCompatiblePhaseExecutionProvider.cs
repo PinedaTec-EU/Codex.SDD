@@ -52,14 +52,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
 
         ValidateModelProfiles(options.ModelProfiles, options.PhaseModelAssignments);
-        ValidateAutoClarificationAnswers(
+        ValidateAutoRefinementAnswers(
             options.ModelProfiles.Select(static profile => profile.Name).ToArray(),
             options);
 
-        if (!IsSupportedTolerance(options.ClarificationTolerance))
+        if (!IsSupportedTolerance(options.RefinementTolerance))
         {
             throw new ArgumentException(
-                "ClarificationTolerance must be one of: strict, balanced, inferential.",
+                "RefinementTolerance must be one of: strict, balanced, inferential.",
                 nameof(options));
         }
 
@@ -123,36 +123,36 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 ValidationMessage: $"Phase permission precheck failed because the assigned model only has repository access '{effectiveRepositoryAccess}' but phase '{phaseId}' requires '{requirements.RepositoryAccess}'.");
     }
 
-    public async Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+    public async Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
         PhaseExecutionContext context,
-        ClarificationSession session,
+        RefinementSession session,
         CancellationToken cancellationToken = default)
     {
-        if (!options.AutoClarificationAnswersEnabled || session.Items.Count == 0)
+        if (!options.AutoRefinementAnswersEnabled || session.Items.Count == 0)
         {
             return null;
         }
 
-        var modelSelection = ResolveAutoClarificationAnswersModelSelection();
+        var modelSelection = ResolveAutoRefinementAnswersModelSelection();
         SpecForgeDiagnostics.Log(
-            $"[provider.auto_clarification] usId={context.UsId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={modelSelection.Model} questions={session.Items.Count}");
-        var prompt = await BuildAutoClarificationAnswersPromptAsync(context, session, cancellationToken);
+            $"[provider.auto_refinement] usId={context.UsId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={modelSelection.Model} questions={session.Items.Count}");
+        var prompt = await BuildAutoRefinementAnswersPromptAsync(context, session, cancellationToken);
         if (ShouldUseNativeCli(modelSelection))
         {
-            var autoClarificationAnswersSchema = BuildAutoClarificationAnswersSchema().GetRawText();
+            var autoRefinementAnswersSchema = BuildAutoRefinementAnswersSchema().GetRawText();
             var responseJson = await ExecuteStructuredNativeAsync(
                 context.WorkspaceRoot,
                 NativeCliPromptBuilder.BuildStandalonePrompt(
                     modelSelection.ProviderKind,
-                    "SpecForge Native Clarification Auto Answers",
+                    "SpecForge Native Refinement Auto Answers",
                     prompt,
-                    autoClarificationAnswersSchema),
+                    autoRefinementAnswersSchema),
                 modelSelection,
-                autoClarificationAnswersSchema,
+                autoRefinementAnswersSchema,
                 sandboxMode: "read-only",
                 cancellationToken);
-            var document = ParseAutoClarificationAnswersDocument(responseJson);
-            return new AutoClarificationAnswersResult(
+            var document = ParseAutoRefinementAnswersDocument(responseJson);
+            return new AutoRefinementAnswersResult(
                 document.CanResolve,
                 document.Answers,
                 document.Reason,
@@ -167,16 +167,16 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             modelSelection,
             prompt.SystemPrompt,
             prompt.UserPrompt,
-            temperature: ResolveToleranceTemperature(options.ClarificationTolerance),
+            temperature: ResolveToleranceTemperature(options.RefinementTolerance),
             new StructuredOutputResponseFormat(
                 Type: "json_schema",
                 JsonSchema: new StructuredOutputJsonSchema(
-                    Name: "auto_clarification_answers",
-                    Schema: BuildAutoClarificationAnswersSchema(),
+                    Name: "auto_refinement_answers",
+                    Schema: BuildAutoRefinementAnswersSchema(),
                     Strict: true)),
             cancellationToken);
-        var parsed = ParseAutoClarificationAnswersDocument(content);
-        return new AutoClarificationAnswersResult(
+        var parsed = ParseAutoRefinementAnswersDocument(content);
+        return new AutoRefinementAnswersResult(
             parsed.CanResolve,
             parsed.Answers,
             parsed.Reason,
@@ -352,7 +352,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             cancellationToken,
             paths.SharedSystemPromptPath,
             phaseSystemPromptPath);
-        var clarificationLogPath = Path.Combine(Path.GetDirectoryName(context.UserStoryPath)!, "clarification.md");
+        var refinementLogPath = Path.Combine(Path.GetDirectoryName(context.UserStoryPath)!, "refinement.md");
         var systemPrompt = string.Join(
             $"{Environment.NewLine}{Environment.NewLine}",
             new[]
@@ -384,17 +384,17 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine(userStory.Trim())
             .AppendLine();
 
-        if (File.Exists(clarificationLogPath))
+        if (File.Exists(refinementLogPath))
         {
-            var clarificationLog = await File.ReadAllTextAsync(clarificationLogPath, cancellationToken);
-            if (!string.IsNullOrWhiteSpace(clarificationLog))
+            var refinementLog = await File.ReadAllTextAsync(refinementLogPath, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(refinementLog))
             {
                 builder
-                    .AppendLine("## Clarification Log")
+                    .AppendLine("## Refinement Log")
                     .AppendLine()
-                    .AppendLine($"Path: `{clarificationLogPath}`")
+                    .AppendLine($"Path: `{refinementLogPath}`")
                     .AppendLine()
-                    .AppendLine(clarificationLog.Trim())
+                    .AppendLine(refinementLog.Trim())
                     .AppendLine();
             }
         }
@@ -479,27 +479,27 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine("- Add a concise new history entry describing the operation when the phase schema supports history.");
         }
 
-        if (context.PhaseId == PhaseId.Clarification)
-        {
-            builder
-                .AppendLine()
-                .AppendLine("## Clarification Tolerance")
-                .AppendLine()
-                .AppendLine($"- Active tolerance: `{options.ClarificationTolerance}`")
-                .AppendLine($"- Guidance: {ResolveClarificationGuidance(options.ClarificationTolerance)}")
-                .AppendLine()
-                .AppendLine("## Internal Clarification Contract")
-                .AppendLine()
-                .AppendLine("Return only structured data that conforms to the response schema.")
-                .AppendLine("If the story is ready for refinement, set `decision` to `ready_for_refinement` and return an empty `questions` array.")
-                .AppendLine("If the story still needs clarification, set `decision` to `needs_clarification` and include the exact pending questions.");
-        }
-
         if (context.PhaseId == PhaseId.Refinement)
         {
             builder
                 .AppendLine()
-                .AppendLine("## Refinement JSON Contract")
+                .AppendLine("## Refinement Tolerance")
+                .AppendLine()
+                .AppendLine($"- Active tolerance: `{options.RefinementTolerance}`")
+                .AppendLine($"- Guidance: {ResolveRefinementGuidance(options.RefinementTolerance)}")
+                .AppendLine()
+                .AppendLine("## Internal Refinement Contract")
+                .AppendLine()
+                .AppendLine("Return only structured data that conforms to the response schema.")
+                .AppendLine("If the story is ready for spec, set `decision` to `ready_for_spec` and return an empty `questions` array.")
+                .AppendLine("If the story still needs refinement, set `decision` to `needs_refinement` and include the exact pending questions.");
+        }
+
+        if (context.PhaseId == PhaseId.Spec)
+        {
+            builder
+                .AppendLine()
+                .AppendLine("## Spec JSON Contract")
                 .AppendLine()
                 .AppendLine("Return only structured data that conforms to the response schema.")
                 .AppendLine("`historyLog` must be an array of concise audit strings.")
@@ -573,28 +573,28 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return new EffectivePrompt(systemPrompt, builder.ToString().Trim(), warnings);
     }
 
-    private async Task<EffectivePrompt> BuildAutoClarificationAnswersPromptAsync(
+    private async Task<EffectivePrompt> BuildAutoRefinementAnswersPromptAsync(
         PhaseExecutionContext context,
-        ClarificationSession session,
+        RefinementSession session,
         CancellationToken cancellationToken)
     {
         var paths = new PromptFilePaths(context.WorkspaceRoot);
         var sharedSystemPrompt = await File.ReadAllTextAsync(paths.SharedSystemPromptPath, cancellationToken);
-        var clarificationSystemPrompt = await File.ReadAllTextAsync(paths.ClarificationExecuteSystemPromptPath, cancellationToken);
-        var autoClarificationAnswersSystemPrompt = await File.ReadAllTextAsync(paths.AutoClarificationAnswersSystemPromptPath, cancellationToken);
+        var refinementSystemPrompt = await File.ReadAllTextAsync(paths.RefinementExecuteSystemPromptPath, cancellationToken);
+        var autoRefinementAnswersSystemPrompt = await File.ReadAllTextAsync(paths.AutoRefinementAnswersSystemPromptPath, cancellationToken);
         var sharedStylePrompt = await File.ReadAllTextAsync(paths.SharedStylePromptPath, cancellationToken);
         var sharedOutputRulesPrompt = await File.ReadAllTextAsync(paths.SharedOutputRulesPromptPath, cancellationToken);
-        var phasePrompt = await File.ReadAllTextAsync(paths.ClarificationExecutePromptPath, cancellationToken);
+        var phasePrompt = await File.ReadAllTextAsync(paths.RefinementExecutePromptPath, cancellationToken);
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
         var warnings = await BuildPromptWarningsAsync(
             context.WorkspaceRoot,
             cancellationToken,
             paths.SharedSystemPromptPath,
-            paths.ClarificationExecuteSystemPromptPath,
-            paths.AutoClarificationAnswersSystemPromptPath);
-        var clarificationLogPath = Path.Combine(Path.GetDirectoryName(context.UserStoryPath)!, "clarification.md");
-        var clarificationLog = File.Exists(clarificationLogPath)
-            ? await File.ReadAllTextAsync(clarificationLogPath, cancellationToken)
+            paths.RefinementExecuteSystemPromptPath,
+            paths.AutoRefinementAnswersSystemPromptPath);
+        var refinementLogPath = Path.Combine(Path.GetDirectoryName(context.UserStoryPath)!, "refinement.md");
+        var refinementLog = File.Exists(refinementLogPath)
+            ? await File.ReadAllTextAsync(refinementLogPath, cancellationToken)
             : string.Empty;
         var systemPrompt = string.Join(
             $"{Environment.NewLine}{Environment.NewLine}",
@@ -602,8 +602,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             {
                 options.SystemPrompt,
                 sharedSystemPrompt.Trim(),
-                clarificationSystemPrompt.Trim(),
-                autoClarificationAnswersSystemPrompt.Trim(),
+                refinementSystemPrompt.Trim(),
+                autoRefinementAnswersSystemPrompt.Trim(),
                 sharedStylePrompt.Trim(),
                 sharedOutputRulesPrompt.Trim()
             }.Where(static part => !string.IsNullOrWhiteSpace(part)));
@@ -611,19 +611,19 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var builder = new StringBuilder()
             .AppendLine(phasePrompt.Trim())
             .AppendLine()
-            .AppendLine("## Auto Clarification Answer Task")
+            .AppendLine("## Auto Refinement Answer Task")
             .AppendLine()
-            .AppendLine("You are helping SpecForge answer pending clarification questions before refinement/spec continues.")
-            .AppendLine("Use only evidence from the user story, recorded clarification log, repository context files, and current workflow artifacts.")
-            .AppendLine("Set `canResolve` to true only if every pending question can be answered credibly enough to retry clarification without user input.")
+            .AppendLine("You are helping SpecForge answer pending refinement questions before spec continues.")
+            .AppendLine("Use only evidence from the user story, recorded refinement log, repository context files, and current workflow artifacts.")
+            .AppendLine("Set `canResolve` to true only if every pending question can be answered credibly enough to retry refinement without user input.")
             .AppendLine("If any question still needs human confirmation, set `canResolve` to false and return `null` for the uncertain answers.")
             .AppendLine()
             .AppendLine("## Runtime Context")
             .AppendLine()
             .AppendLine($"- Workspace root: `{context.WorkspaceRoot}`")
             .AppendLine($"- US ID: `{context.UsId}`")
-            .AppendLine($"- Phase: `Clarification`")
-            .AppendLine($"- Auto-answer profile: `{ResolveAutoClarificationAnswersModelSelection().ProfileName ?? "default"}`")
+            .AppendLine($"- Phase: `Refinement`")
+            .AppendLine($"- Auto-answer profile: `{ResolveAutoRefinementAnswersModelSelection().ProfileName ?? "default"}`")
             .AppendLine()
             .AppendLine("## Pending Questions")
             .AppendLine();
@@ -640,14 +640,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine(userStory.Trim())
             .AppendLine();
 
-        if (!string.IsNullOrWhiteSpace(clarificationLog))
+        if (!string.IsNullOrWhiteSpace(refinementLog))
         {
             builder
-                .AppendLine("## Clarification Log")
+                .AppendLine("## Refinement Log")
                 .AppendLine()
-                .AppendLine($"Path: `{clarificationLogPath}`")
+                .AppendLine($"Path: `{refinementLogPath}`")
                 .AppendLine()
-                .AppendLine(clarificationLog.Trim())
+                .AppendLine(refinementLog.Trim())
                 .AppendLine();
         }
 
@@ -739,7 +739,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return warnings.Count == 0 ? null : warnings;
     }
 
-    private static JsonElement BuildAutoClarificationAnswersSchema()
+    private static JsonElement BuildAutoRefinementAnswersSchema()
     {
         using var document = JsonDocument.Parse(
             """
@@ -760,7 +760,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return document.RootElement.Clone();
     }
 
-    private static AutoClarificationAnswersDocument ParseAutoClarificationAnswersDocument(string json)
+    private static AutoRefinementAnswersDocument ParseAutoRefinementAnswersDocument(string json)
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
@@ -768,7 +768,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             ? answersElement.EnumerateArray().Select(static item =>
                 item.ValueKind == JsonValueKind.Null ? null : item.GetString()?.Trim()).ToArray()
             : [];
-        return new AutoClarificationAnswersDocument(
+        return new AutoRefinementAnswersDocument(
             root.GetProperty("canResolve").GetBoolean(),
             root.GetProperty("reason").GetString()?.Trim() ?? string.Empty,
             answers);
@@ -1117,18 +1117,18 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             profile.RepositoryAccess);
     }
 
-    private ResolvedModelSelection ResolveAutoClarificationAnswersModelSelection()
+    private ResolvedModelSelection ResolveAutoRefinementAnswersModelSelection()
     {
-        var profileName = string.IsNullOrWhiteSpace(options.AutoClarificationAnswersProfile)
-            ? ResolveProfileNameForPhase(PhaseId.Clarification)
-            : options.AutoClarificationAnswersProfile.Trim();
+        var profileName = string.IsNullOrWhiteSpace(options.AutoRefinementAnswersProfile)
+            ? ResolveProfileNameForPhase(PhaseId.Refinement)
+            : options.AutoRefinementAnswersProfile.Trim();
         var profile = options.ModelProfiles!.FirstOrDefault(candidate =>
             string.Equals(candidate.Name, profileName, StringComparison.Ordinal));
 
         if (profile is null)
         {
             throw new InvalidOperationException(
-                $"Model profile '{profileName}' was not found for auto clarification answers.");
+                $"Model profile '{profileName}' was not found for auto refinement answers.");
         }
 
         return new ResolvedModelSelection(
@@ -1170,8 +1170,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var explicitName = phaseId switch
         {
             PhaseId.Capture => assignments?.CaptureProfile,
-            PhaseId.Clarification => assignments?.ClarificationProfile,
             PhaseId.Refinement => assignments?.RefinementProfile,
+            PhaseId.Spec => assignments?.SpecProfile,
             PhaseId.TechnicalDesign => assignments?.TechnicalDesignProfile,
             PhaseId.Implementation => assignments?.ImplementationProfile,
             PhaseId.Review => assignments?.ReviewProfile,
@@ -1202,7 +1202,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     private double ResolveTemperature(PhaseId phaseId) =>
         phaseId switch
         {
-            PhaseId.Clarification => ResolveToleranceTemperature(options.ClarificationTolerance),
+            PhaseId.Refinement => ResolveToleranceTemperature(options.RefinementTolerance),
             PhaseId.Review => ResolveToleranceTemperature(options.ReviewTolerance),
             _ => 0.2d
         };
@@ -1216,15 +1216,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             _ => 0.2d
         };
 
-    private static string ResolveClarificationGuidance(string tolerance) =>
+    private static string ResolveRefinementGuidance(string tolerance) =>
         NormalizeTolerance(tolerance) switch
         {
             StrictTolerance =>
-                "Be conservative. Ask for clarification whenever actor, trigger, business behavior, inputs, outputs, rules, or acceptance intent are materially ambiguous.",
+                "Be conservative. Ask for refinement whenever actor, trigger, business behavior, inputs, outputs, rules, or acceptance intent are materially ambiguous.",
             InferentialTolerance =>
-                "Be permissive. Prefer `ready_for_refinement` when the core actor, outcome, and flow are understandable, and infer reasonable defaults unless a missing detail would likely invalidate refinement.",
+                "Be permissive. Prefer `ready_for_spec` when the core actor, outcome, and flow are understandable, and infer reasonable defaults unless a missing detail would likely invalidate spec.",
             _ =>
-                "Use balanced judgment. Ask only for gaps that would block a credible refinement, but do not invent business-critical facts."
+                "Use balanced judgment. Ask only for gaps that would block a credible spec, but do not invent business-critical facts."
         };
 
     private static string ResolveReviewGuidance(string tolerance) =>
@@ -1372,7 +1372,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             !HasExplicitProfilesForAllModelDrivenPhases(assignments))
         {
             throw new ArgumentException(
-                "DefaultProfile is required when multiple model profiles are configured unless clarification, refinement, technical design, implementation, and review each declare an explicit profile.",
+                "DefaultProfile is required when multiple model profiles are configured unless refinement, spec, technical design, implementation, and review each declare an explicit profile.",
                 nameof(assignments));
         }
 
@@ -1380,8 +1380,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                  {
                      defaultProfileName,
                      assignments?.CaptureProfile,
-                     assignments?.ClarificationProfile,
                      assignments?.RefinementProfile,
+                     assignments?.SpecProfile,
                      assignments?.TechnicalDesignProfile,
                      assignments?.ImplementationProfile,
                      assignments?.ReviewProfile,
@@ -1396,26 +1396,26 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
     }
 
-    private static void ValidateAutoClarificationAnswers(
+    private static void ValidateAutoRefinementAnswers(
         IReadOnlyCollection<string> names,
         OpenAiCompatibleProviderOptions options)
     {
-        if (!options.AutoClarificationAnswersEnabled)
+        if (!options.AutoRefinementAnswersEnabled)
         {
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(options.AutoClarificationAnswersProfile))
+        if (string.IsNullOrWhiteSpace(options.AutoRefinementAnswersProfile))
         {
             throw new ArgumentException(
-                "AutoClarificationAnswersProfile is required when AutoClarificationAnswersEnabled is true.",
+                "AutoRefinementAnswersProfile is required when AutoRefinementAnswersEnabled is true.",
                 nameof(options));
         }
 
-        if (!names.Contains(options.AutoClarificationAnswersProfile))
+        if (!names.Contains(options.AutoRefinementAnswersProfile))
         {
             throw new ArgumentException(
-                $"Auto clarification answers profile '{options.AutoClarificationAnswersProfile}' was not configured.",
+                $"Auto refinement answers profile '{options.AutoRefinementAnswersProfile}' was not configured.",
                 nameof(options));
         }
     }
@@ -1441,8 +1441,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     }
 
     private static bool HasExplicitProfilesForAllModelDrivenPhases(OpenAiCompatiblePhaseModelAssignments? assignments) =>
-        !string.IsNullOrWhiteSpace(assignments?.ClarificationProfile)
-        && !string.IsNullOrWhiteSpace(assignments?.RefinementProfile)
+        !string.IsNullOrWhiteSpace(assignments?.RefinementProfile)
+        && !string.IsNullOrWhiteSpace(assignments?.SpecProfile)
         && !string.IsNullOrWhiteSpace(assignments?.TechnicalDesignProfile)
         && !string.IsNullOrWhiteSpace(assignments?.ImplementationProfile)
         && !string.IsNullOrWhiteSpace(assignments?.ReviewProfile);
@@ -1514,7 +1514,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private sealed record GitStatusSnapshotEntry(string StatusLine, string Fingerprint);
 
-    private sealed record AutoClarificationAnswersDocument(
+    private sealed record AutoRefinementAnswersDocument(
         bool CanResolve,
         string Reason,
         IReadOnlyList<string?> Answers);

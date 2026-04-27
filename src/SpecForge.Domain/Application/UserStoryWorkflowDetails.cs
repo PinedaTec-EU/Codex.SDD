@@ -17,7 +17,7 @@ public sealed record UserStoryWorkflowDetails(
     PullRequestDetails? PullRequest,
     IReadOnlyCollection<WorkflowPhaseDetails> Phases,
     CurrentPhaseControls Controls,
-    ClarificationSessionDetails? Clarification,
+    RefinementSessionDetails? Refinement,
     IReadOnlyCollection<ApprovalQuestionDetails> ApprovalQuestions,
     IReadOnlyCollection<TimelineEventDetails> Events,
     IReadOnlyCollection<PhaseIterationDetails> PhaseIterations,
@@ -82,13 +82,13 @@ public sealed record PhaseIterationDetails(
     long? DurationMs,
     PhaseExecutionMetadata? Execution);
 
-public sealed record ClarificationSessionDetails(
+public sealed record RefinementSessionDetails(
     string Status,
     string Tolerance,
     string? Reason,
-    IReadOnlyCollection<ClarificationQuestionAnswerDetails> Items);
+    IReadOnlyCollection<RefinementQuestionAnswerDetails> Items);
 
-public sealed record ClarificationQuestionAnswerDetails(
+public sealed record RefinementQuestionAnswerDetails(
     int Index,
     string Question,
     string? Answer);

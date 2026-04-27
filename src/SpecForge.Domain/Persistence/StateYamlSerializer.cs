@@ -95,8 +95,8 @@ internal static class StateYamlSerializer
     private static string ToKebabCase(PhaseId phaseId) => phaseId switch
     {
         PhaseId.Capture => "capture",
-        PhaseId.Clarification => "clarification",
         PhaseId.Refinement => "refinement",
+        PhaseId.Spec => "spec",
         PhaseId.TechnicalDesign => "technical-design",
         PhaseId.Implementation => "implementation",
         PhaseId.Review => "review",
@@ -118,8 +118,9 @@ internal static class StateYamlSerializer
     private static PhaseId ParsePhaseId(string value) => value switch
     {
         "capture" => PhaseId.Capture,
-        "clarification" => PhaseId.Clarification,
+        "clarification" => PhaseId.Refinement,
         "refinement" => PhaseId.Refinement,
+        "spec" => PhaseId.Spec,
         "technical-design" => PhaseId.TechnicalDesign,
         "implementation" => PhaseId.Implementation,
         "review" => PhaseId.Review,

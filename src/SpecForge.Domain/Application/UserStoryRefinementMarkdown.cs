@@ -2,16 +2,16 @@ using System.Text;
 
 namespace SpecForge.Domain.Application;
 
-public static class UserStoryClarificationMarkdown
+public static class UserStoryRefinementMarkdown
 {
-    private const string ClarificationSectionHeading = "## Clarification Log";
+    private const string RefinementSectionHeading = "## Refinement Log";
     private const string StatusPrefix = "- Status:";
     private const string TolerancePrefix = "- Tolerance:";
     private const string ReasonPrefix = "- Reason:";
     private const string QuestionsHeading = "### Questions";
     private const string AnswersHeading = "### Answers";
 
-    public static ClarificationSession? Parse(string userStoryMarkdown)
+    public static RefinementSession? Parse(string userStoryMarkdown)
     {
         if (string.IsNullOrWhiteSpace(userStoryMarkdown))
         {
@@ -19,7 +19,7 @@ public static class UserStoryClarificationMarkdown
         }
 
         var lines = userStoryMarkdown.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
-        var startIndex = Array.FindIndex(lines, line => line == ClarificationSectionHeading);
+        var startIndex = Array.FindIndex(lines, line => line == RefinementSectionHeading);
         if (startIndex < 0)
         {
             return null;
@@ -100,22 +100,22 @@ public static class UserStoryClarificationMarkdown
         }
 
         var items = questions
-            .Select((question, index) => new ClarificationItem(
+            .Select((question, index) => new RefinementItem(
                 index + 1,
                 question,
                 index < answers.Count ? NormalizeAnswer(answers[index]) : null))
             .ToArray();
 
-        return new ClarificationSession(status, tolerance ?? "balanced", reason, items);
+        return new RefinementSession(status, tolerance ?? "balanced", reason, items);
     }
 
-    public static string Upsert(string userStoryMarkdown, ClarificationSession session)
+    public static string Upsert(string userStoryMarkdown, RefinementSession session)
     {
         var content = string.IsNullOrWhiteSpace(userStoryMarkdown)
             ? string.Empty
             : userStoryMarkdown.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd();
         var section = BuildSection(session);
-        var startIndex = content.IndexOf(ClarificationSectionHeading, StringComparison.Ordinal);
+        var startIndex = content.IndexOf(RefinementSectionHeading, StringComparison.Ordinal);
         if (startIndex < 0)
         {
             return string.IsNullOrWhiteSpace(content)
@@ -123,7 +123,7 @@ public static class UserStoryClarificationMarkdown
                 : $"{content}{Environment.NewLine}{Environment.NewLine}{section}{Environment.NewLine}";
         }
 
-        var nextHeadingIndex = content.IndexOf("\n## ", startIndex + ClarificationSectionHeading.Length, StringComparison.Ordinal);
+        var nextHeadingIndex = content.IndexOf("\n## ", startIndex + RefinementSectionHeading.Length, StringComparison.Ordinal);
         var prefix = content[..startIndex].TrimEnd();
         var suffix = nextHeadingIndex >= 0 ? content[nextHeadingIndex..].TrimStart('\n') : string.Empty;
 
@@ -146,7 +146,7 @@ public static class UserStoryClarificationMarkdown
         return builder.ToString();
     }
 
-    public static string Serialize(ClarificationSession session) => BuildSection(session).TrimEnd() + Environment.NewLine;
+    public static string Serialize(RefinementSession session) => BuildSection(session).TrimEnd() + Environment.NewLine;
 
     public static string Remove(string userStoryMarkdown)
     {
@@ -156,13 +156,13 @@ public static class UserStoryClarificationMarkdown
         }
 
         var content = userStoryMarkdown.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd();
-        var startIndex = content.IndexOf(ClarificationSectionHeading, StringComparison.Ordinal);
+        var startIndex = content.IndexOf(RefinementSectionHeading, StringComparison.Ordinal);
         if (startIndex < 0)
         {
             return content + Environment.NewLine;
         }
 
-        var nextHeadingIndex = content.IndexOf("\n## ", startIndex + ClarificationSectionHeading.Length, StringComparison.Ordinal);
+        var nextHeadingIndex = content.IndexOf("\n## ", startIndex + RefinementSectionHeading.Length, StringComparison.Ordinal);
         var prefix = content[..startIndex].TrimEnd();
         var suffix = nextHeadingIndex >= 0 ? content[nextHeadingIndex..].TrimStart('\n') : string.Empty;
 
@@ -191,7 +191,7 @@ public static class UserStoryClarificationMarkdown
         return builder.Length == 0 ? string.Empty : builder.ToString().TrimEnd() + Environment.NewLine;
     }
 
-    public static ClarificationSession WithAnswers(ClarificationSession session, IReadOnlyList<string?> answers)
+    public static RefinementSession WithAnswers(RefinementSession session, IReadOnlyList<string?> answers)
     {
         var items = session.Items
             .Select(item => item with
@@ -202,15 +202,15 @@ public static class UserStoryClarificationMarkdown
         return session with { Items = items };
     }
 
-    public static bool HasAllAnswers(ClarificationSession? session) =>
+    public static bool HasAllAnswers(RefinementSession? session) =>
         session is not null
         && session.Items.Count > 0
         && session.Items.All(item => !string.IsNullOrWhiteSpace(item.Answer));
 
-    private static string BuildSection(ClarificationSession session)
+    private static string BuildSection(RefinementSession session)
     {
         var builder = new StringBuilder()
-            .AppendLine(ClarificationSectionHeading)
+            .AppendLine(RefinementSectionHeading)
             .AppendLine()
             .AppendLine($"{StatusPrefix} `{session.Status}`")
             .AppendLine($"{TolerancePrefix} `{session.Tolerance}`");
@@ -258,13 +258,13 @@ public static class UserStoryClarificationMarkdown
     }
 }
 
-public sealed record ClarificationSession(
+public sealed record RefinementSession(
     string Status,
     string Tolerance,
     string? Reason,
-    IReadOnlyCollection<ClarificationItem> Items);
+    IReadOnlyCollection<RefinementItem> Items);
 
-public sealed record ClarificationItem(
+public sealed record RefinementItem(
     int Index,
     string Question,
     string? Answer);

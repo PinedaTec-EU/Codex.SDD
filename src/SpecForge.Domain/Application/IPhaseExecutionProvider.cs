@@ -10,8 +10,8 @@ public interface IPhaseExecutionProvider
         PhaseExecutionContext context,
         CancellationToken cancellationToken = default);
 
-    Task<AutoClarificationAnswersResult?> TryAutoAnswerClarificationAsync(
+    Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
         PhaseExecutionContext context,
-        ClarificationSession session,
+        RefinementSession session,
         CancellationToken cancellationToken = default);
 }

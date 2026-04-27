@@ -22,16 +22,16 @@ test("buildApprovePhaseArguments omits empty optional base branch", () => {
 });
 
 test("buildRequestRegressionArguments only includes non-empty reasons", () => {
-  assert.deepEqual(buildRequestRegressionArguments("/repo", "US-0001", "refinement"), {
+  assert.deepEqual(buildRequestRegressionArguments("/repo", "US-0001", "spec"), {
     workspaceRoot: "/repo",
     usId: "US-0001",
-    targetPhase: "refinement"
+    targetPhase: "spec"
   });
 
-  assert.deepEqual(buildRequestRegressionArguments("/repo", "US-0001", "refinement", "Needs redesign"), {
+  assert.deepEqual(buildRequestRegressionArguments("/repo", "US-0001", "spec", "Needs redesign"), {
     workspaceRoot: "/repo",
     usId: "US-0001",
-    targetPhase: "refinement",
+    targetPhase: "spec",
     reason: "Needs redesign"
   });
 });
