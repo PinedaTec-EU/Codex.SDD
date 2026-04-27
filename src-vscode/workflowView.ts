@@ -5272,8 +5272,8 @@ export function buildWorkflowHtml(
                 class="graph-view-toggle__button"
                 type="button"
                 data-export-workflow-snapshot
-                aria-label="Export workflow snapshot"
-                title="Export workflow snapshot">
+                aria-label="Copy workflow snapshot to clipboard"
+                title="Copy workflow snapshot to clipboard">
                 ${cameraIcon()}
               </button>
               <span class="graph-view-toggle__label">${state.graphLayoutMode === "horizontal" ? "Horizontal" : "Vertical"}</span>
@@ -5426,6 +5426,93 @@ export function buildWorkflowHtml(
         });
       }
     }
+    const cloneElementForSnapshot = (sourceNode) => {
+      if (!(sourceNode instanceof Element)) {
+        return sourceNode.cloneNode(true);
+      }
+
+      const clonedNode = sourceNode.cloneNode(false);
+      if (!(clonedNode instanceof Element)) {
+        return clonedNode;
+      }
+
+      const computedStyle = window.getComputedStyle(sourceNode);
+      const inlineStyle = Array.from(computedStyle)
+        .map((propertyName) => propertyName + ":" + computedStyle.getPropertyValue(propertyName) + ";")
+        .join("");
+      if (inlineStyle) {
+        clonedNode.setAttribute("style", inlineStyle);
+      }
+
+      for (const childNode of Array.from(sourceNode.childNodes)) {
+        clonedNode.appendChild(cloneElementForSnapshot(childNode));
+      }
+
+      if (sourceNode instanceof HTMLTextAreaElement || sourceNode instanceof HTMLInputElement) {
+        clonedNode.setAttribute("value", sourceNode.value);
+      }
+
+      return clonedNode;
+    };
+    const encodeSvgDataUri = (svgMarkup) => {
+      const encoded = typeof window.btoa === "function"
+        ? window.btoa(unescape(encodeURIComponent(svgMarkup)))
+        : "";
+      if (!encoded) {
+        throw new Error("Unable to encode workflow snapshot markup.");
+      }
+
+      return "data:image/svg+xml;base64," + encoded;
+    };
+    const renderPngBlobFromMarkup = async (svgMarkup, captureWidth, captureHeight) => {
+      const image = new Image();
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = reject;
+        image.src = encodeSvgDataUri(svgMarkup);
+      });
+
+      const canvas = document.createElement("canvas");
+      canvas.width = captureWidth;
+      canvas.height = captureHeight;
+      const context = canvas.getContext("2d");
+      if (!context) {
+        throw new Error("Canvas 2D context is unavailable.");
+      }
+
+      context.drawImage(image, 0, 0);
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob((value) => {
+          if (value) {
+            resolve(value);
+            return;
+          }
+
+          reject(new Error("PNG encoding failed."));
+        }, "image/png");
+      });
+
+      if (!(blob instanceof Blob)) {
+        throw new Error("PNG encoding failed.");
+      }
+
+      return blob;
+    };
+    const writeSnapshotBlobToClipboard = async (blob, successMessage) => {
+      if (!navigator.clipboard || typeof navigator.clipboard.write !== "function" || typeof ClipboardItem === "undefined") {
+        throw new Error("Clipboard image copy is unavailable in this VS Code runtime.");
+      }
+
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [blob.type]: blob
+        })
+      ]);
+      vscode.postMessage({
+        command: "workflowSnapshotCopied",
+        detail: successMessage
+      });
+    };
     const exportWorkflowSnapshot = async () => {
       if (!(workflowShell instanceof HTMLElement) || !(graphPanel instanceof HTMLElement) || !(phaseGraph instanceof HTMLElement)) {
         return;
@@ -5438,7 +5525,7 @@ export function buildWorkflowHtml(
 
       const captureWidth = Math.ceil(phaseGraph.scrollWidth);
       const captureHeight = Math.ceil(phaseGraph.scrollHeight);
-      const clonedGraphStage = graphStage.cloneNode(true);
+      const clonedGraphStage = cloneElementForSnapshot(graphStage);
       if (!(clonedGraphStage instanceof HTMLElement)) {
         return;
       }
@@ -5455,6 +5542,8 @@ export function buildWorkflowHtml(
       clonedGraphStage.style.overflow = "visible";
       clonedGraphStage.style.padding = "0";
       clonedGraphStage.style.margin = "0";
+      clonedGraphStage.style.transform = "none";
+      clonedGraphStage.style.boxSizing = "border-box";
 
       const clonedPhaseGraph = clonedGraphStage.querySelector(".phase-graph");
       if (clonedPhaseGraph instanceof HTMLElement) {
@@ -5464,52 +5553,34 @@ export function buildWorkflowHtml(
         clonedPhaseGraph.style.minHeight = captureHeight + "px";
       }
 
-      const stylesheetContent = Array.from(document.querySelectorAll("style"))
-        .map((styleElement) => styleElement.textContent ?? "")
-        .join("\\n");
       const serializedMarkup = new XMLSerializer().serializeToString(clonedGraphStage);
       const svgMarkup =
         '<svg xmlns="http://www.w3.org/2000/svg" width="' + captureWidth + '" height="' + captureHeight + '" viewBox="0 0 ' + captureWidth + ' ' + captureHeight + '">'
         + '<foreignObject width="100%" height="100%">'
         + '<div xmlns="http://www.w3.org/1999/xhtml" style="width:' + captureWidth + 'px;height:' + captureHeight + 'px;">'
-        + '<style>' + stylesheetContent + '</style>'
         + serializedMarkup
         + "</div>"
         + "</foreignObject>"
         + "</svg>";
 
-      const blob = new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" });
-      const objectUrl = URL.createObjectURL(blob);
       try {
-        const image = new Image();
-        await new Promise((resolve, reject) => {
-          image.onload = resolve;
-          image.onerror = reject;
-          image.src = objectUrl;
-        });
-
-        const canvas = document.createElement("canvas");
-        canvas.width = captureWidth;
-        canvas.height = captureHeight;
-        const context = canvas.getContext("2d");
-        if (!context) {
-          throw new Error("Canvas 2D context is unavailable.");
-        }
-
-        context.drawImage(image, 0, 0);
-        const dataUrl = canvas.toDataURL("image/png");
-        vscode.postMessage({
-          command: "exportWorkflowSnapshot",
-          dataUrl,
-          fileName: (workflowShell.dataset.usId ?? "workflow") + ".workflow.png"
-        });
+        const pngBlob = await renderPngBlobFromMarkup(svgMarkup, captureWidth, captureHeight);
+        await writeSnapshotBlobToClipboard(pngBlob, "Workflow snapshot copied to clipboard.");
       } catch (error) {
-        vscode.postMessage({
-          command: "webviewClientError",
-          detail: "snapshot:" + (error instanceof Error ? error.message : String(error))
-        });
-      } finally {
-        URL.revokeObjectURL(objectUrl);
+        try {
+          const svgBlob = new Blob([svgMarkup], { type: "image/svg+xml" });
+          await writeSnapshotBlobToClipboard(svgBlob, "Workflow snapshot copied to clipboard as SVG.");
+        } catch (clipboardFallbackError) {
+          const detailSource = clipboardFallbackError instanceof Error
+            ? clipboardFallbackError
+            : error instanceof Error
+              ? error
+              : String(error);
+          vscode.postMessage({
+            command: "webviewClientError",
+            detail: "snapshot:" + (detailSource instanceof Error ? detailSource.message : String(detailSource))
+          });
+        }
       }
     };
     if (exportWorkflowSnapshotButton instanceof HTMLButtonElement) {
