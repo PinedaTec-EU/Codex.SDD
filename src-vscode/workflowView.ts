@@ -56,13 +56,14 @@ type PhaseGraphEdge = {
   readonly className: string;
 };
 type GraphAnchor = "entry-top" | "entry-left" | "entry-right" | "exit-right" | "exit-left" | "exit-bottom-left" | "exit-bottom-mid" | "exit-bottom-right";
-const phaseNodeWidth = 274;
-const phaseNodeHeight = 154;
-const mobilePhaseNodeWidth = 238;
+const phaseNodeWidth = 300;
+const phaseNodeHeight = 142;
+const mobilePhaseNodeWidth = 258;
 const defaultPhaseSequence: readonly LayoutPhaseDescriptor[] = [
   { phaseId: "capture", expectsHumanIntervention: false },
   { phaseId: "clarification", expectsHumanIntervention: true },
   { phaseId: "refinement", expectsHumanIntervention: true },
+  { phaseId: "spec", expectsHumanIntervention: false },
   { phaseId: "technical-design", expectsHumanIntervention: false },
   { phaseId: "implementation", expectsHumanIntervention: false },
   { phaseId: "review", expectsHumanIntervention: false },
@@ -95,18 +96,18 @@ function buildHorizontalPhaseLayout(
   compact = false
 ): PhaseGraphLayout {
   const positions: Record<string, PhasePosition> = {};
-  const scale = compact ? 0.64 : 1;
+  const scale = compact ? 0.72 : 1;
   const map: Record<string, PhasePosition> = {
-    capture: { left: Math.round(150 * scale), top: Math.round(120 * scale) },
-    clarification: { left: Math.round(450 * scale), top: Math.round(120 * scale) },
-    refinement: { left: Math.round(450 * scale), top: Math.round(120 * scale) },
-    spec: { left: Math.round(600 * scale), top: Math.round(260 * scale) },
-    "technical-design": { left: Math.round(200 * scale), top: Math.round(300 * scale) },
-    implementation: { left: Math.round(500 * scale), top: Math.round(400 * scale) },
-    review: { left: Math.round(750 * scale), top: Math.round(400 * scale) },
-    "release-approval": { left: Math.round(950 * scale), top: Math.round(200 * scale) },
-    "pr-preparation": { left: Math.round(950 * scale), top: Math.round(350 * scale) },
-    completed: { left: Math.round(1050 * scale), top: Math.round(500 * scale) }
+    capture: { left: Math.round(298 * scale), top: Math.round(36 * scale) },
+    clarification: { left: Math.round(632 * scale), top: Math.round(198 * scale) },
+    refinement: { left: Math.round(520 * scale), top: Math.round(208 * scale) },
+    spec: { left: Math.round(360 * scale), top: Math.round(418 * scale) },
+    "technical-design": { left: Math.round(72 * scale), top: Math.round(590 * scale) },
+    implementation: { left: Math.round(470 * scale), top: Math.round(612 * scale) },
+    review: { left: Math.round(420 * scale), top: Math.round(846 * scale) },
+    "release-approval": { left: Math.round(738 * scale), top: Math.round(1018 * scale) },
+    "pr-preparation": { left: Math.round(356 * scale), top: Math.round(1188 * scale) },
+    completed: { left: Math.round(440 * scale), top: Math.round(1378 * scale) }
   };
 
   for (const phase of phases) {
@@ -126,33 +127,28 @@ function buildVerticalPhaseLayout(
   compact = false
 ): PhaseGraphLayout {
   const positions: Record<string, PhasePosition> = {};
-  const lefts = compact
-    ? { left: 18, mid: 324, right: 620 }
-    : { left: 42, mid: 430, right: 804 };
-  const tops = compact
-    ? { row1: 24, row2: 218, row3: 414, row4: 620, row5: 832, row6: 1050, row7: 1268 }
-    : { row1: 42, row2: 286, row3: 538, row4: 794, row5: 1062, row6: 1338, row7: 1610 };
+  const scale = compact ? 0.72 : 1;
   const map: Record<string, PhasePosition> = {
-    capture: { left: lefts.mid - (compact ? 54 : 40), top: tops.row1 },
-    clarification: { left: lefts.mid + (compact ? 10 : 16), top: tops.row2 - (compact ? 22 : 28) },
-    refinement: { left: lefts.mid + (compact ? 10 : 16), top: tops.row2 - (compact ? 22 : 28) },
-    spec: { left: lefts.mid - (compact ? 18 : 8), top: tops.row3 },
-    "technical-design": { left: lefts.left, top: tops.row4 - (compact ? 26 : 18) },
-    implementation: { left: lefts.mid - (compact ? 20 : 14), top: tops.row4 + (compact ? 8 : 12) },
-    review: { left: lefts.mid + (compact ? 30 : 34), top: tops.row5 },
-    "release-approval": { left: lefts.right, top: tops.row6 - (compact ? 30 : 20) },
-    "pr-preparation": { left: lefts.mid - (compact ? 16 : 10), top: tops.row6 + (compact ? 96 : 108) },
-    completed: { left: lefts.mid + (compact ? 92 : 102), top: tops.row7 }
+    capture: { left: Math.round(298 * scale), top: Math.round(36 * scale) },
+    clarification: { left: Math.round(632 * scale), top: Math.round(198 * scale) },
+    refinement: { left: Math.round(520 * scale), top: Math.round(208 * scale) },
+    spec: { left: Math.round(360 * scale), top: Math.round(418 * scale) },
+    "technical-design": { left: Math.round(72 * scale), top: Math.round(590 * scale) },
+    implementation: { left: Math.round(470 * scale), top: Math.round(612 * scale) },
+    review: { left: Math.round(420 * scale), top: Math.round(846 * scale) },
+    "release-approval": { left: Math.round(738 * scale), top: Math.round(1018 * scale) },
+    "pr-preparation": { left: Math.round(356 * scale), top: Math.round(1188 * scale) },
+    completed: { left: Math.round(440 * scale), top: Math.round(1378 * scale) }
   };
 
   for (const phase of phases) {
-    positions[phase.phaseId] = map[phase.phaseId] ?? { left: lefts.left, top: tops.row1 };
+    positions[phase.phaseId] = map[phase.phaseId] ?? { left: Math.round(72 * scale), top: Math.round(36 * scale) };
   }
 
   return {
     positions,
-    width: computeGraphWidth(positions, nodeWidth, compact ? 86 : 172),
-    height: computeGraphHeight(positions, phaseNodeHeight, compact ? 118 : 188)
+    width: computeGraphWidth(positions, nodeWidth, compact ? 84 : 152),
+    height: computeGraphHeight(positions, phaseNodeHeight, compact ? 128 : 178)
   };
 }
 
@@ -1071,6 +1067,8 @@ function phaseSecondaryLabel(phase: WorkflowPhaseDetails): string {
       return "Resolve open questions";
     case "refinement":
       return "Shape approved scope";
+    case "spec":
+      return "Shape approved scope";
     case "technical-design":
       return "Define technical approach";
     case "implementation":
@@ -1086,6 +1084,54 @@ function phaseSecondaryLabel(phase: WorkflowPhaseDetails): string {
     default:
       return phase.phaseId;
   }
+}
+
+function graphPhaseSecondaryLabel(phase: WorkflowPhaseDetails): string {
+  if (phase.phaseId === "refinement") {
+    return "Resolve open questions";
+  }
+
+  return phaseSecondaryLabel(phase);
+}
+
+function ensureSpecGraphPhase(phases: readonly WorkflowPhaseDetails[]): readonly WorkflowPhaseDetails[] {
+  if (phases.some((phase) => phase.phaseId === "spec")) {
+    return phases;
+  }
+
+  const refinement = phases.find((phase) => phase.phaseId === "refinement");
+  const technicalDesign = phases.find((phase) => phase.phaseId === "technical-design");
+  if (!refinement && !technicalDesign) {
+    return phases;
+  }
+
+  const specPhase: WorkflowPhaseDetails = {
+    phaseId: "spec",
+    title: "Spec",
+    order: refinement ? refinement.order + 0.5 : 2.5,
+    requiresApproval: false,
+    expectsHumanIntervention: false,
+    isApproved: refinement?.isApproved ?? false,
+    isCurrent: false,
+    state: refinement?.state === "completed" || refinement?.isApproved ? "completed" : "pending",
+    artifactPath: refinement?.artifactPath ?? null,
+    operationLogPath: refinement?.operationLogPath ?? null,
+    executePromptPath: null,
+    approvePromptPath: null,
+    executeSystemPromptPath: null,
+    approveSystemPromptPath: null,
+    executionReadiness: null
+  };
+
+  const nextPhases = [...phases];
+  const technicalDesignIndex = nextPhases.findIndex((phase) => phase.phaseId === "technical-design");
+  if (technicalDesignIndex >= 0) {
+    nextPhases.splice(technicalDesignIndex, 0, specPhase);
+    return nextPhases;
+  }
+
+  nextPhases.push(specPhase);
+  return nextPhases;
 }
 
 function phaseModelProfileLabel(phase: WorkflowPhaseDetails, state: WorkflowViewState): string | null {
@@ -3070,16 +3116,17 @@ export function buildWorkflowHtml(
       height: 100%;
       overflow: visible;
       pointer-events: none;
+      z-index: 1;
     }
     .graph-links path {
       fill: none;
-      stroke-width: 4;
+      stroke-width: 5;
       stroke-linecap: round;
-      filter: drop-shadow(0 0 12px rgba(114, 241, 184, 0.24));
+      filter: drop-shadow(0 0 14px rgba(76, 236, 151, 0.28));
       transition: stroke 180ms ease, opacity 180ms ease;
     }
     .graph-links path.completed {
-      stroke: rgba(114, 241, 184, 0.72);
+      stroke: rgba(64, 222, 136, 0.9);
     }
     .graph-links path.current {
       stroke: rgba(92, 181, 255, 0.92);
@@ -3093,7 +3140,7 @@ export function buildWorkflowHtml(
       filter: drop-shadow(0 0 14px rgba(92, 181, 255, 0.42));
     }
     .graph-links path.pending {
-      stroke: rgba(161, 172, 189, 0.62);
+      stroke: rgba(142, 155, 174, 0.72);
       stroke-dasharray: 11 12;
       stroke-width: 3.5;
       filter: none;
@@ -3161,12 +3208,12 @@ export function buildWorkflowHtml(
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      padding: 14px 18px;
-      border-radius: 18px;
-      border: 1px solid rgba(58, 154, 255, 0.34);
-      background: linear-gradient(180deg, rgba(9, 24, 38, 0.94), rgba(8, 16, 24, 0.96));
+      padding: 16px 20px;
+      border-radius: 8px;
+      border: 1px solid rgba(58, 154, 255, 0.28);
+      background: linear-gradient(180deg, rgba(7, 28, 42, 0.86), rgba(5, 16, 25, 0.94));
       color: #51a8ff;
-      box-shadow: 0 18px 28px rgba(4, 14, 24, 0.24);
+      box-shadow: 0 18px 34px rgba(2, 12, 22, 0.28);
       max-width: 240px;
     }
     .graph-loop-badge--horizontal {
@@ -3185,8 +3232,8 @@ export function buildWorkflowHtml(
       max-width: none;
     }
     .graph-loop-badge--vertical {
-      top: 704px;
-      right: 28px;
+      top: 722px;
+      right: 42px;
       line-height: 1.45;
     }
     .graph-loop-badge__icon {
@@ -3210,13 +3257,13 @@ export function buildWorkflowHtml(
     }
     .graph-legend {
       position: absolute;
-      left: 18px;
-      bottom: 18px;
-      width: 220px;
-      padding: 20px 20px 18px;
-      border-radius: 22px;
+      left: 28px;
+      bottom: 32px;
+      width: 240px;
+      padding: 22px 22px 20px;
+      border-radius: 8px;
       border: 1px dashed rgba(174, 188, 209, 0.26);
-      background: linear-gradient(180deg, rgba(10, 18, 28, 0.84), rgba(8, 13, 22, 0.92));
+      background: linear-gradient(180deg, rgba(8, 18, 30, 0.86), rgba(5, 11, 20, 0.94));
       box-shadow: 0 16px 26px rgba(4, 8, 16, 0.22);
       pointer-events: auto;
       z-index: 6;
@@ -3312,19 +3359,21 @@ export function buildWorkflowHtml(
       top: var(--phase-top-desktop-vertical);
       width: ${phaseNodeWidth}px;
       min-height: ${phaseNodeHeight}px;
-      border-radius: 22px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(125, 145, 170, 0.42);
+      padding: 20px 24px;
       color: inherit;
-      background: linear-gradient(180deg, rgba(22, 28, 38, 0.94), rgba(10, 14, 20, 0.98));
+      background:
+        radial-gradient(circle at 55% 10%, rgba(66, 80, 104, 0.28), transparent 64%),
+        linear-gradient(180deg, rgba(24, 31, 43, 0.92), rgba(7, 14, 25, 0.96));
       text-align: left;
       cursor: pointer;
-      box-shadow: 0 18px 28px rgba(0, 0, 0, 0.24);
+      box-shadow: 0 18px 32px rgba(0, 0, 0, 0.24);
       transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
       overflow: visible;
       isolation: isolate;
       animation: nodeRise 420ms ease both;
-      z-index: 1;
+      z-index: 3;
     }
     .phase-graph[data-graph-layout-mode="horizontal"] .phase-node {
       left: var(--phase-left-desktop-horizontal);
@@ -3336,7 +3385,7 @@ export function buildWorkflowHtml(
       inset: 0;
       border-radius: inherit;
       background: inherit;
-      z-index: 0;
+      z-index: -1;
       pointer-events: none;
     }
     .phase-node:hover {
@@ -3348,18 +3397,19 @@ export function buildWorkflowHtml(
         0 0 24px rgba(124, 190, 255, 0.12);
     }
     .phase-node.selected {
-      outline: 2px solid rgba(114, 241, 184, 0.52);
-      outline-offset: 2px;
-      z-index: 3;
+      outline: none;
+      z-index: 5;
       box-shadow:
-        0 0 0 1px rgba(226, 232, 240, 0.2),
-        0 18px 30px rgba(0, 0, 0, 0.24),
-        0 0 22px rgba(196, 203, 214, 0.1);
+        0 0 0 1px rgba(226, 232, 240, 0.14),
+        0 18px 34px rgba(0, 0, 0, 0.28),
+        0 0 30px rgba(196, 203, 214, 0.08);
     }
     .phase-node.phase-node--current {
-      border-color: rgba(92, 181, 255, 0.42);
-      box-shadow: 0 20px 34px rgba(26, 72, 124, 0.18);
-      z-index: 4;
+      border-color: rgba(40, 147, 255, 0.86);
+      box-shadow:
+        0 22px 38px rgba(8, 72, 148, 0.28),
+        0 0 28px rgba(40, 147, 255, 0.18);
+      z-index: 6;
     }
     .phase-node-content {
       position: relative;
@@ -3394,9 +3444,11 @@ export function buildWorkflowHtml(
       outline-offset: 2px;
     }
     .phase-node.phase-tone-active {
-      background: linear-gradient(180deg, rgb(24, 49, 82), rgb(10, 20, 32));
-      border-color: rgba(92, 181, 255, 0.45);
-      box-shadow: 0 20px 34px rgba(48, 120, 255, 0.16);
+      background:
+        radial-gradient(circle at 62% 10%, rgba(26, 130, 255, 0.28), transparent 60%),
+        linear-gradient(180deg, rgba(5, 44, 76, 0.96), rgba(4, 18, 32, 0.98));
+      border-color: rgba(40, 147, 255, 0.86);
+      box-shadow: 0 22px 38px rgba(48, 120, 255, 0.22);
       animation: nodeRise 420ms ease both, currentPulse 2.8s ease-in-out infinite;
     }
     .phase-node.phase-tone-active:hover {
@@ -3447,8 +3499,13 @@ export function buildWorkflowHtml(
         0 0 24px rgba(255, 120, 120, 0.12);
     }
     .phase-node.phase-tone-completed {
-      background: linear-gradient(180deg, rgb(18, 44, 34), rgb(10, 20, 17));
-      border-color: rgba(114, 241, 184, 0.24);
+      background:
+        radial-gradient(circle at 62% 18%, rgba(45, 214, 126, 0.22), transparent 64%),
+        linear-gradient(180deg, rgba(5, 48, 31, 0.94), rgba(3, 22, 18, 0.98));
+      border-color: rgba(43, 210, 122, 0.72);
+      box-shadow:
+        0 20px 36px rgba(8, 80, 48, 0.22),
+        0 0 26px rgba(43, 210, 122, 0.1);
     }
     .phase-node.phase-tone-completed:hover {
       border-color: rgba(114, 241, 184, 0.56);
@@ -3485,11 +3542,11 @@ export function buildWorkflowHtml(
     }
     .phase-node.phase-tone-pending {
       background:
-        linear-gradient(180deg, rgb(72, 77, 87), rgb(21, 26, 34)),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
-      border-color: rgba(196, 203, 214, 0.14);
-      box-shadow: 0 16px 28px rgba(7, 10, 16, 0.22);
-      opacity: 0.96;
+        radial-gradient(circle at 62% 12%, rgba(96, 113, 138, 0.2), transparent 66%),
+        linear-gradient(180deg, rgba(24, 31, 43, 0.9), rgba(7, 14, 25, 0.96));
+      border-color: rgba(155, 171, 195, 0.34);
+      box-shadow: 0 16px 30px rgba(7, 10, 16, 0.22);
+      opacity: 1;
     }
     .phase-node.phase-tone-pending:hover {
       border-color: rgba(214, 222, 235, 0.28);
@@ -3543,23 +3600,7 @@ export function buildWorkflowHtml(
       fill: currentColor;
     }
     .phase-current-rail {
-      position: absolute;
-      top: 18px;
-      bottom: 18px;
-      left: -34px;
-      right: -14px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      padding-left: 0;
-      border-radius: 16px;
-      border-right: 1px solid rgba(92, 181, 255, 0.12);
-      background: linear-gradient(180deg, rgba(74, 156, 229, 0.94), rgba(14, 42, 76, 0.98));
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.14),
-        0 8px 18px rgba(22, 52, 92, 0.16);
-      z-index: -1;
-      pointer-events: none;
+      display: none;
     }
     .phase-current-rail__label {
       display: inline-block;
@@ -3576,23 +3617,7 @@ export function buildWorkflowHtml(
       white-space: nowrap;
     }
     .phase-viewing-rail {
-      position: absolute;
-      top: 18px;
-      bottom: 18px;
-      left: -14px;
-      right: -34px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      padding-right: 0;
-      border-radius: 16px;
-      border-left: 1px solid rgba(216, 223, 232, 0.18);
-      background: linear-gradient(180deg, rgba(97, 106, 120, 0.96), rgba(48, 56, 68, 0.98));
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.12),
-        0 8px 18px rgba(12, 16, 22, 0.24);
-      z-index: -1;
-      pointer-events: none;
+      display: none;
     }
     .phase-viewing-rail--current {
       left: 18px;
@@ -3615,12 +3640,12 @@ export function buildWorkflowHtml(
     .phase-index {
       width: 30px;
       height: 30px;
-      border-radius: 10px;
+      border-radius: 8px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       background: rgba(255, 255, 255, 0.08);
-      font-size: 0.82rem;
+      font-size: 0.9rem;
       font-weight: 700;
     }
     .phase-index--icon svg {
@@ -3689,9 +3714,9 @@ export function buildWorkflowHtml(
       box-shadow: none;
     }
     .phase-node h3 {
-      margin: 10px 0 4px;
-      font-size: 1.18rem;
-      font-weight: 700;
+      margin: 14px 0 8px;
+      font-size: 1.24rem;
+      font-weight: 800;
       line-height: 1.15;
       position: relative;
       z-index: 1;
@@ -3713,9 +3738,9 @@ export function buildWorkflowHtml(
       line-height: 1;
     }
     .phase-slug {
-      font-family: var(--specforge-mono-font-family);
-      font-size: 0.96rem;
-      opacity: 0.66;
+      font-family: var(--specforge-editor-font-family);
+      font-size: 1rem;
+      opacity: 0.72;
       line-height: 1.35;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -3735,10 +3760,11 @@ export function buildWorkflowHtml(
     }
     .phase-tag {
       border-radius: 999px;
-      padding: 3px 8px;
+      padding: 5px 10px;
       font-size: 0.8rem;
       background: rgba(255, 255, 255, 0.07);
       color: rgba(255, 255, 255, 0.84);
+      font-weight: 800;
     }
     .phase-tag.approval {
       background: rgba(255, 170, 84, 0.15);
@@ -3766,8 +3792,9 @@ export function buildWorkflowHtml(
       color: #99f2c6;
     }
     .phase-tag.phase-tag--completed {
-      background: rgba(114, 241, 184, 0.14);
-      color: #99f2c6;
+      background: rgba(43, 210, 122, 0.22);
+      color: #c8ffe0;
+      box-shadow: 0 0 18px rgba(43, 210, 122, 0.18);
     }
     .phase-tag.phase-tag--disabled {
       background: rgba(255, 255, 255, 0.05);
@@ -3775,6 +3802,37 @@ export function buildWorkflowHtml(
     }
     .phase-node.selected .phase-index {
       box-shadow: 0 0 0 8px rgba(114, 241, 184, 0.08);
+    }
+    .phase-tag--graph-status {
+      text-transform: uppercase;
+      letter-spacing: 0;
+      line-height: 1;
+    }
+    .phase-tag--active,
+    .phase-tag--paused {
+      background: rgba(40, 147, 255, 0.22);
+      color: #94cfff;
+      box-shadow: 0 0 18px rgba(40, 147, 255, 0.18);
+    }
+    .phase-tag--pending {
+      background: rgba(159, 174, 196, 0.14);
+      color: rgba(242, 246, 252, 0.92);
+    }
+    .graph-phase-status-icon {
+      margin-left: auto;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      color: rgba(64, 242, 145, 0.96);
+      border-color: currentColor;
+      background: rgba(9, 40, 26, 0.58);
+      box-shadow: 0 0 18px rgba(64, 242, 145, 0.16);
+    }
+    .phase-tone-active .graph-phase-status-icon,
+    .phase-tone-paused .graph-phase-status-icon {
+      color: rgba(76, 166, 255, 0.96);
+      background: rgba(8, 38, 74, 0.58);
+      box-shadow: 0 0 18px rgba(76, 166, 255, 0.16);
     }
     .detail-panel {
       padding: 22px;
@@ -6924,8 +6982,8 @@ function buildPhaseGraph(
   const completedPhaseIds = buildEffectiveCompletedPhaseIds(workflow, new Set(state.completedPhaseIds ?? []));
   const completedWorkflowLocked = workflow.status === "completed" && state.completedUsLockOnCompleted !== false;
   const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);
-  const visiblePhases = workflow.phases.filter((phase) =>
-    shouldShowPhase(phase.phaseId, clarificationVisible, currentPhase.phaseId, executionPhaseId));
+  const visiblePhases = ensureSpecGraphPhase(workflow.phases.filter((phase) =>
+    shouldShowPhase(phase.phaseId, clarificationVisible, currentPhase.phaseId, executionPhaseId)));
   const layoutPhases = visiblePhases.map((phase) => ({
     phaseId: phase.phaseId,
     expectsHumanIntervention: phase.expectsHumanIntervention
@@ -6962,16 +7020,19 @@ function buildPhaseGraph(
     const pauseArmed = pausedPhaseIds.has(phase.phaseId);
     const phaseIsCurrent = phase.phaseId === displayedCurrentPhaseId;
     const phaseIsSelected = phase.phaseId === selectedPhaseId;
+    const phaseSelectTargetId = phase.phaseId === "spec" ? "refinement" : phase.phaseId;
     const phaseRoleIcon = phase.expectsHumanIntervention ? userPhaseIcon() : automationPhaseIcon();
     const phaseRoleLabel = phase.expectsHumanIntervention ? "User step" : "Automated step";
     const pauseButtonLabel = pauseArmed
       ? `Remove pause before ${phase.title}`
       : `Pause before ${phase.title}`;
+    const statusBadge = renderGraphPhaseStatusBadge(visualTone, phase.state, playbackState, phaseIsCurrent);
+    const statusIcon = renderGraphPhaseStatusIcon(phase, visualTone, state.completedUsLockOnCompleted !== false);
     return `
     <div
       class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phaseIsSelected ? " selected" : ""}${phaseIsCurrent ? " phase-node--current" : ""}${phase.phaseId === "completed" ? " phase-node--final" : ""}"
       data-command="selectPhase"
-      data-phase-id="${escapeHtmlAttribute(phase.phaseId)}"
+      data-phase-id="${escapeHtmlAttribute(phaseSelectTargetId)}"
       role="button"
       tabindex="0"
       style="--phase-left-desktop-horizontal: ${desktopHorizontalPosition.left}px; --phase-top-desktop-horizontal: ${desktopHorizontalPosition.top}px; --phase-left-desktop-vertical: ${desktopVerticalPosition.left}px; --phase-top-desktop-vertical: ${desktopVerticalPosition.top}px; --phase-left-mobile-horizontal: ${mobileHorizontalPosition.left}px; --phase-top-mobile-horizontal: ${mobileHorizontalPosition.top}px; --phase-left-mobile-vertical: ${mobileVerticalPosition.left}px; --phase-top-mobile-vertical: ${mobileVerticalPosition.top}px;">
@@ -6983,7 +7044,6 @@ function buildPhaseGraph(
             <span class="phase-index${phase.phaseId === "completed" ? " phase-index--icon" : ""}">${phase.phaseId === "completed"
               ? (state.completedUsLockOnCompleted !== false ? lockClosedIcon() : lockOpenIcon())
               : String(index + 1)}</span>
-            <span class="phase-role-badge" title="${escapeHtmlAttribute(phaseRoleLabel)}" aria-label="${escapeHtmlAttribute(phaseRoleLabel)}">${phaseRoleIcon}</span>
             ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
           </div>
           ${canPausePhase
@@ -6998,15 +7058,13 @@ function buildPhaseGraph(
                 title="${escapeHtmlAttribute(pauseButtonLabel)}">
                 ${pauseIcon()}
               </button>`
-            : ""}
+            : `<span class="phase-role-badge graph-phase-status-icon" title="${escapeHtmlAttribute(phaseRoleLabel)}" aria-label="${escapeHtmlAttribute(phaseRoleLabel)}">${statusIcon || phaseRoleIcon}</span>`}
         </div>
         <h3>${escapeHtml(phase.title)}</h3>
-        <div class="phase-slug">${escapeHtml(phaseSecondaryLabel(phase))}</div>
-        ${phase.isApproved
-          ? `<div class="phase-tags">
-              <span class="phase-tag">approved</span>
-            </div>`
-          : ""}
+        <div class="phase-slug">${escapeHtml(graphPhaseSecondaryLabel(phase))}</div>
+        <div class="phase-tags">
+              <span class="phase-tag phase-tag--graph-status phase-tag--${escapeHtmlAttribute(visualTone)}">${escapeHtml(statusBadge)}</span>
+            </div>
       </div>
     </div>
   `;
@@ -7160,6 +7218,61 @@ function renderGraphLoopBadge(loopCount: number, layoutMode: "horizontal" | "ver
   `;
 }
 
+function renderGraphPhaseStatusBadge(
+  tone: PhaseVisualTone,
+  fallbackState: string,
+  playbackState: "idle" | "playing" | "paused" | "stopping",
+  isCurrent: boolean
+): string {
+  const label = phaseToneLabel(tone, fallbackState, playbackState, isCurrent);
+  switch (label) {
+    case "completed":
+      return "COMPLETADO";
+    case "ready":
+    case "active":
+    case "executing":
+      return isCurrent || label === "executing" ? "ACTUAL" : "LISTO";
+    case "blocked":
+      return "BLOQUEADO";
+    case "paused":
+      return "PAUSADO";
+    case "waiting-user":
+      return "ESPERA";
+    case "disabled":
+      return "DESACTIVADO";
+    default:
+      return "PENDIENTE";
+  }
+}
+
+function renderGraphPhaseStatusIcon(
+  phase: WorkflowPhaseDetails,
+  tone: PhaseVisualTone,
+  completedWorkflowLocked: boolean
+): string {
+  if (phase.phaseId === "completed") {
+    return completedWorkflowLocked ? lockClosedIcon() : lockOpenIcon();
+  }
+
+  if (tone === "completed") {
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M10.05 16.62a1 1 0 0 1-1.42 0l-3.1-3.1a1 1 0 1 1 1.42-1.42l2.39 2.39 7.7-8.1a1 1 0 0 1 1.45 1.38l-8.44 8.85Z"></path>
+      </svg>
+    `;
+  }
+
+  if (tone === "active" || tone === "paused") {
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M12 4.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15Zm0 2a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Zm0 2.25a1 1 0 0 1 1 1V12h2.25a1 1 0 1 1 0 2H12a1 1 0 0 1-1-1V9.75a1 1 0 0 1 1-1Z"></path>
+      </svg>
+    `;
+  }
+
+  return "";
+}
+
 function buildPrimaryGraphEdges(
   visiblePhases: readonly WorkflowPhaseDetails[],
   visiblePhaseMap: ReadonlyMap<string, WorkflowPhaseDetails>,
@@ -7170,12 +7283,12 @@ function buildPrimaryGraphEdges(
   const edges: PhaseGraphEdge[] = [];
   const hasClarification = visiblePhaseMap.has("clarification");
   const primaryDefinitions: ReadonlyArray<{ fromPhaseId: string; toPhaseId: string }> = [
-    { fromPhaseId: "capture", toPhaseId: hasClarification ? "clarification" : "refinement" },
-    ...(hasClarification ? [{ fromPhaseId: "clarification", toPhaseId: "refinement" }] : []),
+    ...(hasClarification ? [{ fromPhaseId: "capture", toPhaseId: "clarification" }] : []),
+    { fromPhaseId: "capture", toPhaseId: "refinement" },
+    ...(hasClarification ? [{ fromPhaseId: "clarification", toPhaseId: "spec" }] : []),
     { fromPhaseId: "refinement", toPhaseId: "spec" },
-    { fromPhaseId: "technical-design", toPhaseId: "spec" },
+    { fromPhaseId: "spec", toPhaseId: "technical-design" },
     { fromPhaseId: "technical-design", toPhaseId: "implementation" },
-    { fromPhaseId: "spec", toPhaseId: "implementation" },
     { fromPhaseId: "implementation", toPhaseId: "review" },
     { fromPhaseId: "review", toPhaseId: "release-approval" },
     { fromPhaseId: "release-approval", toPhaseId: "pr-preparation" },
@@ -7346,16 +7459,12 @@ function graphPath(
     return buildCompletedReopenGraphPath(fromPosition, toPosition, nodeWidth);
   }
 
-  if (fromPhaseId === "technical-design" && toPhaseId === "spec") {
-    return buildTechnicalDesignToSpecPath(fromPosition, toPosition, nodeWidth);
-  }
-
   if (fromPhaseId === "technical-design" && toPhaseId === "implementation") {
     return buildTechnicalDesignToImplementationPath(fromPosition, toPosition, nodeWidth);
   }
 
-  if (fromPhaseId === "spec" && toPhaseId === "implementation") {
-    return buildSpecToImplementationPath(fromPosition, toPosition, nodeWidth);
+  if (fromPhaseId === "spec" && toPhaseId === "technical-design") {
+    return buildSpecToTechnicalDesignPath(fromPosition, toPosition, nodeWidth);
   }
 
   const { fromAnchor, toAnchor } = resolveAnchors(fromPosition, toPosition);
@@ -7421,16 +7530,16 @@ function buildCrossColumnGraphPath(
   return `M ${from.x} ${from.y} C ${exitPull.x} ${from.y}, ${exitX} ${crestY}, ${from.x + deltaX * 0.52} ${from.y + deltaY * 0.52} S ${entryX} ${to.y}, ${to.x} ${to.y}`;
 }
 
-function buildTechnicalDesignToSpecPath(
+function buildSpecToTechnicalDesignPath(
   fromPosition: PhasePosition,
   toPosition: PhasePosition,
   nodeWidth: number
 ): string {
-  const from = getAnchorPoint(fromPosition, "exit-right", nodeWidth);
-  const to = getAnchorPoint(toPosition, "entry-left", nodeWidth);
-  const midX = from.x + (to.x - from.x) * 0.44;
-  const crestY = Math.min(from.y, to.y) - Math.max(44, Math.abs(to.y - from.y) * 0.12);
-  return `M ${from.x} ${from.y} C ${midX - 30} ${from.y}, ${midX - 12} ${crestY}, ${midX} ${crestY} S ${to.x - 42} ${to.y}, ${to.x} ${to.y}`;
+  const from = getAnchorPoint(fromPosition, "exit-left", nodeWidth);
+  const to = getAnchorPoint(toPosition, "entry-top", nodeWidth);
+  const laneX = Math.min(from.x, to.x) - Math.max(68, nodeWidth * 0.28);
+  const lowerY = from.y + Math.max(78, Math.abs(to.y - from.y) * 0.34);
+  return `M ${from.x} ${from.y} C ${laneX} ${from.y}, ${laneX} ${lowerY}, ${to.x} ${to.y}`;
 }
 
 function buildTechnicalDesignToImplementationPath(
@@ -7438,22 +7547,11 @@ function buildTechnicalDesignToImplementationPath(
   toPosition: PhasePosition,
   nodeWidth: number
 ): string {
-  const from = getAnchorPoint(fromPosition, "exit-bottom-mid", nodeWidth);
+  const from = getAnchorPoint(fromPosition, "exit-right", nodeWidth);
   const to = getAnchorPoint(toPosition, "entry-left", nodeWidth);
-  const laneY = from.y + Math.max(54, phaseNodeHeight * 0.44);
-  const bendX = from.x + Math.max(44, nodeWidth * 0.16);
-  return `M ${from.x} ${from.y} C ${from.x} ${from.y + 24}, ${bendX} ${laneY}, ${bendX} ${laneY} S ${to.x - 34} ${to.y}, ${to.x} ${to.y}`;
-}
-
-function buildSpecToImplementationPath(
-  fromPosition: PhasePosition,
-  toPosition: PhasePosition,
-  nodeWidth: number
-): string {
-  const from = getAnchorPoint(fromPosition, "exit-bottom-mid", nodeWidth);
-  const to = getAnchorPoint(toPosition, "entry-top", nodeWidth);
-  const laneY = from.y + Math.max(46, Math.abs(to.y - from.y) * 0.34);
-  return `M ${from.x} ${from.y} C ${from.x} ${laneY}, ${to.x} ${laneY - 18}, ${to.x} ${to.y}`;
+  const midX = from.x + (to.x - from.x) * 0.42;
+  const lowY = Math.max(from.y, to.y) + Math.max(34, phaseNodeHeight * 0.28);
+  return `M ${from.x} ${from.y} C ${midX - 38} ${from.y}, ${midX - 18} ${lowY}, ${midX} ${lowY} S ${to.x - 42} ${to.y}, ${to.x} ${to.y}`;
 }
 
 function buildReviewLoopGraphPath(

@@ -4449,7 +4449,7 @@ Should texts contain only title and excerpt?`,
   assert.match(html, /Apply Answers via Model/);
 });
 
-test("buildWorkflowHtml spaces same-column phases far enough apart to avoid overlap", () => {
+test("buildWorkflowHtml renders the reference graph layout with a synthetic spec checkpoint", () => {
   const html = buildWorkflowHtml({
     usId: "US-0002",
     title: "Workflow layout",
@@ -4587,12 +4587,15 @@ test("buildWorkflowHtml spaces same-column phases far enough apart to avoid over
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop-horizontal: 344px; --phase-top-desktop-horizontal: 40px; --phase-left-desktop-vertical: 386px; --phase-top-desktop-vertical: 40px;/);
-  assert.match(html, /phase-node technical-design[\s\S]*?--phase-left-desktop-horizontal: 344px; --phase-top-desktop-horizontal: 260px; --phase-left-desktop-vertical: 42px; --phase-top-desktop-vertical: 264px;/);
-  assert.match(html, /phase-node implementation[\s\S]*?--phase-left-desktop-horizontal: 646px; --phase-top-desktop-horizontal: 480px; --phase-left-desktop-vertical: 42px; --phase-top-desktop-vertical: 488px;/);
-  assert.match(html, /phase-node review[\s\S]*?--phase-left-desktop-horizontal: 948px; --phase-top-desktop-horizontal: 480px; --phase-left-desktop-vertical: 42px; --phase-top-desktop-vertical: 712px;/);
-  assert.match(html, /phase-node review[\s\S]*?--phase-left-mobile-horizontal: 702px; --phase-top-mobile-horizontal: 398px; --phase-left-mobile-vertical: 18px; --phase-top-mobile-vertical: 594px;/);
-  assert.match(html, /phase-node release-approval[\s\S]*?--phase-left-desktop-horizontal: 948px; --phase-top-desktop-horizontal: 260px; --phase-left-desktop-vertical: 730px; --phase-top-desktop-vertical: 712px;/);
+  assert.match(html, /phase-node clarification[\s\S]*?--phase-left-desktop-horizontal: 632px; --phase-top-desktop-horizontal: 198px; --phase-left-desktop-vertical: 632px; --phase-top-desktop-vertical: 198px;/);
+  assert.match(html, /phase-node refinement[\s\S]*?--phase-left-desktop-horizontal: 520px; --phase-top-desktop-horizontal: 208px; --phase-left-desktop-vertical: 520px; --phase-top-desktop-vertical: 208px;/);
+  assert.match(html, /phase-node spec[\s\S]*?--phase-left-desktop-horizontal: 360px; --phase-top-desktop-horizontal: 418px; --phase-left-desktop-vertical: 360px; --phase-top-desktop-vertical: 418px;/);
+  assert.match(html, /phase-node technical-design[\s\S]*?--phase-left-desktop-horizontal: 72px; --phase-top-desktop-horizontal: 590px; --phase-left-desktop-vertical: 72px; --phase-top-desktop-vertical: 590px;/);
+  assert.match(html, /phase-node implementation[\s\S]*?--phase-left-desktop-horizontal: 470px; --phase-top-desktop-horizontal: 612px; --phase-left-desktop-vertical: 470px; --phase-top-desktop-vertical: 612px;/);
+  assert.match(html, /phase-node review[\s\S]*?--phase-left-desktop-horizontal: 420px; --phase-top-desktop-horizontal: 846px; --phase-left-desktop-vertical: 420px; --phase-top-desktop-vertical: 846px;/);
+  assert.match(html, /phase-node review[\s\S]*?--phase-left-mobile-horizontal: 302px; --phase-top-mobile-horizontal: 609px; --phase-left-mobile-vertical: 302px; --phase-top-mobile-vertical: 609px;/);
+  assert.match(html, /phase-node release-approval[\s\S]*?--phase-left-desktop-horizontal: 738px; --phase-top-desktop-horizontal: 1018px; --phase-left-desktop-vertical: 738px; --phase-top-desktop-vertical: 1018px;/);
+  assert.match(html, /data-phase-id="refinement"[\s\S]*<h3>Spec<\/h3>/);
   assert.match(html, /viewBox="0 0 \d+ \d+"/);
   assert.match(html, /graph-links--desktop-horizontal/);
   assert.match(html, /graph-links--desktop-vertical/);
