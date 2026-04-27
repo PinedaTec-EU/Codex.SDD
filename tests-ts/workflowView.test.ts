@@ -2281,8 +2281,8 @@ test("buildWorkflowHtml routes graph links around cards using rounded orthogonal
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /class="completed" d="M [^"]* C [^"]*"/);
-  assert.match(html, /class="reverse-active" d="M [^"]* C [^"]* S [^"]*"/);
+  assert.match(html, /class="completed"[^>]* d="M [^"]* C [^"]*"/);
+  assert.match(html, /class="reverse-active"[^>]* d="M [^"]* C [^"]* S [^"]*"/);
 });
 
 test("buildWorkflowHtml advances the execution overlay to spec after refinement passes", () => {
@@ -4595,6 +4595,9 @@ test("buildWorkflowHtml renders the reference graph layout with canonical refine
   assert.match(html, /phase-node review[\s\S]*?--phase-left-mobile-horizontal: 302px; --phase-top-mobile-horizontal: 609px; --phase-left-mobile-vertical: 302px; --phase-top-mobile-vertical: 609px;/);
   assert.match(html, /phase-node release-approval[\s\S]*?--phase-left-desktop-horizontal: 738px; --phase-top-desktop-horizontal: 1018px; --phase-left-desktop-vertical: 738px; --phase-top-desktop-vertical: 1018px;/);
   assert.match(html, /data-phase-id="spec"[\s\S]*<h3>Spec<\/h3>/);
+  assert.match(html, /data-edge="spec-&gt;technical-design"/);
+  assert.match(html, /data-edge="technical-design-&gt;implementation"/);
+  assert.doesNotMatch(html, /data-edge="spec-&gt;implementation"/);
   assert.match(html, /viewBox="0 0 \d+ \d+"/);
   assert.match(html, /graph-links--desktop-horizontal/);
   assert.match(html, /graph-links--desktop-vertical/);

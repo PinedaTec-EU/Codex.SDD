@@ -7131,7 +7131,7 @@ function buildGraphLinks(
   }
 
   return edges
-    .map((edge) => `<path class="${edge.className}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth)}"></path>`)
+    .map((edge) => `<path class="${edge.className}" data-edge="${escapeHtmlAttribute(`${edge.fromPhaseId}->${edge.toPhaseId}`)}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth)}"></path>`)
     .join("");
 }
 

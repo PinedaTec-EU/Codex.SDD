@@ -39,12 +39,12 @@ function buildBackendEnvironment(settings) {
         env.SPECFORGE_OPENAI_MODEL_PROFILES_JSON = JSON.stringify(settings.modelProfiles);
         env.SPECFORGE_OPENAI_PHASE_MODEL_ASSIGNMENTS_JSON = JSON.stringify(settings.phaseModelAssignments);
     }
-    env.SPECFORGE_CAPTURE_TOLERANCE = settings.refinementTolerance;
+    env.SPECFORGE_REFINEMENT_TOLERANCE = settings.refinementTolerance;
     env.SPECFORGE_REVIEW_TOLERANCE = settings.reviewTolerance;
-    env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED = settings.autoRefinementAnswersEnabled ? "true" : "false";
+    env.SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED = settings.autoRefinementAnswersEnabled ? "true" : "false";
     env.SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED = settings.completedUsLockOnCompleted ? "true" : "false";
     if (settings.autoRefinementAnswersProfile) {
-        env.SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE = settings.autoRefinementAnswersProfile;
+        env.SPECFORGE_AUTO_REFINEMENT_ANSWERS_PROFILE = settings.autoRefinementAnswersProfile;
     }
     return env;
 }

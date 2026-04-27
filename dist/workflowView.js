@@ -6690,7 +6690,7 @@ function buildGraphLinks(workflow, visiblePhases, executingTargetPhaseId, curren
         edges.push(edge);
     }
     return edges
-        .map((edge) => `<path class="${edge.className}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth)}"></path>`)
+        .map((edge) => `<path class="${edge.className}" data-edge="${(0, htmlEscape_1.escapeHtmlAttr)(`${edge.fromPhaseId}->${edge.toPhaseId}`)}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth)}"></path>`)
         .join("");
 }
 function resolveImplementationReviewCycleCount(workflow) {
