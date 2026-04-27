@@ -802,7 +802,7 @@ test("buildWorkflowHtml always shows duration touches and tokens for visual cons
   assert.match(html, /Regressions Here/);
 });
 
-test("buildWorkflowHtml shows rewind on prior phase cards and pause only on later phases", () => {
+test("buildWorkflowHtml shows a single hero rewind control and keeps per-phase pause buttons only for later phases", () => {
   const html = buildWorkflowHtml({
     usId: "US-0100",
     title: "Phase card controls",
@@ -891,11 +891,9 @@ test("buildWorkflowHtml shows rewind on prior phase cards and pause only on late
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /data-phase-id="capture"[\s\S]*data-phase-rewind-button/);
-  assert.match(html, /data-phase-id="capture"[\s\S]*A1\.25 1\.25 0 0 1 7\.25 4/);
-  assert.match(html, /data-phase-id="refinement"[\s\S]*data-phase-rewind-button/);
-  assert.doesNotMatch(html, /data-phase-id="technical-design"[\s\S]*data-phase-rewind-button/);
+  assert.match(html, /data-hero-rewind-button/);
   assert.match(html, /data-phase-id="implementation"[\s\S]*data-phase-pause-button/);
+  assert.doesNotMatch(html, /data-phase-rewind-button/);
   assert.doesNotMatch(html, /aria-label="Rewind workflow to selected phase"/);
   assert.doesNotMatch(html, /debugResetToCapture/);
 });

@@ -4,13 +4,14 @@ import { buildCapturePhaseSections } from "./workflow-view/capturePhaseView";
 import { buildClarificationPhaseSections } from "./workflow-view/clarificationPhaseView";
 import { buildCompletedPhaseSections } from "./workflow-view/completedPhaseView";
 import { buildImplementationPhaseSections } from "./workflow-view/implementationPhaseView";
-import { externalLinkIcon, fileIcon, firstPhaseRewindIcon, lockClosedIcon, lockOpenIcon, pauseIcon, playIcon, rewindIcon, stopIcon } from "./workflow-view/icons";
+import { externalLinkIcon, fileIcon, lockClosedIcon, lockOpenIcon, pauseIcon, playIcon, rewindIcon, stopIcon } from "./workflow-view/icons";
 import { renderMarkdownToHtml } from "./workflow-view/markdownRenderer";
 import type { ApprovalQuestionItem, PhaseIterationItem, PhaseSectionFragments, WorkflowViewState } from "./workflow-view/models";
 import { buildPrPreparationPhaseSections } from "./workflow-view/prPreparationPhaseView";
 import { hasReachedImplementationReviewCycleLimit } from "./workflowAutomation";
 import { resolveCompletedWorkflowReopenTargetPhase } from "./workflowCompletedReopen";
 import { canPauseWorkflowExecutionPhase, resolveWorkflowExecutionPhaseId } from "./workflowPlaybackState";
+import { resolveTimelineRewindTargetPhase } from "./workflowRewind";
 import { resolveWorkflowRejectPlan } from "./workflowRejectPlan";
 import { buildRefinementPhaseSections } from "./workflow-view/refinementPhaseView";
 import { buildReleaseApprovalPhaseSections } from "./workflow-view/releaseApprovalPhaseView";
@@ -1352,7 +1353,7 @@ export function buildWorkflowHtml(
 ): string {
   const effectiveExecutionPhaseId = resolveEffectiveExecutionPhaseId(workflow, state, playbackState);
   const pausedExecutionPhaseId = resolvePausedExecutionPhaseId(workflow, state, playbackState);
-  const displayedCurrentPhaseId = resolveDisplayedCurrentPhaseId(workflow, effectiveExecutionPhaseId, pausedExecutionPhaseId, playbackState);
+  const displayedCurrentPhaseId = resolveDisplayedCurrentPhaseId(workflow, state, effectiveExecutionPhaseId, pausedExecutionPhaseId, playbackState);
   const selectedPhaseId = playbackState === "playing"
     ? displayedCurrentPhaseId ?? state.selectedPhaseId
     : playbackState === "paused" && state.selectedPhaseId === workflow.currentPhase
@@ -1449,13 +1450,16 @@ export function buildWorkflowHtml(
   const selectedPhaseExecutionLabel = buildAssignedPhaseExecutionLabel(selectedPhase, state)
     ?? findLatestPhaseExecutionLabel(workflow, selectedPhase.phaseId, state);
   const hasTokenTelemetry = selectedPhaseMetricEvents.some((event) => event.usage);
-  const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
   const completedWorkflowLocked = workflow.status === "completed" && state.completedUsLockOnCompleted !== false;
   const pullRequestUrl = workflow.pullRequest?.url?.trim() || null;
   const pullRequestLabel = workflow.pullRequest?.number
     ? `View PR #${workflow.pullRequest.number}`
     : "View PR";
-  const canRewindSelectedPhase = !completedWorkflowLocked && rewindablePhaseIds.has(selectedPhase.phaseId);
+  const pendingRewindPhaseId = state.pendingRewindPhaseId?.trim() || null;
+  const heroRewindTargetPhaseId = !completedWorkflowLocked && playbackState === "idle"
+    ? resolveTimelineRewindTargetPhase(workflow, displayedCurrentPhaseId)
+    : null;
+  const heroRewindDisabled = !heroRewindTargetPhaseId || playbackState !== "idle";
   const phaseSpecificSections = buildPhaseSpecificSections(
     workflow,
     selectedPhase,
@@ -1492,7 +1496,6 @@ export function buildWorkflowHtml(
   const shouldRenderReviewRegressionAction = selectedPhaseIsCurrent && selectedPhase.phaseId === "review";
   const shouldRenderApproveReviewAnywayAction = selectedPhaseIsCurrent && selectedPhase.phaseId === "review";
   const detailActions = (selectedPhaseIsCurrent && (workflow.controls.canApprove || shouldRenderApproveAction || rejectPlan))
-    || canRewindSelectedPhase
     || workflow.controls.canContinue
     || shouldRenderRerunReviewAction
     || shouldRenderReviewRegressionAction
@@ -1516,7 +1519,6 @@ export function buildWorkflowHtml(
             ? `<button class="workflow-action-button workflow-action-button--approve" data-command="approve" data-approve-button data-pending-approval-count="${unresolvedApprovalQuestionCount}"${!workflow.controls.canApprove || shouldRenderApprovalBranchEditor(workflow, selectedPhase, selectedPhaseIsCurrent) && Boolean(state.requireExplicitApprovalBranchAcceptance) ? " disabled" : ""}>${approveActionLabel}</button>`
             : ""}
         ${rejectPlan ? `<button class="workflow-action-button workflow-action-button--danger" type="button" data-open-reject-modal data-reject-target-phase="${escapeHtmlAttribute(rejectPlan.targetPhaseId)}" data-reject-mode="${escapeHtmlAttribute(rejectPlan.mode)}" data-reject-title="${escapeHtmlAttribute(rejectPlan.modalTitle)}" data-reject-prompt="${escapeHtmlAttribute(rejectPlan.modalPrompt)}" data-reject-helper="${escapeHtmlAttribute(rejectPlan.helperText)}" data-reject-confirm-label="${escapeHtmlAttribute(rejectPlan.confirmLabel)}">Reject</button>` : ""}
-        ${canRewindSelectedPhase ? `<button class="workflow-action-button workflow-action-button--document" data-command="rewind" data-phase-id="${escapeHtmlAttribute(selectedPhase.phaseId)}">Rewind Here</button>` : ""}
       </div>
     `
     : "";
@@ -1832,6 +1834,9 @@ export function buildWorkflowHtml(
     </div>
   `;
   const playbackButtons = `
+    <button class="icon-button icon-button--document" data-command="rewind" data-hero-rewind-button aria-label="${heroRewindTargetPhaseId ? `Rewind workflow pointer to ${heroRewindTargetPhaseId}` : "Rewind workflow pointer"}"${heroRewindDisabled ? " disabled" : ""}>
+      ${rewindIcon()}
+    </button>
     <button class="icon-button ${playWarnsAboutImplementationLimit ? "icon-button--attention" : "icon-button--primary"}${shouldPulsePlay ? " icon-button--pulse" : ""}" data-command="play" aria-label="${playWarnsAboutImplementationLimit ? "Play workflow with implementation loop limit warning" : "Play workflow"}"${playDisabled ? " disabled" : ""}>
       ${playIcon()}
     </button>
@@ -4540,6 +4545,7 @@ export function buildWorkflowHtml(
             <span class="token accent">${escapeHtml(workflow.category)}</span>
             <span class="token${heroTokenClass(workflow.status)}">${escapeHtml(workflow.status)}</span>
             <span class="token">${escapeHtml(displayedPhaseId)}</span>
+            ${pendingRewindPhaseId ? `<span class="token token--attention">rewind:${escapeHtml(pendingRewindPhaseId)}</span>` : ""}
             <span class="token">${escapeHtml(workflow.workBranch ?? "branch:not-created")}</span>
             <span class="token${heroTokenClass(`runner:${playbackState}`)}">runner:${escapeHtml(playbackState)}</span>
           </div>
@@ -5795,13 +5801,12 @@ function buildPhaseGraph(
 ): string {
   const executionPhaseId = playbackState === "playing" ? effectiveExecutionPhaseId : null;
   const pausedExecutionPhaseId = resolvePausedExecutionPhaseId(workflow, state, playbackState);
-  const displayedCurrentPhaseId = resolveDisplayedCurrentPhaseId(workflow, effectiveExecutionPhaseId, pausedExecutionPhaseId, playbackState);
+  const displayedCurrentPhaseId = resolveDisplayedCurrentPhaseId(workflow, state, effectiveExecutionPhaseId, pausedExecutionPhaseId, playbackState);
   const currentPhase = workflow.phases.find((phase) => phase.phaseId === displayedCurrentPhaseId)
     ?? workflow.phases.find((phase) => phase.isCurrent)
     ?? workflow.phases[0];
   const pausedPhaseIds = new Set(state.pausedPhaseIds ?? []);
   const completedPhaseIds = buildEffectiveCompletedPhaseIds(workflow, new Set(state.completedPhaseIds ?? []));
-  const rewindablePhaseIds = new Set(workflow.controls.rewindTargets);
   const completedWorkflowLocked = workflow.status === "completed" && state.completedUsLockOnCompleted !== false;
   const clarificationVisible = shouldShowClarificationPhase(workflow, executionPhaseId);
   const visiblePhases = workflow.phases.filter((phase) =>
@@ -5832,13 +5837,9 @@ function buildPhaseGraph(
     const pauseArmed = pausedPhaseIds.has(phase.phaseId);
     const phaseIsCurrent = phase.phaseId === displayedCurrentPhaseId;
     const phaseIsSelected = phase.phaseId === selectedPhaseId;
-    const canRewindPhase = canRenderPhaseRewindAction(workflow, phase, displayedCurrentPhaseId, rewindablePhaseIds, completedWorkflowLocked);
     const pauseButtonLabel = pauseArmed
       ? `Remove pause before ${phase.title}`
       : `Pause before ${phase.title}`;
-    const rewindButtonLabel = phase.phaseId === "capture"
-      ? "Reset workflow to Capture"
-      : `Rewind workflow to ${phase.title}`;
     return `
     <div
       class="phase-node ${escapeHtmlAttribute(phase.phaseId)} phase-tone-${escapeHtmlAttribute(visualTone)}${phaseIsSelected ? " selected" : ""}${phaseIsCurrent ? " phase-node--current" : ""}"
@@ -5857,18 +5858,7 @@ function buildPhaseGraph(
               : String(index + 1)}</span>
             ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
           </div>
-          ${canRewindPhase
-            ? `<button
-                class="phase-pause-toggle phase-pause-toggle--rewind"
-                type="button"
-                data-command="rewind"
-                data-phase-id="${escapeHtmlAttribute(phase.phaseId)}"
-                data-phase-rewind-button
-                aria-label="${escapeHtmlAttribute(rewindButtonLabel)}"
-                title="${escapeHtmlAttribute(rewindButtonLabel)}">
-                ${phase.phaseId === "capture" ? firstPhaseRewindIcon() : rewindIcon()}
-              </button>`
-            : canPausePhase
+          ${canPausePhase
             ? `<button
                 class="phase-pause-toggle${pauseArmed ? " phase-pause-toggle--armed" : ""}"
                 type="button"
@@ -5941,6 +5931,7 @@ function resolvePausedExecutionPhaseId(
 
 function resolveDisplayedCurrentPhaseId(
   workflow: UserStoryWorkflowDetails,
+  state: WorkflowViewState,
   effectiveExecutionPhaseId: string | null,
   pausedExecutionPhaseId: string | null,
   playbackState: "idle" | "playing" | "paused" | "stopping"
@@ -5951,6 +5942,10 @@ function resolveDisplayedCurrentPhaseId(
 
   if ((playbackState === "paused" || playbackState === "stopping") && pausedExecutionPhaseId) {
     return pausedExecutionPhaseId;
+  }
+
+  if (playbackState === "idle" && state.pendingRewindPhaseId) {
+    return state.pendingRewindPhaseId;
   }
 
   if (workflow.status === "completed") {
@@ -6052,33 +6047,6 @@ function shouldShowPhase(
     || clarificationVisible
     || currentPhaseId === "clarification"
     || executionPhaseId === "clarification";
-}
-
-function canRenderPhaseRewindAction(
-  workflow: UserStoryWorkflowDetails,
-  phase: WorkflowPhaseDetails,
-  displayedCurrentPhaseId: string,
-  rewindablePhaseIds: ReadonlySet<string>,
-  completedWorkflowLocked: boolean
-): boolean {
-  if (completedWorkflowLocked) {
-    return false;
-  }
-
-  if (phase.phaseId === displayedCurrentPhaseId) {
-    return false;
-  }
-
-  const currentPhaseOrder = workflow.phases.find((candidate) => candidate.phaseId === displayedCurrentPhaseId)?.order ?? Number.MAX_SAFE_INTEGER;
-  if (phase.order >= currentPhaseOrder) {
-    return false;
-  }
-
-  if (phase.phaseId === "capture") {
-    return workflow.controls.canRestartFromSource;
-  }
-
-  return rewindablePhaseIds.has(phase.phaseId);
 }
 
 function graphPath(

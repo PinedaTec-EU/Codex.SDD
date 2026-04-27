@@ -45,6 +45,7 @@ export interface WorkflowViewState {
   readonly reviewRegressionDraft?: string | null;
   readonly reviewRegressionIncludeArtifact?: boolean;
   readonly completedUsLockOnCompleted?: boolean;
+  readonly pendingRewindPhaseId?: string | null;
 }
 
 export interface ApprovalQuestionItem {
