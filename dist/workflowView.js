@@ -1477,6 +1477,27 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     </button>
   `;
     const debugResetButton = "";
+    const selectedPhaseOverview = `
+            <details class="detail-card detail-card--phase-overview detail-card--collapsible" open>
+            <summary class="detail-card__summary detail-card__summary--phase-overview">
+              <div class="detail-card__header detail-card__header--phase-overview">
+                <h2>${(0, htmlEscape_1.escapeHtml)(selectedPhase.title)}</h2>
+                <span class="iteration-rail-toggle detail-card__summary-toggle" aria-hidden="true">
+                  <span class="iteration-rail-toggle__icon detail-card__summary-toggle-icon" aria-hidden="true">&gt;</span>
+                </span>
+              </div>
+              <div class="detail-meta">
+                <span class="token">${(0, htmlEscape_1.escapeHtml)(phaseSecondaryLabel(selectedPhase))}</span>
+                <span class="token${selectedPhaseStateClass}">${(0, htmlEscape_1.escapeHtml)(selectedPhaseDisplayState)}</span>
+                ${selectedPhase.requiresApproval ? `<span class="token token--attention">approval required</span>` : ""}
+                ${selectedPhase.isApproved ? `<span class="token token--success">approved</span>` : ""}
+              </div>
+            </summary>
+            <div class="detail-card__body detail-card__body--phase-overview">
+              ${selectedPhaseMetrics ? `<div class="detail-metrics">${selectedPhaseMetrics}</div>` : ""}
+            </div>
+            </details>
+  `;
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2728,6 +2749,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       position: relative;
       padding-top: 18px;
     }
+    .detail-card-shell > * + * {
+      margin-top: 18px;
+    }
     .detail-card {
       border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 20px;
@@ -2755,9 +2779,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       outline: none;
       box-shadow: inset 0 0 0 2px rgba(92, 181, 255, 0.22);
     }
-    .detail-card__summary--completed-reopen .review-regression__header {
-      grid-template-columns: minmax(0, 1fr) auto auto;
-      align-items: center;
+    .detail-card__summary--phase-overview {
+      display: grid;
+      gap: 12px;
     }
     .detail-card__summary-title-row {
       display: inline-flex;
@@ -2787,6 +2811,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .detail-card--collapsible[open] .detail-card__summary-toggle-icon {
       transform: rotate(-90deg);
+    }
+    .detail-card__body--phase-overview {
+      padding: 0 18px 18px;
     }
     .detail-card--collapsible .review-regression {
       padding: 0 18px 18px;
@@ -2834,8 +2861,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 16px;
-      align-items: start;
-      margin-bottom: 10px;
+      align-items: center;
     }
     .detail-card__header--phase-overview h2 {
       margin: 0;
@@ -2917,9 +2943,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       display: grid;
       gap: 6px;
       justify-items: end;
-    }
-    .detail-card__summary--completed-reopen .review-regression__stat {
-      align-self: stretch;
     }
     .review-regression__stat-label {
       font-size: 0.72rem;
@@ -4166,18 +4189,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         <main class="panel detail-panel" data-panel-scroll="detail">
           <div class="detail-card-shell">
             ${detailActions}
-            <section class="detail-card detail-card--phase-overview">
-            <div class="detail-card__header detail-card__header--phase-overview">
-              <h2>${(0, htmlEscape_1.escapeHtml)(selectedPhase.title)}</h2>
-            </div>
-            <div class="detail-meta">
-              <span class="token">${(0, htmlEscape_1.escapeHtml)(phaseSecondaryLabel(selectedPhase))}</span>
-              <span class="token${selectedPhaseStateClass}">${(0, htmlEscape_1.escapeHtml)(selectedPhaseDisplayState)}</span>
-              ${selectedPhase.requiresApproval ? `<span class="token token--attention">approval required</span>` : ""}
-              ${selectedPhase.isApproved ? `<span class="token token--success">approved</span>` : ""}
-            </div>
-            ${selectedPhaseMetrics ? `<div class="detail-metrics">${selectedPhaseMetrics}</div>` : ""}
-            </section>
+            ${selectedPhaseOverview}
             ${completedPhaseTopSections}
           </div>
           ${workflowUsageDashboard}
