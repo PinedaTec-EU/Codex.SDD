@@ -28,6 +28,7 @@ type WorkflowPanelCommand =
   | { readonly command: "webviewReady"; readonly detail?: string }
   | { readonly command: "webviewClientError"; readonly detail?: string }
   | { readonly command: "webviewDispatch"; readonly detail?: string }
+  | { readonly command: "exportWorkflowSnapshot"; readonly dataUrl?: string; readonly fileName?: string }
   | { readonly command: "selectPhase"; readonly phaseId?: string }
   | { readonly command: "selectIteration"; readonly iterationKey?: string }
   | { readonly command: "togglePhaseIterations"; readonly phaseId?: string }
@@ -250,6 +251,9 @@ class WorkflowPanelController {
       case "webviewDispatch":
         appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' webview dispatch.${message.detail ? ` ${message.detail}` : ""}`);
         return;
+      case "exportWorkflowSnapshot":
+        await this.saveWorkflowSnapshotAsync(message.dataUrl, message.fileName);
+        return;
       case "selectPhase":
         if (message.phaseId) {
           this.selectedPhaseId = message.phaseId;
@@ -383,6 +387,30 @@ class WorkflowPanelController {
         await this.refreshAsync("command:stop");
         return;
     }
+  }
+
+  private async saveWorkflowSnapshotAsync(dataUrl?: string, fileName?: string): Promise<void> {
+    if (!dataUrl || !dataUrl.startsWith("data:image/png;base64,")) {
+      throw new Error("Workflow snapshot payload is missing or invalid.");
+    }
+
+    const defaultFileName = (fileName?.trim() || `${this.summary.usId}.workflow.png`).replace(/[\\/:*?"<>|]+/g, "-");
+    const targetUri = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.file(path.join(this.workspaceRoot, defaultFileName)),
+      filters: {
+        PNG: ["png"]
+      },
+      saveLabel: "Save Workflow Snapshot"
+    });
+
+    if (!targetUri) {
+      return;
+    }
+
+    const base64Payload = dataUrl.slice("data:image/png;base64,".length);
+    const buffer = Buffer.from(base64Payload, "base64");
+    await vscode.workspace.fs.writeFile(targetUri, new Uint8Array(buffer));
+    void vscode.window.showInformationMessage(`Workflow snapshot saved to '${path.basename(targetUri.fsPath)}'.`);
   }
 
   private async continueCurrentPhaseAsync(): Promise<void> {

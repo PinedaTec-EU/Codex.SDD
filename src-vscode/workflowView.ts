@@ -4,7 +4,7 @@ import { buildCapturePhaseSections } from "./workflow-view/capturePhaseView";
 import { buildClarificationPhaseSections } from "./workflow-view/clarificationPhaseView";
 import { buildCompletedPhaseSections } from "./workflow-view/completedPhaseView";
 import { buildImplementationPhaseSections } from "./workflow-view/implementationPhaseView";
-import { automationPhaseIcon, externalLinkIcon, fileIcon, graphLayoutModeIcon, lockClosedIcon, lockOpenIcon, pauseIcon, playIcon, rewindIcon, stopIcon, userPhaseIcon } from "./workflow-view/icons";
+import { automationPhaseIcon, cameraIcon, externalLinkIcon, fileIcon, graphLayoutModeIcon, lockClosedIcon, lockOpenIcon, pauseIcon, playIcon, rewindIcon, stopIcon, userPhaseIcon } from "./workflow-view/icons";
 import { renderMarkdownToHtml } from "./workflow-view/markdownRenderer";
 import type { ApprovalQuestionItem, PhaseIterationItem, PhaseSectionFragments, WorkflowViewState } from "./workflow-view/models";
 import { buildPrPreparationPhaseSections } from "./workflow-view/prPreparationPhaseView";
@@ -5254,6 +5254,14 @@ export function buildWorkflowHtml(
               <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and phase context.</p>
             </div>
             <div class="graph-view-toggle" aria-label="Graph layout mode">
+              <button
+                class="graph-view-toggle__button"
+                type="button"
+                data-export-workflow-snapshot
+                aria-label="Export workflow snapshot"
+                title="Export workflow snapshot">
+                ${cameraIcon()}
+              </button>
               <span class="graph-view-toggle__label">${state.graphLayoutMode === "horizontal" ? "Horizontal" : "Vertical"}</span>
               <button
                 class="graph-view-toggle__button"
@@ -5331,6 +5339,7 @@ export function buildWorkflowHtml(
     const detailPanel = document.querySelector('[data-panel-scroll="detail"]');
     const phaseGraph = document.querySelector(".phase-graph");
     const graphLegendElements = Array.from(document.querySelectorAll("[data-graph-legend]"));
+    const exportWorkflowSnapshotButton = document.querySelector("[data-export-workflow-snapshot]");
     const selectedPhaseNode = document.querySelector(".phase-node.selected");
     const currentPhaseNode = document.querySelector(".phase-node.phase-node--current");
     const focusedPhaseNode = selectedPhaseNode instanceof HTMLElement
@@ -5384,6 +5393,97 @@ export function buildWorkflowHtml(
           syncGraphLegendVisibility();
         });
       }
+    }
+    const exportWorkflowSnapshot = async () => {
+      if (!(workflowShell instanceof HTMLElement) || !(graphPanel instanceof HTMLElement) || !(phaseGraph instanceof HTMLElement)) {
+        return;
+      }
+
+      const graphStage = document.querySelector(".graph-stage");
+      if (!(graphStage instanceof HTMLElement)) {
+        return;
+      }
+
+      const captureWidth = Math.ceil(phaseGraph.scrollWidth);
+      const captureHeight = Math.ceil(phaseGraph.scrollHeight);
+      const clonedGraphStage = graphStage.cloneNode(true);
+      if (!(clonedGraphStage instanceof HTMLElement)) {
+        return;
+      }
+
+      const clonedExecutionOverlay = clonedGraphStage.querySelector(".execution-overlay");
+      if (clonedExecutionOverlay instanceof HTMLElement) {
+        clonedExecutionOverlay.remove();
+      }
+
+      clonedGraphStage.style.width = captureWidth + "px";
+      clonedGraphStage.style.minWidth = captureWidth + "px";
+      clonedGraphStage.style.height = captureHeight + "px";
+      clonedGraphStage.style.minHeight = captureHeight + "px";
+      clonedGraphStage.style.overflow = "visible";
+      clonedGraphStage.style.padding = "0";
+      clonedGraphStage.style.margin = "0";
+
+      const clonedPhaseGraph = clonedGraphStage.querySelector(".phase-graph");
+      if (clonedPhaseGraph instanceof HTMLElement) {
+        clonedPhaseGraph.style.width = captureWidth + "px";
+        clonedPhaseGraph.style.minWidth = captureWidth + "px";
+        clonedPhaseGraph.style.height = captureHeight + "px";
+        clonedPhaseGraph.style.minHeight = captureHeight + "px";
+      }
+
+      const stylesheetContent = Array.from(document.querySelectorAll("style"))
+        .map((styleElement) => styleElement.textContent ?? "")
+        .join("\n");
+      const serializedMarkup = new XMLSerializer().serializeToString(clonedGraphStage);
+      const svgMarkup =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="' + captureWidth + '" height="' + captureHeight + '" viewBox="0 0 ' + captureWidth + ' ' + captureHeight + '">'
+        + '<foreignObject width="100%" height="100%">'
+        + '<div xmlns="http://www.w3.org/1999/xhtml" style="width:' + captureWidth + 'px;height:' + captureHeight + 'px;">'
+        + '<style>' + stylesheetContent + '</style>'
+        + serializedMarkup
+        + "</div>"
+        + "</foreignObject>"
+        + "</svg>";
+
+      const blob = new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        const image = new Image();
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = reject;
+          image.src = objectUrl;
+        });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = captureWidth;
+        canvas.height = captureHeight;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          throw new Error("Canvas 2D context is unavailable.");
+        }
+
+        context.drawImage(image, 0, 0);
+        const dataUrl = canvas.toDataURL("image/png");
+        vscode.postMessage({
+          command: "exportWorkflowSnapshot",
+          dataUrl,
+          fileName: (workflowShell.dataset.usId ?? "workflow") + ".workflow.png"
+        });
+      } catch (error) {
+        vscode.postMessage({
+          command: "webviewClientError",
+          detail: "snapshot:" + (error instanceof Error ? error.message : String(error))
+        });
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+    if (exportWorkflowSnapshotButton instanceof HTMLButtonElement) {
+      exportWorkflowSnapshotButton.addEventListener("click", () => {
+        void exportWorkflowSnapshot();
+      });
     }
     if (focusedPhaseNode instanceof HTMLElement && focusedPhaseId && autoScrollStateKey) {
       try {
