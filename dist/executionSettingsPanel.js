@@ -245,11 +245,60 @@ function buildExecutionSettingsHtml(model) {
       display: grid;
       gap: 12px;
     }
+    .profile-card[open] {
+      border-color: rgba(114, 241, 184, 0.22);
+      box-shadow: inset 0 0 0 1px rgba(114, 241, 184, 0.08);
+    }
     .profile-card__header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 10px;
+    }
+    .profile-card__summary {
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .profile-card__summary::-webkit-details-marker {
+      display: none;
+    }
+    .profile-card__summary-main {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .profile-card__summary-title {
+      font-weight: 700;
+      color: #f3fff9;
+    }
+    .profile-card__summary-meta {
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.62);
+    }
+    .profile-card__summary-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .profile-card__chevron {
+      width: 34px;
+      height: 34px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(255, 255, 255, 0.76);
+      transition: transform 120ms ease;
+    }
+    .profile-card[open] .profile-card__chevron {
+      transform: rotate(180deg);
     }
     .profile-grid {
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -545,7 +594,9 @@ function buildExecutionSettingsHtml(model) {
       destructiveRewindEnabled: ${JSON.stringify(model.destructiveRewindEnabled)},
       pauseOnFailedReview: ${JSON.stringify(model.pauseOnFailedReview)},
       completedUsLockOnCompleted: ${JSON.stringify(model.completedUsLockOnCompleted)},
-      initialPermissionIssues: ${JSON.stringify(permissionIssues)}
+      initialPermissionIssues: ${JSON.stringify(permissionIssues)},
+      expandedProfileIndexes: ${JSON.stringify(model.modelProfiles.map((_, index) => index === 0))},
+      pendingFocusProfileIndex: null
     };
 
     function escapeHtml(value) {
@@ -687,11 +738,23 @@ function buildExecutionSettingsHtml(model) {
       } else {
         profilesHost.innerHTML = state.modelProfiles.map((profile, index) => {
           const showEndpointFields = !isNativeCliProvider(profile.provider);
-          return '<section class="profile-card" data-profile-index="' + index + '">'
-            + '<div class="profile-card__header">'
-            + '<strong>' + escapeHtml(profile.name || ('Profile ' + (index + 1))) + '</strong>'
-            + '<button class="danger-action" type="button" data-remove-profile="' + index + '" title="Remove profile ' + (index + 1) + '" aria-label="Remove profile ' + (index + 1) + '">×</button>'
+          const isExpanded = Array.isArray(state.expandedProfileIndexes) ? Boolean(state.expandedProfileIndexes[index]) : index === 0;
+          const summaryTitle = escapeHtml(profile.name || ('Profile ' + (index + 1)));
+          const summaryMeta = [
+            String(profile.provider || "openai-compatible").trim() || "openai-compatible",
+            String(profile.repositoryAccess || "none").trim() || "none"
+          ].join(" · ");
+          return '<details class="profile-card" data-profile-index="' + index + '"' + (isExpanded ? ' open' : '') + '>'
+            + '<summary class="profile-card__summary">'
+            + '<div class="profile-card__summary-main">'
+            + '<strong class="profile-card__summary-title">' + summaryTitle + '</strong>'
+            + '<span class="profile-card__summary-meta">' + escapeHtml(summaryMeta) + '</span>'
             + '</div>'
+            + '<div class="profile-card__summary-actions">'
+            + '<button class="danger-action" type="button" data-remove-profile="' + index + '" title="Remove profile ' + (index + 1) + '" aria-label="Remove profile ' + (index + 1) + '">×</button>'
+            + '<span class="profile-card__chevron" aria-hidden="true">⌄</span>'
+            + '</div>'
+            + '</summary>'
             + '<div class="profile-grid">'
             + fieldMarkup("Name", '<input type="text" data-profile-field="name" value="' + escapeHtml(profile.name || "") + '" placeholder="codex-main" />')
             + fieldMarkup("Provider", '<select data-profile-field="provider">' + providerOptions(profile.provider || "openai-compatible") + '</select>')
@@ -701,7 +764,7 @@ function buildExecutionSettingsHtml(model) {
             + fieldMarkup("Model", '<input type="text" data-profile-field="model" value="' + escapeHtml(profile.model || "") + '" placeholder="' + escapeHtml(profile.provider === "openai-compatible" ? "gpt-5.4" : "gpt-5.3-codex") + '" />')
             + fieldMarkup("Reasoning Effort", '<select data-profile-field="reasoningEffort">' + reasoningEffortOptions(profile.reasoningEffort || "") + '</select>')
             + '</div>'
-            + '</section>';
+            + '</details>';
         }).join("");
       }
 
@@ -878,8 +941,27 @@ function buildExecutionSettingsHtml(model) {
             return;
           }
           state.modelProfiles.splice(index, 1);
+          if (Array.isArray(state.expandedProfileIndexes)) {
+            state.expandedProfileIndexes.splice(index, 1);
+          }
           pruneMissingAssignments();
           render();
+        });
+      }
+
+      for (const card of profilesHost.querySelectorAll("[data-profile-index]")) {
+        if (!(card instanceof HTMLDetailsElement)) {
+          continue;
+        }
+        const index = Number(card.dataset.profileIndex ?? "-1");
+        if (index < 0) {
+          continue;
+        }
+        card.addEventListener("toggle", () => {
+          if (!Array.isArray(state.expandedProfileIndexes)) {
+            state.expandedProfileIndexes = [];
+          }
+          state.expandedProfileIndexes[index] = card.open;
         });
       }
 
@@ -891,6 +973,24 @@ function buildExecutionSettingsHtml(model) {
           input.addEventListener("input", syncFromDomSilently);
           input.addEventListener("change", syncFromDom);
         }
+      }
+
+      if (typeof state.pendingFocusProfileIndex === "number" && state.pendingFocusProfileIndex >= 0) {
+        const targetCard = profilesHost.querySelector('[data-profile-index="' + state.pendingFocusProfileIndex + '"]');
+        if (targetCard instanceof HTMLDetailsElement) {
+          targetCard.open = true;
+          requestAnimationFrame(() => {
+            targetCard.scrollIntoView({ behavior: "smooth", block: "center" });
+            const firstField = targetCard.querySelector('[data-profile-field="name"]');
+            if (firstField instanceof HTMLInputElement || firstField instanceof HTMLSelectElement) {
+              firstField.focus();
+              if (firstField instanceof HTMLInputElement) {
+                firstField.select();
+              }
+            }
+          });
+        }
+        state.pendingFocusProfileIndex = null;
       }
     }
 
@@ -991,6 +1091,7 @@ function buildExecutionSettingsHtml(model) {
     });
 
     document.querySelector("[data-add-profile]")?.addEventListener("click", () => {
+      const nextIndex = state.modelProfiles.length;
       state.modelProfiles.push({
         name: "",
         provider: "codex",
@@ -1000,6 +1101,11 @@ function buildExecutionSettingsHtml(model) {
         reasoningEffort: "",
         repositoryAccess: "none"
       });
+      if (!Array.isArray(state.expandedProfileIndexes)) {
+        state.expandedProfileIndexes = [];
+      }
+      state.expandedProfileIndexes = state.modelProfiles.map((_, index) => index === nextIndex);
+      state.pendingFocusProfileIndex = nextIndex;
       render();
     });
 
