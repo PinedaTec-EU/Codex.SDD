@@ -13,33 +13,26 @@ export function buildCompletedPhaseSections(args: CompletedPhaseViewArgs): Phase
   }
 
   const locked = args.state.completedUsLockOnCompleted !== false;
-  const hasCompletedPhaseData = args.workflow.events.some((event) => event.phase === "completed")
-    || (args.workflow.phaseIterations?.some((iteration) => iteration.phaseId === "completed") ?? false)
-    || Boolean(args.selectedPhase.artifactPath)
-    || Boolean(args.selectedPhase.operationLogPath);
-
   return {
     beforeArtifact: [
       `
-      <details class="detail-card detail-card--completed-reopen detail-card--collapsible"${hasCompletedPhaseData ? " open" : ""}>
-        <summary class="detail-card__summary">
-          <div class="review-regression__header">
-            <div class="review-regression__copy">
-              <div class="detail-card__summary-title-row">
-                <span class="badge ${locked ? "badge--attention" : "badge--active"}">${locked ? "Completed and locked" : "Completed and unlocked"}</span>
-              </div>
-              <h3>Reopen Completed Workflow</h3>
-              <p class="panel-copy">
-                Choose why this user story must be reopened and describe exactly what failed or what must now be incorporated.
-                SpecForge will route the workflow back to the appropriate phase and record the decision in the audit trail.
-              </p>
+      <section class="detail-card detail-card--completed-reopen">
+        <div class="review-regression__header">
+          <div class="review-regression__copy">
+            <div class="detail-card__summary-title-row">
+              <span class="badge ${locked ? "badge--attention" : "badge--active"}">${locked ? "Completed and locked" : "Completed and unlocked"}</span>
             </div>
-            <div class="review-regression__stat" aria-label="Completed workflow reopen policy">
-              <span class="review-regression__stat-label">Lock policy</span>
-              <strong class="review-regression__stat-value">${locked ? "Locked" : "Open"}</strong>
-            </div>
+            <h3>Reopen Completed Workflow</h3>
+            <p class="panel-copy">
+              Choose why this user story must be reopened and describe exactly what failed or what must now be incorporated.
+              SpecForge will route the workflow back to the appropriate phase and record the decision in the audit trail.
+            </p>
           </div>
-        </summary>
+          <div class="review-regression__stat" aria-label="Completed workflow reopen policy">
+            <span class="review-regression__stat-label">Lock policy</span>
+            <strong class="review-regression__stat-value">${locked ? "Locked" : "Open"}</strong>
+          </div>
+        </div>
         <div class="review-regression">
           <div class="review-regression__body">
             <label class="phase-input-shell" for="completed-reopen-reason">
@@ -69,7 +62,7 @@ export function buildCompletedPhaseSections(args: CompletedPhaseViewArgs): Phase
             </div>
           </div>
         </div>
-      </details>
+      </section>
       `
     ],
     afterArtifact: []
