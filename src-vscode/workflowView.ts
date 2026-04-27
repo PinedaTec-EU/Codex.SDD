@@ -95,27 +95,22 @@ function buildHorizontalPhaseLayout(
   compact = false
 ): PhaseGraphLayout {
   const positions: Record<string, PhasePosition> = {};
-  const lefts = compact
-    ? { capture: 18, refinement: 316, spec: 600, implementation: 430, review: 856, release: 1148, completed: 1450 }
-    : { capture: 42, refinement: 428, spec: 804, implementation: 560, review: 1102, release: 1468, completed: 1832 };
-  const tops = compact
-    ? { top: 26, upperMid: 238, lowerMid: 460, bottom: 686 }
-    : { top: 42, upperMid: 288, lowerMid: 546, bottom: 810 };
+  const scale = compact ? 0.64 : 1;
   const map: Record<string, PhasePosition> = {
-    capture: { left: lefts.capture, top: tops.top },
-    clarification: { left: lefts.refinement, top: tops.top },
-    refinement: { left: lefts.refinement, top: tops.top },
-    "technical-design": { left: lefts.capture - (compact ? 16 : 24), top: tops.lowerMid - (compact ? 8 : 10) },
-    spec: { left: lefts.spec, top: tops.upperMid },
-    implementation: { left: lefts.implementation, top: tops.lowerMid + (compact ? 26 : 24) },
-    review: { left: lefts.review, top: tops.lowerMid + (compact ? 42 : 40) },
-    "release-approval": { left: lefts.release, top: tops.upperMid + (compact ? 20 : 12) },
-    "pr-preparation": { left: lefts.release + (compact ? 6 : 8), top: tops.lowerMid - (compact ? 12 : 4) },
-    completed: { left: lefts.completed, top: tops.lowerMid + (compact ? 62 : 70) }
+    capture: { left: Math.round(150 * scale), top: Math.round(120 * scale) },
+    clarification: { left: Math.round(450 * scale), top: Math.round(120 * scale) },
+    refinement: { left: Math.round(450 * scale), top: Math.round(120 * scale) },
+    spec: { left: Math.round(600 * scale), top: Math.round(260 * scale) },
+    "technical-design": { left: Math.round(200 * scale), top: Math.round(300 * scale) },
+    implementation: { left: Math.round(500 * scale), top: Math.round(400 * scale) },
+    review: { left: Math.round(750 * scale), top: Math.round(400 * scale) },
+    "release-approval": { left: Math.round(950 * scale), top: Math.round(200 * scale) },
+    "pr-preparation": { left: Math.round(950 * scale), top: Math.round(350 * scale) },
+    completed: { left: Math.round(1050 * scale), top: Math.round(500 * scale) }
   };
 
   for (const phase of phases) {
-    positions[phase.phaseId] = map[phase.phaseId] ?? { left: lefts.capture, top: tops.top };
+    positions[phase.phaseId] = map[phase.phaseId] ?? { left: Math.round(150 * scale), top: Math.round(120 * scale) };
   }
 
   return {
@@ -3210,6 +3205,7 @@ export function buildWorkflowHtml(
       background: linear-gradient(180deg, rgba(10, 18, 28, 0.84), rgba(8, 13, 22, 0.92));
       box-shadow: 0 16px 26px rgba(4, 8, 16, 0.22);
       pointer-events: auto;
+      z-index: 6;
     }
     .graph-legend[hidden] {
       display: none;
@@ -5273,6 +5269,7 @@ export function buildWorkflowHtml(
           <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}${playbackState === "playing" || playbackState === "stopping" ? " graph-stage--overlay-blocking" : ""}">
             ${executionOverlay}
             ${phaseGraph}
+            ${renderGraphLegend(workflow.usId)}
           </div>
         </aside>
         <main class="panel detail-panel" data-panel-scroll="detail">
@@ -6619,7 +6616,6 @@ function buildPhaseGraph(
   const mobileHorizontalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, mobileHorizontalLayout.positions, mobilePhaseNodeWidth);
   const mobileVerticalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, mobileVerticalLayout.positions, mobilePhaseNodeWidth);
   const implementationReviewCycleCount = resolveImplementationReviewCycleCount(workflow);
-  const graphLegend = renderGraphLegend(workflow.usId);
   const horizontalLoopBadge = renderGraphLoopBadge(implementationReviewCycleCount, "horizontal");
   const verticalLoopBadge = renderGraphLoopBadge(implementationReviewCycleCount, "vertical");
 
@@ -6707,11 +6703,9 @@ function buildPhaseGraph(
         ${mobileVerticalLinks}
       </svg>
       <div class="graph-adornment graph-adornment--horizontal">
-        ${graphLegend}
         ${horizontalLoopBadge}
       </div>
       <div class="graph-adornment graph-adornment--vertical">
-        ${graphLegend}
         ${verticalLoopBadge}
       </div>
       ${nodes}
