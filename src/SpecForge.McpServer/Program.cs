@@ -371,7 +371,7 @@ static JsonObject BuildToolsList()
                     Props(
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
                         ("usId",          Prop("string", "User story identifier.")),
-                        ("reasonKind",    Prop("string", "Typed reopen reason: merge-conflict, functional-issue, or technical-issue.")),
+                        ("reasonKind",    Prop("string", "Typed reopen reason: merge-conflict, defect, functional-issue, or technical-issue.")),
                         ("description",   Prop("string", "Human explanation for what failed or what must be incorporated now.")),
                         ("actor",         Prop("string", "Actor requesting the reopen. Defaults to 'user'."))))),
 

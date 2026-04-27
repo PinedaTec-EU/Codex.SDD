@@ -4411,6 +4411,7 @@ test("buildWorkflowHtml renders completed phase reopen controls and lock state",
   assert.match(html, /Completed and locked/);
   assert.match(html, /Reopen Completed Workflow/);
   assert.match(html, /data-completed-reopen-reason/);
+  assert.match(html, /<option value="defect">re-open by defect<\/option>/);
   assert.match(html, /id="completed-reopen-description"/);
   assert.match(html, /data-submit-completed-reopen disabled>Open</);
   assert.doesNotMatch(html, /data-phase-rewind-button/);

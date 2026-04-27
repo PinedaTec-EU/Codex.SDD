@@ -31,6 +31,7 @@ function buildCompletedPhaseSections(args) {
               <select id="completed-reopen-reason" class="phase-input-textarea phase-input-select" data-completed-reopen-reason>
                 <option value="">Select a reopen reason</option>
                 <option value="merge-conflict">re-open by merge conflict</option>
+                <option value="defect">re-open by defect</option>
                 <option value="functional-issue">re-open by functional issue</option>
                 <option value="technical-issue">re-open by technical issue</option>
               </select>

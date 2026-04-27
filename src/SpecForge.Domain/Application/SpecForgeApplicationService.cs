@@ -901,10 +901,11 @@ public sealed class SpecForgeApplicationService
         reasonKind.Trim().ToLowerInvariant() switch
         {
             "merge-conflict" => Workflow.PhaseId.Implementation,
+            "defect" => Workflow.PhaseId.Implementation,
             "functional-issue" => Workflow.PhaseId.Refinement,
             "technical-issue" => Workflow.PhaseId.TechnicalDesign,
             _ => throw new WorkflowDomainException(
-                $"Unsupported completed workflow reopen reason '{reasonKind}'. Expected 'merge-conflict', 'functional-issue', or 'technical-issue'.")
+                $"Unsupported completed workflow reopen reason '{reasonKind}'. Expected 'merge-conflict', 'defect', 'functional-issue', or 'technical-issue'.")
         };
 
     private static async Task<ClarificationSession?> ReadClarificationSessionAsync(

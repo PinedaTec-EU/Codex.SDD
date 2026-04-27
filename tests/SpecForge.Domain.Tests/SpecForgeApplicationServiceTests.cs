@@ -382,6 +382,50 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ReopenCompletedWorkflowAsync_Defect_ReturnsWorkflowToImplementation()
+    {
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new PassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager(),
+            new RecordingPullRequestPublisher());
+        var applicationService = new SpecForgeApplicationService();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var result = await applicationService.ReopenCompletedWorkflowAsync(
+            workspaceRoot,
+            "US-0001",
+            "defect",
+            "Production validation found a bug in the delivered behavior.",
+            actor: "alice");
+
+        Assert.Equal("US-0001", result.UsId);
+        Assert.Equal("implementation", result.CurrentPhase);
+        Assert.Equal("active", result.Status);
+
+        var workflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
+        Assert.Equal("implementation", workflow.CurrentPhase);
+        Assert.Equal("active", workflow.Status);
+        Assert.Contains(workflow.Events, timelineEvent =>
+            timelineEvent.Code == "workflow_reopened"
+            && timelineEvent.Actor == "alice"
+            && timelineEvent.Summary is not null
+            && timelineEvent.Summary.Contains("defect", StringComparison.Ordinal)
+            && timelineEvent.Summary.Contains("implementation", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task RewindWorkflowAsync_CompletedWorkflowWithLockEnabled_Throws()
     {
         var runner = new WorkflowRunner(
