@@ -1538,7 +1538,8 @@ export function buildWorkflowHtml(
     modifierClass: "token-summary--wide"
   });
   const selectedPhaseMetrics = `${durationMetric}${touchSummary}${tokenSummary}`;
-  const workflowUsageDashboard = `
+  const showCompletedOnlyUsagePanels = selectedPhase.phaseId === "completed";
+  const workflowUsageDashboard = showCompletedOnlyUsagePanels ? `
     <section class="detail-card detail-card--workflow-dashboard">
       <div class="detail-card__header">
         <div>
@@ -1563,35 +1564,39 @@ export function buildWorkflowHtml(
         ])}
       </div>
     </section>
-  `;
-  const modelUsageTable = renderUsageDashboardTable(
-    "Usage by Model",
-    ["Model", "Runs", "Input", "Output", "Total", "Duration"],
-    workflowUsage.byModel.length > 0
-      ? workflowUsage.byModel.map(({ label, aggregate }) => ([
-        label,
-        String(aggregate.events),
-        formatMetricNumber(aggregate.inputTokens),
-        formatMetricNumber(aggregate.outputTokens),
-        formatMetricNumber(aggregate.totalTokens),
-        aggregate.durationMs > 0 ? formatDuration(aggregate.durationMs) : "n/a"
-      ]))
-      : [["No recorded model usage yet.", "-", "-", "-", "-", "-"]]
-  );
-  const phaseUsageTable = renderUsageDashboardTable(
-    "Usage by Phase",
-    ["Phase", "Runs", "Input", "Output", "Total", "Duration"],
-    workflowUsage.byPhase.length > 0
-      ? workflowUsage.byPhase.map(({ phaseId, aggregate }) => ([
-        phaseId,
-        String(aggregate.events),
-        formatMetricNumber(aggregate.inputTokens),
-        formatMetricNumber(aggregate.outputTokens),
-        formatMetricNumber(aggregate.totalTokens),
-        aggregate.durationMs > 0 ? formatDuration(aggregate.durationMs) : "n/a"
-      ]))
-      : [["No recorded phase usage yet.", "-", "-", "-", "-", "-"]]
-  );
+  ` : "";
+  const modelUsageTable = showCompletedOnlyUsagePanels
+    ? renderUsageDashboardTable(
+      "Usage by Model",
+      ["Model", "Runs", "Input", "Output", "Total", "Duration"],
+      workflowUsage.byModel.length > 0
+        ? workflowUsage.byModel.map(({ label, aggregate }) => ([
+          label,
+          String(aggregate.events),
+          formatMetricNumber(aggregate.inputTokens),
+          formatMetricNumber(aggregate.outputTokens),
+          formatMetricNumber(aggregate.totalTokens),
+          aggregate.durationMs > 0 ? formatDuration(aggregate.durationMs) : "n/a"
+        ]))
+        : [["No recorded model usage yet.", "-", "-", "-", "-", "-"]]
+    )
+    : "";
+  const phaseUsageTable = showCompletedOnlyUsagePanels
+    ? renderUsageDashboardTable(
+      "Usage by Phase",
+      ["Phase", "Runs", "Input", "Output", "Total", "Duration"],
+      workflowUsage.byPhase.length > 0
+        ? workflowUsage.byPhase.map(({ phaseId, aggregate }) => ([
+          phaseId,
+          String(aggregate.events),
+          formatMetricNumber(aggregate.inputTokens),
+          formatMetricNumber(aggregate.outputTokens),
+          formatMetricNumber(aggregate.totalTokens),
+          aggregate.durationMs > 0 ? formatDuration(aggregate.durationMs) : "n/a"
+        ]))
+        : [["No recorded phase usage yet.", "-", "-", "-", "-", "-"]]
+    )
+    : "";
   const latestIteration = phaseIterations[0] ?? null;
   const visibleIterations = isIterationRailExpanded
     ? phaseIterations
@@ -3073,6 +3078,28 @@ export function buildWorkflowHtml(
       min-width: 0;
       overflow: hidden;
     }
+    .detail-card--collapsible {
+      padding: 0;
+    }
+    .detail-card__summary {
+      display: block;
+      list-style: none;
+      cursor: pointer;
+      padding: 18px;
+    }
+    .detail-card__summary::-webkit-details-marker {
+      display: none;
+    }
+    .detail-card__summary::marker {
+      content: "";
+    }
+    .detail-card__summary:focus-visible {
+      outline: none;
+      box-shadow: inset 0 0 0 2px rgba(92, 181, 255, 0.22);
+    }
+    .detail-card--collapsible .review-regression {
+      padding: 0 18px 18px;
+    }
     .detail-card--phase-overview {
       position: relative;
       z-index: 1;
@@ -4418,11 +4445,11 @@ export function buildWorkflowHtml(
           </div>
         </div>
         <div class="control-strip">
-          ${debugResetButton}
-          ${playbackButtons}
           ${pullRequestUrl
             ? `<button class="workflow-action-button workflow-action-button--document workflow-action-button--icon" type="button" data-command="openExternalUrl" data-url="${escapeHtmlAttribute(pullRequestUrl)}">${externalLinkIcon()}<span>${escapeHtml(pullRequestLabel)}</span></button>`
             : ""}
+          ${debugResetButton}
+          ${playbackButtons}
           <button class="icon-button icon-button--document" type="button" data-open-workflow-files aria-label="Open workflow files">
             ${fileIcon()}
           </button>
@@ -4579,6 +4606,7 @@ export function buildWorkflowHtml(
           phaseId: element.dataset.phaseId,
           iterationKey: element.dataset.iterationKey,
           path: element.dataset.path,
+          url: element.dataset.url,
           kind: element.dataset.kind
         });
       } catch {
