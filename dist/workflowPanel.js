@@ -280,7 +280,7 @@ class WorkflowPanelController {
                 await this.rejectCurrentApprovalAsync(message.reason);
                 return;
             case "rewind":
-                await this.rewindWorkflowAsync(message.phaseId);
+                await this.rewindWorkflowAsync(message.phaseId, message.iterationKey);
                 return;
             case "submitClarificationAnswers":
                 await this.submitClarificationAnswersAsync(message.answers ?? []);
@@ -786,11 +786,11 @@ class WorkflowPanelController {
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("restartCurrentWorkflowAsync");
     }
-    async rewindWorkflowAsync(requestedTargetPhaseId) {
+    async rewindWorkflowAsync(requestedTargetPhaseId, requestedIterationKey) {
         const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
         this.lastWorkflow = workflow;
         const displayedCurrentPhaseId = this.pendingRewindPhaseId ?? workflow.currentPhase;
-        const decision = (0, workflowRewind_1.resolveTimelineRewindDecision)(workflow, displayedCurrentPhaseId, requestedTargetPhaseId);
+        const decision = (0, workflowRewind_1.resolveTimelineRewindDecision)(workflow, displayedCurrentPhaseId, requestedTargetPhaseId, requestedIterationKey);
         if (!decision.allowed || !decision.targetPhaseId) {
             if (decision.reasonMessage) {
                 void vscode.window.showWarningMessage(decision.reasonMessage);
@@ -802,7 +802,10 @@ class WorkflowPanelController {
         const targetPhase = decision.targetPhaseId;
         this.pendingRewindPhaseId = targetPhase;
         this.selectedPhaseId = targetPhase;
-        this.selectedIterationKey = null;
+        this.selectedIterationKey = requestedIterationKey?.trim() || null;
+        if (this.selectedIterationKey) {
+            this.expandedIterationPhaseIds.add(targetPhase);
+        }
         this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
         this.clearTransientExecutionPhase();
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' moved the local rewind pointer to '${targetPhase}'. The timeline will only be updated when the next state-changing action is executed.`);

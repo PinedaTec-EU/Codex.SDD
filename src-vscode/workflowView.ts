@@ -185,6 +185,24 @@ function formatUtcTimestamp(value: string | null | undefined): string {
   return parsed.toISOString().replace(".000Z", "Z");
 }
 
+function formatTimelinePointTime(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+function shortTimelineLabel(title: string): string {
+  return title
+    .split(/[\s-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "?";
+}
+
 function sumTokenUsage(usages: readonly { inputTokens: number; outputTokens: number; totalTokens: number }[]): { inputTokens: number; outputTokens: number; totalTokens: number } {
   return usages.reduce((aggregate, usage) => ({
     inputTokens: aggregate.inputTokens + usage.inputTokens,
@@ -1462,22 +1480,32 @@ export function buildWorkflowHtml(
   const heroRewindTargetPhaseId = rewindDecision.targetPhaseId;
   const heroRewindDisabled = !rewindDecision.allowed || playbackState !== "idle";
   const timelineRewindPoints = buildTimelineRewindPoints(workflow, displayedCurrentPhaseId);
-  const timelineRewindRail = timelineRewindPoints.length > 1
+  const timelineRewindDock = timelineRewindPoints.length > 1
     ? `
-      <div class="time-nav" aria-label="Workflow timeline navigation">
-        ${timelineRewindPoints.map((point) => `
-          <button
-            class="time-nav__point${point.isCurrent ? " time-nav__point--current" : ""}${point.canSelect ? "" : " time-nav__point--disabled"}"
-            type="button"
-            data-command="rewind"
-            data-phase-id="${escapeHtmlAttribute(point.phaseId)}"
-            title="${escapeHtmlAttribute(point.reasonMessage ?? point.title)}"
-            aria-label="${escapeHtmlAttribute(point.canSelect ? `Move rewind pointer to ${point.title}` : point.reasonMessage ?? `Cannot rewind to ${point.title}`)}"
-            ${point.canSelect ? "" : "disabled"}>
-            <span class="time-nav__dot" aria-hidden="true"></span>
-            <span class="time-nav__label">${escapeHtml(point.title)}</span>
-          </button>
-        `).join("")}
+      <div class="time-dock" aria-label="Workflow time navigation">
+        <button class="time-dock__scroll" type="button" data-time-dock-scroll="left" aria-label="Move timeline left">&lt;</button>
+        <div class="time-dock__viewport" data-time-dock-viewport>
+          <div class="time-dock__track">
+            ${timelineRewindPoints.map((point, index) => `
+              <button
+                class="time-dock__point${point.isCurrent ? " time-dock__point--current" : ""}${point.canSelect ? "" : " time-dock__point--disabled"}"
+                type="button"
+                data-command="rewind"
+                data-phase-id="${escapeHtmlAttribute(point.phaseId)}"
+                data-iteration-key="${escapeHtmlAttribute(point.iterationKey ?? "")}"
+                data-time-dock-point
+                data-time-dock-index="${index}"
+                title="${escapeHtmlAttribute(point.reasonMessage ?? point.label)}"
+                aria-label="${escapeHtmlAttribute(point.canSelect ? `Move workflow view to ${point.label}` : point.reasonMessage ?? `Cannot move to ${point.label}`)}"
+                ${point.canSelect ? "" : "disabled"}>
+                <span class="time-dock__orb" aria-hidden="true">${escapeHtml(shortTimelineLabel(point.title))}</span>
+                <span class="time-dock__label">${escapeHtml(point.label)}</span>
+                ${point.timestampUtc ? `<span class="time-dock__time">${escapeHtml(formatTimelinePointTime(point.timestampUtc))}</span>` : ""}
+              </button>
+            `).join("")}
+          </div>
+        </div>
+        <button class="time-dock__scroll" type="button" data-time-dock-scroll="right" aria-label="Move timeline right">&gt;</button>
       </div>
     `
     : "";
@@ -1950,7 +1978,7 @@ export function buildWorkflowHtml(
     }
     .shell {
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr) auto;
       height: 100vh;
       padding: 18px;
       gap: 18px;
@@ -2374,55 +2402,6 @@ export function buildWorkflowHtml(
       justify-content: flex-end;
       max-width: 540px;
     }
-    .time-nav {
-      position: relative;
-      z-index: 1;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
-      gap: 8px;
-      margin-top: 18px;
-      padding: 10px;
-      border-radius: 14px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(255, 255, 255, 0.035);
-    }
-    .time-nav__point {
-      position: relative;
-      display: grid;
-      grid-template-columns: 12px minmax(0, 1fr);
-      align-items: center;
-      gap: 8px;
-      min-height: 34px;
-      padding: 6px 8px;
-      border-radius: 10px;
-      border: 1px solid rgba(114, 241, 184, 0.16);
-      background: rgba(10, 18, 24, 0.72);
-      color: rgba(236, 255, 245, 0.9);
-      cursor: pointer;
-    }
-    .time-nav__point--current {
-      border-color: rgba(255, 213, 90, 0.42);
-      background: rgba(255, 213, 90, 0.12);
-      color: #fff3bf;
-    }
-    .time-nav__point--disabled {
-      cursor: not-allowed;
-      opacity: 0.48;
-    }
-    .time-nav__dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      background: currentColor;
-      opacity: 0.92;
-    }
-    .time-nav__label {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 0.8rem;
-      font-weight: 700;
-    }
     .rewind-warning {
       margin-top: 12px;
     }
@@ -2584,6 +2563,121 @@ export function buildWorkflowHtml(
     .layout-main > * {
       min-height: 0;
       height: 100%;
+    }
+    .time-dock {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) 42px;
+      align-items: end;
+      gap: 10px;
+      min-height: 118px;
+      padding: 12px 14px 14px;
+      border: 1px solid rgba(114, 241, 184, 0.18);
+      border-radius: 26px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(114, 241, 184, 0.14), transparent 34%),
+        linear-gradient(180deg, rgba(12, 20, 26, 0.84), rgba(5, 10, 16, 0.94));
+      box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(18px);
+    }
+    .time-dock__viewport {
+      overflow-x: auto;
+      overflow-y: visible;
+      padding: 20px 12px 8px;
+      scrollbar-width: thin;
+      overscroll-behavior-x: contain;
+    }
+    .time-dock__track {
+      display: flex;
+      align-items: end;
+      gap: 12px;
+      min-width: max-content;
+      min-height: 76px;
+    }
+    .time-dock__point {
+      width: 72px;
+      min-height: 70px;
+      display: grid;
+      justify-items: center;
+      align-content: end;
+      gap: 4px;
+      padding: 0 4px 4px;
+      border: 0;
+      background: transparent;
+      color: rgba(226, 244, 239, 0.86);
+      cursor: pointer;
+      transform-origin: bottom center;
+      transition: transform 150ms ease, width 150ms ease, opacity 150ms ease, color 150ms ease;
+    }
+    .time-dock__point:hover {
+      width: 118px;
+      transform: translateY(-12px) scale(1.28);
+      color: #f2fff8;
+      z-index: 3;
+    }
+    .time-dock__point:has(+ .time-dock__point:hover),
+    .time-dock__point:hover + .time-dock__point {
+      transform: translateY(-6px) scale(1.12);
+      color: rgba(238, 255, 248, 0.96);
+    }
+    .time-dock__point--current {
+      color: #ffe08a;
+    }
+    .time-dock__point--disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+    .time-dock__orb {
+      width: 46px;
+      height: 46px;
+      display: grid;
+      place-items: center;
+      border-radius: 15px;
+      border: 1px solid rgba(114, 241, 184, 0.22);
+      background:
+        linear-gradient(180deg, rgba(114, 241, 184, 0.18), rgba(12, 31, 30, 0.94)),
+        rgba(8, 16, 22, 0.92);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+      font-size: 0.76rem;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+    }
+    .time-dock__point--current .time-dock__orb {
+      border-color: rgba(255, 213, 90, 0.52);
+      background: linear-gradient(180deg, rgba(255, 213, 90, 0.24), rgba(55, 42, 14, 0.96));
+      box-shadow: 0 12px 30px rgba(255, 213, 90, 0.14);
+    }
+    .time-dock__label,
+    .time-dock__time {
+      max-width: 112px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: center;
+      line-height: 1.1;
+    }
+    .time-dock__label {
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+    .time-dock__time {
+      font-size: 0.66rem;
+      opacity: 0.62;
+    }
+    .time-dock__scroll {
+      width: 42px;
+      height: 42px;
+      margin-bottom: 22px;
+      border-radius: 999px;
+      border: 1px solid rgba(114, 241, 184, 0.2);
+      background: rgba(9, 18, 24, 0.92);
+      color: rgba(236, 255, 245, 0.9);
+      font-size: 1rem;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .time-dock__scroll:hover {
+      border-color: rgba(114, 241, 184, 0.36);
+      background: rgba(18, 38, 40, 0.98);
     }
     .graph-panel {
       padding: 22px;
@@ -4645,7 +4739,6 @@ export function buildWorkflowHtml(
           </button>
         </div>
       </div>
-      ${timelineRewindRail}
       ${rewindBlockOverlay}
       ${implementationReviewLimitBanner}
     </section>
@@ -4686,6 +4779,7 @@ export function buildWorkflowHtml(
         </div>
       </section>
     </div>
+    ${timelineRewindDock}
   </div>
   <script>
     const vscode = acquireVsCodeApi();
@@ -4770,6 +4864,34 @@ export function buildWorkflowHtml(
         // Do not let view-state persistence break workflow interaction.
       }
     };
+    const timeDockViewport = document.querySelector("[data-time-dock-viewport]");
+    const centerCurrentTimeDockPoint = () => {
+      if (!(timeDockViewport instanceof HTMLElement)) {
+        return;
+      }
+
+      const activePoint = timeDockViewport.querySelector(".time-dock__point--current");
+      if (!(activePoint instanceof HTMLElement)) {
+        return;
+      }
+
+      const targetLeft = activePoint.offsetLeft - ((timeDockViewport.clientWidth - activePoint.offsetWidth) / 2);
+      timeDockViewport.scrollLeft = Math.max(0, targetLeft);
+    };
+    window.requestAnimationFrame(() => centerCurrentTimeDockPoint());
+    document.querySelectorAll("[data-time-dock-scroll]").forEach((element) => {
+      element.addEventListener("click", () => {
+        if (!(timeDockViewport instanceof HTMLElement) || !(element instanceof HTMLElement)) {
+          return;
+        }
+
+        const direction = element.dataset.timeDockScroll === "left" ? -1 : 1;
+        timeDockViewport.scrollBy({
+          left: direction * Math.max(220, Math.floor(timeDockViewport.clientWidth * 0.72)),
+          behavior: "smooth"
+        });
+      });
+    });
     const postCommand = (element) => {
       try {
         persistWorkflowScrollState();

@@ -175,3 +175,51 @@ test("resolveTimelineRewindDecision blocks ambiguous implementation review histo
   assert.match(decision.reasonMessage ?? "", /multiple iterations/);
   assert.equal(points.some((point) => point.phaseId === "implementation" && !point.canSelect), true);
 });
+
+test("buildTimelineRewindPoints carries iteration identity for repeated temporal positions", () => {
+  const workflow = {
+    usId: "US-0104",
+    title: "Workflow",
+    category: "workflow",
+    status: "active",
+    currentPhase: "release-approval",
+    directoryPath: "/tmp/us",
+    workBranch: "feature/us-0104",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "",
+    phases: [
+      { phaseId: "release-approval", title: "Release Approval", order: 6, requiresApproval: true, expectsHumanIntervention: true, isApproved: false, isCurrent: true, state: "current", artifactPath: "/tmp/release.md", operationLogPath: null, executePromptPath: null, approvePromptPath: null }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: true,
+      regressionTargets: [],
+      rewindTargets: ["release-approval"]
+    },
+    clarification: null,
+    events: [
+      { timestampUtc: "2026-04-27T08:00:00Z", code: "phase_completed", actor: "system", phase: "release-approval", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
+      { timestampUtc: "2026-04-27T08:10:00Z", code: "phase_completed", actor: "system", phase: "pr-preparation", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
+      { timestampUtc: "2026-04-27T08:20:00Z", code: "phase_completed", actor: "system", phase: "release-approval", summary: null, artifacts: [], usage: null, durationMs: null, execution: null }
+    ],
+    phaseIterations: [
+      { iterationKey: "release:1", attempt: 1, phaseId: "release-approval", timestampUtc: "2026-04-27T08:00:00Z", code: "phase_completed", actor: "system", summary: null, inputArtifactPath: null, contextArtifactPaths: [], outputArtifactPath: "/tmp/release1.md", operationLogPath: null, operationPrompt: null, usage: null, durationMs: null, execution: null },
+      { iterationKey: "release:2", attempt: 2, phaseId: "release-approval", timestampUtc: "2026-04-27T08:20:00Z", code: "phase_completed", actor: "system", summary: null, inputArtifactPath: null, contextArtifactPaths: [], outputArtifactPath: "/tmp/release2.md", operationLogPath: null, operationPrompt: null, usage: null, durationMs: null, execution: null }
+    ],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  };
+
+  const points = buildTimelineRewindPoints(workflow, "release-approval");
+  const firstReleasePoint = points.find((point) => point.iterationKey === "release:1");
+  const secondReleasePoint = points.find((point) => point.iterationKey === "release:2");
+
+  assert.equal(firstReleasePoint?.canSelect, true);
+  assert.equal(firstReleasePoint?.label, "Release Approval");
+  assert.equal(secondReleasePoint?.isCurrent, true);
+  assert.equal(secondReleasePoint?.label, "Release Approval #2");
+});

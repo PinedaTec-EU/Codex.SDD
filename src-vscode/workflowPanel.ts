@@ -46,7 +46,7 @@ type WorkflowPanelCommand =
   | { readonly command: "debugResetToCapture" }
   | { readonly command: "reject"; readonly reason?: string }
   | { readonly command: "regress"; readonly phaseId?: string }
-  | { readonly command: "rewind"; readonly phaseId?: string }
+  | { readonly command: "rewind"; readonly phaseId?: string; readonly iterationKey?: string }
   | { readonly command: "submitClarificationAnswers"; readonly answers?: string[] }
   | { readonly command: "submitApprovalAnswer"; readonly question?: string; readonly answer?: string }
   | { readonly command: "submitPhaseInput"; readonly prompt?: string }
@@ -331,7 +331,7 @@ class WorkflowPanelController {
         await this.rejectCurrentApprovalAsync(message.reason);
         return;
       case "rewind":
-        await this.rewindWorkflowAsync(message.phaseId);
+        await this.rewindWorkflowAsync(message.phaseId, message.iterationKey);
         return;
       case "submitClarificationAnswers":
         await this.submitClarificationAnswersAsync(message.answers ?? []);
@@ -996,11 +996,11 @@ class WorkflowPanelController {
     await this.refreshAsync("restartCurrentWorkflowAsync");
   }
 
-  private async rewindWorkflowAsync(requestedTargetPhaseId?: string): Promise<void> {
+  private async rewindWorkflowAsync(requestedTargetPhaseId?: string, requestedIterationKey?: string): Promise<void> {
     const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
     this.lastWorkflow = workflow;
     const displayedCurrentPhaseId = this.pendingRewindPhaseId ?? workflow.currentPhase;
-    const decision = resolveTimelineRewindDecision(workflow, displayedCurrentPhaseId, requestedTargetPhaseId);
+    const decision = resolveTimelineRewindDecision(workflow, displayedCurrentPhaseId, requestedTargetPhaseId, requestedIterationKey);
     if (!decision.allowed || !decision.targetPhaseId) {
       if (decision.reasonMessage) {
         void vscode.window.showWarningMessage(decision.reasonMessage);
@@ -1016,7 +1016,10 @@ class WorkflowPanelController {
     const targetPhase = decision.targetPhaseId;
     this.pendingRewindPhaseId = targetPhase;
     this.selectedPhaseId = targetPhase;
-    this.selectedIterationKey = null;
+    this.selectedIterationKey = requestedIterationKey?.trim() || null;
+    if (this.selectedIterationKey) {
+      this.expandedIterationPhaseIds.add(targetPhase);
+    }
     this.playbackState = normalizePlaybackStateAfterManualWorkflowChange(this.playbackState);
     this.clearTransientExecutionPhase();
     appendSpecForgeLog(

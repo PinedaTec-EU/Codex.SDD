@@ -896,7 +896,9 @@ test("buildWorkflowHtml shows a single hero rewind control and keeps per-phase p
   }, "idle");
 
   assert.match(html, /data-hero-rewind-button/);
-  assert.match(html, /class="time-nav"/);
+  assert.match(html, /class="time-dock"/);
+  assert.match(html, /data-time-dock-scroll="left"/);
+  assert.match(html, /data-time-dock-scroll="right"/);
   assert.match(html, /data-command="rewind"[\s\S]*data-phase-id="refinement"/);
   assert.match(html, /data-phase-id="implementation"[\s\S]*data-phase-pause-button/);
   assert.doesNotMatch(html, /data-phase-rewind-button/);
@@ -4731,7 +4733,7 @@ test("buildWorkflowHtml keeps the hero header above a dedicated scrolling body",
   }, "idle");
 
   assert.match(html, /body \{[\s\S]*height: 100vh;[\s\S]*overflow: hidden;/);
-  assert.match(html, /\.shell \{[\s\S]*grid-template-rows: auto minmax\(0, 1fr\);[\s\S]*overflow: hidden;/);
+  assert.match(html, /\.shell \{[\s\S]*grid-template-rows: auto minmax\(0, 1fr\) auto;[\s\S]*overflow: hidden;/);
   assert.match(html, /\.shell-body \{[\s\S]*overflow: hidden;/);
   assert.match(html, /<div class="shell-body">[\s\S]*<section class="layout">[\s\S]*<div class="layout-main">/);
   assert.match(html, /\.layout-main > \* \{[\s\S]*height: 100%;/);

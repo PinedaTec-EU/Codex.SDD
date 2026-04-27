@@ -1,4 +1,4 @@
-import type { TimelineEventDetails, UserStoryWorkflowDetails } from "./backendClient";
+import type { PhaseIterationDetails, TimelineEventDetails, UserStoryWorkflowDetails } from "./backendClient";
 
 const ignoredTimelineRewindCodes = new Set(["workflow_rewound"]);
 const implementationReviewPhases = new Set(["technical-design", "implementation", "review"]);
@@ -12,8 +12,11 @@ export type TimelineRewindBlockReason =
 export interface TimelineRewindPoint {
   readonly phaseId: string;
   readonly title: string;
+  readonly label: string;
   readonly timestampUtc: string | null;
   readonly code: string | null;
+  readonly iterationKey: string | null;
+  readonly attempt: number | null;
   readonly isCurrent: boolean;
   readonly canSelect: boolean;
   readonly reasonCode: TimelineRewindBlockReason;
@@ -31,6 +34,8 @@ interface TimelinePhaseEntry {
   readonly phaseId: string;
   readonly timestampUtc: string | null;
   readonly code: string | null;
+  readonly iterationKey: string | null;
+  readonly attempt: number | null;
 }
 
 export function buildTimelineRewindPhaseHistory(workflow: UserStoryWorkflowDetails): readonly string[] {
@@ -45,14 +50,17 @@ export function buildTimelineRewindPoints(
   const entries = buildTimelineRewindEntries(workflow);
 
   return entries.map((entry, index) => {
-    const decision = resolveTimelineRewindDecision(workflow, currentPhaseId, entry.phaseId);
+    const decision = resolveTimelineRewindDecision(workflow, currentPhaseId, entry.phaseId, entry.iterationKey);
     const isCurrent = entry.phaseId === currentPhaseId && index === findLatestEntryIndex(entries, currentPhaseId);
 
     return {
       phaseId: entry.phaseId,
       title: titleForPhase(workflow, entry.phaseId),
+      label: entry.attempt && entry.attempt > 1 ? `${titleForPhase(workflow, entry.phaseId)} #${entry.attempt}` : titleForPhase(workflow, entry.phaseId),
       timestampUtc: entry.timestampUtc,
       code: entry.code,
+      iterationKey: entry.iterationKey,
+      attempt: entry.attempt,
       isCurrent,
       canSelect: !isCurrent && decision.allowed,
       reasonCode: isCurrent ? "no-history" : decision.reasonCode,
@@ -71,16 +79,19 @@ export function resolveTimelineRewindTargetPhase(
 export function resolveTimelineRewindDecision(
   workflow: UserStoryWorkflowDetails,
   displayedCurrentPhaseId: string | null | undefined,
-  requestedTargetPhaseId?: string | null
+  requestedTargetPhaseId?: string | null,
+  requestedIterationKey?: string | null
 ): TimelineRewindDecision {
-  const history = buildTimelineRewindPhaseHistory(workflow);
+  const entries = buildTimelineRewindEntries(workflow);
+  const history = entries.map((entry) => entry.phaseId);
   const currentPhaseId = normalizePhaseId(displayedCurrentPhaseId) || workflow.currentPhase;
   const currentIndex = history.lastIndexOf(currentPhaseId);
   const requestedTarget = normalizePhaseId(requestedTargetPhaseId);
+  const requestedIteration = normalizePhaseId(requestedIterationKey);
   const targetIndex = requestedTarget
-    ? findLatestIndexBefore(history, requestedTarget, currentIndex)
+    ? findLatestEntryIndexBefore(entries, requestedTarget, requestedIteration, currentIndex)
     : currentIndex - 1;
-  const targetPhaseId = targetIndex >= 0 ? history[targetIndex] : null;
+  const targetPhaseId = targetIndex >= 0 ? entries[targetIndex]?.phaseId ?? null : null;
 
   if (isLatestReopenLandingPhase(workflow, currentPhaseId)) {
     return blocked(
@@ -110,6 +121,7 @@ export function resolveTimelineRewindDecision(
 
 function buildTimelineRewindEntries(workflow: UserStoryWorkflowDetails): readonly TimelinePhaseEntry[] {
   const history: TimelinePhaseEntry[] = [];
+  const iterations = workflow.phaseIterations ?? [];
 
   const pushPhase = (phaseId: string | null | undefined, event?: TimelineEventDetails): void => {
     const normalizedPhaseId = normalizePhaseId(phaseId);
@@ -121,10 +133,16 @@ function buildTimelineRewindEntries(workflow: UserStoryWorkflowDetails): readonl
       return;
     }
 
+    const iteration = event
+      ? findIterationForEvent(iterations, normalizedPhaseId, event)
+      : findLatestIterationForPhase(iterations, normalizedPhaseId);
+
     history.push({
       phaseId: normalizedPhaseId,
       timestampUtc: event?.timestampUtc ?? null,
-      code: event?.code ?? null
+      code: event?.code ?? null,
+      iterationKey: iteration?.iterationKey ?? null,
+      attempt: iteration?.attempt ?? null
     });
   };
 
@@ -144,13 +162,27 @@ function buildTimelineRewindEntries(workflow: UserStoryWorkflowDetails): readonl
   return history;
 }
 
-function findLatestIndexBefore(history: readonly string[], targetPhaseId: string, currentIndex: number): number {
+function findLatestEntryIndexBefore(
+  entries: readonly TimelinePhaseEntry[],
+  targetPhaseId: string,
+  targetIterationKey: string,
+  currentIndex: number
+): number {
   if (currentIndex <= 0) {
     return -1;
   }
 
   for (let index = currentIndex - 1; index >= 0; index--) {
-    if (history[index] === targetPhaseId) {
+    const entry = entries[index];
+    if (entry.phaseId !== targetPhaseId) {
+      continue;
+    }
+
+    if (targetIterationKey && entry.iterationKey !== targetIterationKey) {
+      continue;
+    }
+
+    if (!targetIterationKey || entry.iterationKey === targetIterationKey) {
       return index;
     }
   }
@@ -197,4 +229,24 @@ function normalizePhaseId(phaseId: string | null | undefined): string {
 
 function titleForPhase(workflow: UserStoryWorkflowDetails, phaseId: string): string {
   return workflow.phases.find((phase) => phase.phaseId === phaseId)?.title ?? phaseId;
+}
+
+function findIterationForEvent(
+  iterations: readonly PhaseIterationDetails[],
+  phaseId: string,
+  event: TimelineEventDetails
+): PhaseIterationDetails | null {
+  return iterations.find((iteration) =>
+    iteration.phaseId === phaseId &&
+    iteration.timestampUtc === event.timestampUtc &&
+    iteration.code === event.code) ?? null;
+}
+
+function findLatestIterationForPhase(
+  iterations: readonly PhaseIterationDetails[],
+  phaseId: string
+): PhaseIterationDetails | null {
+  return iterations
+    .filter((iteration) => iteration.phaseId === phaseId)
+    .sort((left, right) => right.attempt - left.attempt)[0] ?? null;
 }

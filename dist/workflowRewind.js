@@ -13,13 +13,16 @@ function buildTimelineRewindPoints(workflow, displayedCurrentPhaseId) {
     const currentPhaseId = normalizePhaseId(displayedCurrentPhaseId) || workflow.currentPhase;
     const entries = buildTimelineRewindEntries(workflow);
     return entries.map((entry, index) => {
-        const decision = resolveTimelineRewindDecision(workflow, currentPhaseId, entry.phaseId);
+        const decision = resolveTimelineRewindDecision(workflow, currentPhaseId, entry.phaseId, entry.iterationKey);
         const isCurrent = entry.phaseId === currentPhaseId && index === findLatestEntryIndex(entries, currentPhaseId);
         return {
             phaseId: entry.phaseId,
             title: titleForPhase(workflow, entry.phaseId),
+            label: entry.attempt && entry.attempt > 1 ? `${titleForPhase(workflow, entry.phaseId)} #${entry.attempt}` : titleForPhase(workflow, entry.phaseId),
             timestampUtc: entry.timestampUtc,
             code: entry.code,
+            iterationKey: entry.iterationKey,
+            attempt: entry.attempt,
             isCurrent,
             canSelect: !isCurrent && decision.allowed,
             reasonCode: isCurrent ? "no-history" : decision.reasonCode,
@@ -30,15 +33,17 @@ function buildTimelineRewindPoints(workflow, displayedCurrentPhaseId) {
 function resolveTimelineRewindTargetPhase(workflow, displayedCurrentPhaseId) {
     return resolveTimelineRewindDecision(workflow, displayedCurrentPhaseId).targetPhaseId;
 }
-function resolveTimelineRewindDecision(workflow, displayedCurrentPhaseId, requestedTargetPhaseId) {
-    const history = buildTimelineRewindPhaseHistory(workflow);
+function resolveTimelineRewindDecision(workflow, displayedCurrentPhaseId, requestedTargetPhaseId, requestedIterationKey) {
+    const entries = buildTimelineRewindEntries(workflow);
+    const history = entries.map((entry) => entry.phaseId);
     const currentPhaseId = normalizePhaseId(displayedCurrentPhaseId) || workflow.currentPhase;
     const currentIndex = history.lastIndexOf(currentPhaseId);
     const requestedTarget = normalizePhaseId(requestedTargetPhaseId);
+    const requestedIteration = normalizePhaseId(requestedIterationKey);
     const targetIndex = requestedTarget
-        ? findLatestIndexBefore(history, requestedTarget, currentIndex)
+        ? findLatestEntryIndexBefore(entries, requestedTarget, requestedIteration, currentIndex)
         : currentIndex - 1;
-    const targetPhaseId = targetIndex >= 0 ? history[targetIndex] : null;
+    const targetPhaseId = targetIndex >= 0 ? entries[targetIndex]?.phaseId ?? null : null;
     if (isLatestReopenLandingPhase(workflow, currentPhaseId)) {
         return blocked("reopened-landing", "Rewind unavailable: this workflow was reopened from a completed state and this is the recovery landing phase.", targetPhaseId);
     }
@@ -57,6 +62,7 @@ function resolveTimelineRewindDecision(workflow, displayedCurrentPhaseId, reques
 }
 function buildTimelineRewindEntries(workflow) {
     const history = [];
+    const iterations = workflow.phaseIterations ?? [];
     const pushPhase = (phaseId, event) => {
         const normalizedPhaseId = normalizePhaseId(phaseId);
         if (!normalizedPhaseId || normalizedPhaseId === "completed") {
@@ -65,10 +71,15 @@ function buildTimelineRewindEntries(workflow) {
         if (history[history.length - 1]?.phaseId === normalizedPhaseId) {
             return;
         }
+        const iteration = event
+            ? findIterationForEvent(iterations, normalizedPhaseId, event)
+            : findLatestIterationForPhase(iterations, normalizedPhaseId);
         history.push({
             phaseId: normalizedPhaseId,
             timestampUtc: event?.timestampUtc ?? null,
-            code: event?.code ?? null
+            code: event?.code ?? null,
+            iterationKey: iteration?.iterationKey ?? null,
+            attempt: iteration?.attempt ?? null
         });
     };
     if (workflow.currentPhase !== "capture" && workflow.controls.canRestartFromSource) {
@@ -83,12 +94,19 @@ function buildTimelineRewindEntries(workflow) {
     pushPhase(workflow.currentPhase);
     return history;
 }
-function findLatestIndexBefore(history, targetPhaseId, currentIndex) {
+function findLatestEntryIndexBefore(entries, targetPhaseId, targetIterationKey, currentIndex) {
     if (currentIndex <= 0) {
         return -1;
     }
     for (let index = currentIndex - 1; index >= 0; index--) {
-        if (history[index] === targetPhaseId) {
+        const entry = entries[index];
+        if (entry.phaseId !== targetPhaseId) {
+            continue;
+        }
+        if (targetIterationKey && entry.iterationKey !== targetIterationKey) {
+            continue;
+        }
+        if (!targetIterationKey || entry.iterationKey === targetIterationKey) {
             return index;
         }
     }
@@ -122,5 +140,15 @@ function normalizePhaseId(phaseId) {
 }
 function titleForPhase(workflow, phaseId) {
     return workflow.phases.find((phase) => phase.phaseId === phaseId)?.title ?? phaseId;
+}
+function findIterationForEvent(iterations, phaseId, event) {
+    return iterations.find((iteration) => iteration.phaseId === phaseId &&
+        iteration.timestampUtc === event.timestampUtc &&
+        iteration.code === event.code) ?? null;
+}
+function findLatestIterationForPhase(iterations, phaseId) {
+    return iterations
+        .filter((iteration) => iteration.phaseId === phaseId)
+        .sort((left, right) => right.attempt - left.attempt)[0] ?? null;
 }
 //# sourceMappingURL=workflowRewind.js.map
