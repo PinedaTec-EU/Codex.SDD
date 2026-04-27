@@ -12,9 +12,9 @@ var serverVersion = typeof(Program).Assembly
 
 var captureTolerance = Environment.GetEnvironmentVariable("SPECFORGE_CAPTURE_TOLERANCE")?.Trim().ToLowerInvariant();
 captureTolerance = captureTolerance is "strict" or "balanced" or "inferential" ? captureTolerance : "balanced";
-var completedUsLockOnCompleted = !string.Equals(
+var completedUsLockOnCompleted = string.Equals(
     Environment.GetEnvironmentVariable("SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED")?.Trim(),
-    "false",
+    "true",
     StringComparison.OrdinalIgnoreCase);
 
 var phaseExecutionProvider = PhaseExecutionProviderFactory.Create();

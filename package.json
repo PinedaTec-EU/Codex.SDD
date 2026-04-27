@@ -328,7 +328,7 @@
         },
         "specForge.features.completedUsLockOnCompleted": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "When enabled, completed user stories stay locked against direct rewind or artifact modification. Explicit reopen from the completed phase remains available."
         }
       }

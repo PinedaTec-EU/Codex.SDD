@@ -92,7 +92,7 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
       configuration.get<unknown>("features.maxImplementationReviewCycles", 5)),
     destructiveRewindEnabled: configuration.get<boolean>("features.destructiveRewindEnabled", false),
     pauseOnFailedReview: configuration.get<boolean>("features.pauseOnFailedReview", false),
-    completedUsLockOnCompleted: configuration.get<boolean>("features.completedUsLockOnCompleted", true)
+    completedUsLockOnCompleted: configuration.get<boolean>("features.completedUsLockOnCompleted", false)
   };
 }
 

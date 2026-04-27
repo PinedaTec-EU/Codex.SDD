@@ -1199,7 +1199,7 @@ async function saveExecutionSettingsAsync(
   maxImplementationReviewCycles?: number | null,
   destructiveRewindEnabled = false,
   pauseOnFailedReview = false,
-  completedUsLockOnCompleted = true
+  completedUsLockOnCompleted = false
 ): Promise<void> {
   const configuration = vscode.workspace.getConfiguration("specForge");
   const normalizedProfiles = modelProfiles
