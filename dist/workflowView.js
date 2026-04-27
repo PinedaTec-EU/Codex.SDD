@@ -5137,24 +5137,11 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     const completedReopenDescription = document.getElementById("completed-reopen-description");
     const completedReopenSubmitButton = document.querySelector("[data-submit-completed-reopen]");
     const completedReopenTargetMessage = document.querySelector("[data-completed-reopen-target-message]");
-    const getCompletedReopenTargetPhaseLabel = (reasonKind) => {
-      switch ((reasonKind || "").trim()) {
-        case "merge-conflict":
-        case "defect":
-          return "implementation";
-        case "functional-issue":
-          return "refinement";
-        case "technical-issue":
-          return "technical-design";
-        default:
-          return "";
-      }
-    };
     const syncCompletedReopenState = () => {
       const reasonValue = completedReopenReason instanceof HTMLSelectElement
         ? completedReopenReason.value.trim()
         : "";
-      const targetPhaseLabel = getCompletedReopenTargetPhaseLabel(reasonValue);
+      const targetPhaseLabel = resolveCompletedWorkflowReopenTargetPhase(reasonValue);
       if (completedReopenTargetMessage instanceof HTMLElement) {
         completedReopenTargetMessage.textContent = targetPhaseLabel
           ? "Workflow will return to phase '" + targetPhaseLabel + "'."

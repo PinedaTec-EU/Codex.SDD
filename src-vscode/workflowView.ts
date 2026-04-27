@@ -9,6 +9,7 @@ import { renderMarkdownToHtml } from "./workflow-view/markdownRenderer";
 import type { ApprovalQuestionItem, PhaseIterationItem, PhaseSectionFragments, WorkflowViewState } from "./workflow-view/models";
 import { buildPrPreparationPhaseSections } from "./workflow-view/prPreparationPhaseView";
 import { hasReachedImplementationReviewCycleLimit } from "./workflowAutomation";
+import { resolveCompletedWorkflowReopenTargetPhase } from "./workflowCompletedReopen";
 import { canPauseWorkflowExecutionPhase, resolveWorkflowExecutionPhaseId } from "./workflowPlaybackState";
 import { resolveWorkflowRejectPlan } from "./workflowRejectPlan";
 import { buildRefinementPhaseSections } from "./workflow-view/refinementPhaseView";
@@ -5492,24 +5493,11 @@ export function buildWorkflowHtml(
     const completedReopenDescription = document.getElementById("completed-reopen-description");
     const completedReopenSubmitButton = document.querySelector("[data-submit-completed-reopen]");
     const completedReopenTargetMessage = document.querySelector("[data-completed-reopen-target-message]");
-    const getCompletedReopenTargetPhaseLabel = (reasonKind) => {
-      switch ((reasonKind || "").trim()) {
-        case "merge-conflict":
-        case "defect":
-          return "implementation";
-        case "functional-issue":
-          return "refinement";
-        case "technical-issue":
-          return "technical-design";
-        default:
-          return "";
-      }
-    };
     const syncCompletedReopenState = () => {
       const reasonValue = completedReopenReason instanceof HTMLSelectElement
         ? completedReopenReason.value.trim()
         : "";
-      const targetPhaseLabel = getCompletedReopenTargetPhaseLabel(reasonValue);
+      const targetPhaseLabel = resolveCompletedWorkflowReopenTargetPhase(reasonValue);
       if (completedReopenTargetMessage instanceof HTMLElement) {
         completedReopenTargetMessage.textContent = targetPhaseLabel
           ? "Workflow will return to phase '" + targetPhaseLabel + "'."

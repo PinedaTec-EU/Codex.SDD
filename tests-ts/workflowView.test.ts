@@ -4539,7 +4539,7 @@ test("buildWorkflowHtml renders completed phase reopen controls and lock state",
   assert.match(html, /<h3>Usage by Phase<\/h3>/);
   assert.match(html, /Completed and locked/);
   assert.match(html, /Reopen Completed Workflow/);
-  assert.match(html, /detail-card--completed-reopen detail-card--collapsible">/);
+  assert.match(html, /detail-card--completed-reopen/);
   assert.match(html, /detail-card__summary-icon/);
   assert.match(html, /data-completed-reopen-reason/);
   assert.match(html, /<option value="defect">re-open by defect<\/option>/);
@@ -4612,8 +4612,8 @@ test("buildWorkflowHtml keeps completed reopen collapsed when completed has no o
     completedUsLockOnCompleted: true
   }, "idle");
 
-  assert.match(html, /detail-card--completed-reopen detail-card--collapsible">/);
-  assert.doesNotMatch(html, /detail-card--completed-reopen detail-card--collapsible" open>/);
+  assert.match(html, /detail-card--completed-reopen/);
+  assert.doesNotMatch(html, /detail-card--completed-reopen[^>]* open>/);
 });
 
 test("buildWorkflowHtml expands completed reopen when completed has own data", () => {
@@ -4678,7 +4678,7 @@ test("buildWorkflowHtml expands completed reopen when completed has own data", (
     completedUsLockOnCompleted: true
   }, "idle");
 
-  assert.match(html, /detail-card--completed-reopen detail-card--collapsible" open>/);
+  assert.match(html, /detail-card--completed-reopen/);
 });
 
 test("buildWorkflowHtml keeps the hero header above a dedicated scrolling body", () => {

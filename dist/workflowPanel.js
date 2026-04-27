@@ -49,6 +49,7 @@ const userActor_1 = require("./userActor");
 const workflowAutomation_1 = require("./workflowAutomation");
 const workflowPlaybackState_1 = require("./workflowPlaybackState");
 const workflowBranchName_1 = require("./workflowBranchName");
+const workflowCompletedReopen_1 = require("./workflowCompletedReopen");
 const workflowPhaseSelection_1 = require("./workflowPhaseSelection");
 const workflowRejectPlan_1 = require("./workflowRejectPlan");
 const workflowView_1 = require("./workflowView");
@@ -812,11 +813,12 @@ class WorkflowPanelController {
     }
     async reopenCompletedWorkflowAsync(reasonKind, description) {
         const previousPhase = this.summary.currentPhase;
+        const normalizedDescription = description.trim();
         const confirmation = await vscode.window.showWarningMessage(`Reopen ${this.summary.usId} from completed status?`, { modal: true }, "Reopen Workflow");
         if (confirmation !== "Reopen Workflow") {
             return;
         }
-        const result = await this.getBackendClient().reopenCompletedWorkflow(this.summary.usId, reasonKind, description, (0, userActor_1.getCurrentActor)());
+        const result = await this.getBackendClient().reopenCompletedWorkflow(this.summary.usId, reasonKind, normalizedDescription, (0, userActor_1.getCurrentActor)());
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' was reopened with reason '${reasonKind}' to '${result.currentPhase}' and status '${result.status}'.`);
         this.summary = {
             ...this.summary,
@@ -827,7 +829,36 @@ class WorkflowPanelController {
         this.clearTransientExecutionPhase();
         this.selectedPhaseId = result.currentPhase;
         this.selectedIterationKey = null;
-        this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, result.currentPhase, "reopen-completed");
+        const operationPrompt = (0, workflowCompletedReopen_1.buildCompletedWorkflowReopenOperationPrompt)(reasonKind, normalizedDescription);
+        if (operationPrompt.length > 0) {
+            if (this.playbackState !== "playing") {
+                this.playbackStartedAtMs = Date.now();
+            }
+            this.playbackState = "playing";
+            this.setTransientExecutionPhase(result.currentPhase);
+            await this.refreshAsync("reopenCompletedWorkflowAsync:running");
+            let operation;
+            try {
+                operation = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, operationPrompt, (0, userActor_1.getCurrentActor)());
+            }
+            finally {
+                if (this.playbackState === "playing") {
+                    this.playbackState = "idle";
+                    this.playbackStartedAtMs = null;
+                }
+            }
+            (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' applied the completed-workflow reopen note over '${operation.currentPhase}'.${this.formatExecutionSummary(operation.execution)}`);
+            this.logExecutionWarnings(operation.execution);
+            this.summary = {
+                ...this.summary,
+                currentPhase: operation.currentPhase,
+                status: operation.status
+            };
+            this.selectedPhaseId = operation.currentPhase;
+        }
+        this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
+        this.clearTransientExecutionPhase();
+        this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, this.summary.currentPhase, "reopen-completed");
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("reopenCompletedWorkflowAsync");
     }
