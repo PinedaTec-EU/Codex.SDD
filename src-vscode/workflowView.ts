@@ -3080,13 +3080,14 @@ export function buildWorkflowHtml(
     }
     .graph-links path {
       fill: none;
-      stroke-width: 5;
+      stroke-width: 4.5;
       stroke-linecap: round;
-      filter: drop-shadow(0 0 14px rgba(76, 236, 151, 0.28));
+      stroke-linejoin: round;
+      filter: drop-shadow(0 0 10px rgba(76, 236, 151, 0.22));
       transition: stroke 180ms ease, opacity 180ms ease;
     }
     .graph-links path.completed {
-      stroke: rgba(64, 222, 136, 0.9);
+      stroke: rgba(67, 226, 146, 0.88);
     }
     .graph-links path.current {
       stroke: rgba(92, 181, 255, 0.92);
@@ -3100,28 +3101,10 @@ export function buildWorkflowHtml(
       filter: drop-shadow(0 0 14px rgba(92, 181, 255, 0.42));
     }
     .graph-links path.pending {
-      stroke: rgba(142, 155, 174, 0.72);
-      stroke-dasharray: 11 12;
-      stroke-width: 3.5;
+      stroke: rgba(145, 158, 178, 0.76);
+      stroke-dasharray: 10 13;
+      stroke-width: 3.2;
       filter: none;
-    }
-    .graph-links path.reverse {
-      stroke: rgba(174, 182, 193, 0.42);
-      stroke-dasharray: 10 10;
-      stroke-width: 3;
-      filter: none;
-    }
-    .graph-links path.reverse-active {
-      stroke: rgba(92, 181, 255, 0.86);
-      stroke-dasharray: 14 8;
-      stroke-width: 3.5;
-      filter: drop-shadow(0 0 14px rgba(92, 181, 255, 0.34));
-    }
-    .graph-links path.reverse-completed {
-      stroke: rgba(114, 241, 184, 0.76);
-      stroke-dasharray: 12 8;
-      stroke-width: 3.5;
-      filter: drop-shadow(0 0 12px rgba(114, 241, 184, 0.24));
     }
     .graph-links path.disabled {
       stroke: rgba(255, 255, 255, 0.08);
@@ -3149,71 +3132,6 @@ export function buildWorkflowHtml(
     }
     .phase-graph[data-graph-layout-mode="vertical"] .graph-links--desktop-vertical {
       display: block;
-    }
-    .graph-adornment {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 2;
-      display: none;
-    }
-    .phase-graph[data-graph-layout-mode="horizontal"] .graph-adornment--horizontal {
-      display: block;
-    }
-    .phase-graph[data-graph-layout-mode="vertical"] .graph-adornment--vertical {
-      display: block;
-    }
-    .graph-loop-badge {
-      position: absolute;
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 16px 20px;
-      border-radius: 18px;
-      border: 1px solid rgba(58, 154, 255, 0.28);
-      background: linear-gradient(180deg, rgba(7, 28, 42, 0.86), rgba(5, 16, 25, 0.94));
-      color: #51a8ff;
-      box-shadow: 0 18px 34px rgba(2, 12, 22, 0.28);
-      max-width: 240px;
-    }
-    .graph-loop-badge--horizontal {
-      top: 458px;
-      left: 844px;
-      border: none;
-      background: transparent;
-      box-shadow: none;
-      padding: 0;
-      gap: 12px;
-      color: rgba(75, 225, 154, 0.96);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 0.94rem;
-      font-weight: 800;
-      max-width: none;
-    }
-    .graph-loop-badge--vertical {
-      top: 722px;
-      right: 42px;
-      line-height: 1.45;
-    }
-    .graph-loop-badge__icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: inherit;
-      flex: 0 0 auto;
-    }
-    .graph-loop-badge__icon svg {
-      width: 18px;
-      height: 18px;
-      fill: currentColor;
-    }
-    .graph-loop-badge--horizontal .graph-loop-badge__icon {
-      display: none;
-    }
-    .graph-loop-badge__text {
-      font-size: 1rem;
-      font-weight: 700;
     }
     .graph-legend {
       position: absolute;
@@ -3288,10 +3206,6 @@ export function buildWorkflowHtml(
     }
     .graph-legend__line--pending {
       border-top-color: rgba(161, 172, 189, 0.76);
-      border-top-style: dashed;
-    }
-    .graph-legend__line--loop {
-      border-top-color: rgba(58, 154, 255, 0.9);
       border-top-style: dashed;
     }
     .graph-legend__dot {
@@ -5097,17 +5011,6 @@ export function buildWorkflowHtml(
         bottom: 10px;
         width: 188px;
         padding: 16px 16px 14px;
-      }
-      .graph-loop-badge--horizontal {
-        top: 374px;
-        left: 474px;
-        font-size: 0.82rem;
-      }
-      .graph-loop-badge--vertical {
-        top: 652px;
-        right: 6px;
-        max-width: 188px;
-        padding: 12px 14px;
       }
       .execution-overlay {
         left: 10px;
@@ -6953,14 +6856,10 @@ function buildPhaseGraph(
   const desktopVerticalLayout = buildVerticalPhaseLayout(layoutPhases, phaseNodeWidth);
   const mobileHorizontalLayout = buildHorizontalPhaseLayout(layoutPhases, mobilePhaseNodeWidth, true);
   const mobileVerticalLayout = buildVerticalPhaseLayout(layoutPhases, mobilePhaseNodeWidth, true);
-  const desktopHorizontalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, desktopHorizontalLayout.positions, phaseNodeWidth);
-  const desktopVerticalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, desktopVerticalLayout.positions, phaseNodeWidth);
-  const mobileHorizontalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, mobileHorizontalLayout.positions, mobilePhaseNodeWidth);
-  const mobileVerticalLinks = buildGraphLinks(workflow, visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, selectedPhaseId, mobileVerticalLayout.positions, mobilePhaseNodeWidth);
-  const implementationReviewCycleCount = resolveImplementationReviewCycleCount(workflow);
-  const horizontalLoopBadge = renderGraphLoopBadge(implementationReviewCycleCount, "horizontal");
-  const verticalLoopBadge = renderGraphLoopBadge(implementationReviewCycleCount, "vertical");
-
+  const desktopHorizontalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopHorizontalLayout.positions, phaseNodeWidth);
+  const desktopVerticalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopVerticalLayout.positions, phaseNodeWidth);
+  const mobileHorizontalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileHorizontalLayout.positions, mobilePhaseNodeWidth);
+  const mobileVerticalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileVerticalLayout.positions, mobilePhaseNodeWidth);
   const nodes = visiblePhases.map((phase, index) => {
     const disabled = false;
     const visualTone = resolvePhaseVisualTone(
@@ -7044,12 +6943,6 @@ function buildPhaseGraph(
       <svg class="graph-links graph-links--mobile graph-links--mobile-vertical" viewBox="0 0 ${mobileVerticalLayout.width} ${mobileVerticalLayout.height}" preserveAspectRatio="none" aria-hidden="true">
         ${mobileVerticalLinks}
       </svg>
-      <div class="graph-adornment graph-adornment--horizontal">
-        ${horizontalLoopBadge}
-      </div>
-      <div class="graph-adornment graph-adornment--vertical">
-        ${verticalLoopBadge}
-      </div>
       ${nodes}
     </div>
   `;
@@ -7114,33 +7007,19 @@ function resolveDisplayedCurrentPhaseId(
 }
 
 function buildGraphLinks(
-  workflow: UserStoryWorkflowDetails,
   visiblePhases: readonly WorkflowPhaseDetails[],
   executingTargetPhaseId: string | null,
   currentPhaseId: string,
   completedPhaseIds: ReadonlySet<string>,
-  selectedPhaseId: string,
   positions: Record<string, PhasePosition>,
   nodeWidth: number
 ): string {
   const visiblePhaseMap = new Map(visiblePhases.map((phase) => [phase.phaseId, phase]));
   const edges: PhaseGraphEdge[] = buildPrimaryGraphEdges(visiblePhases, visiblePhaseMap, executingTargetPhaseId, currentPhaseId, completedPhaseIds);
 
-  for (const edge of buildSecondaryGraphEdges(workflow, visiblePhases, completedPhaseIds, selectedPhaseId)) {
-    edges.push(edge);
-  }
-
   return edges
     .map((edge) => `<path class="${edge.className}" data-edge="${escapeHtmlAttribute(`${edge.fromPhaseId}->${edge.toPhaseId}`)}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth)}"></path>`)
     .join("");
-}
-
-function resolveImplementationReviewCycleCount(workflow: UserStoryWorkflowDetails): number {
-  const attempts = (workflow.phaseIterations ?? [])
-    .filter((iteration) => iteration.phaseId === "implementation" || iteration.phaseId === "review")
-    .map((iteration) => iteration.attempt);
-
-  return attempts.length > 0 ? Math.max(...attempts) : 0;
 }
 
 function renderGraphLegend(usId: string): string {
@@ -7152,29 +7031,11 @@ function renderGraphLegend(usId: string): string {
       </div>
       <div class="graph-legend__row"><span class="graph-legend__line graph-legend__line--progress"></span><span>Progress</span></div>
       <div class="graph-legend__row"><span class="graph-legend__line graph-legend__line--pending"></span><span>Pending / skip</span></div>
-      <div class="graph-legend__row"><span class="graph-legend__line graph-legend__line--loop"></span><span>Iteration loop</span></div>
       <div class="graph-legend__row"><span class="graph-legend__dot graph-legend__dot--completed"></span><span>Completed</span></div>
       <div class="graph-legend__row"><span class="graph-legend__dot graph-legend__dot--current"></span><span>Current</span></div>
       <div class="graph-legend__row"><span class="graph-legend__dot graph-legend__dot--pending"></span><span>Pending</span></div>
       <div class="graph-legend__row"><span class="graph-legend__dot graph-legend__dot--final"></span><span>Final</span></div>
     </aside>
-  `;
-}
-
-function renderGraphLoopBadge(loopCount: number, layoutMode: "horizontal" | "vertical"): string {
-  if (loopCount < 2) {
-    return "";
-  }
-
-  const label = layoutMode === "horizontal"
-    ? `Loop #${loopCount}`
-    : `${loopCount} cycles between Implementation and Review`;
-
-  return `
-    <div class="graph-loop-badge graph-loop-badge--${layoutMode}" aria-label="${escapeHtmlAttribute(label)}">
-      <span class="graph-loop-badge__icon">${rewindIcon()}</span>
-      <span class="graph-loop-badge__text">${escapeHtml(label)}</span>
-    </div>
   `;
 }
 
@@ -7269,14 +7130,12 @@ function buildPrimaryGraphEdges(
   const hasRefinement = visiblePhaseMap.has("refinement");
   const primaryDefinitions: ReadonlyArray<{ fromPhaseId: string; toPhaseId: string }> = [
     ...(hasRefinement ? [{ fromPhaseId: "capture", toPhaseId: "refinement" }] : []),
-    { fromPhaseId: "capture", toPhaseId: "spec" },
     ...(hasRefinement ? [{ fromPhaseId: "refinement", toPhaseId: "spec" }] : []),
     { fromPhaseId: "spec", toPhaseId: "technical-design" },
     { fromPhaseId: "technical-design", toPhaseId: "implementation" },
     { fromPhaseId: "implementation", toPhaseId: "review" },
     { fromPhaseId: "review", toPhaseId: "release-approval" },
-    { fromPhaseId: "release-approval", toPhaseId: "pr-preparation" },
-    { fromPhaseId: "pr-preparation", toPhaseId: "completed" }
+    { fromPhaseId: "release-approval", toPhaseId: "pr-preparation" }
   ];
 
   for (const definition of primaryDefinitions) {
@@ -7293,98 +7152,6 @@ function buildPrimaryGraphEdges(
   }
 
   return edges;
-}
-
-function buildSecondaryGraphEdges(
-  workflow: UserStoryWorkflowDetails,
-  visiblePhases: readonly WorkflowPhaseDetails[],
-  completedPhaseIds: ReadonlySet<string>,
-  selectedPhaseId: string
-): Array<{ fromPhaseId: string; toPhaseId: string; className: string }> {
-  const visiblePhaseIds = new Set(visiblePhases.map((phase) => phase.phaseId));
-  const edges: Array<{ fromPhaseId: string; toPhaseId: string; className: string }> = [];
-
-  const secondaryDefinitions: ReadonlyArray<{ fromPhaseId: string; toPhaseId: string }> = [
-    { fromPhaseId: "review", toPhaseId: "implementation" },
-    ...resolveCompletedReopenTargetPhases().map((targetPhaseId) => ({ fromPhaseId: "completed", toPhaseId: targetPhaseId }))
-  ];
-
-  for (const definition of secondaryDefinitions) {
-    if (!visiblePhaseIds.has(definition.fromPhaseId) || !visiblePhaseIds.has(definition.toPhaseId)) {
-      continue;
-    }
-
-    const executed = hasSecondaryTransitionExecution(workflow, definition.fromPhaseId, definition.toPhaseId);
-    const viewingSource = selectedPhaseId === definition.fromPhaseId;
-    if (!executed && !viewingSource) {
-      continue;
-    }
-
-    edges.push({
-      fromPhaseId: definition.fromPhaseId,
-      toPhaseId: definition.toPhaseId,
-      className: secondaryLinkClass(workflow, completedPhaseIds, definition.fromPhaseId, definition.toPhaseId, executed)
-    });
-  }
-
-  return edges;
-}
-
-function secondaryLinkClass(
-  workflow: UserStoryWorkflowDetails,
-  completedPhaseIds: ReadonlySet<string>,
-  fromPhaseId: string,
-  toPhaseId: string,
-  executed: boolean
-): string {
-  if (fromPhaseId === "review" && toPhaseId === "implementation") {
-    const reviewRegressionOpen = workflow.currentPhase === "review"
-      && (workflow.controls.blockingReason === "review_failed"
-        || workflow.controls.blockingReason === "review_result_missing"
-        || workflow.controls.blockingReason === "review_missing_artifact");
-
-    if (reviewRegressionOpen) {
-      return "reverse-active";
-    }
-  }
-
-  if (!executed) {
-    return "reverse";
-  }
-
-  if (fromPhaseId === "review" && toPhaseId === "implementation") {
-    if (completedPhaseIds.has("review") || workflow.currentPhase === "release-approval" || workflow.currentPhase === "pr-preparation") {
-      return "reverse-completed";
-    }
-  }
-
-  return "reverse-completed";
-}
-
-function hasSecondaryTransitionExecution(
-  workflow: UserStoryWorkflowDetails,
-  fromPhaseId: string,
-  toPhaseId: string
-): boolean {
-  if (fromPhaseId === "review" && toPhaseId === "implementation") {
-    return (workflow.phaseIterations ?? []).some((iteration) =>
-      (iteration.phaseId === "implementation" || iteration.phaseId === "review") && iteration.attempt > 1);
-  }
-
-  if (fromPhaseId === "completed") {
-    return workflow.events.some((event) => event.code === "workflow_reopened" && event.phase === toPhaseId);
-  }
-
-  return false;
-}
-
-function resolveCompletedReopenTargetPhases(): readonly string[] {
-  return [...new Set([
-    resolveCompletedWorkflowReopenTargetPhase("merge-conflict"),
-    resolveCompletedWorkflowReopenTargetPhase("defect"),
-    resolveCompletedWorkflowReopenTargetPhase("functional-issue"),
-    resolveCompletedWorkflowReopenTargetPhase("technical-issue")
-  ].filter((phaseId) => phaseId.length > 0))];
 }
 
 function shouldShowRefinementPhase(
@@ -7433,14 +7200,6 @@ function graphPath(
   const toPosition = positions[toPhaseId];
   if (!fromPosition || !toPosition) {
     return "";
-  }
-
-  if (fromPhaseId === "review" && toPhaseId === "implementation") {
-    return buildReviewLoopGraphPath(fromPosition, toPosition, nodeWidth);
-  }
-
-  if (fromPhaseId === "completed") {
-    return buildCompletedReopenGraphPath(fromPosition, toPosition, nodeWidth);
   }
 
   if (fromPhaseId === "technical-design" && toPhaseId === "implementation") {
@@ -7536,43 +7295,6 @@ function buildTechnicalDesignToImplementationPath(
   const midX = from.x + (to.x - from.x) * 0.42;
   const lowY = Math.max(from.y, to.y) + Math.max(34, phaseNodeHeight * 0.28);
   return `M ${from.x} ${from.y} C ${midX - 38} ${from.y}, ${midX - 18} ${lowY}, ${midX} ${lowY} S ${to.x - 42} ${to.y}, ${to.x} ${to.y}`;
-}
-
-function buildReviewLoopGraphPath(
-  fromPosition: PhasePosition,
-  toPosition: PhasePosition,
-  nodeWidth: number
-): string {
-  const isVertical = Math.abs(fromPosition.left - toPosition.left) < nodeWidth * 0.7;
-  if (isVertical) {
-    const from = getAnchorPoint(fromPosition, "entry-right", nodeWidth);
-    const to = getAnchorPoint(toPosition, "entry-right", nodeWidth);
-    const outerRight = Math.max(from.x, to.x) + Math.max(96, nodeWidth * 0.42);
-    const midY = (from.y + to.y) / 2;
-    return `M ${from.x} ${from.y} C ${outerRight} ${from.y}, ${outerRight} ${midY - 36}, ${outerRight} ${midY} S ${outerRight - 10} ${to.y}, ${to.x} ${to.y}`;
-  }
-
-  const from = getAnchorPoint(fromPosition, "exit-bottom-right", nodeWidth);
-  const to = getAnchorPoint(toPosition, "exit-bottom-left", nodeWidth);
-  const laneDepth = Math.max(72, phaseNodeHeight * 0.52);
-  const lowerY = Math.max(from.y, to.y) + laneDepth;
-  const outerLeft = Math.min(from.x, to.x) + nodeWidth * 0.08;
-  const outerRight = Math.max(from.x, to.x) + Math.max(84, nodeWidth * 0.44);
-  return `M ${from.x} ${from.y} C ${from.x + 24} ${from.y + 10}, ${outerRight} ${from.y + 8}, ${outerRight} ${from.y + 48} S ${outerRight - 26} ${lowerY}, ${outerLeft} ${lowerY} S ${to.x - 24} ${to.y + 18}, ${to.x} ${to.y}`;
-}
-
-function buildCompletedReopenGraphPath(
-  fromPosition: PhasePosition,
-  toPosition: PhasePosition,
-  nodeWidth: number
-): string {
-  const from = getAnchorPoint(fromPosition, "entry-right", nodeWidth);
-  const toAnchor = toPosition.left >= fromPosition.left ? "exit-bottom-left" : "exit-bottom-right";
-  const to = getAnchorPoint(toPosition, toAnchor, nodeWidth);
-  const laneX = from.x + Math.max(56, nodeWidth * 0.3);
-  const upperY = Math.min(from.y, to.y) - Math.max(70, phaseNodeHeight * 0.52);
-
-  return `M ${from.x} ${from.y} C ${laneX} ${from.y}, ${laneX} ${upperY}, ${from.x + 18} ${upperY} S ${to.x + (toAnchor === "exit-bottom-left" ? 28 : -28)} ${upperY + 12}, ${to.x} ${to.y}`;
 }
 
 function resolveAnchors(from: PhasePosition, to: PhasePosition): { fromAnchor: GraphAnchor; toAnchor: GraphAnchor } {

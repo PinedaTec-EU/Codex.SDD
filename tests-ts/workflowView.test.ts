@@ -31,9 +31,22 @@ test("buildWorkflowHtml renders phase detail for the selected phase", () => {
         approveSystemPromptPath: null
       },
       {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: false,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
         phaseId: "spec",
         title: "Spec",
-        order: 1,
+        order: 2,
         requiresApproval: true,
         expectsHumanIntervention: true,
         isApproved: false,
@@ -107,7 +120,6 @@ test("buildWorkflowHtml renders phase detail for the selected phase", () => {
   assert.match(html, /phase-graph/);
   assert.match(html, /phase-node spec phase-tone-waiting-user selected phase-node--current/);
   assert.doesNotMatch(html, /data-command="togglePhasePause"[^>]*data-phase-id="spec"/);
-  assert.doesNotMatch(html, /class="phase-pause-toggle"/);
   assert.doesNotMatch(html, /Execution cannot continue yet/);
   assert.doesNotMatch(html, /Workflow Blocked/);
   assert.match(html, /--phase-pending: rgba\(255, 255, 255, 0\.04\);/);
@@ -1201,9 +1213,22 @@ test("buildWorkflowHtml requires explicit base-branch acceptance before approve 
         approvePromptPath: null
       },
       {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: false,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
         phaseId: "spec",
         title: "Spec",
-        order: 1,
+        order: 2,
         requiresApproval: true,
         expectsHumanIntervention: true,
         isApproved: false,
@@ -1347,9 +1372,22 @@ test("buildWorkflowHtml keeps disabled approve visible for spec when approval is
         approvePromptPath: null
       },
       {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: false,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
         phaseId: "spec",
         title: "Spec",
-        order: 1,
+        order: 2,
         requiresApproval: true,
         expectsHumanIntervention: true,
         isApproved: false,
@@ -1579,9 +1617,22 @@ test("buildWorkflowHtml shows phase actions in the selected detail only for the 
         approvePromptPath: null
       },
       {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: false,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
         phaseId: "spec",
         title: "Spec",
-        order: 1,
+        order: 2,
         requiresApproval: true,
         expectsHumanIntervention: true,
         isApproved: false,
@@ -1907,9 +1958,22 @@ test("buildWorkflowHtml animates the current execution phase while autoplay is r
         approvePromptPath: null
       },
       {
+        phaseId: "refinement",
+        title: "Refinement",
+        order: 1,
+        requiresApproval: false,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: false,
+        state: "pending",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
         phaseId: "spec",
         title: "Spec",
-        order: 1,
+        order: 2,
         requiresApproval: true,
         expectsHumanIntervention: true,
         isApproved: false,
@@ -1943,7 +2007,7 @@ test("buildWorkflowHtml animates the current execution phase while autoplay is r
   }, "playing");
 
   assert.match(html, /graph-links path\.executing/);
-  assert.match(html, /<path class="executing"/);
+  assert.match(html, /<path class="executing" data-edge="refinement-&gt;spec"/);
   assert.match(html, /data-execution-overlay/);
   assert.match(html, /data-anchor-phase-id="spec"/);
   assert.match(html, /Executing Spec/);
@@ -2282,7 +2346,8 @@ test("buildWorkflowHtml routes graph links around cards using rounded orthogonal
   }, "idle");
 
   assert.match(html, /class="completed"[^>]* d="M [^"]* C [^"]*"/);
-  assert.match(html, /class="reverse-active"[^>]* d="M [^"]* C [^"]* S [^"]*"/);
+  assert.doesNotMatch(html, /data-edge="review-&gt;implementation"/);
+  assert.doesNotMatch(html, /class="reverse/);
 });
 
 test("buildWorkflowHtml advances the execution overlay to spec after refinement passes", () => {
@@ -4595,9 +4660,18 @@ test("buildWorkflowHtml renders the reference graph layout with canonical refine
   assert.match(html, /phase-node review[\s\S]*?--phase-left-mobile-horizontal: 302px; --phase-top-mobile-horizontal: 609px; --phase-left-mobile-vertical: 302px; --phase-top-mobile-vertical: 609px;/);
   assert.match(html, /phase-node release-approval[\s\S]*?--phase-left-desktop-horizontal: 738px; --phase-top-desktop-horizontal: 1018px; --phase-left-desktop-vertical: 738px; --phase-top-desktop-vertical: 1018px;/);
   assert.match(html, /data-phase-id="spec"[\s\S]*<h3>Spec<\/h3>/);
+  assert.match(html, /data-edge="capture-&gt;refinement"/);
+  assert.match(html, /data-edge="refinement-&gt;spec"/);
   assert.match(html, /data-edge="spec-&gt;technical-design"/);
   assert.match(html, /data-edge="technical-design-&gt;implementation"/);
+  assert.match(html, /data-edge="implementation-&gt;review"/);
+  assert.match(html, /data-edge="review-&gt;release-approval"/);
+  assert.match(html, /data-edge="release-approval-&gt;pr-preparation"/);
+  assert.doesNotMatch(html, /data-edge="capture-&gt;spec"/);
   assert.doesNotMatch(html, /data-edge="spec-&gt;implementation"/);
+  assert.doesNotMatch(html, /data-edge="review-&gt;implementation"/);
+  assert.doesNotMatch(html, /data-edge="pr-preparation-&gt;completed"/);
+  assert.doesNotMatch(html, /data-edge="completed-&gt;/);
   assert.match(html, /viewBox="0 0 \d+ \d+"/);
   assert.match(html, /graph-links--desktop-horizontal/);
   assert.match(html, /graph-links--desktop-vertical/);
@@ -4731,7 +4805,7 @@ test("buildWorkflowHtml hides secondary review regression edge until it has exec
   assert.doesNotMatch(html, /graph-links[^]*path class="reverse/);
 });
 
-test("buildWorkflowHtml shows secondary review regression edge in gray when review is selected without execution history", () => {
+test("buildWorkflowHtml does not render review regression as a graph edge when review is selected", () => {
   const html = buildWorkflowHtml({
     usId: "US-0200B",
     title: "Review secondary edge selected",
@@ -4761,10 +4835,11 @@ test("buildWorkflowHtml shows secondary review regression edge in gray when revi
     completedPhaseIds: ["implementation"]
   }, "idle");
 
-  assert.match(html, /path class="reverse"/);
+  assert.doesNotMatch(html, /data-edge="review-&gt;implementation"/);
+  assert.doesNotMatch(html, /path class="reverse"/);
 });
 
-test("buildWorkflowHtml shows completed secondary reopen edges only after execution unless completed is selected", () => {
+test("buildWorkflowHtml does not render completed reopen graph edges", () => {
   const workflow = {
     usId: "US-0200C",
     title: "Completed secondary edges",
@@ -4802,8 +4877,8 @@ test("buildWorkflowHtml shows completed secondary reopen edges only after execut
     completedUsLockOnCompleted: true
   }, "idle");
 
-  assert.match(hiddenHtml, /path class="reverse-completed"/);
-  assert.doesNotMatch(hiddenHtml, /path class="reverse"(?!-)/);
+  assert.doesNotMatch(hiddenHtml, /data-edge="completed-&gt;/);
+  assert.doesNotMatch(hiddenHtml, /path class="reverse/);
 
   const selectedHtml = buildWorkflowHtml(workflow, {
     selectedPhaseId: "completed",
@@ -4815,10 +4890,8 @@ test("buildWorkflowHtml shows completed secondary reopen edges only after execut
     completedUsLockOnCompleted: true
   }, "idle");
 
-  const reverseMatches = selectedHtml.match(/path class="reverse"/g) ?? [];
-  const reverseCompletedMatches = selectedHtml.match(/path class="reverse-completed"/g) ?? [];
-  assert.equal(reverseMatches.length, 8);
-  assert.equal(reverseCompletedMatches.length, 4);
+  assert.doesNotMatch(selectedHtml, /data-edge="completed-&gt;/);
+  assert.doesNotMatch(selectedHtml, /path class="reverse/);
 });
 
 test("buildWorkflowHtml keeps completed reopen collapsed when completed has no own data", () => {
