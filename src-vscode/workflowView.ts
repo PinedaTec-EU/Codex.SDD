@@ -1450,6 +1450,12 @@ export function buildWorkflowHtml(
     ? resolveWorkflowRejectPlan(selectedPhase.phaseId)
     : null;
   const selectedPhaseStateClass = heroTokenClass(selectedPhaseDisplayState);
+  const completedPhaseTopSections = selectedPhase.phaseId === "completed"
+    ? phaseSpecificSections.beforeArtifact.join("")
+    : "";
+  const regularBeforeArtifactSections = selectedPhase.phaseId === "completed"
+    ? ""
+    : phaseSpecificSections.beforeArtifact.join("");
   const continueActionLabel = "Continue";
   const rerunReviewActionLabel = "Rerun Review";
   const approveActionLabel = selectedPhaseIsCurrent ? "Approve" : "Approve Current Phase";
@@ -3078,6 +3084,47 @@ export function buildWorkflowHtml(
       min-width: 0;
       overflow: hidden;
     }
+    .detail-card--collapsible {
+      padding: 0;
+    }
+    .detail-card__summary {
+      display: block;
+      list-style: none;
+      cursor: pointer;
+      padding: 18px;
+    }
+    .detail-card__summary::-webkit-details-marker {
+      display: none;
+    }
+    .detail-card__summary::marker {
+      content: "";
+    }
+    .detail-card__summary:focus-visible {
+      outline: none;
+      box-shadow: inset 0 0 0 2px rgba(92, 181, 255, 0.22);
+    }
+    .detail-card__summary-title-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .detail-card__summary-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      font-size: 1rem;
+      line-height: 1;
+      color: rgba(189, 219, 246, 0.86);
+      transform: rotate(0deg);
+      transition: transform 140ms ease;
+    }
+    .detail-card--collapsible[open] .detail-card__summary-icon {
+      transform: rotate(90deg);
+    }
+    .detail-card--collapsible .review-regression {
+      padding: 0 18px 18px;
+    }
     .detail-card--phase-overview {
       position: relative;
       z-index: 1;
@@ -4462,12 +4509,13 @@ export function buildWorkflowHtml(
             </div>
             ${selectedPhaseMetrics ? `<div class="detail-metrics">${selectedPhaseMetrics}</div>` : ""}
             </section>
+            ${completedPhaseTopSections}
           </div>
           ${workflowUsageDashboard}
           ${modelUsageTable}
           ${phaseUsageTable}
           ${buildPhaseSecuritySummary(selectedPhase.executionReadiness)}
-          ${phaseSpecificSections.beforeArtifact.join("")}
+          ${regularBeforeArtifactSections}
           ${iterationRail}
           ${iterationDetailSection}
           <section class="detail-card">

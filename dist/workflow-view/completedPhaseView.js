@@ -6,14 +6,21 @@ function buildCompletedPhaseSections(args) {
         return { beforeArtifact: [], afterArtifact: [] };
     }
     const locked = args.state.completedUsLockOnCompleted !== false;
+    const hasCompletedPhaseData = args.workflow.events.some((event) => event.phase === "completed")
+        || (args.workflow.phaseIterations?.some((iteration) => iteration.phaseId === "completed") ?? false)
+        || Boolean(args.selectedPhase.artifactPath)
+        || Boolean(args.selectedPhase.operationLogPath);
     return {
         beforeArtifact: [
             `
-      <section class="detail-card detail-card--completed-reopen">
-        <div class="review-regression">
+      <details class="detail-card detail-card--completed-reopen detail-card--collapsible"${hasCompletedPhaseData ? " open" : ""}>
+        <summary class="detail-card__summary">
           <div class="review-regression__header">
             <div class="review-regression__copy">
-              <span class="badge ${locked ? "badge--attention" : "badge--active"}">${locked ? "Completed and locked" : "Completed and unlocked"}</span>
+              <div class="detail-card__summary-title-row">
+                <span class="detail-card__summary-icon" aria-hidden="true">></span>
+                <span class="badge ${locked ? "badge--attention" : "badge--active"}">${locked ? "Completed and locked" : "Completed and unlocked"}</span>
+              </div>
               <h3>Reopen Completed Workflow</h3>
               <p class="panel-copy">
                 Choose why this user story must be reopened and describe exactly what failed or what must now be incorporated.
@@ -25,6 +32,8 @@ function buildCompletedPhaseSections(args) {
               <strong class="review-regression__stat-value">${locked ? "Locked" : "Open"}</strong>
             </div>
           </div>
+        </summary>
+        <div class="review-regression">
           <div class="review-regression__body">
             <label class="phase-input-shell" for="completed-reopen-reason">
               <span class="phase-input-label">Reopen reason</span>
@@ -53,7 +62,7 @@ function buildCompletedPhaseSections(args) {
             </div>
           </div>
         </div>
-      </section>
+      </details>
       `
         ],
         afterArtifact: []
