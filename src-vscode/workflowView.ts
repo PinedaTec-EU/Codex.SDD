@@ -91,26 +91,26 @@ function buildHorizontalPhaseLayout(
 ): PhaseGraphLayout {
   const positions: Record<string, PhasePosition> = {};
   const lefts = compact
-    ? { col1: 18, col2: 246, col3: 474, col4: 702, col5: 930 }
-    : { col1: 42, col2: 344, col3: 646, col4: 948, col5: 1250 };
+    ? { outerLeft: 18, left: 214, mid: 448, right: 690, outerRight: 922, edgeRight: 1154 }
+    : { outerLeft: 42, left: 276, mid: 566, right: 878, outerRight: 1188, edgeRight: 1498 };
   const tops = compact
-    ? { row1: 18, row2: 208, row3: 398, row4: 588 }
-    : { row1: 40, row2: 260, row3: 480, row4: 700 };
+    ? { top: 18, upperMid: 196, lowerMid: 386, bottom: 576 }
+    : { top: 40, upperMid: 252, lowerMid: 472, bottom: 692 };
   const map: Record<string, PhasePosition> = {
-    capture: { left: lefts.col1, top: tops.row1 },
-    clarification: { left: lefts.col2, top: tops.row1 },
-    refinement: { left: lefts.col3, top: tops.row1 },
-    "technical-design": { left: lefts.col2, top: tops.row2 },
-    spec: { left: lefts.col3, top: tops.row2 },
-    implementation: { left: lefts.col3, top: tops.row3 },
-    review: { left: lefts.col4, top: tops.row3 },
-    "release-approval": { left: lefts.col4, top: tops.row2 },
-    "pr-preparation": { left: lefts.col5, top: tops.row3 },
-    completed: { left: lefts.col5, top: tops.row4 }
+    capture: { left: lefts.outerLeft, top: tops.top },
+    clarification: { left: lefts.left, top: tops.top },
+    refinement: { left: lefts.mid, top: tops.top },
+    "technical-design": { left: lefts.left - (compact ? 72 : 94), top: tops.upperMid },
+    spec: { left: lefts.mid + (compact ? 20 : 26), top: tops.upperMid },
+    implementation: { left: lefts.mid - (compact ? 8 : 22), top: tops.lowerMid },
+    review: { left: lefts.right, top: tops.lowerMid },
+    "release-approval": { left: lefts.outerRight, top: tops.upperMid },
+    "pr-preparation": { left: lefts.outerRight, top: tops.lowerMid },
+    completed: { left: lefts.edgeRight, top: tops.bottom }
   };
 
   for (const phase of phases) {
-    positions[phase.phaseId] = map[phase.phaseId] ?? { left: lefts.col1, top: tops.row1 };
+    positions[phase.phaseId] = map[phase.phaseId] ?? { left: lefts.outerLeft, top: tops.top };
   }
 
   return {
