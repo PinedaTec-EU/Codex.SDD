@@ -219,6 +219,13 @@ type UsageAggregate = {
   events: number;
 };
 
+type TimelineLoopGroup = {
+  readonly startIndex: number;
+  readonly endIndex: number;
+  readonly iterationCount: number;
+  readonly isSelected: boolean;
+};
+
 function aggregateWorkflowUsage(
   events: readonly {
     readonly phase: string | null;
@@ -1261,6 +1268,56 @@ function buildWorkflowAuditRowsHtml(
     : `<pre class="audit-log">${escapeHtml(workflow.rawTimeline)}</pre>`;
 }
 
+function buildTimelineLoopGroups(
+  points: readonly {
+    readonly phaseId: string;
+    readonly attempt: number | null;
+  }[],
+  selectedPhaseId: string
+): readonly TimelineLoopGroup[] {
+  const groups: TimelineLoopGroup[] = [];
+  let index = 0;
+
+  while (index < points.length) {
+    if (!isImplementationReviewTimelinePhase(points[index]?.phaseId)) {
+      index += 1;
+      continue;
+    }
+
+    const startIndex = index;
+    while (index + 1 < points.length && isImplementationReviewTimelinePhase(points[index + 1]?.phaseId)) {
+      index += 1;
+    }
+
+    const endIndex = index;
+    const segment = points.slice(startIndex, endIndex + 1);
+    const implementationCount = segment.filter((point) => point.phaseId === "implementation").length;
+    const reviewCount = segment.filter((point) => point.phaseId === "review").length;
+    const iterationCount = Math.max(
+      ...segment.map((point) => point.attempt ?? 0),
+      implementationCount,
+      reviewCount
+    );
+
+    if (implementationCount > 0 && reviewCount > 0 && iterationCount >= 2 && segment.length >= 3) {
+      groups.push({
+        startIndex,
+        endIndex,
+        iterationCount,
+        isSelected: selectedPhaseId === "implementation" || selectedPhaseId === "review"
+      });
+    }
+
+    index += 1;
+  }
+
+  return groups;
+}
+
+function isImplementationReviewTimelinePhase(phaseId: string | null | undefined): boolean {
+  return phaseId === "implementation" || phaseId === "review";
+}
+
 export function buildWorkflowAuditHtml(
   workflow: UserStoryWorkflowDetails,
   state: WorkflowViewState,
@@ -1480,12 +1537,21 @@ export function buildWorkflowHtml(
   const heroRewindTargetPhaseId = rewindDecision.targetPhaseId;
   const heroRewindDisabled = !rewindDecision.allowed || playbackState !== "idle";
   const timelineRewindPoints = buildTimelineRewindPoints(workflow, displayedCurrentPhaseId);
+  const timelineLoopGroups = buildTimelineLoopGroups(timelineRewindPoints, selectedPhase.phaseId);
   const timelineRewindDock = timelineRewindPoints.length > 1
     ? `
       <div class="time-dock" aria-label="Workflow time navigation">
         <button class="time-dock__scroll" type="button" data-time-dock-scroll="left" aria-label="Move timeline left">&lt;</button>
         <div class="time-dock__viewport" data-time-dock-viewport>
           <div class="time-dock__track">
+            ${timelineLoopGroups.map((group) => `
+              <div
+                class="time-dock__loop-group${group.isSelected ? " time-dock__loop-group--selected" : ""}"
+                style="--loop-start-index: ${group.startIndex}; --loop-span: ${group.endIndex - group.startIndex + 1};"
+                aria-hidden="true">
+                <span class="time-dock__loop-label">Loop x${escapeHtml(String(group.iterationCount))}</span>
+              </div>
+            `).join("")}
             ${timelineRewindPoints.map((point, index) => `
               <button
                 class="time-dock__point${point.isCurrent ? " time-dock__point--current" : ""}${point.canSelect ? "" : " time-dock__point--disabled"}"
@@ -2587,11 +2653,60 @@ export function buildWorkflowHtml(
       overscroll-behavior-x: contain;
     }
     .time-dock__track {
+      --time-dock-point-width: 72px;
+      --time-dock-point-gap: 12px;
       display: flex;
+      position: relative;
       align-items: end;
       gap: 12px;
       min-width: max-content;
-      min-height: 76px;
+      min-height: 112px;
+      padding-top: 28px;
+    }
+    .time-dock__loop-group {
+      position: absolute;
+      left: calc((var(--time-dock-point-width) + var(--time-dock-point-gap)) * var(--loop-start-index));
+      bottom: 0;
+      width: calc((var(--time-dock-point-width) * var(--loop-span)) + (var(--time-dock-point-gap) * (var(--loop-span) - 1)));
+      height: 88px;
+      border-radius: 22px;
+      border: 1px solid rgba(114, 241, 184, 0.26);
+      background:
+        linear-gradient(180deg, rgba(25, 70, 52, 0.18), rgba(10, 24, 20, 0.12)),
+        rgba(8, 16, 18, 0.18);
+      box-shadow:
+        inset 0 1px 0 rgba(196, 255, 226, 0.06),
+        0 10px 24px rgba(6, 16, 13, 0.24);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .time-dock__loop-group--selected {
+      border-color: rgba(114, 241, 184, 0.42);
+      background:
+        linear-gradient(180deg, rgba(31, 92, 67, 0.22), rgba(10, 28, 22, 0.16)),
+        rgba(8, 16, 18, 0.22);
+      box-shadow:
+        inset 0 1px 0 rgba(196, 255, 226, 0.08),
+        0 12px 28px rgba(8, 26, 19, 0.28),
+        0 0 22px rgba(114, 241, 184, 0.08);
+    }
+    .time-dock__loop-label {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(114, 241, 184, 0.26);
+      background: rgba(8, 20, 17, 0.94);
+      color: rgba(150, 250, 198, 0.96);
+      font-size: 0.69rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
     .time-dock__point {
       width: 72px;
@@ -2607,6 +2722,8 @@ export function buildWorkflowHtml(
       cursor: pointer;
       transform-origin: bottom center;
       transition: transform 150ms ease, width 150ms ease, opacity 150ms ease, color 150ms ease;
+      position: relative;
+      z-index: 1;
     }
     .time-dock__point:hover {
       width: 118px;
