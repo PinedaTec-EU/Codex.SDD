@@ -4420,6 +4420,9 @@ export function buildWorkflowHtml(
         <div class="control-strip">
           ${debugResetButton}
           ${playbackButtons}
+          ${pullRequestUrl
+            ? `<button class="workflow-action-button workflow-action-button--document workflow-action-button--icon" type="button" data-command="openExternalUrl" data-url="${escapeHtmlAttribute(pullRequestUrl)}">${externalLinkIcon()}<span>${escapeHtml(pullRequestLabel)}</span></button>`
+            : ""}
           <button class="icon-button icon-button--document" type="button" data-open-workflow-files aria-label="Open workflow files">
             ${fileIcon()}
           </button>
@@ -4445,9 +4448,6 @@ export function buildWorkflowHtml(
             <section class="detail-card detail-card--phase-overview">
             <div class="detail-card__header detail-card__header--phase-overview">
               <h2>${escapeHtml(selectedPhase.title)}</h2>
-              ${pullRequestUrl
-                ? `<button class="workflow-action-button workflow-action-button--document workflow-action-button--icon" data-command="openExternalUrl" data-url="${escapeHtmlAttribute(pullRequestUrl)}">${externalLinkIcon()}<span>${escapeHtml(pullRequestLabel)}</span></button>`
-                : ""}
             </div>
             <div class="detail-meta">
               <span class="token">${escapeHtml(phaseSecondaryLabel(selectedPhase))}</span>
