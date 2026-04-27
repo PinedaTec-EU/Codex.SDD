@@ -2755,6 +2755,10 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       outline: none;
       box-shadow: inset 0 0 0 2px rgba(92, 181, 255, 0.22);
     }
+    .detail-card__summary--completed-reopen .review-regression__header {
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+    }
     .detail-card__summary-title-row {
       display: inline-flex;
       align-items: center;
@@ -2773,6 +2777,16 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .detail-card--collapsible[open] .detail-card__summary-icon {
       transform: rotate(90deg);
+    }
+    .detail-card__summary-toggle {
+      pointer-events: none;
+      align-self: center;
+    }
+    .detail-card__summary-toggle-icon {
+      transform: rotate(90deg);
+    }
+    .detail-card--collapsible[open] .detail-card__summary-toggle-icon {
+      transform: rotate(-90deg);
     }
     .detail-card--collapsible .review-regression {
       padding: 0 18px 18px;
@@ -2903,6 +2917,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       display: grid;
       gap: 6px;
       justify-items: end;
+    }
+    .detail-card__summary--completed-reopen .review-regression__stat {
+      align-self: stretch;
     }
     .review-regression__stat-label {
       font-size: 0.72rem;

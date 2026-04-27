@@ -14,11 +14,10 @@ function buildCompletedPhaseSections(args) {
         beforeArtifact: [
             `
       <details class="detail-card detail-card--completed-reopen detail-card--collapsible"${hasCompletedPhaseData ? " open" : ""}>
-        <summary class="detail-card__summary">
+        <summary class="detail-card__summary detail-card__summary--completed-reopen">
           <div class="review-regression__header">
             <div class="review-regression__copy">
               <div class="detail-card__summary-title-row">
-                <span class="detail-card__summary-icon" aria-hidden="true">></span>
                 <span class="badge ${locked ? "badge--attention" : "badge--active"}">${locked ? "Completed and locked" : "Completed and unlocked"}</span>
               </div>
               <h3>Reopen Completed Workflow</h3>
@@ -31,6 +30,9 @@ function buildCompletedPhaseSections(args) {
               <span class="review-regression__stat-label">Lock policy</span>
               <strong class="review-regression__stat-value">${locked ? "Locked" : "Open"}</strong>
             </div>
+            <span class="iteration-rail-toggle detail-card__summary-toggle" aria-hidden="true">
+              <span class="iteration-rail-toggle__icon detail-card__summary-toggle-icon" aria-hidden="true">&gt;</span>
+            </span>
           </div>
         </summary>
         <div class="review-regression">
