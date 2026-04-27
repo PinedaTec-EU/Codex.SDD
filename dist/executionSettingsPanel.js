@@ -77,7 +77,7 @@ class ExecutionSettingsPanelController {
                     return;
                 case "saveExecutionSettings":
                     try {
-                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.autoClarificationAnswersEnabled ?? false, message.autoClarificationAnswersProfile, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null);
+                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.autoClarificationAnswersEnabled ?? false, message.autoClarificationAnswersProfile, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.completedUsLockOnCompleted ?? true);
                         await this.onDidSave();
                         await this.refreshAsync();
                     }
@@ -101,6 +101,7 @@ class ExecutionSettingsPanelController {
             autoClarificationAnswersProfile: settings.autoClarificationAnswersProfile,
             autoReviewEnabled: settings.autoReviewEnabled,
             maxImplementationReviewCycles: settings.maxImplementationReviewCycles,
+            completedUsLockOnCompleted: settings.completedUsLockOnCompleted,
             typographyCssVars: (0, webviewTypography_1.getEditorTypographyCssVars)()
         });
     }
@@ -396,6 +397,14 @@ function buildExecutionSettingsHtml(model) {
           <input type="number" min="1" step="1" data-max-implementation-review-cycles value="${(0, htmlEscape_1.escapeHtmlAttr)(String(model.maxImplementationReviewCycles ?? 5))}" />
           <span class="phase-field__hint">Automatic review stops when this many implementation attempts have been recorded.</span>
         </label>
+        <label class="phase-field">
+          <span>Lock completed workflows</span>
+          <select data-completed-us-lock-on-completed>
+            <option value="true"${model.completedUsLockOnCompleted ? " selected" : ""}>Enabled</option>
+            <option value="false"${model.completedUsLockOnCompleted ? "" : " selected"}>Disabled</option>
+          </select>
+          <span class="phase-field__hint">Disable this if completed workflows should still expose rewind and correction controls.</span>
+        </label>
       </div>
       <div class="actions">
         <button class="primary-action" type="submit">Save Execution Settings</button>
@@ -420,6 +429,7 @@ function buildExecutionSettingsHtml(model) {
       autoClarificationAnswersProfile: ${JSON.stringify(model.autoClarificationAnswersProfile)},
       autoReviewEnabled: ${JSON.stringify(model.autoReviewEnabled)},
       maxImplementationReviewCycles: ${JSON.stringify(model.maxImplementationReviewCycles ?? 5)},
+      completedUsLockOnCompleted: ${JSON.stringify(model.completedUsLockOnCompleted)},
       initialPermissionIssues: ${JSON.stringify(permissionIssues)}
     };
 
@@ -541,6 +551,7 @@ function buildExecutionSettingsHtml(model) {
       const autoClarificationEnabled = document.querySelector("[data-auto-clarification-enabled]");
       const autoReviewEnabled = document.querySelector("[data-auto-review-enabled]");
       const maxImplementationReviewCycles = document.querySelector("[data-max-implementation-review-cycles]");
+      const completedUsLockOnCompleted = document.querySelector("[data-completed-us-lock-on-completed]");
       const saveButton = document.querySelector('button[type="submit"]');
       const saveError = document.querySelector("[data-save-error]");
       if (!(profilesHost instanceof HTMLElement) || !(phaseGrid instanceof HTMLElement)) {
@@ -614,6 +625,13 @@ function buildExecutionSettingsHtml(model) {
         };
         maxImplementationReviewCycles.addEventListener("input", syncMaxCycles);
         maxImplementationReviewCycles.addEventListener("change", syncMaxCycles);
+      }
+
+      if (completedUsLockOnCompleted instanceof HTMLSelectElement) {
+        completedUsLockOnCompleted.value = state.completedUsLockOnCompleted ? "true" : "false";
+        completedUsLockOnCompleted.addEventListener("change", () => {
+          state.completedUsLockOnCompleted = completedUsLockOnCompleted.value === "true";
+        });
       }
 
       const fallbackProblem = hasFallbackProblem();
@@ -811,7 +829,8 @@ function buildExecutionSettingsHtml(model) {
         autoClarificationAnswersEnabled: state.autoClarificationAnswersEnabled,
         autoClarificationAnswersProfile: state.autoClarificationAnswersProfile,
         autoReviewEnabled: state.autoReviewEnabled,
-        maxImplementationReviewCycles: state.maxImplementationReviewCycles
+        maxImplementationReviewCycles: state.maxImplementationReviewCycles,
+        completedUsLockOnCompleted: state.completedUsLockOnCompleted
       });
     });
 
@@ -820,7 +839,7 @@ function buildExecutionSettingsHtml(model) {
 </body>
 </html>`;
 }
-async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, autoClarificationAnswersEnabled = false, autoClarificationAnswersProfile, autoReviewEnabled = false, maxImplementationReviewCycles) {
+async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, autoClarificationAnswersEnabled = false, autoClarificationAnswersProfile, autoReviewEnabled = false, maxImplementationReviewCycles, completedUsLockOnCompleted = true) {
     const configuration = vscode.workspace.getConfiguration("specForge");
     const normalizedProfiles = modelProfiles
         .map((profile) => ({
@@ -866,6 +885,7 @@ async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, 
     await configuration.update("execution.autoClarificationAnswersProfile", normalizeOptionalAssignment(autoClarificationAnswersProfile), vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.autoReviewEnabled", autoReviewEnabled, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.maxImplementationReviewCycles", normalizePositiveInteger(maxImplementationReviewCycles) ?? 5, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("features.completedUsLockOnCompleted", completedUsLockOnCompleted, vscode.ConfigurationTarget.Workspace);
 }
 function normalizeOptionalAssignment(value) {
     const trimmed = value?.trim();

@@ -439,6 +439,45 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ContinuePhaseAsync_FromPrPreparation_DoesNotCompleteWorkflowWhenPublicationLacksUrlOrNumber()
+    {
+        var publisher = new IncompletePullRequestPublisher();
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new PassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager(),
+            publisher);
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var error = await Assert.ThrowsAsync<WorkflowDomainException>(() =>
+            runner.ContinuePhaseAsync(workspaceRoot, "US-0001"));
+
+        Assert.Contains("did not return a valid pull request number", error.Message);
+
+        var loadedRun = await new UserStoryFileStore().LoadAsync(
+            UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").RootDirectory);
+        Assert.Equal(UserStoryStatus.Active, loadedRun.Status);
+        Assert.Equal(PhaseId.PrPreparation, loadedRun.CurrentPhase);
+        Assert.NotNull(loadedRun.Branch?.PullRequest);
+        Assert.Equal("prepared", loadedRun.Branch!.PullRequest!.Status);
+        Assert.Null(loadedRun.Branch.PullRequest.Number);
+        Assert.Null(loadedRun.Branch.PullRequest.Url);
+
+        var timeline = await File.ReadAllTextAsync(UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").TimelineFilePath);
+        Assert.DoesNotContain("`pull_request_published`", timeline);
+    }
+
+    [Fact]
     public async Task ContinuePhaseAsync_PrPreparation_ThrowsWhenArtifactIsPlaceholderOnly()
     {
         var runner = new WorkflowRunner(
@@ -1541,6 +1580,23 @@ public sealed class WorkflowRunnerTests : IDisposable
                 Number: 101,
                 Url: "https://github.com/example/repo/pull/101"));
         }
+    }
+
+    private sealed class IncompletePullRequestPublisher : IPullRequestPublisher
+    {
+        public Task<PullRequestPublicationResult> PublishAsync(
+            string workspaceRoot,
+            string usId,
+            WorkBranch branch,
+            PrPreparationArtifactDocument artifact,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new PullRequestPublicationResult(
+                CommitCreated: true,
+                CommitSha: "abc123",
+                RemoteBranch: branch.WorkBranchName,
+                IsDraft: true,
+                Number: null,
+                Url: null));
     }
 
     private sealed class PlaceholderPrPreparationPhaseExecutionProvider : IPhaseExecutionProvider

@@ -685,6 +685,7 @@ public sealed class WorkflowRunner
         var branch = workflowRun.Branch
             ?? throw new WorkflowDomainException("PR preparation requires branch metadata before publication.");
         var publication = await pullRequestPublisher.PublishAsync(workspaceRoot, workflowRun.UsId, branch, document, cancellationToken);
+        EnsurePullRequestPublicationSucceeded(publication);
         branch.RecordPublishedPullRequest(
             new PullRequestRecord(
                 publication.IsDraft ? "draft" : "published",
@@ -712,6 +713,24 @@ public sealed class WorkflowRunner
             [artifactPath]);
 
         return artifactPath;
+    }
+
+    private static void EnsurePullRequestPublicationSucceeded(PullRequestPublicationResult publication)
+    {
+        if (string.IsNullOrWhiteSpace(publication.RemoteBranch))
+        {
+            throw new WorkflowDomainException("PR publication did not report a remote branch.");
+        }
+
+        if (publication.Number is null || publication.Number <= 0)
+        {
+            throw new WorkflowDomainException("PR publication did not return a valid pull request number.");
+        }
+
+        if (string.IsNullOrWhiteSpace(publication.Url))
+        {
+            throw new WorkflowDomainException("PR publication did not return a pull request URL.");
+        }
     }
 
     private void EnsureNextPhaseExecutionIsReady(WorkflowRun workflowRun)

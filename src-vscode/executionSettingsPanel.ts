@@ -17,6 +17,7 @@ type ExecutionSettingsMessage =
       readonly autoClarificationAnswersProfile?: string | null;
       readonly autoReviewEnabled?: boolean;
       readonly maxImplementationReviewCycles?: number | null;
+      readonly completedUsLockOnCompleted?: boolean;
     }
   | { readonly command: "openRawSettings"; };
 
@@ -75,7 +76,8 @@ class ExecutionSettingsPanelController {
               message.autoClarificationAnswersEnabled ?? false,
               message.autoClarificationAnswersProfile,
               message.autoReviewEnabled ?? false,
-              message.maxImplementationReviewCycles ?? null);
+              message.maxImplementationReviewCycles ?? null,
+              message.completedUsLockOnCompleted ?? true);
             await this.onDidSave();
             await this.refreshAsync();
           } catch (error) {
@@ -100,6 +102,7 @@ class ExecutionSettingsPanelController {
       autoClarificationAnswersProfile: settings.autoClarificationAnswersProfile,
       autoReviewEnabled: settings.autoReviewEnabled,
       maxImplementationReviewCycles: settings.maxImplementationReviewCycles,
+      completedUsLockOnCompleted: settings.completedUsLockOnCompleted,
       typographyCssVars: getEditorTypographyCssVars()
     });
   }
@@ -112,6 +115,7 @@ type ExecutionSettingsViewModel = {
   readonly autoClarificationAnswersProfile: string | null;
   readonly autoReviewEnabled: boolean;
   readonly maxImplementationReviewCycles: number | null;
+  readonly completedUsLockOnCompleted: boolean;
   readonly typographyCssVars?: string;
 };
 
@@ -407,6 +411,14 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
           <input type="number" min="1" step="1" data-max-implementation-review-cycles value="${escapeHtmlAttr(String(model.maxImplementationReviewCycles ?? 5))}" />
           <span class="phase-field__hint">Automatic review stops when this many implementation attempts have been recorded.</span>
         </label>
+        <label class="phase-field">
+          <span>Lock completed workflows</span>
+          <select data-completed-us-lock-on-completed>
+            <option value="true"${model.completedUsLockOnCompleted ? " selected" : ""}>Enabled</option>
+            <option value="false"${model.completedUsLockOnCompleted ? "" : " selected"}>Disabled</option>
+          </select>
+          <span class="phase-field__hint">Disable this if completed workflows should still expose rewind and correction controls.</span>
+        </label>
       </div>
       <div class="actions">
         <button class="primary-action" type="submit">Save Execution Settings</button>
@@ -431,6 +443,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       autoClarificationAnswersProfile: ${JSON.stringify(model.autoClarificationAnswersProfile)},
       autoReviewEnabled: ${JSON.stringify(model.autoReviewEnabled)},
       maxImplementationReviewCycles: ${JSON.stringify(model.maxImplementationReviewCycles ?? 5)},
+      completedUsLockOnCompleted: ${JSON.stringify(model.completedUsLockOnCompleted)},
       initialPermissionIssues: ${JSON.stringify(permissionIssues)}
     };
 
@@ -552,6 +565,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       const autoClarificationEnabled = document.querySelector("[data-auto-clarification-enabled]");
       const autoReviewEnabled = document.querySelector("[data-auto-review-enabled]");
       const maxImplementationReviewCycles = document.querySelector("[data-max-implementation-review-cycles]");
+      const completedUsLockOnCompleted = document.querySelector("[data-completed-us-lock-on-completed]");
       const saveButton = document.querySelector('button[type="submit"]');
       const saveError = document.querySelector("[data-save-error]");
       if (!(profilesHost instanceof HTMLElement) || !(phaseGrid instanceof HTMLElement)) {
@@ -625,6 +639,13 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         };
         maxImplementationReviewCycles.addEventListener("input", syncMaxCycles);
         maxImplementationReviewCycles.addEventListener("change", syncMaxCycles);
+      }
+
+      if (completedUsLockOnCompleted instanceof HTMLSelectElement) {
+        completedUsLockOnCompleted.value = state.completedUsLockOnCompleted ? "true" : "false";
+        completedUsLockOnCompleted.addEventListener("change", () => {
+          state.completedUsLockOnCompleted = completedUsLockOnCompleted.value === "true";
+        });
       }
 
       const fallbackProblem = hasFallbackProblem();
@@ -822,7 +843,8 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         autoClarificationAnswersEnabled: state.autoClarificationAnswersEnabled,
         autoClarificationAnswersProfile: state.autoClarificationAnswersProfile,
         autoReviewEnabled: state.autoReviewEnabled,
-        maxImplementationReviewCycles: state.maxImplementationReviewCycles
+        maxImplementationReviewCycles: state.maxImplementationReviewCycles,
+        completedUsLockOnCompleted: state.completedUsLockOnCompleted
       });
     });
 
@@ -838,7 +860,8 @@ async function saveExecutionSettingsAsync(
   autoClarificationAnswersEnabled = false,
   autoClarificationAnswersProfile?: string | null,
   autoReviewEnabled = false,
-  maxImplementationReviewCycles?: number | null
+  maxImplementationReviewCycles?: number | null,
+  completedUsLockOnCompleted = true
 ): Promise<void> {
   const configuration = vscode.workspace.getConfiguration("specForge");
   const normalizedProfiles = modelProfiles
@@ -893,6 +916,10 @@ async function saveExecutionSettingsAsync(
   await configuration.update(
     "features.maxImplementationReviewCycles",
     normalizePositiveInteger(maxImplementationReviewCycles) ?? 5,
+    vscode.ConfigurationTarget.Workspace);
+  await configuration.update(
+    "features.completedUsLockOnCompleted",
+    completedUsLockOnCompleted,
     vscode.ConfigurationTarget.Workspace);
 }
 
