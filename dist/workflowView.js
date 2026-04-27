@@ -2693,19 +2693,20 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .graph-links path {
       fill: none;
-      stroke-width: 4.5;
+      stroke-width: 4.2;
       stroke-linecap: round;
       stroke-linejoin: round;
-      filter: drop-shadow(0 0 10px rgba(76, 236, 151, 0.22));
-      transition: stroke 180ms ease, opacity 180ms ease;
+      opacity: 0.94;
+      filter: drop-shadow(0 0 9px rgba(76, 236, 151, 0.18));
+      transition: stroke 180ms ease, opacity 180ms ease, stroke-width 180ms ease, filter 180ms ease;
     }
     .graph-links path.completed {
       stroke: rgba(67, 226, 146, 0.88);
     }
     .graph-links path.current {
-      stroke: rgba(92, 181, 255, 0.92);
-      stroke-dasharray: 16 12;
-      animation: currentFlow 1.8s linear infinite;
+      stroke: rgba(92, 181, 255, 0.94);
+      stroke-width: 4.5;
+      filter: drop-shadow(0 0 12px rgba(92, 181, 255, 0.26));
     }
     .graph-links path.executing {
       stroke: rgba(92, 181, 255, 0.98);
@@ -6603,7 +6604,14 @@ function resolveDisplayedCurrentPhaseId(workflow, state, effectiveExecutionPhase
 function buildGraphLinks(visiblePhases, executingTargetPhaseId, currentPhaseId, completedPhaseIds, positions, nodeWidth) {
     const visiblePhaseMap = new Map(visiblePhases.map((phase) => [phase.phaseId, phase]));
     const edges = buildPrimaryGraphEdges(visiblePhases, visiblePhaseMap, executingTargetPhaseId, currentPhaseId, completedPhaseIds);
+    const classPriority = {
+        pending: 0,
+        completed: 1,
+        current: 2,
+        executing: 3
+    };
     return edges
+        .sort((left, right) => (classPriority[left.className] ?? 0) - (classPriority[right.className] ?? 0))
         .map((edge) => `<path class="${edge.className}" data-edge="${(0, htmlEscape_1.escapeHtmlAttr)(`${edge.fromPhaseId}->${edge.toPhaseId}`)}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth)}"></path>`)
         .join("");
 }
@@ -6698,7 +6706,8 @@ function buildPrimaryGraphEdges(visiblePhases, visiblePhaseMap, executingTargetP
         { fromPhaseId: "technical-design", toPhaseId: "implementation" },
         { fromPhaseId: "implementation", toPhaseId: "review" },
         { fromPhaseId: "review", toPhaseId: "release-approval" },
-        { fromPhaseId: "release-approval", toPhaseId: "pr-preparation" }
+        { fromPhaseId: "release-approval", toPhaseId: "pr-preparation" },
+        { fromPhaseId: "pr-preparation", toPhaseId: "completed" }
     ];
     for (const definition of primaryDefinitions) {
         const targetPhase = visiblePhaseMap.get(definition.toPhaseId);
@@ -6720,7 +6729,10 @@ function linkClass(targetPhase, executingTargetPhaseId, currentPhaseId, complete
     if (executingTargetPhaseId === targetPhase.phaseId) {
         return "executing";
     }
-    if (completedPhaseIds.has(targetPhase.phaseId) || targetPhase.phaseId === currentPhaseId || targetPhase.state === "completed") {
+    if (targetPhase.phaseId === currentPhaseId) {
+        return "current";
+    }
+    if (completedPhaseIds.has(targetPhase.phaseId) || targetPhase.state === "completed") {
         return "completed";
     }
     return "pending";
@@ -6758,9 +6770,8 @@ function buildSameColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor
     const exitPull = projectAwayFromNode(fromPosition, fromAnchor, from, laneOffset);
     const entryPull = projectAwayFromNode(toPosition, toAnchor, to, laneOffset);
     if (to.y > from.y) {
-        const verticalSpread = Math.max(44, verticalGap * 0.34);
-        const midY = from.y + (to.y - from.y) * 0.52;
-        return `M ${from.x} ${from.y} C ${from.x} ${from.y + verticalSpread}, ${to.x} ${midY - verticalSpread * 0.18}, ${to.x} ${midY} S ${to.x} ${to.y - verticalSpread * 0.28}, ${to.x} ${to.y}`;
+        const verticalSpread = Math.max(48, verticalGap * 0.3);
+        return `M ${from.x} ${from.y} C ${from.x} ${from.y + verticalSpread}, ${to.x} ${to.y - verticalSpread}, ${to.x} ${to.y}`;
     }
     const laneX = fromAnchor === "exit-left" || toAnchor === "entry-left"
         ? fromPosition.left - laneOffset
@@ -6769,6 +6780,9 @@ function buildSameColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor
     return `M ${from.x} ${from.y} C ${exitPull.x} ${from.y}, ${laneX} ${from.y - verticalSpread * 0.12}, ${laneX} ${from.y - verticalSpread} S ${laneX} ${to.y + verticalSpread}, ${entryPull.x} ${to.y} S ${to.x} ${to.y}, ${to.x} ${to.y}`;
 }
 function buildCrossColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth) {
+    if (to.y > from.y && isDownwardFlowAnchor(fromAnchor) && isTopEntryAnchor(toAnchor)) {
+        return buildDownwardCrossColumnGraphPath(fromPosition, toPosition, from, to, nodeWidth);
+    }
     const channelOffset = Math.max(38, nodeWidth * 0.18);
     const exitPull = projectAwayFromNode(fromPosition, fromAnchor, from, channelOffset);
     const entryPull = projectAwayFromNode(toPosition, toAnchor, to, channelOffset);
@@ -6782,6 +6796,17 @@ function buildCrossColumnGraphPath(fromPosition, toPosition, fromAnchor, toAncho
         ? Math.min(from.y, to.y) + verticalBias
         : Math.max(from.y, to.y) - verticalBias;
     return `M ${from.x} ${from.y} C ${exitPull.x} ${from.y}, ${exitX} ${crestY}, ${from.x + deltaX * 0.52} ${from.y + deltaY * 0.52} S ${entryX} ${to.y}, ${to.x} ${to.y}`;
+}
+function buildDownwardCrossColumnGraphPath(_fromPosition, _toPosition, from, to, nodeWidth) {
+    const deltaX = to.x - from.x;
+    const deltaY = to.y - from.y;
+    const verticalExit = Math.max(42, Math.min(92, deltaY * 0.28));
+    const verticalEntry = Math.max(42, Math.min(88, deltaY * 0.26));
+    const midY = from.y + deltaY * 0.54;
+    const horizontalDrift = Math.max(36, Math.min(nodeWidth * 0.34, Math.abs(deltaX) * 0.42));
+    const controlFromX = from.x + Math.sign(deltaX || 1) * horizontalDrift;
+    const controlToX = to.x - Math.sign(deltaX || 1) * horizontalDrift;
+    return `M ${from.x} ${from.y} C ${from.x} ${from.y + verticalExit}, ${controlFromX} ${midY - verticalExit * 0.22}, ${from.x + deltaX * 0.5} ${midY} S ${controlToX} ${to.y - verticalEntry}, ${to.x} ${to.y}`;
 }
 function buildSpecToTechnicalDesignPath(fromPosition, toPosition, nodeWidth) {
     const from = getAnchorPoint(fromPosition, "exit-left", nodeWidth);
@@ -6800,10 +6825,16 @@ function buildTechnicalDesignToImplementationPath(fromPosition, toPosition, node
 function resolveAnchors(from, to) {
     const deltaX = to.left - from.left;
     const deltaY = to.top - from.top;
-    if (deltaX === 0) {
-        if (deltaY >= 0) {
+    if (deltaY > 0) {
+        if (Math.abs(deltaX) <= 28) {
             return { fromAnchor: "exit-bottom-mid", toAnchor: "entry-top" };
         }
+        if (deltaX > 0) {
+            return { fromAnchor: "exit-bottom-right", toAnchor: "entry-top-left" };
+        }
+        return { fromAnchor: "exit-bottom-left", toAnchor: "entry-top-right" };
+    }
+    if (deltaX === 0) {
         return { fromAnchor: "exit-right", toAnchor: "entry-right" };
     }
     if (deltaX > 0) {
@@ -6814,7 +6845,11 @@ function resolveAnchors(from, to) {
 function getAnchorPoint(position, anchor, nodeWidth) {
     switch (anchor) {
         case "entry-top":
-            return { x: position.left + nodeWidth * 0.24, y: position.top };
+            return { x: position.left + nodeWidth * 0.5, y: position.top };
+        case "entry-top-left":
+            return { x: position.left + nodeWidth * 0.26, y: position.top };
+        case "entry-top-right":
+            return { x: position.left + nodeWidth * 0.74, y: position.top };
         case "entry-left":
             return { x: position.left, y: position.top + phaseNodeHeight * 0.36 };
         case "entry-right":
@@ -6834,6 +6869,8 @@ function getAnchorPoint(position, anchor, nodeWidth) {
 function projectAwayFromNode(position, anchor, point, offset) {
     switch (anchor) {
         case "entry-top":
+        case "entry-top-left":
+        case "entry-top-right":
             return { x: point.x, y: position.top - offset };
         case "entry-left":
             return { x: position.left - offset, y: point.y };
@@ -6848,6 +6885,12 @@ function projectAwayFromNode(position, anchor, point, offset) {
         case "exit-bottom-right":
             return { x: point.x, y: position.top + phaseNodeHeight + offset };
     }
+}
+function isDownwardFlowAnchor(anchor) {
+    return anchor === "exit-bottom-left" || anchor === "exit-bottom-mid" || anchor === "exit-bottom-right";
+}
+function isTopEntryAnchor(anchor) {
+    return anchor === "entry-top" || anchor === "entry-top-left" || anchor === "entry-top-right";
 }
 function extractArtifactQuestionBlock(markdown) {
     if (!markdown) {
