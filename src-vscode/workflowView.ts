@@ -2948,20 +2948,14 @@ export function buildWorkflowHtml(
       z-index: 0;
       pointer-events: none;
     }
-    .phase-node::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      background:
-        radial-gradient(circle at 14% 12%, rgba(114, 241, 184, 0.08), transparent 28%),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.012), transparent 34%);
-      z-index: 1;
-      pointer-events: none;
-    }
     .phase-node:hover {
       transform: translateY(-2px) scale(1.01);
-      border-color: rgba(114, 241, 184, 0.28);
+      border-color: rgba(164, 231, 255, 0.42);
+      background: linear-gradient(180deg, rgba(34, 42, 56, 0.98), rgba(14, 18, 26, 1));
+      box-shadow:
+        0 22px 34px rgba(0, 0, 0, 0.28),
+        0 0 0 1px rgba(210, 229, 246, 0.08),
+        0 0 24px rgba(124, 190, 255, 0.12);
     }
     .phase-node.selected {
       outline: 2px solid rgba(114, 241, 184, 0.52);
@@ -3015,24 +3009,64 @@ export function buildWorkflowHtml(
       box-shadow: 0 20px 34px rgba(48, 120, 255, 0.16);
       animation: nodeRise 420ms ease both, currentPulse 2.8s ease-in-out infinite;
     }
+    .phase-node.phase-tone-active:hover {
+      border-color: rgba(110, 198, 255, 0.72);
+      background: linear-gradient(180deg, rgb(34, 69, 114), rgb(12, 28, 46));
+      box-shadow:
+        0 24px 36px rgba(30, 86, 150, 0.28),
+        0 0 0 1px rgba(128, 205, 255, 0.16),
+        0 0 28px rgba(92, 181, 255, 0.22);
+    }
     .phase-node.phase-tone-waiting-user {
       background: linear-gradient(180deg, rgb(74, 56, 12), rgb(24, 18, 7));
       border-color: rgba(255, 213, 90, 0.5);
       box-shadow: 0 20px 34px rgba(154, 118, 24, 0.24);
+    }
+    .phase-node.phase-tone-waiting-user:hover {
+      border-color: rgba(255, 223, 116, 0.74);
+      background: linear-gradient(180deg, rgb(96, 73, 16), rgb(36, 27, 10));
+      box-shadow:
+        0 24px 36px rgba(154, 118, 24, 0.28),
+        0 0 0 1px rgba(255, 231, 162, 0.14),
+        0 0 28px rgba(255, 213, 90, 0.18);
     }
     .phase-node.phase-tone-paused {
       background: linear-gradient(180deg, rgb(24, 49, 82), rgb(10, 20, 32));
       border-color: rgba(92, 181, 255, 0.34);
       box-shadow: 0 18px 30px rgba(48, 120, 255, 0.14);
     }
+    .phase-node.phase-tone-paused:hover {
+      border-color: rgba(122, 201, 255, 0.62);
+      background: linear-gradient(180deg, rgb(33, 63, 102), rgb(12, 25, 40));
+      box-shadow:
+        0 22px 34px rgba(40, 98, 160, 0.24),
+        0 0 0 1px rgba(141, 208, 255, 0.12),
+        0 0 24px rgba(92, 181, 255, 0.16);
+    }
     .phase-node.phase-tone-blocked {
       background: linear-gradient(180deg, rgb(54, 23, 23), rgb(20, 10, 10));
       border-color: rgba(255, 120, 120, 0.28);
       box-shadow: 0 18px 30px rgba(140, 38, 38, 0.16);
     }
+    .phase-node.phase-tone-blocked:hover {
+      border-color: rgba(255, 146, 146, 0.58);
+      background: linear-gradient(180deg, rgb(72, 29, 29), rgb(28, 12, 12));
+      box-shadow:
+        0 22px 34px rgba(140, 38, 38, 0.22),
+        0 0 0 1px rgba(255, 184, 184, 0.08),
+        0 0 24px rgba(255, 120, 120, 0.12);
+    }
     .phase-node.phase-tone-completed {
       background: linear-gradient(180deg, rgb(18, 44, 34), rgb(10, 20, 17));
       border-color: rgba(114, 241, 184, 0.24);
+    }
+    .phase-node.phase-tone-completed:hover {
+      border-color: rgba(114, 241, 184, 0.56);
+      background: linear-gradient(180deg, rgb(24, 61, 46), rgb(11, 27, 21));
+      box-shadow:
+        0 22px 34px rgba(18, 72, 53, 0.22),
+        0 0 0 1px rgba(173, 255, 218, 0.1),
+        0 0 26px rgba(114, 241, 184, 0.14);
     }
     .phase-node.phase-tone-pending {
       background:
@@ -3041,6 +3075,16 @@ export function buildWorkflowHtml(
       border-color: rgba(196, 203, 214, 0.14);
       box-shadow: 0 16px 28px rgba(7, 10, 16, 0.22);
       opacity: 0.96;
+    }
+    .phase-node.phase-tone-pending:hover {
+      border-color: rgba(214, 222, 235, 0.28);
+      background:
+        linear-gradient(180deg, rgb(84, 90, 102), rgb(26, 31, 39)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+      box-shadow:
+        0 22px 34px rgba(7, 10, 16, 0.28),
+        0 0 0 1px rgba(226, 232, 240, 0.06),
+        0 0 20px rgba(196, 203, 214, 0.08);
     }
     .phase-node.phase-tone-disabled {
       background:
