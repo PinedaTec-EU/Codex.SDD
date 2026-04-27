@@ -3474,7 +3474,21 @@ export function buildWorkflowHtml(
       fill: currentColor;
     }
     .phase-current-rail {
-      display: none;
+      position: absolute;
+      top: 26px;
+      bottom: 26px;
+      left: -39px;
+      width: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(92, 181, 255, 0.34);
+      border-right: 0;
+      border-radius: 18px 0 0 18px;
+      background: linear-gradient(180deg, rgba(20, 90, 154, 0.98), rgba(6, 34, 65, 0.98));
+      box-shadow: 0 16px 28px rgba(4, 18, 34, 0.28);
+      pointer-events: none;
+      z-index: 1;
     }
     .phase-current-rail__label {
       display: inline-block;
@@ -3491,11 +3505,25 @@ export function buildWorkflowHtml(
       white-space: nowrap;
     }
     .phase-viewing-rail {
-      display: none;
+      position: absolute;
+      top: 26px;
+      bottom: 26px;
+      right: -39px;
+      width: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(177, 190, 210, 0.24);
+      border-left: 0;
+      border-radius: 0 18px 18px 0;
+      background: linear-gradient(180deg, rgba(62, 74, 96, 0.98), rgba(24, 32, 46, 0.98));
+      box-shadow: 0 16px 28px rgba(4, 8, 16, 0.24);
+      pointer-events: none;
+      z-index: 1;
     }
     .phase-viewing-rail--current {
-      left: 18px;
-      right: -28px;
+      border-color: rgba(114, 241, 184, 0.32);
+      background: linear-gradient(180deg, rgba(52, 105, 85, 0.98), rgba(16, 45, 36, 0.98));
     }
     .phase-viewing-rail__label {
       display: inline-block;
