@@ -2811,6 +2811,36 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       stroke: rgba(114, 196, 255, 0.96);
       filter: drop-shadow(0 0 14px rgba(92, 181, 255, 0.24));
     }
+    .graph-reopen-preview {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .graph-reopen-preview[hidden] {
+      display: none;
+    }
+    .graph-reopen-preview__path {
+      fill: none;
+      stroke: rgba(172, 178, 189, 0.92);
+      stroke-width: 3.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 12 10;
+      animation: reopenPreviewBlink 0.92s ease-in-out infinite;
+      filter: drop-shadow(0 0 8px rgba(142, 149, 160, 0.2));
+    }
+    @keyframes reopenPreviewBlink {
+      0%, 100% {
+        opacity: 0.34;
+      }
+      50% {
+        opacity: 0.96;
+      }
+    }
     .phase-graph {
       position: relative;
       width: var(--graph-width-desktop-vertical, ${desktopGraphWidth}px);
@@ -5390,6 +5420,127 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       graphPanel.scrollTop = Math.max(0, targetTop);
       graphPanel.scrollLeft = Math.max(0, targetLeft);
     };
+    const getPhaseNodeById = (phaseId) => {
+      if (!(phaseGraph instanceof HTMLElement) || !phaseId) {
+        return null;
+      }
+
+      const escapedPhaseId = typeof CSS !== "undefined" && typeof CSS.escape === "function"
+        ? CSS.escape(phaseId)
+        : phaseId.replace(/"/g, '\\"');
+      const phaseNode = phaseGraph.querySelector('.phase-node[data-phase-id="' + escapedPhaseId + '"]');
+      return phaseNode instanceof HTMLElement ? phaseNode : null;
+    };
+    const getOrCreateReopenPreviewOverlay = () => {
+      if (!(phaseGraph instanceof HTMLElement)) {
+        return { overlay: null, path: null };
+      }
+
+      let overlay = phaseGraph.querySelector("[data-graph-reopen-preview]");
+      if (!(overlay instanceof SVGSVGElement)) {
+        overlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        overlay.setAttribute("class", "graph-reopen-preview");
+        overlay.setAttribute("data-graph-reopen-preview", "true");
+        overlay.setAttribute("aria-hidden", "true");
+        overlay.setAttribute("preserveAspectRatio", "none");
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("class", "graph-reopen-preview__path");
+        overlay.appendChild(path);
+        phaseGraph.appendChild(overlay);
+      }
+
+      const path = overlay.querySelector("path");
+      return {
+        overlay,
+        path: path instanceof SVGPathElement ? path : null
+      };
+    };
+    const buildReopenPreviewPath = (fromRect, toRect, stageRect) => {
+      const startX = fromRect.right - stageRect.left;
+      const startY = fromRect.top - stageRect.top + (fromRect.height / 2);
+      const targetX = toRect.right - stageRect.left;
+      const targetY = toRect.top - stageRect.top + (toRect.height / 2);
+      const stageWidth = Math.max(phaseGraph instanceof HTMLElement ? phaseGraph.clientWidth : 0, stageRect.width);
+      const rightLaneX = Math.max(startX, targetX) + 52;
+      const laneX = Math.min(stageWidth - 18, rightLaneX);
+      const verticalDirection = targetY < startY ? -1 : 1;
+      const cornerRadius = Math.min(18, Math.max(10, Math.abs(targetY - startY) * 0.18));
+      const verticalTurnY = targetY - (cornerRadius * verticalDirection);
+      const laneStartX = laneX - cornerRadius;
+      const laneEndX = targetX + cornerRadius;
+
+      return [
+        "M", startX, startY,
+        "L", laneStartX, startY,
+        "Q", laneX, startY, laneX, startY + (cornerRadius * verticalDirection),
+        "L", laneX, verticalTurnY,
+        "Q", laneX, targetY, laneEndX, targetY,
+        "L", targetX, targetY
+      ].join(" ");
+    };
+    const hideReopenPreviewPath = () => {
+      const { overlay, path } = getOrCreateReopenPreviewOverlay();
+      if (overlay instanceof SVGSVGElement) {
+        overlay.hidden = true;
+      }
+      if (path instanceof SVGPathElement) {
+        path.removeAttribute("d");
+      }
+    };
+    const ensureReopenTargetVisible = (targetPhaseId) => {
+      if (!(graphPanel instanceof HTMLElement)) {
+        return;
+      }
+
+      const targetNode = getPhaseNodeById(targetPhaseId);
+      if (!(targetNode instanceof HTMLElement)) {
+        return;
+      }
+
+      const panelBounds = graphPanel.getBoundingClientRect();
+      const targetBounds = targetNode.getBoundingClientRect();
+      const verticalPadding = Math.max(24, Math.round(graphPanel.clientHeight * 0.08));
+      const topComfort = panelBounds.top + verticalPadding;
+      const bottomComfort = panelBounds.bottom - Math.max(24, Math.round(graphPanel.clientHeight * 0.18));
+      const outsideVisibleZone = targetBounds.top < topComfort || targetBounds.bottom > bottomComfort;
+      const horizontalOutside = targetBounds.left < panelBounds.left + 20 || targetBounds.right > panelBounds.right - 20;
+
+      if (!outsideVisibleZone && !horizontalOutside) {
+        return;
+      }
+
+      const nextTop = Math.max(0, targetNode.offsetTop - verticalPadding);
+      const nextLeft = Math.max(0, targetNode.offsetLeft - Math.max(24, Math.round((graphPanel.clientWidth - targetNode.offsetWidth) / 2)));
+      graphPanel.scrollTo({
+        top: nextTop,
+        left: nextLeft,
+        behavior: "smooth"
+      });
+    };
+    const syncCompletedReopenPreviewPath = () => {
+      const targetPhaseId = completedReopenReason instanceof HTMLSelectElement
+        ? resolveCompletedWorkflowReopenTargetPhase(completedReopenReason.value.trim())
+        : "";
+      if (!targetPhaseId) {
+        hideReopenPreviewPath();
+        return;
+      }
+
+      const sourceNode = getPhaseNodeById("completed");
+      const targetNode = getPhaseNodeById(targetPhaseId);
+      const { overlay, path } = getOrCreateReopenPreviewOverlay();
+      if (!(sourceNode instanceof HTMLElement) || !(targetNode instanceof HTMLElement) || !(overlay instanceof SVGSVGElement) || !(path instanceof SVGPathElement) || !(phaseGraph instanceof HTMLElement)) {
+        hideReopenPreviewPath();
+        return;
+      }
+
+      const stageRect = phaseGraph.getBoundingClientRect();
+      const sourceRect = sourceNode.getBoundingClientRect();
+      const targetRect = targetNode.getBoundingClientRect();
+      overlay.setAttribute("viewBox", "0 0 " + Math.max(1, phaseGraph.clientWidth) + " " + Math.max(1, phaseGraph.clientHeight));
+      path.setAttribute("d", buildReopenPreviewPath(sourceRect, targetRect, stageRect));
+      overlay.hidden = false;
+    };
     const autoScrollStateKey = workflowShell instanceof HTMLElement
       ? "specforge-ai:auto-scroll-phase:" + (workflowShell.dataset.usId ?? "")
       : "";
@@ -6606,6 +6757,12 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         ? completedReopenDescription.value.trim()
         : "";
       completedReopenSubmitButton.disabled = reasonValue.length === 0 || descriptionValue.length === 0;
+      syncCompletedReopenPreviewPath();
+      if (targetPhaseLabel) {
+        window.requestAnimationFrame(() => {
+          ensureReopenTargetVisible(targetPhaseLabel);
+        });
+      }
     };
 
     if (completedReopenReason instanceof HTMLSelectElement) {
@@ -6615,6 +6772,10 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     if (completedReopenDescription instanceof HTMLTextAreaElement) {
       completedReopenDescription.addEventListener("input", syncCompletedReopenState);
     }
+
+    window.addEventListener("resize", () => {
+      syncCompletedReopenPreviewPath();
+    });
 
     if (completedReopenSubmitButton instanceof HTMLButtonElement) {
       completedReopenSubmitButton.addEventListener("click", () => {
