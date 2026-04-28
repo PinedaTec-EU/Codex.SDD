@@ -19,9 +19,18 @@ export interface WorkflowGraphPhasePosition {
   readonly y: number;
 }
 
+export interface WorkflowGraphEdgeConnection {
+  readonly from: string;
+  readonly to: string;
+}
+
 export interface WorkflowGraphLayoutConfig {
   readonly horizontal: Record<string, WorkflowGraphPhasePosition>;
   readonly vertical: Record<string, WorkflowGraphPhasePosition>;
+  readonly connections: {
+    readonly horizontal: Record<string, WorkflowGraphEdgeConnection>;
+    readonly vertical: Record<string, WorkflowGraphEdgeConnection>;
+  };
 }
 
 const workflowGraphPhaseIds: readonly WorkflowGraphPhaseId[] = [
@@ -62,6 +71,28 @@ export const defaultVerticalWorkflowGraphPositions: Record<string, WorkflowGraph
   completed: { x: 440, y: 1378 }
 };
 
+export const defaultHorizontalWorkflowGraphConnections: Record<string, WorkflowGraphEdgeConnection> = {
+  "capture->refinement": { from: "R3", to: "L3" },
+  "refinement->spec": { from: "R3", to: "L3" },
+  "spec->technical-design": { from: "B3", to: "T3" },
+  "technical-design->implementation": { from: "L3", to: "R3" },
+  "implementation->review": { from: "L3", to: "R3" },
+  "review->release-approval": { from: "B3", to: "T3" },
+  "release-approval->pr-preparation": { from: "R3", to: "L3" },
+  "pr-preparation->completed": { from: "R3", to: "L3" }
+};
+
+export const defaultVerticalWorkflowGraphConnections: Record<string, WorkflowGraphEdgeConnection> = {
+  "capture->refinement": { from: "R4", to: "T2" },
+  "refinement->spec": { from: "B2", to: "T4" },
+  "spec->technical-design": { from: "L4", to: "T3" },
+  "technical-design->implementation": { from: "R4", to: "L3" },
+  "implementation->review": { from: "B3", to: "T3" },
+  "review->release-approval": { from: "R3", to: "T2" },
+  "release-approval->pr-preparation": { from: "B2", to: "R3" },
+  "pr-preparation->completed": { from: "R3", to: "L3" }
+};
+
 export function getWorkflowGraphLayoutPath(workspaceRoot: string): string {
   return path.join(workspaceRoot, ".specs", "workflow-graph-layout.yaml");
 }
@@ -79,7 +110,11 @@ export async function ensureWorkflowGraphLayoutConfigExistsAsync(workspaceRoot: 
   await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
   await fs.promises.writeFile(filePath, serializeWorkflowGraphLayoutConfig({
     horizontal: defaultHorizontalWorkflowGraphPositions,
-    vertical: defaultVerticalWorkflowGraphPositions
+    vertical: defaultVerticalWorkflowGraphPositions,
+    connections: {
+      horizontal: defaultHorizontalWorkflowGraphConnections,
+      vertical: defaultVerticalWorkflowGraphConnections
+    }
   }), "utf8");
   appendSpecForgeLog(`Created workflow graph layout bootstrap at '${filePath}'.`);
 }
@@ -97,7 +132,11 @@ export async function readWorkflowGraphLayoutConfigAsync(workspaceRoot: string):
     );
     return {
       horizontal: { ...defaultHorizontalWorkflowGraphPositions },
-      vertical: { ...defaultVerticalWorkflowGraphPositions }
+      vertical: { ...defaultVerticalWorkflowGraphPositions },
+      connections: {
+        horizontal: { ...defaultHorizontalWorkflowGraphConnections },
+        vertical: { ...defaultVerticalWorkflowGraphConnections }
+      }
     };
   }
 }
@@ -105,18 +144,36 @@ export async function readWorkflowGraphLayoutConfigAsync(workspaceRoot: string):
 function parseWorkflowGraphLayoutConfig(raw: string): WorkflowGraphLayoutConfig {
   const horizontal = { ...defaultHorizontalWorkflowGraphPositions };
   const vertical = { ...defaultVerticalWorkflowGraphPositions };
+  const connections = {
+    horizontal: { ...defaultHorizontalWorkflowGraphConnections },
+    vertical: { ...defaultVerticalWorkflowGraphConnections }
+  };
   let currentMode: WorkflowGraphLayoutMode | null = null;
+  let currentSection: "positions" | "connections" = "positions";
   let currentPhaseId: WorkflowGraphPhaseId | null = null;
+  let currentEdgeId: string | null = null;
   let pendingX: number | null = null;
   let pendingY: number | null = null;
+  let pendingFromAnchor: string | null = null;
+  let pendingToAnchor: string | null = null;
 
   const commitPending = (): void => {
-    if (!currentMode || !currentPhaseId || pendingX === null || pendingY === null) {
+    if (currentSection === "positions") {
+      if (!currentMode || !currentPhaseId || pendingX === null || pendingY === null) {
+        return;
+      }
+
+      const target = currentMode === "horizontal" ? horizontal : vertical;
+      target[currentPhaseId] = { x: pendingX, y: pendingY };
       return;
     }
 
-    const target = currentMode === "horizontal" ? horizontal : vertical;
-    target[currentPhaseId] = { x: pendingX, y: pendingY };
+    if (!currentMode || !currentEdgeId || !isAnchorCode(pendingFromAnchor) || !isAnchorCode(pendingToAnchor)) {
+      return;
+    }
+
+    const target = currentMode === "horizontal" ? connections.horizontal : connections.vertical;
+    target[currentEdgeId] = { from: pendingFromAnchor, to: pendingToAnchor };
   };
 
   for (const rawLine of raw.replace(/\r\n/g, "\n").split("\n")) {
@@ -129,18 +186,49 @@ function parseWorkflowGraphLayoutConfig(raw: string): WorkflowGraphLayoutConfig 
     if (modeMatch) {
       commitPending();
       currentMode = modeMatch[1] as WorkflowGraphLayoutMode;
+      currentSection = "positions";
       currentPhaseId = null;
+      currentEdgeId = null;
       pendingX = null;
       pendingY = null;
+      pendingFromAnchor = null;
+      pendingToAnchor = null;
+      continue;
+    }
+
+    if (trimmed === "connections:") {
+      commitPending();
+      currentSection = "connections";
+      currentPhaseId = null;
+      currentEdgeId = null;
+      pendingX = null;
+      pendingY = null;
+      pendingFromAnchor = null;
+      pendingToAnchor = null;
       continue;
     }
 
     const phaseMatch = /^([a-z0-9-]+):\s*$/.exec(trimmed);
-    if (phaseMatch && currentMode && workflowGraphPhaseIds.includes(phaseMatch[1] as WorkflowGraphPhaseId)) {
+    if (phaseMatch && currentMode && currentSection === "positions" && workflowGraphPhaseIds.includes(phaseMatch[1] as WorkflowGraphPhaseId)) {
       commitPending();
       currentPhaseId = phaseMatch[1] as WorkflowGraphPhaseId;
+      currentEdgeId = null;
       pendingX = null;
       pendingY = null;
+      pendingFromAnchor = null;
+      pendingToAnchor = null;
+      continue;
+    }
+
+    const edgeMatch = /^([a-z0-9-]+->[a-z0-9-]+):\s*$/.exec(trimmed);
+    if (edgeMatch && currentMode && currentSection === "connections") {
+      commitPending();
+      currentEdgeId = edgeMatch[1];
+      currentPhaseId = null;
+      pendingX = null;
+      pendingY = null;
+      pendingFromAnchor = null;
+      pendingToAnchor = null;
       continue;
     }
 
@@ -155,15 +243,28 @@ function parseWorkflowGraphLayoutConfig(raw: string): WorkflowGraphLayoutConfig 
       pendingY = Number.parseInt(yMatch[1], 10);
       continue;
     }
+
+    const fromMatch = /^from:\s*([TLRB][1-5])\s*$/.exec(trimmed);
+    if (fromMatch && currentEdgeId) {
+      pendingFromAnchor = fromMatch[1];
+      continue;
+    }
+
+    const toMatch = /^to:\s*([TLRB][1-5])\s*$/.exec(trimmed);
+    if (toMatch && currentEdgeId) {
+      pendingToAnchor = toMatch[1];
+      continue;
+    }
   }
 
   commitPending();
-  return { horizontal, vertical };
+  return { horizontal, vertical, connections };
 }
 
 function serializeWorkflowGraphLayoutConfig(config: WorkflowGraphLayoutConfig): string {
   const serializeMode = (mode: WorkflowGraphLayoutMode): string => {
     const positions = mode === "horizontal" ? config.horizontal : config.vertical;
+    const edges = mode === "horizontal" ? config.connections.horizontal : config.connections.vertical;
     const lines = [`${mode}:`];
     for (const phaseId of workflowGraphPhaseIds) {
       const position = positions[phaseId];
@@ -171,15 +272,26 @@ function serializeWorkflowGraphLayoutConfig(config: WorkflowGraphLayoutConfig): 
       lines.push(`    x: ${Math.round(position.x)}`);
       lines.push(`    y: ${Math.round(position.y)}`);
     }
+    lines.push("  connections:");
+    for (const edgeId of Object.keys(edges)) {
+      lines.push(`    ${edgeId}:`);
+      lines.push(`      from: ${edges[edgeId].from}`);
+      lines.push(`      to: ${edges[edgeId].to}`);
+    }
     return lines.join("\n");
   };
 
   return [
     "# SpecForge workflow graph layout",
     "# Edit x/y coordinates to reposition cards in the workflow graph.",
+    "# Connection anchors use T1..T5, R1..R5, B1..B5, L1..L5.",
     serializeMode("horizontal"),
     "",
     serializeMode("vertical"),
     ""
   ].join("\n");
+}
+
+function isAnchorCode(value: string | null): value is string {
+  return Boolean(value && /^[TLRB][1-5]$/.test(value));
 }

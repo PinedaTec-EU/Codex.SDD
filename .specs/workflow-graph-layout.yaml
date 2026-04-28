@@ -1,6 +1,7 @@
 # SpecForge workflow graph layout
 # Edit x/y coordinates to reposition cards in the workflow graph.
 # Card dimensions used by the renderer: desktop 300x142, mobile 258x142.
+# Connection anchors use T1..T5, R1..R5, B1..B5, L1..L5.
 horizontal:
   capture:
     x: 72
@@ -29,6 +30,31 @@ horizontal:
   completed:
     x: 788
     y: 740
+  connections:
+    capture->refinement:
+      from: R3
+      to: L3
+    refinement->spec:
+      from: R3
+      to: L3
+    spec->technical-design:
+      from: B3
+      to: T3
+    technical-design->implementation:
+      from: L3
+      to: R3
+    implementation->review:
+      from: L3
+      to: R3
+    review->release-approval:
+      from: B3
+      to: T3
+    release-approval->pr-preparation:
+      from: R3
+      to: L3
+    pr-preparation->completed:
+      from: R3
+      to: L3
 
 vertical:
   capture:
@@ -58,3 +84,28 @@ vertical:
   completed:
     x: 440
     y: 1378
+  connections:
+    capture->refinement:
+      from: R4
+      to: T2
+    refinement->spec:
+      from: B2
+      to: T4
+    spec->technical-design:
+      from: L4
+      to: T3
+    technical-design->implementation:
+      from: R4
+      to: L3
+    implementation->review:
+      from: B3
+      to: T3
+    review->release-approval:
+      from: R3
+      to: T2
+    release-approval->pr-preparation:
+      from: B2
+      to: R3
+    pr-preparation->completed:
+      from: R3
+      to: L3

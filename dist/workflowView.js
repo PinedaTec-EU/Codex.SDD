@@ -25,73 +25,6 @@ const workflowGraphLayout_1 = require("./workflowGraphLayout");
 const phaseNodeWidth = 300;
 const phaseNodeHeight = 142;
 const mobilePhaseNodeWidth = 258;
-const horizontalGraphTemplates = {
-    "capture->refinement": {
-        fromAnchor: "exit-center-right",
-        toAnchor: "entry-top-left",
-        guides: [
-            { kind: "from-x", xFactor: 0.38, yFactor: 0 },
-            { kind: "mid-x", yFactor: 0.05 }
-        ]
-    },
-    "refinement->spec": {
-        fromAnchor: "exit-center-left",
-        toAnchor: "entry-top-right",
-        guides: [
-            { kind: "from-x", xFactor: -0.48, yFactor: 0.18 },
-            { kind: "from-x", xFactor: -0.52, yFactor: 0.54 },
-            { kind: "to-x", xFactor: -0.18, yFactor: -0.2 }
-        ]
-    },
-    "spec->technical-design": {
-        fromAnchor: "exit-center-left",
-        toAnchor: "entry-top",
-        guides: [
-            { kind: "from-x", xFactor: -0.5, yFactor: 0.14 },
-            { kind: "to-x", xFactor: 0.16, yFactor: -0.08 }
-        ]
-    },
-    "technical-design->implementation": {
-        fromAnchor: "exit-center-right",
-        toAnchor: "entry-center-left",
-        guides: [
-            { kind: "mid-x", yFactor: 0.2 }
-        ]
-    },
-    "implementation->review": {
-        fromAnchor: "exit-bottom-mid",
-        toAnchor: "entry-top-right",
-        guides: [
-            { kind: "from-x", xFactor: 0.34, yFactor: 0.28 },
-            { kind: "to-x", xFactor: -0.08, yFactor: -0.18 }
-        ]
-    },
-    "review->release-approval": {
-        fromAnchor: "exit-center-right",
-        toAnchor: "entry-top-left",
-        guides: [
-            { kind: "from-x", xFactor: 0.42, yFactor: 0.02 },
-            { kind: "to-x", xFactor: -0.12, yFactor: -0.18 }
-        ]
-    },
-    "release-approval->pr-preparation": {
-        fromAnchor: "exit-center-left",
-        toAnchor: "entry-top-right",
-        guides: [
-            { kind: "from-x", xFactor: -0.56, yFactor: 0.16 },
-            { kind: "to-x", xFactor: -0.24, yFactor: -0.12 }
-        ]
-    },
-    "pr-preparation->completed": {
-        fromAnchor: "exit-center-right",
-        toAnchor: "entry-center-right",
-        guides: [
-            { kind: "from-x", xFactor: 0.48, yFactor: 0.1 },
-            { kind: "from-x", xFactor: 0.48, yFactor: 0.56 },
-            { kind: "to-x", xFactor: 0.18, yFactor: 0.18 }
-        ]
-    }
-};
 const defaultPhaseSequence = [
     { phaseId: "capture", expectsHumanIntervention: false },
     { phaseId: "refinement", expectsHumanIntervention: true },
@@ -6538,10 +6471,12 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
     const desktopVerticalLayout = buildVerticalPhaseLayout(layoutPhases, phaseNodeWidth, false, state.workflowGraphLayout?.vertical ?? workflowGraphLayout_1.defaultVerticalWorkflowGraphPositions);
     const mobileHorizontalLayout = buildHorizontalPhaseLayout(layoutPhases, mobilePhaseNodeWidth, true, state.workflowGraphLayout?.horizontal ?? workflowGraphLayout_1.defaultHorizontalWorkflowGraphPositions);
     const mobileVerticalLayout = buildVerticalPhaseLayout(layoutPhases, mobilePhaseNodeWidth, true, state.workflowGraphLayout?.vertical ?? workflowGraphLayout_1.defaultVerticalWorkflowGraphPositions);
-    const desktopHorizontalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopHorizontalLayout.positions, phaseNodeWidth, "horizontal");
-    const desktopVerticalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopVerticalLayout.positions, phaseNodeWidth, "vertical");
-    const mobileHorizontalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileHorizontalLayout.positions, mobilePhaseNodeWidth, "horizontal");
-    const mobileVerticalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileVerticalLayout.positions, mobilePhaseNodeWidth, "vertical");
+    const horizontalConnections = state.workflowGraphLayout?.connections?.horizontal ?? workflowGraphLayout_1.defaultHorizontalWorkflowGraphConnections;
+    const verticalConnections = state.workflowGraphLayout?.connections?.vertical ?? workflowGraphLayout_1.defaultVerticalWorkflowGraphConnections;
+    const desktopHorizontalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopHorizontalLayout.positions, phaseNodeWidth, "horizontal", horizontalConnections);
+    const desktopVerticalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopVerticalLayout.positions, phaseNodeWidth, "vertical", verticalConnections);
+    const mobileHorizontalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileHorizontalLayout.positions, mobilePhaseNodeWidth, "horizontal", horizontalConnections);
+    const mobileVerticalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileVerticalLayout.positions, mobilePhaseNodeWidth, "vertical", verticalConnections);
     const nodes = visiblePhases.map((phase, index) => {
         const disabled = false;
         const visualTone = resolvePhaseVisualTone(workflow.status, workflow, playbackState, phase, disabled, executionPhaseId, pausedExecutionPhaseId, completedPhaseIds);
@@ -6653,7 +6588,7 @@ function resolveDisplayedCurrentPhaseId(workflow, state, effectiveExecutionPhase
     }
     return workflow.currentPhase;
 }
-function buildGraphLinks(visiblePhases, executingTargetPhaseId, currentPhaseId, completedPhaseIds, positions, nodeWidth, graphLayoutMode) {
+function buildGraphLinks(visiblePhases, executingTargetPhaseId, currentPhaseId, completedPhaseIds, positions, nodeWidth, graphLayoutMode, edgeConnections) {
     const visiblePhaseMap = new Map(visiblePhases.map((phase) => [phase.phaseId, phase]));
     const edges = buildPrimaryGraphEdges(visiblePhases, visiblePhaseMap, executingTargetPhaseId, currentPhaseId, completedPhaseIds);
     const classPriority = {
@@ -6664,7 +6599,7 @@ function buildGraphLinks(visiblePhases, executingTargetPhaseId, currentPhaseId, 
     };
     return edges
         .sort((left, right) => (classPriority[left.className] ?? 0) - (classPriority[right.className] ?? 0))
-        .map((edge) => `<path class="${edge.className}" data-edge="${(0, htmlEscape_1.escapeHtmlAttr)(`${edge.fromPhaseId}->${edge.toPhaseId}`)}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth, graphLayoutMode)}"></path>`)
+        .map((edge) => `<path class="${edge.className}" data-edge="${(0, htmlEscape_1.escapeHtmlAttr)(`${edge.fromPhaseId}->${edge.toPhaseId}`)}" d="${graphPath(edge.fromPhaseId, edge.toPhaseId, positions, nodeWidth, graphLayoutMode, edgeConnections[`${edge.fromPhaseId}->${edge.toPhaseId}`])}"></path>`)
         .join("");
 }
 function renderGraphLegend(usId) {
@@ -6795,14 +6730,14 @@ function shouldShowPhase(phaseId, refinementVisible, currentPhaseId, executionPh
         || currentPhaseId === "refinement"
         || executionPhaseId === "refinement";
 }
-function graphPath(fromPhaseId, toPhaseId, positions, nodeWidth, graphLayoutMode) {
+function graphPath(fromPhaseId, toPhaseId, positions, nodeWidth, graphLayoutMode, edgeConnection) {
     const fromPosition = positions[fromPhaseId];
     const toPosition = positions[toPhaseId];
     if (!fromPosition || !toPosition) {
         return "";
     }
     if (graphLayoutMode === "horizontal") {
-        return buildHorizontalGraphPath(fromPhaseId, toPhaseId, fromPosition, toPosition, nodeWidth);
+        return buildHorizontalGraphPath(fromPosition, toPosition, nodeWidth, edgeConnection);
     }
     if (fromPhaseId === "technical-design" && toPhaseId === "implementation") {
         return buildTechnicalDesignToImplementationPath(fromPosition, toPosition, nodeWidth);
@@ -6810,59 +6745,39 @@ function graphPath(fromPhaseId, toPhaseId, positions, nodeWidth, graphLayoutMode
     if (fromPhaseId === "spec" && toPhaseId === "technical-design") {
         return buildSpecToTechnicalDesignPath(fromPosition, toPosition, nodeWidth);
     }
-    const { fromAnchor, toAnchor } = resolveAnchors(fromPosition, toPosition);
-    const from = getAnchorPoint(fromPosition, fromAnchor, nodeWidth);
-    const to = getAnchorPoint(toPosition, toAnchor, nodeWidth);
+    const resolvedAnchors = resolveAnchors(fromPosition, toPosition, edgeConnection);
+    const from = getAnchorPointFromCodeOrAnchor(fromPosition, resolvedAnchors.fromAnchor, nodeWidth, true);
+    const to = getAnchorPointFromCodeOrAnchor(toPosition, resolvedAnchors.toAnchor, nodeWidth, false);
+    const fromAnchor = toGraphAnchor(resolvedAnchors.fromAnchor, true);
+    const toAnchor = toGraphAnchor(resolvedAnchors.toAnchor, false);
     const sameColumn = fromPosition.left === toPosition.left;
     if (sameColumn) {
         return buildSameColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth);
     }
     return buildCrossColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth);
 }
-function buildHorizontalGraphPath(fromPhaseId, toPhaseId, fromPosition, toPosition, nodeWidth) {
-    const deltaX = toPosition.left - fromPosition.left;
-    const deltaY = toPosition.top - fromPosition.top;
+function buildHorizontalGraphPath(fromPosition, toPosition, nodeWidth, edgeConnection) {
+    const from = getAnchorPointFromCodeOrAnchor(fromPosition, edgeConnection?.from ?? (toPosition.left >= fromPosition.left ? "R3" : "L3"), nodeWidth, true);
+    const to = getAnchorPointFromCodeOrAnchor(toPosition, edgeConnection?.to ?? (toPosition.left >= fromPosition.left ? "L3" : "R3"), nodeWidth, false);
+    const deltaX = to.x - from.x;
+    const deltaY = to.y - from.y;
     const movingRight = deltaX >= 0;
     const sameRow = Math.abs(deltaY) <= Math.max(24, phaseNodeHeight * 0.16);
     const sameColumn = Math.abs(deltaX) <= Math.max(24, nodeWidth * 0.08);
     if (sameRow) {
-        const start = {
-            x: movingRight ? fromPosition.left + nodeWidth : fromPosition.left,
-            y: fromPosition.top + phaseNodeHeight * 0.5
-        };
-        const end = {
-            x: movingRight ? toPosition.left : toPosition.left + nodeWidth,
-            y: toPosition.top + phaseNodeHeight * 0.5
-        };
-        const spread = Math.max(88, Math.abs(end.x - start.x) * 0.32);
+        const spread = Math.max(88, Math.abs(to.x - from.x) * 0.32);
         const sign = movingRight ? 1 : -1;
-        return `M ${start.x} ${start.y} C ${start.x + spread * sign} ${start.y}, ${end.x - spread * sign} ${end.y}, ${end.x} ${end.y}`;
+        return `M ${from.x} ${from.y} C ${from.x + spread * sign} ${from.y}, ${to.x - spread * sign} ${to.y}, ${to.x} ${to.y}`;
     }
     if (sameColumn) {
         const movingDown = deltaY >= 0;
-        const start = {
-            x: fromPosition.left + nodeWidth * 0.5,
-            y: movingDown ? fromPosition.top + phaseNodeHeight : fromPosition.top
-        };
-        const end = {
-            x: toPosition.left + nodeWidth * 0.5,
-            y: movingDown ? toPosition.top : toPosition.top + phaseNodeHeight
-        };
-        const spread = Math.max(88, Math.abs(end.y - start.y) * 0.32);
+        const spread = Math.max(88, Math.abs(to.y - from.y) * 0.32);
         const sign = movingDown ? 1 : -1;
-        return `M ${start.x} ${start.y} C ${start.x} ${start.y + spread * sign}, ${end.x} ${end.y - spread * sign}, ${end.x} ${end.y}`;
+        return `M ${from.x} ${from.y} C ${from.x} ${from.y + spread * sign}, ${to.x} ${to.y - spread * sign}, ${to.x} ${to.y}`;
     }
-    const start = {
-        x: movingRight ? fromPosition.left + nodeWidth : fromPosition.left,
-        y: fromPosition.top + phaseNodeHeight * 0.5
-    };
-    const end = {
-        x: movingRight ? toPosition.left : toPosition.left + nodeWidth,
-        y: toPosition.top + phaseNodeHeight * 0.5
-    };
-    const midX = start.x + (end.x - start.x) * 0.5;
-    const bendY = start.y + (end.y - start.y) * 0.5;
-    return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${bendY}, ${midX} ${bendY} S ${midX} ${end.y}, ${end.x} ${end.y}`;
+    const midX = from.x + (to.x - from.x) * 0.5;
+    const bendY = from.y + (to.y - from.y) * 0.5;
+    return `M ${from.x} ${from.y} C ${midX} ${from.y}, ${midX} ${bendY}, ${midX} ${bendY} S ${midX} ${to.y}, ${to.x} ${to.y}`;
 }
 function buildSameColumnGraphPath(fromPosition, toPosition, fromAnchor, toAnchor, from, to, nodeWidth) {
     const verticalGap = Math.abs(to.y - from.y);
@@ -6922,7 +6837,13 @@ function buildTechnicalDesignToImplementationPath(fromPosition, toPosition, node
     const lowY = Math.max(from.y, to.y) + Math.max(34, phaseNodeHeight * 0.28);
     return `M ${from.x} ${from.y} C ${midX - 38} ${from.y}, ${midX - 18} ${lowY}, ${midX} ${lowY} S ${to.x - 42} ${to.y}, ${to.x} ${to.y}`;
 }
-function resolveAnchors(from, to) {
+function resolveAnchors(from, to, edgeConnection) {
+    if (edgeConnection?.from && edgeConnection?.to) {
+        return {
+            fromAnchor: edgeConnection.from,
+            toAnchor: edgeConnection.to
+        };
+    }
     const deltaX = to.left - from.left;
     const deltaY = to.top - from.top;
     if (deltaY > 0) {
@@ -6941,6 +6862,48 @@ function resolveAnchors(from, to) {
         return { fromAnchor: "exit-right", toAnchor: "entry-left" };
     }
     return { fromAnchor: "exit-left", toAnchor: "entry-right" };
+}
+function getAnchorPointFromCodeOrAnchor(position, anchor, nodeWidth, isExit) {
+    return isAnchorCode(anchor)
+        ? getAnchorPointFromCode(position, anchor, nodeWidth)
+        : getAnchorPoint(position, anchor, nodeWidth);
+}
+function getAnchorPointFromCode(position, anchorCode, nodeWidth) {
+    const face = anchorCode[0];
+    const slot = Number.parseInt(anchorCode[1], 10);
+    const fraction = slot / 6;
+    switch (face) {
+        case "T":
+            return { x: position.left + nodeWidth * fraction, y: position.top };
+        case "R":
+            return { x: position.left + nodeWidth, y: position.top + phaseNodeHeight * fraction };
+        case "B":
+            return { x: position.left + nodeWidth * fraction, y: position.top + phaseNodeHeight };
+        case "L":
+            return { x: position.left, y: position.top + phaseNodeHeight * fraction };
+        default:
+            return { x: position.left + nodeWidth * 0.5, y: position.top + phaseNodeHeight * 0.5 };
+    }
+}
+function toGraphAnchor(anchor, isExit) {
+    if (!isAnchorCode(anchor)) {
+        return anchor;
+    }
+    switch (anchor[0]) {
+        case "T":
+            return "entry-top";
+        case "R":
+            return isExit ? "exit-right" : "entry-right";
+        case "B":
+            return "exit-bottom-mid";
+        case "L":
+            return isExit ? "exit-left" : "entry-left";
+        default:
+            return isExit ? "exit-right" : "entry-left";
+    }
+}
+function isAnchorCode(anchor) {
+    return /^[TLRB][1-5]$/.test(anchor);
 }
 function getAnchorPoint(position, anchor, nodeWidth) {
     switch (anchor) {
