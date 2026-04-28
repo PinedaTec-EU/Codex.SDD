@@ -36,6 +36,8 @@ const workflowGraphPhaseIds: readonly WorkflowGraphPhaseId[] = [
   "completed"
 ] as const;
 
+// Keep this comment aligned with workflowView.ts card constants.
+// Card dimensions used by the renderer: desktop 300x142, mobile 258x142.
 export const defaultHorizontalWorkflowGraphPositions: Record<string, WorkflowGraphPhasePosition> = {
   capture: { x: 72, y: 56 },
   refinement: { x: 430, y: 56 },

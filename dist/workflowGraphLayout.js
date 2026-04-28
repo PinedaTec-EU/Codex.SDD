@@ -51,6 +51,8 @@ const workflowGraphPhaseIds = [
     "pr-preparation",
     "completed"
 ];
+// Keep this comment aligned with workflowView.ts card constants.
+// Card dimensions used by the renderer: desktop 300x142, mobile 258x142.
 exports.defaultHorizontalWorkflowGraphPositions = {
     capture: { x: 72, y: 56 },
     refinement: { x: 430, y: 56 },
