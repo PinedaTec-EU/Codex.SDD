@@ -4486,6 +4486,29 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       line-height: 1.5;
       color: rgba(255, 255, 255, 0.8);
     }
+    .phase-input-copy--target {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 30px;
+    }
+    .phase-input-copy__icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      flex: 0 0 28px;
+      border-radius: 999px;
+      background: rgba(92, 181, 255, 0.14);
+      color: rgba(180, 220, 255, 0.96);
+      border: 1px solid rgba(92, 181, 255, 0.24);
+    }
+    .phase-input-copy__icon svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+    }
     .phase-input-label {
       font-size: 0.82rem;
       letter-spacing: 0.08em;
@@ -5486,6 +5509,46 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       if (path instanceof SVGPathElement) {
         path.removeAttribute("d");
       }
+    };
+    const resolvePhaseTitleById = (phaseId) => {
+      const phaseNode = getPhaseNodeById(phaseId);
+      const titleElement = phaseNode instanceof HTMLElement ? phaseNode.querySelector("h3") : null;
+      return titleElement instanceof HTMLElement ? titleElement.textContent?.trim() ?? phaseId : phaseId;
+    };
+    const resolvePhaseIconHtmlById = (phaseId) => {
+      const phaseNode = getPhaseNodeById(phaseId);
+      const iconElement = phaseNode instanceof HTMLElement ? phaseNode.querySelector(".phase-node-visual") : null;
+      return iconElement instanceof HTMLElement ? iconElement.innerHTML : "";
+    };
+    const renderCompletedReopenTargetMessage = (targetPhaseId) => {
+      if (!(completedReopenTargetMessage instanceof HTMLElement)) {
+        return;
+      }
+
+      completedReopenTargetMessage.classList.toggle("phase-input-copy--target", Boolean(targetPhaseId));
+      if (!targetPhaseId) {
+        completedReopenTargetMessage.textContent = "Select a reopen reason to see the destination phase.";
+        return;
+      }
+
+      const iconHtml = resolvePhaseIconHtmlById(targetPhaseId);
+      const title = resolvePhaseTitleById(targetPhaseId);
+      completedReopenTargetMessage.replaceChildren();
+      if (iconHtml) {
+        const iconContainer = document.createElement("span");
+        iconContainer.className = "phase-input-copy__icon";
+        iconContainer.setAttribute("aria-hidden", "true");
+        iconContainer.innerHTML = iconHtml;
+        completedReopenTargetMessage.appendChild(iconContainer);
+      }
+
+      const copy = document.createElement("span");
+      copy.appendChild(document.createTextNode("Workflow will return to phase "));
+      const strong = document.createElement("strong");
+      strong.textContent = title;
+      copy.appendChild(strong);
+      copy.appendChild(document.createTextNode("."));
+      completedReopenTargetMessage.appendChild(copy);
     };
     const ensureReopenTargetVisible = (targetPhaseId) => {
       if (!(graphPanel instanceof HTMLElement)) {
@@ -6743,11 +6806,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         ? completedReopenReason.value.trim()
         : "";
       const targetPhaseLabel = resolveCompletedWorkflowReopenTargetPhase(reasonValue);
-      if (completedReopenTargetMessage instanceof HTMLElement) {
-        completedReopenTargetMessage.textContent = targetPhaseLabel
-          ? "Workflow will return to phase '" + targetPhaseLabel + "'."
-          : "Select a reopen reason to see the destination phase.";
-      }
+      renderCompletedReopenTargetMessage(targetPhaseLabel);
 
       if (!(completedReopenSubmitButton instanceof HTMLButtonElement)) {
         return;
@@ -6767,6 +6826,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
 
     if (completedReopenReason instanceof HTMLSelectElement) {
       completedReopenReason.addEventListener("input", syncCompletedReopenState);
+      completedReopenReason.addEventListener("change", syncCompletedReopenState);
     }
 
     if (completedReopenDescription instanceof HTMLTextAreaElement) {

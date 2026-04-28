@@ -1,6 +1,5 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { appendSpecForgeDebugLog, appendSpecForgeLog } from "./outputChannel";
 
 export type WorkflowGraphLayoutMode = "horizontal" | "vertical";
 export type WorkflowGraphPhaseId =
@@ -134,11 +133,21 @@ export function getWorkflowGraphLayoutPath(workspaceRoot: string): string {
   return path.join(workspaceRoot, ".specs", "workflow-graph-layout.yaml");
 }
 
+function appendWorkflowGraphLayoutLog(message: string): void {
+  const { appendSpecForgeLog } = require("./outputChannel") as typeof import("./outputChannel");
+  appendSpecForgeLog(message);
+}
+
+function appendWorkflowGraphLayoutDebugLog(message: string): void {
+  const { appendSpecForgeDebugLog } = require("./outputChannel") as typeof import("./outputChannel");
+  appendSpecForgeDebugLog(message);
+}
+
 export async function ensureWorkflowGraphLayoutConfigExistsAsync(workspaceRoot: string): Promise<void> {
   const filePath = getWorkflowGraphLayoutPath(workspaceRoot);
   try {
     await fs.promises.access(filePath, fs.constants.F_OK);
-    appendSpecForgeDebugLog(`Workflow graph layout already exists at '${filePath}'.`);
+    appendWorkflowGraphLayoutDebugLog(`Workflow graph layout already exists at '${filePath}'.`);
     return;
   } catch {
     // Create below.
@@ -158,7 +167,7 @@ export async function ensureWorkflowGraphLayoutConfigExistsAsync(workspaceRoot: 
       vertical: defaultVerticalWorkflowGraphLoops
     }
   }), "utf8");
-  appendSpecForgeLog(`Created workflow graph layout bootstrap at '${filePath}'.`);
+  appendWorkflowGraphLayoutLog(`Created workflow graph layout bootstrap at '${filePath}'.`);
 }
 
 export async function readWorkflowGraphLayoutConfigAsync(workspaceRoot: string): Promise<WorkflowGraphLayoutConfig> {
@@ -169,7 +178,7 @@ export async function readWorkflowGraphLayoutConfigAsync(workspaceRoot: string):
     const raw = await fs.promises.readFile(filePath, "utf8");
     return parseWorkflowGraphLayoutConfig(raw);
   } catch (error) {
-    appendSpecForgeLog(
+    appendWorkflowGraphLayoutLog(
       `Workflow graph layout read failed for '${filePath}'. Falling back to defaults. ${error instanceof Error ? error.message : String(error)}`
     );
     return {
