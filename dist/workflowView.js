@@ -7043,12 +7043,6 @@ function graphPath(fromPhaseId, toPhaseId, positions, nodeWidth, graphLayoutMode
     if (graphLayoutMode === "horizontal") {
         return buildHorizontalGraphPath(fromPosition, toPosition, nodeWidth, edgeConnection);
     }
-    if (fromPhaseId === "technical-design" && toPhaseId === "implementation") {
-        return buildTechnicalDesignToImplementationPath(fromPosition, toPosition, nodeWidth);
-    }
-    if (fromPhaseId === "spec" && toPhaseId === "technical-design") {
-        return buildSpecToTechnicalDesignPath(fromPosition, toPosition, nodeWidth);
-    }
     const resolvedAnchors = resolveAnchors(fromPosition, toPosition, edgeConnection);
     const from = getAnchorPointFromCodeOrAnchor(fromPosition, resolvedAnchors.fromAnchor, nodeWidth, true);
     const to = getAnchorPointFromCodeOrAnchor(toPosition, resolvedAnchors.toAnchor, nodeWidth, false);
@@ -7126,20 +7120,6 @@ function buildDownwardCrossColumnGraphPath(_fromPosition, _toPosition, from, to,
     const controlFromX = from.x + Math.sign(deltaX || 1) * horizontalDrift;
     const controlToX = to.x - Math.sign(deltaX || 1) * horizontalDrift;
     return `M ${from.x} ${from.y} C ${from.x} ${from.y + verticalExit}, ${controlFromX} ${midY - verticalExit * 0.22}, ${from.x + deltaX * 0.5} ${midY} S ${controlToX} ${to.y - verticalEntry}, ${to.x} ${to.y}`;
-}
-function buildSpecToTechnicalDesignPath(fromPosition, toPosition, nodeWidth) {
-    const from = getAnchorPoint(fromPosition, "exit-left", nodeWidth);
-    const to = getAnchorPoint(toPosition, "entry-top", nodeWidth);
-    const laneX = Math.min(from.x, to.x) - Math.max(68, nodeWidth * 0.28);
-    const lowerY = from.y + Math.max(78, Math.abs(to.y - from.y) * 0.34);
-    return `M ${from.x} ${from.y} C ${laneX} ${from.y}, ${laneX} ${lowerY}, ${to.x} ${to.y}`;
-}
-function buildTechnicalDesignToImplementationPath(fromPosition, toPosition, nodeWidth) {
-    const from = getAnchorPoint(fromPosition, "exit-right", nodeWidth);
-    const to = getAnchorPoint(toPosition, "entry-left", nodeWidth);
-    const midX = from.x + (to.x - from.x) * 0.42;
-    const lowY = Math.max(from.y, to.y) + Math.max(34, phaseNodeHeight * 0.28);
-    return `M ${from.x} ${from.y} C ${midX - 38} ${from.y}, ${midX - 18} ${lowY}, ${midX} ${lowY} S ${to.x - 42} ${to.y}, ${to.x} ${to.y}`;
 }
 function resolveAnchors(from, to, edgeConnection) {
     if (edgeConnection?.from && edgeConnection?.to) {
