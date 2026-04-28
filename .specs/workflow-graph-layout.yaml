@@ -30,6 +30,9 @@ horizontal:
   completed:
     x: 788
     y: 740
+  legend:
+    x: 28
+    y: 748
   connections:
     capture->refinement:
       from: R3
@@ -89,6 +92,9 @@ vertical:
   completed:
     x: 440
     y: 1378
+  legend:
+    x: 28
+    y: 1402
   connections:
     capture->refinement:
       from: R4

@@ -19,6 +19,11 @@ export interface WorkflowGraphPhasePosition {
   readonly y: number;
 }
 
+export interface WorkflowGraphLegendPosition {
+  readonly x: number;
+  readonly y: number;
+}
+
 export interface WorkflowGraphEdgeConnection {
   readonly from: string;
   readonly to: string;
@@ -35,6 +40,10 @@ export interface WorkflowGraphLoopDefinition {
 export interface WorkflowGraphLayoutConfig {
   readonly horizontal: Record<string, WorkflowGraphPhasePosition>;
   readonly vertical: Record<string, WorkflowGraphPhasePosition>;
+  readonly legend: {
+    readonly horizontal: WorkflowGraphLegendPosition;
+    readonly vertical: WorkflowGraphLegendPosition;
+  };
   readonly connections: {
     readonly horizontal: Record<string, WorkflowGraphEdgeConnection>;
     readonly vertical: Record<string, WorkflowGraphEdgeConnection>;
@@ -81,6 +90,14 @@ export const defaultVerticalWorkflowGraphPositions: Record<string, WorkflowGraph
   "release-approval": { x: 738, y: 1018 },
   "pr-preparation": { x: 356, y: 1188 },
   completed: { x: 440, y: 1378 }
+};
+
+export const defaultWorkflowGraphLegendPositions: {
+  readonly horizontal: WorkflowGraphLegendPosition;
+  readonly vertical: WorkflowGraphLegendPosition;
+} = {
+  horizontal: { x: 28, y: 748 },
+  vertical: { x: 28, y: 1402 }
 };
 
 export const defaultHorizontalWorkflowGraphConnections: Record<string, WorkflowGraphEdgeConnection> = {
@@ -131,6 +148,7 @@ export async function ensureWorkflowGraphLayoutConfigExistsAsync(workspaceRoot: 
   await fs.promises.writeFile(filePath, serializeWorkflowGraphLayoutConfig({
     horizontal: defaultHorizontalWorkflowGraphPositions,
     vertical: defaultVerticalWorkflowGraphPositions,
+    legend: defaultWorkflowGraphLegendPositions,
     connections: {
       horizontal: defaultHorizontalWorkflowGraphConnections,
       vertical: defaultVerticalWorkflowGraphConnections
@@ -157,6 +175,10 @@ export async function readWorkflowGraphLayoutConfigAsync(workspaceRoot: string):
     return {
       horizontal: { ...defaultHorizontalWorkflowGraphPositions },
       vertical: { ...defaultVerticalWorkflowGraphPositions },
+      legend: {
+        horizontal: { ...defaultWorkflowGraphLegendPositions.horizontal },
+        vertical: { ...defaultWorkflowGraphLegendPositions.vertical }
+      },
       connections: {
         horizontal: { ...defaultHorizontalWorkflowGraphConnections },
         vertical: { ...defaultVerticalWorkflowGraphConnections }
@@ -172,6 +194,10 @@ export async function readWorkflowGraphLayoutConfigAsync(workspaceRoot: string):
 function parseWorkflowGraphLayoutConfig(raw: string): WorkflowGraphLayoutConfig {
   const horizontal = { ...defaultHorizontalWorkflowGraphPositions };
   const vertical = { ...defaultVerticalWorkflowGraphPositions };
+  const legend = {
+    horizontal: { ...defaultWorkflowGraphLegendPositions.horizontal },
+    vertical: { ...defaultWorkflowGraphLegendPositions.vertical }
+  };
   const connections = {
     horizontal: { ...defaultHorizontalWorkflowGraphConnections },
     vertical: { ...defaultVerticalWorkflowGraphConnections }
@@ -185,6 +211,7 @@ function parseWorkflowGraphLayoutConfig(raw: string): WorkflowGraphLayoutConfig 
   let currentPhaseId: WorkflowGraphPhaseId | null = null;
   let currentEdgeId: string | null = null;
   let currentLoopId: string | null = null;
+  let currentLegendTarget: WorkflowGraphLayoutMode | null = null;
   let pendingX: number | null = null;
   let pendingY: number | null = null;
   let pendingFromAnchor: string | null = null;
@@ -195,6 +222,11 @@ function parseWorkflowGraphLayoutConfig(raw: string): WorkflowGraphLayoutConfig 
 
   const commitPending = (): void => {
     if (currentSection === "positions") {
+      if (currentLegendTarget && pendingX !== null && pendingY !== null) {
+        legend[currentLegendTarget] = { x: pendingX, y: pendingY };
+        return;
+      }
+
       if (!currentMode || !currentPhaseId || pendingX === null || pendingY === null) {
         return;
       }
@@ -240,6 +272,7 @@ function parseWorkflowGraphLayoutConfig(raw: string): WorkflowGraphLayoutConfig 
       currentPhaseId = null;
       currentEdgeId = null;
       currentLoopId = null;
+      currentLegendTarget = null;
       pendingX = null;
       pendingY = null;
       pendingFromAnchor = null;
@@ -256,6 +289,7 @@ function parseWorkflowGraphLayoutConfig(raw: string): WorkflowGraphLayoutConfig 
       currentPhaseId = null;
       currentEdgeId = null;
       currentLoopId = null;
+      currentLegendTarget = null;
       pendingX = null;
       pendingY = null;
       pendingFromAnchor = null;
@@ -272,6 +306,7 @@ function parseWorkflowGraphLayoutConfig(raw: string): WorkflowGraphLayoutConfig 
       currentPhaseId = null;
       currentEdgeId = null;
       currentLoopId = null;
+      currentLegendTarget = null;
       pendingX = null;
       pendingY = null;
       pendingFromAnchor = null;
@@ -288,6 +323,7 @@ function parseWorkflowGraphLayoutConfig(raw: string): WorkflowGraphLayoutConfig 
       currentPhaseId = phaseMatch[1] as WorkflowGraphPhaseId;
       currentEdgeId = null;
       currentLoopId = null;
+      currentLegendTarget = null;
       pendingX = null;
       pendingY = null;
       pendingFromAnchor = null;
@@ -304,6 +340,7 @@ function parseWorkflowGraphLayoutConfig(raw: string): WorkflowGraphLayoutConfig 
       currentEdgeId = edgeMatch[1];
       currentPhaseId = null;
       currentLoopId = null;
+      currentLegendTarget = null;
       pendingX = null;
       pendingY = null;
       pendingFromAnchor = null;
@@ -320,6 +357,23 @@ function parseWorkflowGraphLayoutConfig(raw: string): WorkflowGraphLayoutConfig 
       currentLoopId = loopMatch[1];
       currentPhaseId = null;
       currentEdgeId = null;
+      currentLegendTarget = null;
+      pendingX = null;
+      pendingY = null;
+      pendingFromAnchor = null;
+      pendingToAnchor = null;
+      pendingLoopFromPhaseId = null;
+      pendingLoopToPhaseId = null;
+      pendingLoopSide = null;
+      continue;
+    }
+
+    if (trimmed === "legend:") {
+      commitPending();
+      currentLegendTarget = currentMode;
+      currentPhaseId = null;
+      currentEdgeId = null;
+      currentLoopId = null;
       pendingX = null;
       pendingY = null;
       pendingFromAnchor = null;
@@ -374,12 +428,13 @@ function parseWorkflowGraphLayoutConfig(raw: string): WorkflowGraphLayoutConfig 
   }
 
   commitPending();
-  return { horizontal, vertical, connections, loops };
+  return { horizontal, vertical, legend, connections, loops };
 }
 
 function serializeWorkflowGraphLayoutConfig(config: WorkflowGraphLayoutConfig): string {
   const serializeMode = (mode: WorkflowGraphLayoutMode): string => {
     const positions = mode === "horizontal" ? config.horizontal : config.vertical;
+    const legendPosition = mode === "horizontal" ? config.legend.horizontal : config.legend.vertical;
     const edges = mode === "horizontal" ? config.connections.horizontal : config.connections.vertical;
     const modeLoops = mode === "horizontal" ? config.loops.horizontal : config.loops.vertical;
     const lines = [`${mode}:`];
@@ -389,6 +444,9 @@ function serializeWorkflowGraphLayoutConfig(config: WorkflowGraphLayoutConfig): 
       lines.push(`    x: ${Math.round(position.x)}`);
       lines.push(`    y: ${Math.round(position.y)}`);
     }
+    lines.push("  legend:");
+    lines.push(`    x: ${Math.round(legendPosition.x)}`);
+    lines.push(`    y: ${Math.round(legendPosition.y)}`);
     lines.push("  connections:");
     for (const edgeId of Object.keys(edges)) {
       lines.push(`    ${edgeId}:`);

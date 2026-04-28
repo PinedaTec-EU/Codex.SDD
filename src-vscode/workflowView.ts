@@ -56,6 +56,7 @@ interface ArtifactQuestionBlock {
 type PhaseVisualTone = "active" | "waiting-user" | "paused" | "blocked" | "completed" | "pending" | "disabled";
 
 type PhasePosition = { left: number; top: number };
+type GraphLegendPosition = { left: number; top: number };
 type LayoutPhaseDescriptor = Pick<WorkflowPhaseDetails, "phaseId" | "expectsHumanIntervention">;
 type PhaseGraphLayout = {
   readonly positions: Record<string, PhasePosition>;
@@ -130,6 +131,14 @@ function computeGraphHeight(positions: Record<string, PhasePosition>, nodeHeight
 function computeGraphWidth(positions: Record<string, PhasePosition>, nodeWidth: number, rightPadding: number): number {
   const maxLeft = Math.max(...Object.values(positions).map((position) => position.left));
   return maxLeft + nodeWidth + rightPadding;
+}
+
+function buildGraphLegendPosition(x: number, y: number, compact = false): GraphLegendPosition {
+  const scale = compact ? 0.72 : 1;
+  return {
+    left: Math.round(x * scale),
+    top: Math.round(y * scale)
+  };
 }
 
 function buildHorizontalPhaseLayout(
@@ -3250,8 +3259,8 @@ export function buildWorkflowHtml(
     }
     .graph-legend {
       position: absolute;
-      left: 28px;
-      bottom: 32px;
+      left: var(--graph-legend-left-desktop-vertical, 28px);
+      top: var(--graph-legend-top-desktop-vertical, 1402px);
       width: 240px;
       padding: 22px 22px 20px;
       border-radius: 18px;
@@ -3263,6 +3272,10 @@ export function buildWorkflowHtml(
     }
     .graph-legend[hidden] {
       display: none;
+    }
+    .phase-graph[data-graph-layout-mode="horizontal"] .graph-legend {
+      left: var(--graph-legend-left-desktop-horizontal, 28px);
+      top: var(--graph-legend-top-desktop-horizontal, 748px);
     }
     .graph-legend__head {
       display: flex;
@@ -5170,10 +5183,14 @@ export function buildWorkflowHtml(
         font-size: 0.9rem;
       }
       .graph-legend {
-        left: 10px;
-        bottom: 10px;
+        left: var(--graph-legend-left-mobile-vertical, 20px);
+        top: var(--graph-legend-top-mobile-vertical, 1009px);
         width: 188px;
         padding: 16px 16px 14px;
+      }
+      .phase-graph[data-graph-layout-mode="horizontal"] .graph-legend {
+        left: var(--graph-legend-left-mobile-horizontal, 20px);
+        top: var(--graph-legend-top-mobile-horizontal, 539px);
       }
       .execution-overlay {
         left: 10px;
@@ -7015,6 +7032,26 @@ function buildPhaseGraph(
     expectsHumanIntervention: phase.expectsHumanIntervention
   }));
   const graphLayoutMode = state.graphLayoutMode === "horizontal" ? "horizontal" : "vertical";
+  const desktopHorizontalLegendPosition = buildGraphLegendPosition(
+    state.workflowGraphLayout?.legend?.horizontal?.x ?? 28,
+    state.workflowGraphLayout?.legend?.horizontal?.y ?? 748,
+    false
+  );
+  const desktopVerticalLegendPosition = buildGraphLegendPosition(
+    state.workflowGraphLayout?.legend?.vertical?.x ?? 28,
+    state.workflowGraphLayout?.legend?.vertical?.y ?? 1402,
+    false
+  );
+  const mobileHorizontalLegendPosition = buildGraphLegendPosition(
+    state.workflowGraphLayout?.legend?.horizontal?.x ?? 28,
+    state.workflowGraphLayout?.legend?.horizontal?.y ?? 748,
+    true
+  );
+  const mobileVerticalLegendPosition = buildGraphLegendPosition(
+    state.workflowGraphLayout?.legend?.vertical?.x ?? 28,
+    state.workflowGraphLayout?.legend?.vertical?.y ?? 1402,
+    true
+  );
   const desktopHorizontalLayout = buildHorizontalPhaseLayout(
     layoutPhases,
     phaseNodeWidth,
@@ -7139,7 +7176,7 @@ function buildPhaseGraph(
   }).join("");
 
   return `
-    <div class="phase-graph" data-graph-layout-mode="${escapeHtmlAttribute(graphLayoutMode)}" aria-label="Workflow graph" style="--graph-width-desktop-horizontal: ${desktopHorizontalGraphWidth}px; --graph-height-desktop-horizontal: ${desktopHorizontalGraphHeight}px; --graph-width-desktop-vertical: ${desktopVerticalGraphWidth}px; --graph-height-desktop-vertical: ${desktopVerticalGraphHeight}px; --graph-width-mobile-horizontal: ${mobileHorizontalGraphWidth}px; --graph-height-mobile-horizontal: ${mobileHorizontalGraphHeight}px; --graph-width-mobile-vertical: ${mobileVerticalGraphWidth}px; --graph-height-mobile-vertical: ${mobileVerticalGraphHeight}px;">
+    <div class="phase-graph" data-graph-layout-mode="${escapeHtmlAttribute(graphLayoutMode)}" aria-label="Workflow graph" style="--graph-width-desktop-horizontal: ${desktopHorizontalGraphWidth}px; --graph-height-desktop-horizontal: ${desktopHorizontalGraphHeight}px; --graph-width-desktop-vertical: ${desktopVerticalGraphWidth}px; --graph-height-desktop-vertical: ${desktopVerticalGraphHeight}px; --graph-width-mobile-horizontal: ${mobileHorizontalGraphWidth}px; --graph-height-mobile-horizontal: ${mobileHorizontalGraphHeight}px; --graph-width-mobile-vertical: ${mobileVerticalGraphWidth}px; --graph-height-mobile-vertical: ${mobileVerticalGraphHeight}px; --graph-legend-left-desktop-horizontal: ${desktopHorizontalLegendPosition.left}px; --graph-legend-top-desktop-horizontal: ${desktopHorizontalLegendPosition.top}px; --graph-legend-left-desktop-vertical: ${desktopVerticalLegendPosition.left}px; --graph-legend-top-desktop-vertical: ${desktopVerticalLegendPosition.top}px; --graph-legend-left-mobile-horizontal: ${mobileHorizontalLegendPosition.left}px; --graph-legend-top-mobile-horizontal: ${mobileHorizontalLegendPosition.top}px; --graph-legend-left-mobile-vertical: ${mobileVerticalLegendPosition.left}px; --graph-legend-top-mobile-vertical: ${mobileVerticalLegendPosition.top}px;">
       <svg class="graph-links graph-links--desktop graph-links--desktop-horizontal" viewBox="0 0 ${desktopHorizontalGraphWidth} ${desktopHorizontalGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
         ${desktopHorizontalLinks}
       </svg>

@@ -56,6 +56,13 @@ function computeGraphWidth(positions, nodeWidth, rightPadding) {
     const maxLeft = Math.max(...Object.values(positions).map((position) => position.left));
     return maxLeft + nodeWidth + rightPadding;
 }
+function buildGraphLegendPosition(x, y, compact = false) {
+    const scale = compact ? 0.72 : 1;
+    return {
+        left: Math.round(x * scale),
+        top: Math.round(y * scale)
+    };
+}
 function buildHorizontalPhaseLayout(phases, nodeWidth, compact = false, sourcePositions = workflowGraphLayout_1.defaultHorizontalWorkflowGraphPositions) {
     const positions = {};
     const scale = compact ? 0.72 : 1;
@@ -2823,8 +2830,8 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .graph-legend {
       position: absolute;
-      left: 28px;
-      bottom: 32px;
+      left: var(--graph-legend-left-desktop-vertical, 28px);
+      top: var(--graph-legend-top-desktop-vertical, 1402px);
       width: 240px;
       padding: 22px 22px 20px;
       border-radius: 18px;
@@ -2836,6 +2843,10 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .graph-legend[hidden] {
       display: none;
+    }
+    .phase-graph[data-graph-layout-mode="horizontal"] .graph-legend {
+      left: var(--graph-legend-left-desktop-horizontal, 28px);
+      top: var(--graph-legend-top-desktop-horizontal, 748px);
     }
     .graph-legend__head {
       display: flex;
@@ -4743,10 +4754,14 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         font-size: 0.9rem;
       }
       .graph-legend {
-        left: 10px;
-        bottom: 10px;
+        left: var(--graph-legend-left-mobile-vertical, 20px);
+        top: var(--graph-legend-top-mobile-vertical, 1009px);
         width: 188px;
         padding: 16px 16px 14px;
+      }
+      .phase-graph[data-graph-layout-mode="horizontal"] .graph-legend {
+        left: var(--graph-legend-left-mobile-horizontal, 20px);
+        top: var(--graph-legend-top-mobile-horizontal, 539px);
       }
       .execution-overlay {
         left: 10px;
@@ -6580,6 +6595,10 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         expectsHumanIntervention: phase.expectsHumanIntervention
     }));
     const graphLayoutMode = state.graphLayoutMode === "horizontal" ? "horizontal" : "vertical";
+    const desktopHorizontalLegendPosition = buildGraphLegendPosition(state.workflowGraphLayout?.legend?.horizontal?.x ?? 28, state.workflowGraphLayout?.legend?.horizontal?.y ?? 748, false);
+    const desktopVerticalLegendPosition = buildGraphLegendPosition(state.workflowGraphLayout?.legend?.vertical?.x ?? 28, state.workflowGraphLayout?.legend?.vertical?.y ?? 1402, false);
+    const mobileHorizontalLegendPosition = buildGraphLegendPosition(state.workflowGraphLayout?.legend?.horizontal?.x ?? 28, state.workflowGraphLayout?.legend?.horizontal?.y ?? 748, true);
+    const mobileVerticalLegendPosition = buildGraphLegendPosition(state.workflowGraphLayout?.legend?.vertical?.x ?? 28, state.workflowGraphLayout?.legend?.vertical?.y ?? 1402, true);
     const desktopHorizontalLayout = buildHorizontalPhaseLayout(layoutPhases, phaseNodeWidth, false, state.workflowGraphLayout?.horizontal ?? workflowGraphLayout_1.defaultHorizontalWorkflowGraphPositions);
     const desktopVerticalLayout = buildVerticalPhaseLayout(layoutPhases, phaseNodeWidth, false, state.workflowGraphLayout?.vertical ?? workflowGraphLayout_1.defaultVerticalWorkflowGraphPositions);
     const mobileHorizontalLayout = buildHorizontalPhaseLayout(layoutPhases, mobilePhaseNodeWidth, true, state.workflowGraphLayout?.horizontal ?? workflowGraphLayout_1.defaultHorizontalWorkflowGraphPositions);
@@ -6670,7 +6689,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
   `;
     }).join("");
     return `
-    <div class="phase-graph" data-graph-layout-mode="${(0, htmlEscape_1.escapeHtmlAttr)(graphLayoutMode)}" aria-label="Workflow graph" style="--graph-width-desktop-horizontal: ${desktopHorizontalGraphWidth}px; --graph-height-desktop-horizontal: ${desktopHorizontalGraphHeight}px; --graph-width-desktop-vertical: ${desktopVerticalGraphWidth}px; --graph-height-desktop-vertical: ${desktopVerticalGraphHeight}px; --graph-width-mobile-horizontal: ${mobileHorizontalGraphWidth}px; --graph-height-mobile-horizontal: ${mobileHorizontalGraphHeight}px; --graph-width-mobile-vertical: ${mobileVerticalGraphWidth}px; --graph-height-mobile-vertical: ${mobileVerticalGraphHeight}px;">
+    <div class="phase-graph" data-graph-layout-mode="${(0, htmlEscape_1.escapeHtmlAttr)(graphLayoutMode)}" aria-label="Workflow graph" style="--graph-width-desktop-horizontal: ${desktopHorizontalGraphWidth}px; --graph-height-desktop-horizontal: ${desktopHorizontalGraphHeight}px; --graph-width-desktop-vertical: ${desktopVerticalGraphWidth}px; --graph-height-desktop-vertical: ${desktopVerticalGraphHeight}px; --graph-width-mobile-horizontal: ${mobileHorizontalGraphWidth}px; --graph-height-mobile-horizontal: ${mobileHorizontalGraphHeight}px; --graph-width-mobile-vertical: ${mobileVerticalGraphWidth}px; --graph-height-mobile-vertical: ${mobileVerticalGraphHeight}px; --graph-legend-left-desktop-horizontal: ${desktopHorizontalLegendPosition.left}px; --graph-legend-top-desktop-horizontal: ${desktopHorizontalLegendPosition.top}px; --graph-legend-left-desktop-vertical: ${desktopVerticalLegendPosition.left}px; --graph-legend-top-desktop-vertical: ${desktopVerticalLegendPosition.top}px; --graph-legend-left-mobile-horizontal: ${mobileHorizontalLegendPosition.left}px; --graph-legend-top-mobile-horizontal: ${mobileHorizontalLegendPosition.top}px; --graph-legend-left-mobile-vertical: ${mobileVerticalLegendPosition.left}px; --graph-legend-top-mobile-vertical: ${mobileVerticalLegendPosition.top}px;">
       <svg class="graph-links graph-links--desktop graph-links--desktop-horizontal" viewBox="0 0 ${desktopHorizontalGraphWidth} ${desktopHorizontalGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
         ${desktopHorizontalLinks}
       </svg>
