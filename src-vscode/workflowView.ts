@@ -1477,6 +1477,14 @@ function fitGraphIcon(): string {
   `;
 }
 
+function fitWidthGraphIcon(): string {
+  return `
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path d="M3.75 5.25A.75.75 0 0 1 4.5 4.5h2.75a.75.75 0 0 1 0 1.5H6.31l1.22 1.22a.75.75 0 0 1-1.06 1.06L5.25 7.06v.94a.75.75 0 0 1-1.5 0V5.25Zm8.25 0a.75.75 0 0 1 .75-.75h2.75a.75.75 0 0 1 .75.75V8a.75.75 0 0 1-1.5 0v-.94l-1.22 1.22a.75.75 0 0 1-1.06-1.06L13.69 6h-.94a.75.75 0 0 1-.75-.75ZM5 9.25h10a.75.75 0 0 1 0 1.5H5a.75.75 0 0 1 0-1.5Zm-.75 2.75A.75.75 0 0 1 5 12.75v.94l1.22-1.22a.75.75 0 0 1 1.06 1.06L6.06 14.75H7a.75.75 0 0 1 0 1.5H4.25A.75.75 0 0 1 3.5 15.5v-2.75a.75.75 0 0 1 .75-.75Zm11.5 0a.75.75 0 0 1 .75.75v2.75a.75.75 0 0 1-.75.75H13a.75.75 0 0 1 0-1.5h.94l-1.22-1.22a.75.75 0 0 1 1.06-1.06L15 13.69v-.94a.75.75 0 0 1 .75-.75Z"></path>
+    </svg>
+  `;
+}
+
 function createWebviewNonce(): string {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let nonce = "";
@@ -3031,8 +3039,11 @@ export function buildWorkflowHtml(
       padding: 22px;
       min-height: 0;
       position: relative;
-      overflow: auto;
+      overflow: hidden;
       overscroll-behavior: contain;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 14px;
       background:
         linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
@@ -3062,12 +3073,29 @@ export function buildWorkflowHtml(
       align-items: flex-start;
       gap: 16px;
     }
+    .graph-panel__viewport {
+      min-height: 0;
+      overflow: auto;
+      overscroll-behavior: contain;
+      position: relative;
+      z-index: 2;
+      padding: 4px 2px 2px 0;
+    }
     .graph-stage-actions {
       display: flex;
       justify-content: flex-end;
       align-items: center;
       gap: 10px;
       flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
+      padding: 10px;
+      border-radius: 16px;
+      border: 1px solid rgba(114, 241, 184, 0.14);
+      background: rgba(8, 16, 22, 0.72);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 18px 32px rgba(0, 0, 0, 0.22);
     }
     .graph-stage-action-button {
       width: 38px;
@@ -5497,6 +5525,9 @@ export function buildWorkflowHtml(
       .graph-panel {
         min-height: auto;
       }
+      .graph-panel__viewport {
+        min-height: 480px;
+      }
       .graph-stage, .phase-graph {
         min-width: var(--graph-width-desktop-vertical, ${desktopGraphWidth}px);
         min-height: var(--graph-height-desktop-vertical, ${desktopGraphHeight}px);
@@ -5551,6 +5582,12 @@ export function buildWorkflowHtml(
       }
       .graph-panel__head {
         flex-direction: column;
+      }
+      .graph-stage-actions {
+        top: 0;
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
       }
       .review-regression__header {
         grid-template-columns: 1fr;
@@ -5839,7 +5876,7 @@ export function buildWorkflowHtml(
     <div class="shell-body">
       <section class="layout">
         <div class="layout-main">
-        <aside class="panel graph-panel" data-panel-scroll="graph">
+        <aside class="panel graph-panel">
           <div class="graph-panel__head">
             <div>
               <h2 class="panel-title">Workflow Constellation</h2>
@@ -5865,6 +5902,14 @@ export function buildWorkflowHtml(
               <button
                 class="graph-stage-action-button"
                 type="button"
+                data-graph-fit-width
+                aria-label="Fit workflow graph to panel width"
+                title="Fit workflow graph to panel width">
+                ${fitWidthGraphIcon()}
+              </button>
+              <button
+                class="graph-stage-action-button"
+                type="button"
                 data-graph-zoom-in
                 aria-label="Zoom in workflow graph"
                 title="Zoom in workflow graph">
@@ -5880,11 +5925,13 @@ export function buildWorkflowHtml(
               </button>
             </div>
           </div>
-          <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}${playbackState === "playing" || playbackState === "stopping" ? " graph-stage--overlay-blocking" : ""}" style="${graphStageLegendStyle}">
-            <div class="graph-stage__canvas" data-graph-stage-canvas>
-              ${executionOverlay}
-              ${phaseGraph}
-              ${renderGraphLegend(workflow.usId)}
+          <div class="graph-panel__viewport" data-panel-scroll="graph">
+            <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}${playbackState === "playing" || playbackState === "stopping" ? " graph-stage--overlay-blocking" : ""}" style="${graphStageLegendStyle}">
+              <div class="graph-stage__canvas" data-graph-stage-canvas>
+                ${executionOverlay}
+                ${phaseGraph}
+                ${renderGraphLegend(workflow.usId)}
+              </div>
             </div>
           </div>
         </aside>
@@ -5959,6 +6006,7 @@ export function buildWorkflowHtml(
     const graphZoomInButton = document.querySelector("[data-graph-zoom-in]");
     const graphZoomOutButton = document.querySelector("[data-graph-zoom-out]");
     const graphAutoFitButton = document.querySelector("[data-graph-auto-fit]");
+    const graphFitWidthButton = document.querySelector("[data-graph-fit-width]");
     const completedReopenTargetPhaseByReason = ${JSON.stringify({
       "merge-conflict": "implementation",
       defect: "implementation",
@@ -5995,7 +6043,9 @@ export function buildWorkflowHtml(
     const graphZoomMax = 2.2;
     const graphZoomStep = 0.12;
     const graphZoomState = {
-      mode: viewState.graphZoomMode === "manual" ? "manual" : "fit",
+      mode: viewState.graphZoomMode === "manual" || viewState.graphZoomMode === "fit-width"
+        ? viewState.graphZoomMode
+        : "fit",
       scale: typeof viewState.graphZoomScale === "number" && Number.isFinite(viewState.graphZoomScale)
         ? Math.max(graphZoomMin, Math.min(graphZoomMax, viewState.graphZoomScale))
         : 1
@@ -6026,12 +6076,11 @@ export function buildWorkflowHtml(
         height: Math.max(maxBottom, graphStageCanvas.scrollHeight, graphStageCanvas.offsetHeight, 1)
       };
     };
-    const computeAutoFitGraphZoom = () => {
+    const measureGraphPanelViewport = () => {
       if (!(graphPanel instanceof HTMLElement) || !(graphStage instanceof HTMLElement)) {
-        return 1;
+        return { availableWidth: 120, availableHeight: 120 };
       }
 
-      const canvasBounds = measureGraphStageCanvasBounds();
       const panelStyle = window.getComputedStyle(graphPanel);
       const paddingLeft = Number.parseFloat(panelStyle.paddingLeft) || 0;
       const paddingRight = Number.parseFloat(panelStyle.paddingRight) || 0;
@@ -6039,9 +6088,19 @@ export function buildWorkflowHtml(
       const availableWidth = Math.max(120, graphPanel.clientWidth - paddingLeft - paddingRight);
       const stageTop = graphStage.offsetTop;
       const availableHeight = Math.max(120, graphPanel.clientHeight - stageTop - paddingBottom);
+      return { availableWidth, availableHeight };
+    };
+    const computeAutoFitGraphZoom = () => {
+      const canvasBounds = measureGraphStageCanvasBounds();
+      const { availableWidth, availableHeight } = measureGraphPanelViewport();
       const widthRatio = availableWidth / Math.max(1, canvasBounds.width);
       const heightRatio = availableHeight / Math.max(1, canvasBounds.height);
       return Math.max(graphZoomMin, Math.min(graphZoomMax, Math.min(widthRatio, heightRatio)));
+    };
+    const computeFitWidthGraphZoom = () => {
+      const canvasBounds = measureGraphStageCanvasBounds();
+      const { availableWidth } = measureGraphPanelViewport();
+      return Math.max(graphZoomMin, Math.min(graphZoomMax, availableWidth / Math.max(1, canvasBounds.width)));
     };
     const applyGraphZoom = (scale, mode) => {
       if (!(graphStage instanceof HTMLElement)) {
@@ -6064,6 +6123,9 @@ export function buildWorkflowHtml(
     };
     const autoFitGraph = () => {
       applyGraphZoom(computeAutoFitGraphZoom(), "fit");
+    };
+    const fitGraphWidth = () => {
+      applyGraphZoom(computeFitWidthGraphZoom(), "fit-width");
     };
     const setManualGraphZoom = (scale) => {
       applyGraphZoom(scale, "manual");
@@ -6551,6 +6613,8 @@ export function buildWorkflowHtml(
     window.requestAnimationFrame(() => {
       if (graphZoomState.mode === "manual") {
         applyGraphZoom(graphZoomState.scale, "manual");
+      } else if (graphZoomState.mode === "fit-width") {
+        fitGraphWidth();
       } else {
         autoFitGraph();
       }
@@ -6754,6 +6818,13 @@ export function buildWorkflowHtml(
         centerFocusedPhaseInGraph();
       });
     }
+    if (graphFitWidthButton instanceof HTMLButtonElement) {
+      graphFitWidthButton.addEventListener("click", () => {
+        fitGraphWidth();
+        persistWorkflowScrollState();
+        centerFocusedPhaseInGraph();
+      });
+    }
     if (graphPanel instanceof HTMLElement) {
       graphPanel.addEventListener("wheel", (event) => {
         if (!event.ctrlKey && !event.metaKey) {
@@ -6769,6 +6840,8 @@ export function buildWorkflowHtml(
     window.addEventListener("resize", () => {
       if (graphZoomState.mode === "fit") {
         autoFitGraph();
+      } else if (graphZoomState.mode === "fit-width") {
+        fitGraphWidth();
       } else {
         applyGraphZoom(graphZoomState.scale, "manual");
       }
