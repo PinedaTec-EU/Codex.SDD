@@ -7,6 +7,7 @@ export interface SpecForgeSettings {
   readonly autoRefinementAnswersProfile: string | null;
   readonly refinementTolerance: string;
   readonly reviewTolerance: string;
+  readonly workflowGraphLayoutMode: "horizontal" | "vertical";
   readonly watcherEnabled: boolean;
   readonly attentionNotificationsEnabled: boolean;
   readonly contextSuggestionsEnabled: boolean;
@@ -81,6 +82,9 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
     autoRefinementAnswersProfile,
     refinementTolerance: normalizeTolerance(configuration.get<string>("execution.refinementTolerance", "balanced")),
     reviewTolerance: normalizeTolerance(configuration.get<string>("execution.reviewTolerance", "balanced")),
+    workflowGraphLayoutMode: configuration.get<"horizontal" | "vertical">("ui.workflowGraphLayoutMode", "vertical") === "horizontal"
+      ? "horizontal"
+      : "vertical",
     watcherEnabled: configuration.get<boolean>("ui.enableWatcher", true),
     attentionNotificationsEnabled: configuration.get<boolean>("ui.notifyOnAttention", true),
     contextSuggestionsEnabled: configuration.get<boolean>("features.enableContextSuggestions", true),

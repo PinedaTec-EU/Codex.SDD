@@ -39,16 +39,15 @@ const vscode = __importStar(require("vscode"));
 const htmlEscape_1 = require("./htmlEscape");
 const executionSettingsModel_1 = require("./executionSettingsModel");
 const extensionSettings_1 = require("./extensionSettings");
-const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
 const webviewTypography_1 = require("./webviewTypography");
 let currentPanel = null;
-async function openExecutionSettingsPanelAsync(extensionUri, workspaceRoot, onDidSave) {
+async function openExecutionSettingsPanelAsync(extensionUri, onDidSave) {
     if (currentPanel) {
         currentPanel.reveal();
         await currentPanel.refreshAsync();
         return;
     }
-    currentPanel = new ExecutionSettingsPanelController(extensionUri, workspaceRoot, onDidSave, () => {
+    currentPanel = new ExecutionSettingsPanelController(extensionUri, onDidSave, () => {
         currentPanel = null;
     });
     currentPanel.reveal();
@@ -56,13 +55,11 @@ async function openExecutionSettingsPanelAsync(extensionUri, workspaceRoot, onDi
 }
 class ExecutionSettingsPanelController {
     extensionUri;
-    workspaceRoot;
     onDidSave;
     onDidDisposePanel;
     panel;
-    constructor(extensionUri, workspaceRoot, onDidSave, onDidDisposePanel) {
+    constructor(extensionUri, onDidSave, onDidDisposePanel) {
         this.extensionUri = extensionUri;
-        this.workspaceRoot = workspaceRoot;
         this.onDidSave = onDidSave;
         this.onDidDisposePanel = onDidDisposePanel;
         this.panel = vscode.window.createWebviewPanel("specForge.executionSettings", "SpecForge Configuration", vscode.ViewColumn.Active, {
@@ -97,22 +94,15 @@ class ExecutionSettingsPanelController {
     }
     async refreshAsync() {
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
-        const userPreferences = this.workspaceRoot
-            ? await (0, userWorkspacePreferences_1.readUserWorkspacePreferences)(this.workspaceRoot, {
-                watcherEnabled: settings.watcherEnabled,
-                attentionNotificationsEnabled: settings.attentionNotificationsEnabled,
-                contextSuggestionsEnabled: settings.contextSuggestionsEnabled
-            })
-            : null;
         this.panel.webview.html = buildExecutionSettingsHtml({
             modelProfiles: settings.modelProfiles,
             phaseModelAssignments: settings.phaseModelAssignments,
             refinementTolerance: settings.refinementTolerance,
             reviewTolerance: settings.reviewTolerance,
-            watcherEnabled: userPreferences?.watcherEnabled ?? settings.watcherEnabled,
-            attentionNotificationsEnabled: userPreferences?.attentionNotificationsEnabled ?? settings.attentionNotificationsEnabled,
-            contextSuggestionsEnabled: userPreferences?.contextSuggestionsEnabled ?? settings.contextSuggestionsEnabled,
-            workflowGraphLayoutMode: userPreferences?.workflowGraphLayoutMode ?? "vertical",
+            watcherEnabled: settings.watcherEnabled,
+            attentionNotificationsEnabled: settings.attentionNotificationsEnabled,
+            contextSuggestionsEnabled: settings.contextSuggestionsEnabled,
+            workflowGraphLayoutMode: settings.workflowGraphLayoutMode,
             requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance,
             autoRefinementAnswersEnabled: settings.autoRefinementAnswersEnabled,
             autoRefinementAnswersProfile: settings.autoRefinementAnswersProfile,
@@ -396,7 +386,7 @@ function buildExecutionSettingsHtml(model) {
     <section class="hero">
       <p class="eyebrow">SpecForge Configuration</p>
       <h1>One panel, one source of truth</h1>
-      <p class="copy">Keep SpecForge settings together here instead of scattering workflow behavior across raw VS Code settings. Workspace workflow rules persist in <code>specForge.*</code>, while personal UX preferences persist per user inside <code>.specs/users/&lt;user&gt;/vscode-preferences.json</code>.</p>
+      <p class="copy">Keep SpecForge settings together here instead of scattering workflow behavior across raw VS Code settings. Shared workflow rules persist in workspace settings, while personal UX preferences persist in VS Code user settings under <code>specForge.*</code>.</p>
       <div class="actions">
         <button class="ghost-action" type="button" data-command="openRawSettings">Open Raw VS Code Settings</button>
       </div>
@@ -551,7 +541,7 @@ function buildExecutionSettingsHtml(model) {
         <div>
           <p class="eyebrow">User Preferences</p>
           <h2>Personal workflow UX</h2>
-          <p class="copy">These preferences only affect the current user in this workspace. They do not change shared workflow behavior for the rest of the team.</p>
+          <p class="copy">These preferences are saved to your VS Code user settings. They affect your local experience without changing the team's shared workspace configuration.</p>
         </div>
       </div>
       <div class="feature-grid">
@@ -1172,7 +1162,6 @@ function buildExecutionSettingsHtml(model) {
 }
 async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, refinementTolerance = "balanced", reviewTolerance = "balanced", watcherEnabled = true, attentionNotificationsEnabled = true, contextSuggestionsEnabled = true, workflowGraphLayoutMode = "vertical", requireExplicitApprovalBranchAcceptance = false, autoRefinementAnswersEnabled = false, autoRefinementAnswersProfile, autoPlayEnabled = false, autoReviewEnabled = false, maxImplementationReviewCycles, destructiveRewindEnabled = false, pauseOnFailedReview = false, completedUsLockOnCompleted = false) {
     const configuration = vscode.workspace.getConfiguration("specForge");
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null;
     const normalizedProfiles = modelProfiles
         .map((profile) => ({
         name: typeof profile.name === "string" ? profile.name.trim() : "",
@@ -1215,9 +1204,10 @@ async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, 
     await configuration.update("execution.phaseModels", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
     await configuration.update("execution.refinementTolerance", refinementTolerance, vscode.ConfigurationTarget.Workspace);
     await configuration.update("execution.reviewTolerance", reviewTolerance, vscode.ConfigurationTarget.Workspace);
-    await configuration.update("ui.enableWatcher", undefined, vscode.ConfigurationTarget.Workspace);
-    await configuration.update("ui.notifyOnAttention", undefined, vscode.ConfigurationTarget.Workspace);
-    await configuration.update("features.enableContextSuggestions", undefined, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("ui.workflowGraphLayoutMode", workflowGraphLayoutMode, vscode.ConfigurationTarget.Global);
+    await configuration.update("ui.enableWatcher", watcherEnabled, vscode.ConfigurationTarget.Global);
+    await configuration.update("ui.notifyOnAttention", attentionNotificationsEnabled, vscode.ConfigurationTarget.Global);
+    await configuration.update("features.enableContextSuggestions", contextSuggestionsEnabled, vscode.ConfigurationTarget.Global);
     await configuration.update("features.requireApprovalBranchAcceptance", requireExplicitApprovalBranchAcceptance, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.autoRefinementAnswersEnabled", autoRefinementAnswersEnabled, vscode.ConfigurationTarget.Workspace);
     await configuration.update("execution.autoRefinementAnswersProfile", normalizeOptionalAssignment(autoRefinementAnswersProfile), vscode.ConfigurationTarget.Workspace);
@@ -1227,14 +1217,10 @@ async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, 
     await configuration.update("features.destructiveRewindEnabled", destructiveRewindEnabled, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.pauseOnFailedReview", pauseOnFailedReview, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.completedUsLockOnCompleted", completedUsLockOnCompleted, vscode.ConfigurationTarget.Workspace);
-    if (workspaceRoot) {
-        await (0, userWorkspacePreferences_1.setUserWorkspaceUiPreferences)(workspaceRoot, {
-            watcherEnabled,
-            attentionNotificationsEnabled,
-            contextSuggestionsEnabled,
-            workflowGraphLayoutMode
-        });
-    }
+    await configuration.update("ui.workflowGraphLayoutMode", undefined, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("ui.enableWatcher", undefined, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("ui.notifyOnAttention", undefined, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("features.enableContextSuggestions", undefined, vscode.ConfigurationTarget.Workspace);
 }
 function normalizeOptionalAssignment(value) {
     const trimmed = value?.trim();

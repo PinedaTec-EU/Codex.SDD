@@ -248,8 +248,10 @@ class WorkflowPanelController {
                 return;
             case "setGraphLayoutMode":
                 if (message.graphLayoutMode === "horizontal" || message.graphLayoutMode === "vertical") {
-                    await (0, userWorkspacePreferences_1.setWorkflowGraphLayoutMode)(this.workspaceRoot, message.graphLayoutMode);
-                    (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' persisted graph layout mode '${message.graphLayoutMode}' for user workspace preferences.`);
+                    await vscode.workspace
+                        .getConfiguration("specForge")
+                        .update("ui.workflowGraphLayoutMode", message.graphLayoutMode, vscode.ConfigurationTarget.Global);
+                    (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' persisted graph layout mode '${message.graphLayoutMode}' to VS Code user settings.`);
                 }
                 return;
             case "attachFiles":
@@ -1105,16 +1107,11 @@ class WorkflowPanelController {
         const selectedOperationContent = await readArtifactContentAsync(selectedPhase.operationLogPath);
         const sourceText = await readArtifactContentAsync(workflow.mainArtifactPath) ?? "";
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
-        const userPreferences = await (0, userWorkspacePreferences_1.readUserWorkspacePreferences)(this.workspaceRoot, {
-            watcherEnabled: settings.watcherEnabled,
-            attentionNotificationsEnabled: settings.attentionNotificationsEnabled,
-            contextSuggestionsEnabled: settings.contextSuggestionsEnabled
-        });
         const settingsStatus = (0, extensionSettings_1.getSpecForgeSettingsStatus)(settings);
         if (!settingsStatus.executionConfigured) {
             (0, outputChannel_1.appendSpecForgeLog)(`Workflow settings warning for '${this.workspaceRoot}' (${workflow.usId}): ${settingsStatus.message}. Diagnostics: ${settingsStatus.diagnostics}`);
         }
-        const contextSuggestions = userPreferences.contextSuggestionsEnabled && workflow.currentPhase === "refinement"
+        const contextSuggestions = settings.contextSuggestionsEnabled && workflow.currentPhase === "refinement"
             ? await (0, contextSuggestions_1.suggestContextFiles)(this.workspaceRoot, workflow, sourceText)
             : [];
         const runtimeVersion = await (0, runtimeVersion_1.readRuntimeVersionAsync)();
@@ -1150,7 +1147,7 @@ class WorkflowPanelController {
             approvalBaseBranchProposal: this.specApprovalBaseBranchProposal,
             approvalWorkBranchProposal: this.buildSpecApprovalWorkBranchProposal(workflow),
             requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance,
-            graphLayoutMode: userPreferences.workflowGraphLayoutMode,
+            graphLayoutMode: settings.workflowGraphLayoutMode,
             workflowGraphLayout
         };
         this.panel.title = `${workflow.usId} workflow`;

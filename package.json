@@ -275,6 +275,15 @@
           "default": "",
           "description": "Named profile used to auto-answer refinement questions before handing spec back to the user."
         },
+        "specForge.ui.workflowGraphLayoutMode": {
+          "type": "string",
+          "default": "vertical",
+          "enum": [
+            "vertical",
+            "horizontal"
+          ],
+          "description": "Preferred workflow graph layout for this user."
+        },
         "specForge.ui.enableWatcher": {
           "type": "boolean",
           "default": true,

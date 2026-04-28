@@ -20,6 +20,9 @@ function readSpecForgeSettings(configuration) {
         autoRefinementAnswersProfile,
         refinementTolerance: normalizeTolerance(configuration.get("execution.refinementTolerance", "balanced")),
         reviewTolerance: normalizeTolerance(configuration.get("execution.reviewTolerance", "balanced")),
+        workflowGraphLayoutMode: configuration.get("ui.workflowGraphLayoutMode", "vertical") === "horizontal"
+            ? "horizontal"
+            : "vertical",
         watcherEnabled: configuration.get("ui.enableWatcher", true),
         attentionNotificationsEnabled: configuration.get("ui.notifyOnAttention", true),
         contextSuggestionsEnabled: configuration.get("features.enableContextSuggestions", true),
