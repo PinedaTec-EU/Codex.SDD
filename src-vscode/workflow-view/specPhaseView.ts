@@ -19,6 +19,7 @@ interface SpecPhaseViewArgs {
   readonly escapeHtmlAttribute: (value: string) => string;
   readonly heroTokenClass: (value: string) => string;
   readonly formatUtcTimestamp: (value: string | null | undefined) => string;
+  readonly renderChevronIcon: (className: string) => string;
 }
 
 export function buildSpecPhaseSections(args: SpecPhaseViewArgs): PhaseSectionFragments {
@@ -32,7 +33,8 @@ export function buildSpecPhaseSections(args: SpecPhaseViewArgs): PhaseSectionFra
     escapeHtml,
     escapeHtmlAttribute,
     heroTokenClass,
-    formatUtcTimestamp
+    formatUtcTimestamp,
+    renderChevronIcon
   } = args;
 
   const approvalBranchEditorVisible = selectedPhase.phaseId === "spec"
@@ -115,9 +117,11 @@ export function buildSpecPhaseSections(args: SpecPhaseViewArgs): PhaseSectionFra
                   class="approval-question-item__toggle"
                   type="button"
                   data-approval-question-toggle
+                  aria-expanded="${item.resolved ? "false" : "true"}"
                   data-approval-question-index="${item.index}">
                   <span class="approval-question-item__index">${item.index}</span>
                   <span class="approval-question-item__body">${escapeHtml(item.question)}</span>
+                  ${renderChevronIcon(`approval-question-item__chevron${item.resolved ? "" : " approval-question-item__chevron--expanded"}`)}
                   <span class="approval-question-item__status">${item.resolved ? "Resolved" : "Pending"}</span>
                 </button>
                 <span class="approval-question-item__actions">

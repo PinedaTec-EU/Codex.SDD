@@ -235,15 +235,6 @@ function formatTimelinePointTime(value: string): string {
   return parsed.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-function shortTimelineLabel(title: string): string {
-  return title
-    .split(/[\s-]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "?";
-}
-
 function sumTokenUsage(usages: readonly { inputTokens: number; outputTokens: number; totalTokens: number }[]): { inputTokens: number; outputTokens: number; totalTokens: number } {
   return usages.reduce((aggregate, usage) => ({
     inputTokens: aggregate.inputTokens + usage.inputTokens,
@@ -623,7 +614,8 @@ function buildPhaseSpecificSections(
         escapeHtml,
         escapeHtmlAttribute,
         heroTokenClass,
-        formatUtcTimestamp
+        formatUtcTimestamp,
+        renderChevronIcon
       });
     case "technical-design":
       return buildTechnicalDesignPhaseSections();
@@ -1132,6 +1124,41 @@ function graphPhaseTitle(phase: WorkflowPhaseDetails): string {
   }
 }
 
+function phaseSecondaryLabelForPhaseId(workflow: UserStoryWorkflowDetails, phaseId: string): string {
+  const phase = workflow.phases.find((candidate) => candidate.phaseId === phaseId);
+  return phase ? phaseSecondaryLabel(phase) : phaseId;
+}
+
+function buildTimelinePointTooltip(
+  workflow: UserStoryWorkflowDetails,
+  point: {
+    readonly title: string;
+    readonly phaseId: string;
+    readonly attempt: number | null;
+    readonly timestampUtc: string | null;
+    readonly reasonMessage: string | null;
+    readonly canSelect: boolean;
+    readonly isCurrent: boolean;
+  }
+): string {
+  const lines = [
+    point.attempt && point.attempt > 1 ? `${point.title} · iteration ${point.attempt}` : point.title,
+    phaseSecondaryLabelForPhaseId(workflow, point.phaseId)
+  ];
+
+  if (point.timestampUtc) {
+    lines.push(formatUtcTimestamp(point.timestampUtc));
+  }
+
+  if (point.isCurrent) {
+    lines.push("Current workflow position.");
+  } else if (!point.canSelect && point.reasonMessage) {
+    lines.push(point.reasonMessage);
+  }
+
+  return lines.join(" \n");
+}
+
 function phaseModelProfileLabel(phase: WorkflowPhaseDetails, state: WorkflowViewState): string | null {
   const assignments = state.phaseModelAssignments;
   if (!assignments) {
@@ -1417,6 +1444,16 @@ function countPairedImplementationReviewAttempts(
   return Math.min(implementationFallbackCount, reviewFallbackCount);
 }
 
+function renderChevronIcon(className: string): string {
+  return `
+    <span class="${className}" aria-hidden="true">
+      <svg viewBox="0 0 20 20" fill="none" focusable="false">
+        <path d="M6.25 8.25 10 12l3.75-3.75" />
+      </svg>
+    </span>
+  `;
+}
+
 function createWebviewNonce(): string {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let nonce = "";
@@ -1690,15 +1727,13 @@ export function buildWorkflowHtml(
               <button
                 class="time-dock__point${point.isCurrent ? " time-dock__point--current" : ""}${point.canSelect ? "" : " time-dock__point--disabled"}"
                 type="button"
-                data-command="rewind"
-                data-phase-id="${escapeHtmlAttribute(point.phaseId)}"
-                data-iteration-key="${escapeHtmlAttribute(point.iterationKey ?? "")}"
+                ${point.canSelect ? `data-command="rewind" data-phase-id="${escapeHtmlAttribute(point.phaseId)}" data-iteration-key="${escapeHtmlAttribute(point.iterationKey ?? "")}"` : ""}
                 data-time-dock-point
                 data-time-dock-index="${index}"
-                title="${escapeHtmlAttribute(point.reasonMessage ?? point.label)}"
-                aria-label="${escapeHtmlAttribute(point.canSelect ? `Move workflow view to ${point.label}` : point.reasonMessage ?? `Cannot move to ${point.label}`)}"
-                ${point.canSelect ? "" : "disabled"}>
-                <span class="time-dock__orb" aria-hidden="true">${escapeHtml(shortTimelineLabel(point.title))}</span>
+                title="${escapeHtmlAttribute(buildTimelinePointTooltip(workflow, point))}"
+                aria-label="${escapeHtmlAttribute(point.canSelect ? `Move workflow view to ${point.label}` : buildTimelinePointTooltip(workflow, point))}"
+                aria-disabled="${point.canSelect ? "false" : "true"}">
+                <span class="time-dock__orb" aria-hidden="true">${workflowPhaseIcon(point.phaseId)}</span>
                 <span class="time-dock__label">${escapeHtml(point.label)}</span>
                 ${point.timestampUtc ? `<span class="time-dock__time">${escapeHtml(formatTimelinePointTime(point.timestampUtc))}</span>` : ""}
               </button>
@@ -1908,7 +1943,7 @@ export function buildWorkflowHtml(
             aria-label="${isIterationRailExpanded ? "Collapse phase iterations" : "Expand phase iterations"}"
             title="${isIterationRailExpanded ? "Collapse phase iterations" : "Expand phase iterations"}"
             aria-expanded="${isIterationRailExpanded ? "true" : "false"}">
-            <span class="iteration-rail-toggle__icon${isIterationRailExpanded ? " iteration-rail-toggle__icon--expanded" : ""}" aria-hidden="true">&gt;</span>
+            ${renderChevronIcon(`iteration-rail-toggle__icon${isIterationRailExpanded ? " iteration-rail-toggle__icon--expanded" : ""}`)}
           </button>
         </div>
         <div class="iteration-rail${isIterationRailExpanded ? " iteration-rail--expanded" : " iteration-rail--collapsed"}">
@@ -2114,7 +2149,7 @@ export function buildWorkflowHtml(
               <div class="detail-card__header detail-card__header--phase-overview">
                 <h2>${escapeHtml(selectedPhase.title)}</h2>
                 <span class="iteration-rail-toggle detail-card__summary-toggle" aria-hidden="true">
-                  <span class="iteration-rail-toggle__icon detail-card__summary-toggle-icon" aria-hidden="true">&gt;</span>
+                  ${renderChevronIcon("iteration-rail-toggle__icon detail-card__summary-toggle-icon")}
                 </span>
               </div>
               <div class="detail-meta">
@@ -2866,8 +2901,8 @@ export function buildWorkflowHtml(
       color: #ffe08a;
     }
     .time-dock__point--disabled {
-      cursor: not-allowed;
-      opacity: 0.45;
+      cursor: default;
+      opacity: 0.62;
     }
     .time-dock__orb {
       width: 46px;
@@ -2884,6 +2919,11 @@ export function buildWorkflowHtml(
       font-weight: 900;
       letter-spacing: -0.04em;
       transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease, color 150ms ease;
+    }
+    .time-dock__orb svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
     }
     .time-dock__point--current .time-dock__orb {
       border-color: rgba(255, 213, 90, 0.52);
@@ -2933,6 +2973,20 @@ export function buildWorkflowHtml(
     .time-dock__point:hover .time-dock__time {
       opacity: 0.84;
       color: rgba(214, 240, 226, 0.92);
+    }
+    .time-dock__point--disabled:hover .time-dock__orb {
+      border-color: rgba(114, 241, 184, 0.26);
+      background:
+        linear-gradient(180deg, rgba(114, 241, 184, 0.18), rgba(12, 31, 30, 0.94)),
+        rgba(8, 16, 22, 0.92);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+    }
+    .time-dock__point--disabled:hover .time-dock__label {
+      color: rgba(226, 244, 239, 0.86);
+    }
+    .time-dock__point--disabled:hover .time-dock__time {
+      opacity: 0.62;
+      color: inherit;
     }
     .time-dock__scroll {
       width: 42px;
@@ -4173,25 +4227,6 @@ export function buildWorkflowHtml(
       display: grid;
       gap: 12px;
     }
-    .detail-card__summary-title-row {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .detail-card__summary-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 16px;
-      font-size: 1rem;
-      line-height: 1;
-      color: rgba(189, 219, 246, 0.86);
-      transform: rotate(0deg);
-      transition: transform 140ms ease;
-    }
-    .detail-card--collapsible[open] .detail-card__summary-icon {
-      transform: rotate(90deg);
-    }
     .detail-card__summary-toggle {
       pointer-events: none;
       align-self: center;
@@ -4270,36 +4305,58 @@ export function buildWorkflowHtml(
       align-items: center;
       justify-content: center;
       align-self: center;
-      width: 36px;
-      height: 36px;
+      width: 40px;
+      height: 40px;
       padding: 0;
-      border: 1px solid rgba(92, 181, 255, 0.22);
+      border: 1px solid rgba(92, 181, 255, 0.18);
       border-radius: 999px;
-      background: rgba(16, 29, 43, 0.88);
-      color: rgba(231, 243, 255, 0.92);
+      background:
+        radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.12), transparent 34%),
+        linear-gradient(180deg, rgba(18, 32, 47, 0.94), rgba(11, 20, 30, 0.98));
+      color: rgba(236, 246, 255, 0.94);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 8px 24px rgba(4, 10, 18, 0.22);
       cursor: pointer;
-      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
     }
     .iteration-rail-toggle:hover {
-      transform: translateY(-1px);
-      border-color: rgba(92, 181, 255, 0.4);
-      background: rgba(24, 42, 61, 0.96);
+      transform: translateY(-1px) scale(1.02);
+      border-color: rgba(92, 181, 255, 0.34);
+      background:
+        radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.15), transparent 36%),
+        linear-gradient(180deg, rgba(22, 40, 58, 0.96), rgba(13, 24, 36, 0.99));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 12px 26px rgba(4, 10, 18, 0.28);
     }
     .iteration-rail-toggle:focus-visible {
       outline: none;
-      border-color: rgba(92, 181, 255, 0.48);
-      box-shadow: 0 0 0 3px rgba(92, 181, 255, 0.16);
+      border-color: rgba(92, 181, 255, 0.44);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 0 0 3px rgba(92, 181, 255, 0.14),
+        0 10px 26px rgba(4, 10, 18, 0.26);
     }
     .iteration-rail-toggle__icon {
-      display: inline-block;
-      font-size: 1rem;
-      font-weight: 700;
-      line-height: 1;
-      transform: rotate(90deg);
-      transition: transform 140ms ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      transform: rotate(0deg);
+      transition: transform 180ms ease;
+    }
+    .iteration-rail-toggle__icon svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 2.1;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
     .iteration-rail-toggle__icon--expanded {
-      transform: rotate(-90deg);
+      transform: rotate(180deg);
     }
     .detail-card--review-regression {
       border-color: rgba(92, 181, 255, 0.18);
@@ -4613,16 +4670,19 @@ export function buildWorkflowHtml(
     }
     .approval-question-item__toggle {
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
       gap: 12px;
-      align-items: start;
+      align-items: center;
       width: 100%;
-      padding: 0;
+      padding: 2px 0;
       border: none;
       background: transparent;
       color: inherit;
       text-align: left;
       cursor: pointer;
+    }
+    .approval-question-item__toggle:focus-visible {
+      outline: none;
     }
     .approval-question-item__index {
       display: inline-flex;
@@ -4647,6 +4707,28 @@ export function buildWorkflowHtml(
       margin: 0;
       line-height: 1.5;
       color: rgba(248, 244, 226, 0.92);
+    }
+    .approval-question-item__chevron {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      color: rgba(188, 220, 248, 0.72);
+      transform: rotate(0deg);
+      transition: transform 180ms ease, color 160ms ease;
+    }
+    .approval-question-item__chevron svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 2.1;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .approval-question-item__chevron--expanded {
+      transform: rotate(180deg);
+      color: rgba(236, 246, 255, 0.92);
     }
     .approval-question-item__actions {
       display: inline-flex;
@@ -6408,11 +6490,21 @@ export function buildWorkflowHtml(
     for (const item of document.querySelectorAll("[data-approval-question-item]")) {
       const toggle = item.querySelector("[data-approval-question-toggle]");
       const editor = item.querySelector("[data-approval-question-editor]");
+      const chevron = item.querySelector(".approval-question-item__chevron");
       if (!(toggle instanceof HTMLButtonElement) || !(editor instanceof HTMLElement)) {
         continue;
       }
+      const syncApprovalQuestionToggle = () => {
+        const expanded = !editor.hidden;
+        toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+        if (chevron instanceof HTMLElement) {
+          chevron.classList.toggle("approval-question-item__chevron--expanded", expanded);
+        }
+      };
+      syncApprovalQuestionToggle();
       toggle.addEventListener("click", () => {
         editor.hidden = !editor.hidden;
+        syncApprovalQuestionToggle();
       });
     }
     for (const input of document.querySelectorAll("[data-approval-answer-input]")) {

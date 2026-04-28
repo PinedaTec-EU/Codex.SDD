@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildSpecPhaseSections = buildSpecPhaseSections;
 function buildSpecPhaseSections(args) {
-    const { workflow, selectedPhase, state, artifactQuestionBlock, specApprovalQuestions, unresolvedApprovalQuestionCount, escapeHtml, escapeHtmlAttribute, heroTokenClass, formatUtcTimestamp } = args;
+    const { workflow, selectedPhase, state, artifactQuestionBlock, specApprovalQuestions, unresolvedApprovalQuestionCount, escapeHtml, escapeHtmlAttribute, heroTokenClass, formatUtcTimestamp, renderChevronIcon } = args;
     const approvalBranchEditorVisible = selectedPhase.phaseId === "spec"
         && selectedPhase.isCurrent
         && workflow.controls.requiresApproval;
@@ -82,9 +82,11 @@ function buildSpecPhaseSections(args) {
                   class="approval-question-item__toggle"
                   type="button"
                   data-approval-question-toggle
+                  aria-expanded="${item.resolved ? "false" : "true"}"
                   data-approval-question-index="${item.index}">
                   <span class="approval-question-item__index">${item.index}</span>
                   <span class="approval-question-item__body">${escapeHtml(item.question)}</span>
+                  ${renderChevronIcon(`approval-question-item__chevron${item.resolved ? "" : " approval-question-item__chevron--expanded"}`)}
                   <span class="approval-question-item__status">${item.resolved ? "Resolved" : "Pending"}</span>
                 </button>
                 <span class="approval-question-item__actions">
