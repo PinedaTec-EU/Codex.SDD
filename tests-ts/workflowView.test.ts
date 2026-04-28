@@ -3032,6 +3032,9 @@ test("buildWorkflowHtml groups implementation review loops in the bottom timelin
   assert.match(html, /class="time-dock__loop-group time-dock__loop-group--selected"/);
   assert.match(html, /style="--loop-start-index: \d+; --loop-span: \d+;"/);
   assert.match(html, /time-dock__loop-label">Loop x\d+</);
+  assert.match(html, /graph-loop-box/);
+  assert.match(html, /data-loop-id="implementation-review"/);
+  assert.match(html, /2 ciclos entre Implementation y Review/);
 });
 
 test("buildWorkflowHtml prefers assigned overlay profile over stale history when configured model is blank", () => {

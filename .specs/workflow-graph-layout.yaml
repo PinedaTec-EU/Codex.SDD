@@ -55,6 +55,11 @@ horizontal:
     pr-preparation->completed:
       from: R3
       to: L3
+  loops:
+    implementation-review:
+      fromPhaseId: implementation
+      toPhaseId: review
+      side: right
 
 vertical:
   capture:
@@ -109,3 +114,8 @@ vertical:
     pr-preparation->completed:
       from: R3
       to: L3
+  loops:
+    implementation-review:
+      fromPhaseId: implementation
+      toPhaseId: review
+      side: right

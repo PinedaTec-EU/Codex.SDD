@@ -20,10 +20,14 @@ import { buildTechnicalDesignPhaseSections } from "./workflow-view/technicalDesi
 import { buildWebviewTypographyRootCss } from "./webviewTypography";
 import {
   defaultHorizontalWorkflowGraphConnections,
+  defaultHorizontalWorkflowGraphLoops,
   defaultHorizontalWorkflowGraphPositions,
   defaultVerticalWorkflowGraphConnections,
+  defaultVerticalWorkflowGraphLoops,
   defaultVerticalWorkflowGraphPositions,
   type WorkflowGraphEdgeConnection,
+  type WorkflowGraphLoopDefinition,
+  type WorkflowGraphLoopSide,
   type WorkflowGraphPhasePosition
 } from "./workflowGraphLayout";
 
@@ -63,6 +67,19 @@ type PhaseGraphEdge = {
   readonly toPhaseId: string;
   readonly className: string;
 };
+type GraphLoopOverlay = {
+  readonly loopId: string;
+  readonly box: {
+    readonly left: number;
+    readonly top: number;
+    readonly width: number;
+    readonly height: number;
+  };
+  readonly selected: boolean;
+  readonly label: string;
+  readonly pathToSource: string;
+  readonly pathToTarget: string;
+};
 type GraphAnchor =
   | "entry-top"
   | "entry-top-left"
@@ -81,6 +98,10 @@ type GraphAnchor =
 const phaseNodeWidth = 240;
 const phaseNodeHeight = 118;
 const mobilePhaseNodeWidth = 206;
+const graphLoopBoxWidth = 196;
+const graphLoopBoxHeight = 90;
+const mobileGraphLoopBoxWidth = 166;
+const mobileGraphLoopBoxHeight = 76;
 const defaultPhaseSequence: readonly LayoutPhaseDescriptor[] = [
   { phaseId: "capture", expectsHumanIntervention: false },
   { phaseId: "refinement", expectsHumanIntervention: true },
@@ -3120,6 +3141,28 @@ export function buildWorkflowHtml(
       opacity: 0.45;
       filter: none;
     }
+    .graph-loops {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .graph-loops path {
+      fill: none;
+      stroke: rgba(62, 153, 255, 0.88);
+      stroke-width: 3.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 10 12;
+      filter: drop-shadow(0 0 10px rgba(62, 153, 255, 0.18));
+    }
+    .graph-loop-path--selected {
+      stroke: rgba(114, 196, 255, 0.96);
+      filter: drop-shadow(0 0 14px rgba(92, 181, 255, 0.24));
+    }
     .phase-graph {
       position: relative;
       width: var(--graph-width-desktop-vertical, ${desktopGraphWidth}px);
@@ -3132,15 +3175,78 @@ export function buildWorkflowHtml(
       min-height: var(--graph-height-desktop-horizontal, ${desktopGraphHeight}px);
     }
     .graph-links--mobile,
+    .graph-loops--mobile,
     .graph-links--desktop-horizontal,
-    .graph-links--desktop-vertical {
+    .graph-loops--desktop-horizontal,
+    .graph-links--desktop-vertical,
+    .graph-loops--desktop-vertical,
+    .graph-loop-box--desktop-horizontal,
+    .graph-loop-box--desktop-vertical,
+    .graph-loop-box--mobile-horizontal,
+    .graph-loop-box--mobile-vertical {
       display: none;
     }
     .phase-graph[data-graph-layout-mode="horizontal"] .graph-links--desktop-horizontal {
       display: block;
     }
+    .phase-graph[data-graph-layout-mode="horizontal"] .graph-loops--desktop-horizontal {
+      display: block;
+    }
     .phase-graph[data-graph-layout-mode="vertical"] .graph-links--desktop-vertical {
       display: block;
+    }
+    .phase-graph[data-graph-layout-mode="vertical"] .graph-loops--desktop-vertical {
+      display: block;
+    }
+    .phase-graph[data-graph-layout-mode="horizontal"] .graph-loop-box--desktop-horizontal {
+      display: grid;
+    }
+    .phase-graph[data-graph-layout-mode="vertical"] .graph-loop-box--desktop-vertical {
+      display: grid;
+    }
+    .graph-loop-box {
+      position: absolute;
+      align-items: start;
+      grid-template-columns: 32px 1fr;
+      gap: 12px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(54, 134, 222, 0.22);
+      background: linear-gradient(180deg, rgba(8, 24, 38, 0.9), rgba(6, 18, 29, 0.94));
+      box-shadow: 0 16px 28px rgba(4, 12, 22, 0.22);
+      color: #8fd5ff;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .graph-loop-box--selected {
+      border-color: rgba(92, 181, 255, 0.42);
+      box-shadow:
+        0 18px 32px rgba(4, 12, 22, 0.26),
+        0 0 0 1px rgba(92, 181, 255, 0.1),
+        0 0 20px rgba(92, 181, 255, 0.12);
+    }
+    .graph-loop-box__icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(35, 95, 170, 0.22);
+      color: #49aaff;
+    }
+    .graph-loop-box__icon svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+    .graph-loop-box__label {
+      align-self: center;
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.4;
+      color: #6ec6ff;
+      text-wrap: balance;
     }
     .graph-legend {
       position: absolute;
@@ -5017,14 +5123,51 @@ export function buildWorkflowHtml(
       .graph-links--desktop {
         display: none;
       }
+      .graph-loops--desktop {
+        display: none;
+      }
       .graph-links--mobile {
+        display: none;
+      }
+      .graph-loops--mobile {
         display: none;
       }
       .phase-graph[data-graph-layout-mode="horizontal"] .graph-links--mobile-horizontal {
         display: block;
       }
+      .phase-graph[data-graph-layout-mode="horizontal"] .graph-loops--mobile-horizontal {
+        display: block;
+      }
       .phase-graph[data-graph-layout-mode="vertical"] .graph-links--mobile-vertical {
         display: block;
+      }
+      .phase-graph[data-graph-layout-mode="vertical"] .graph-loops--mobile-vertical {
+        display: block;
+      }
+      .graph-loop-box--desktop {
+        display: none !important;
+      }
+      .phase-graph[data-graph-layout-mode="horizontal"] .graph-loop-box--mobile-horizontal {
+        display: grid;
+      }
+      .phase-graph[data-graph-layout-mode="vertical"] .graph-loop-box--mobile-vertical {
+        display: grid;
+      }
+      .graph-loop-box {
+        grid-template-columns: 28px 1fr;
+        gap: 10px;
+        padding: 14px 14px 13px;
+      }
+      .graph-loop-box__icon {
+        width: 28px;
+        height: 28px;
+      }
+      .graph-loop-box__icon svg {
+        width: 18px;
+        height: 18px;
+      }
+      .graph-loop-box__label {
+        font-size: 0.9rem;
       }
       .graph-legend {
         left: 10px;
@@ -6898,10 +7041,38 @@ function buildPhaseGraph(
   );
   const horizontalConnections = state.workflowGraphLayout?.connections?.horizontal ?? defaultHorizontalWorkflowGraphConnections;
   const verticalConnections = state.workflowGraphLayout?.connections?.vertical ?? defaultVerticalWorkflowGraphConnections;
+  const horizontalLoops = state.workflowGraphLayout?.loops?.horizontal ?? defaultHorizontalWorkflowGraphLoops;
+  const verticalLoops = state.workflowGraphLayout?.loops?.vertical ?? defaultVerticalWorkflowGraphLoops;
   const desktopHorizontalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopHorizontalLayout.positions, phaseNodeWidth, "horizontal", horizontalConnections);
   const desktopVerticalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopVerticalLayout.positions, phaseNodeWidth, "vertical", verticalConnections);
   const mobileHorizontalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileHorizontalLayout.positions, mobilePhaseNodeWidth, "horizontal", horizontalConnections);
   const mobileVerticalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileVerticalLayout.positions, mobilePhaseNodeWidth, "vertical", verticalConnections);
+  const desktopHorizontalLoopOverlays = buildGraphLoopOverlays(workflow, visiblePhases, desktopHorizontalLayout.positions, phaseNodeWidth, graphLoopBoxWidth, graphLoopBoxHeight, horizontalLoops, selectedPhaseId);
+  const desktopVerticalLoopOverlays = buildGraphLoopOverlays(workflow, visiblePhases, desktopVerticalLayout.positions, phaseNodeWidth, graphLoopBoxWidth, graphLoopBoxHeight, verticalLoops, selectedPhaseId);
+  const mobileHorizontalLoopOverlays = buildGraphLoopOverlays(workflow, visiblePhases, mobileHorizontalLayout.positions, mobilePhaseNodeWidth, mobileGraphLoopBoxWidth, mobileGraphLoopBoxHeight, horizontalLoops, selectedPhaseId);
+  const mobileVerticalLoopOverlays = buildGraphLoopOverlays(workflow, visiblePhases, mobileVerticalLayout.positions, mobilePhaseNodeWidth, mobileGraphLoopBoxWidth, mobileGraphLoopBoxHeight, verticalLoops, selectedPhaseId);
+  const desktopHorizontalLoopPaths = renderGraphLoopPaths(desktopHorizontalLoopOverlays);
+  const desktopVerticalLoopPaths = renderGraphLoopPaths(desktopVerticalLoopOverlays);
+  const mobileHorizontalLoopPaths = renderGraphLoopPaths(mobileHorizontalLoopOverlays);
+  const mobileVerticalLoopPaths = renderGraphLoopPaths(mobileVerticalLoopOverlays);
+  const loopBoxes = renderGraphLoopBoxes(
+    desktopHorizontalLoopOverlays,
+    desktopVerticalLoopOverlays,
+    mobileHorizontalLoopOverlays,
+    mobileVerticalLoopOverlays
+  );
+  const desktopHorizontalLoopBounds = computeGraphLoopBounds(desktopHorizontalLoopOverlays);
+  const desktopVerticalLoopBounds = computeGraphLoopBounds(desktopVerticalLoopOverlays);
+  const mobileHorizontalLoopBounds = computeGraphLoopBounds(mobileHorizontalLoopOverlays);
+  const mobileVerticalLoopBounds = computeGraphLoopBounds(mobileVerticalLoopOverlays);
+  const desktopHorizontalGraphWidth = Math.max(desktopHorizontalLayout.width, desktopHorizontalLoopBounds.width);
+  const desktopVerticalGraphWidth = Math.max(desktopVerticalLayout.width, desktopVerticalLoopBounds.width);
+  const mobileHorizontalGraphWidth = Math.max(mobileHorizontalLayout.width, mobileHorizontalLoopBounds.width);
+  const mobileVerticalGraphWidth = Math.max(mobileVerticalLayout.width, mobileVerticalLoopBounds.width);
+  const desktopHorizontalGraphHeight = Math.max(desktopHorizontalLayout.height, desktopHorizontalLoopBounds.height);
+  const desktopVerticalGraphHeight = Math.max(desktopVerticalLayout.height, desktopVerticalLoopBounds.height);
+  const mobileHorizontalGraphHeight = Math.max(mobileHorizontalLayout.height, mobileHorizontalLoopBounds.height);
+  const mobileVerticalGraphHeight = Math.max(mobileVerticalLayout.height, mobileVerticalLoopBounds.height);
   const nodes = visiblePhases.map((phase, index) => {
     const disabled = false;
     const visualTone = resolvePhaseVisualTone(
@@ -6968,19 +7139,32 @@ function buildPhaseGraph(
   }).join("");
 
   return `
-    <div class="phase-graph" data-graph-layout-mode="${escapeHtmlAttribute(graphLayoutMode)}" aria-label="Workflow graph" style="--graph-width-desktop-horizontal: ${desktopHorizontalLayout.width}px; --graph-height-desktop-horizontal: ${desktopHorizontalLayout.height}px; --graph-width-desktop-vertical: ${desktopVerticalLayout.width}px; --graph-height-desktop-vertical: ${desktopVerticalLayout.height}px; --graph-width-mobile-horizontal: ${mobileHorizontalLayout.width}px; --graph-height-mobile-horizontal: ${mobileHorizontalLayout.height}px; --graph-width-mobile-vertical: ${mobileVerticalLayout.width}px; --graph-height-mobile-vertical: ${mobileVerticalLayout.height}px;">
-      <svg class="graph-links graph-links--desktop graph-links--desktop-horizontal" viewBox="0 0 ${desktopHorizontalLayout.width} ${desktopHorizontalLayout.height}" preserveAspectRatio="none" aria-hidden="true">
+    <div class="phase-graph" data-graph-layout-mode="${escapeHtmlAttribute(graphLayoutMode)}" aria-label="Workflow graph" style="--graph-width-desktop-horizontal: ${desktopHorizontalGraphWidth}px; --graph-height-desktop-horizontal: ${desktopHorizontalGraphHeight}px; --graph-width-desktop-vertical: ${desktopVerticalGraphWidth}px; --graph-height-desktop-vertical: ${desktopVerticalGraphHeight}px; --graph-width-mobile-horizontal: ${mobileHorizontalGraphWidth}px; --graph-height-mobile-horizontal: ${mobileHorizontalGraphHeight}px; --graph-width-mobile-vertical: ${mobileVerticalGraphWidth}px; --graph-height-mobile-vertical: ${mobileVerticalGraphHeight}px;">
+      <svg class="graph-links graph-links--desktop graph-links--desktop-horizontal" viewBox="0 0 ${desktopHorizontalGraphWidth} ${desktopHorizontalGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
         ${desktopHorizontalLinks}
       </svg>
-      <svg class="graph-links graph-links--desktop graph-links--desktop-vertical" viewBox="0 0 ${desktopVerticalLayout.width} ${desktopVerticalLayout.height}" preserveAspectRatio="none" aria-hidden="true">
+      <svg class="graph-links graph-links--desktop graph-links--desktop-vertical" viewBox="0 0 ${desktopVerticalGraphWidth} ${desktopVerticalGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
         ${desktopVerticalLinks}
       </svg>
-      <svg class="graph-links graph-links--mobile graph-links--mobile-horizontal" viewBox="0 0 ${mobileHorizontalLayout.width} ${mobileHorizontalLayout.height}" preserveAspectRatio="none" aria-hidden="true">
+      <svg class="graph-links graph-links--mobile graph-links--mobile-horizontal" viewBox="0 0 ${mobileHorizontalGraphWidth} ${mobileHorizontalGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
         ${mobileHorizontalLinks}
       </svg>
-      <svg class="graph-links graph-links--mobile graph-links--mobile-vertical" viewBox="0 0 ${mobileVerticalLayout.width} ${mobileVerticalLayout.height}" preserveAspectRatio="none" aria-hidden="true">
+      <svg class="graph-links graph-links--mobile graph-links--mobile-vertical" viewBox="0 0 ${mobileVerticalGraphWidth} ${mobileVerticalGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
         ${mobileVerticalLinks}
       </svg>
+      <svg class="graph-loops graph-loops--desktop graph-loops--desktop-horizontal" viewBox="0 0 ${desktopHorizontalGraphWidth} ${desktopHorizontalGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
+        ${desktopHorizontalLoopPaths}
+      </svg>
+      <svg class="graph-loops graph-loops--desktop graph-loops--desktop-vertical" viewBox="0 0 ${desktopVerticalGraphWidth} ${desktopVerticalGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
+        ${desktopVerticalLoopPaths}
+      </svg>
+      <svg class="graph-loops graph-loops--mobile graph-loops--mobile-horizontal" viewBox="0 0 ${mobileHorizontalGraphWidth} ${mobileHorizontalGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
+        ${mobileHorizontalLoopPaths}
+      </svg>
+      <svg class="graph-loops graph-loops--mobile graph-loops--mobile-vertical" viewBox="0 0 ${mobileVerticalGraphWidth} ${mobileVerticalGraphHeight}" preserveAspectRatio="none" aria-hidden="true">
+        ${mobileVerticalLoopPaths}
+      </svg>
+      ${loopBoxes}
       ${nodes}
     </div>
   `;
@@ -7042,6 +7226,213 @@ function resolveDisplayedCurrentPhaseId(
   }
 
   return workflow.currentPhase;
+}
+
+function buildGraphLoopOverlays(
+  workflow: UserStoryWorkflowDetails,
+  visiblePhases: readonly WorkflowPhaseDetails[],
+  positions: Record<string, PhasePosition>,
+  nodeWidth: number,
+  boxWidth: number,
+  boxHeight: number,
+  loopDefinitions: Record<string, WorkflowGraphLoopDefinition>,
+  selectedPhaseId: string
+): readonly GraphLoopOverlay[] {
+  const visiblePhaseMap = new Map(visiblePhases.map((phase) => [phase.phaseId, phase]));
+  const overlays: GraphLoopOverlay[] = [];
+
+  for (const [loopId, definition] of Object.entries(loopDefinitions)) {
+    const sourcePhase = visiblePhaseMap.get(definition.fromPhaseId);
+    const targetPhase = visiblePhaseMap.get(definition.toPhaseId);
+    if (!sourcePhase || !targetPhase) {
+      continue;
+    }
+
+    const sourcePosition = positions[definition.fromPhaseId];
+    const targetPosition = positions[definition.toPhaseId];
+    if (!sourcePosition || !targetPosition) {
+      continue;
+    }
+
+    const cycleCount = countGraphLoopCycles(workflow, definition.fromPhaseId, definition.toPhaseId);
+    if (cycleCount < 2) {
+      continue;
+    }
+
+    const box = computeGraphLoopBox(sourcePosition, targetPosition, nodeWidth, boxWidth, boxHeight, definition.side);
+    overlays.push({
+      loopId,
+      box,
+      selected: selectedPhaseId === definition.fromPhaseId || selectedPhaseId === definition.toPhaseId,
+      label: `${cycleCount} ciclos entre ${sourcePhase.title} y ${targetPhase.title}`,
+      pathToSource: buildGraphLoopConnectorPath(sourcePosition, nodeWidth, box, definition.side, "source"),
+      pathToTarget: buildGraphLoopConnectorPath(targetPosition, nodeWidth, box, definition.side, "target")
+    });
+  }
+
+  return overlays;
+}
+
+function countGraphLoopCycles(
+  workflow: UserStoryWorkflowDetails,
+  fromPhaseId: string,
+  toPhaseId: string
+): number {
+  const iterations = workflow.phaseIterations ?? [];
+  const iterationAttempts = iterations
+    .filter((iteration) => iteration.phaseId === fromPhaseId || iteration.phaseId === toPhaseId)
+    .map((iteration) => iteration.attempt);
+  if (iterationAttempts.length > 0) {
+    return Math.max(...iterationAttempts);
+  }
+
+  const completedEvents = workflow.events.filter((event) => event.code === "phase_completed");
+  const fromCount = completedEvents.filter((event) => event.phase === fromPhaseId).length;
+  const toCount = completedEvents.filter((event) => event.phase === toPhaseId).length;
+  return Math.max(fromCount, toCount);
+}
+
+function computeGraphLoopBox(
+  sourcePosition: PhasePosition,
+  targetPosition: PhasePosition,
+  nodeWidth: number,
+  boxWidth: number,
+  boxHeight: number,
+  side: WorkflowGraphLoopSide
+): { left: number; top: number; width: number; height: number } {
+  const sourceCenterX = sourcePosition.left + nodeWidth * 0.5;
+  const targetCenterX = targetPosition.left + nodeWidth * 0.5;
+  const sourceCenterY = sourcePosition.top + phaseNodeHeight * 0.5;
+  const targetCenterY = targetPosition.top + phaseNodeHeight * 0.5;
+  const minLeft = Math.min(sourcePosition.left, targetPosition.left);
+  const maxRight = Math.max(sourcePosition.left + nodeWidth, targetPosition.left + nodeWidth);
+  const minTop = Math.min(sourcePosition.top, targetPosition.top);
+  const maxBottom = Math.max(sourcePosition.top + phaseNodeHeight, targetPosition.top + phaseNodeHeight);
+  const midpointX = (sourceCenterX + targetCenterX) * 0.5;
+  const midpointY = (sourceCenterY + targetCenterY) * 0.5;
+  const lateralGap = Math.max(56, boxWidth * 0.24);
+  const verticalGap = Math.max(42, boxHeight * 0.22);
+
+  switch (side) {
+    case "left":
+      return {
+        left: Math.max(16, Math.round(minLeft - lateralGap - boxWidth)),
+        top: Math.max(16, Math.round(midpointY - boxHeight * 0.5)),
+        width: boxWidth,
+        height: boxHeight
+      };
+    case "top":
+      return {
+        left: Math.max(16, Math.round(midpointX - boxWidth * 0.5)),
+        top: Math.max(16, Math.round(minTop - verticalGap - boxHeight)),
+        width: boxWidth,
+        height: boxHeight
+      };
+    case "bottom":
+      return {
+        left: Math.max(16, Math.round(midpointX - boxWidth * 0.5)),
+        top: Math.round(maxBottom + verticalGap),
+        width: boxWidth,
+        height: boxHeight
+      };
+    case "right":
+    default:
+      return {
+        left: Math.round(maxRight + lateralGap),
+        top: Math.max(16, Math.round(midpointY - boxHeight * 0.5)),
+        width: boxWidth,
+        height: boxHeight
+      };
+  }
+}
+
+function buildGraphLoopConnectorPath(
+  phasePosition: PhasePosition,
+  nodeWidth: number,
+  box: { left: number; top: number; width: number; height: number },
+  side: WorkflowGraphLoopSide,
+  branch: "source" | "target"
+): string {
+  const branchSign = branch === "source" ? -1 : 1;
+
+  switch (side) {
+    case "left": {
+      const from = { x: box.left + box.width, y: box.top + box.height * (branch === "source" ? 0.34 : 0.66) };
+      const to = { x: phasePosition.left, y: phasePosition.top + phaseNodeHeight * 0.5 };
+      const spread = Math.max(56, Math.abs(to.x - from.x) * 0.34);
+      return `M ${from.x} ${from.y} C ${from.x - spread * 0.2} ${from.y}, ${to.x + spread} ${to.y + 18 * branchSign}, ${to.x} ${to.y}`;
+    }
+    case "top": {
+      const from = { x: box.left + box.width * (branch === "source" ? 0.34 : 0.66), y: box.top + box.height };
+      const to = { x: phasePosition.left + nodeWidth * 0.5, y: phasePosition.top };
+      const spread = Math.max(52, Math.abs(to.y - from.y) * 0.34);
+      return `M ${from.x} ${from.y} C ${from.x} ${from.y + spread * 0.12}, ${to.x + 24 * branchSign} ${to.y - spread}, ${to.x} ${to.y}`;
+    }
+    case "bottom": {
+      const from = { x: box.left + box.width * (branch === "source" ? 0.34 : 0.66), y: box.top };
+      const to = { x: phasePosition.left + nodeWidth * 0.5, y: phasePosition.top + phaseNodeHeight };
+      const spread = Math.max(52, Math.abs(to.y - from.y) * 0.34);
+      return `M ${from.x} ${from.y} C ${from.x} ${from.y - spread * 0.12}, ${to.x + 24 * branchSign} ${to.y + spread}, ${to.x} ${to.y}`;
+    }
+    case "right":
+    default: {
+      const from = { x: box.left, y: box.top + box.height * (branch === "source" ? 0.34 : 0.66) };
+      const to = { x: phasePosition.left + nodeWidth, y: phasePosition.top + phaseNodeHeight * 0.5 };
+      const spread = Math.max(56, Math.abs(to.x - from.x) * 0.34);
+      return `M ${from.x} ${from.y} C ${from.x + spread * 0.2} ${from.y}, ${to.x - spread} ${to.y + 18 * branchSign}, ${to.x} ${to.y}`;
+    }
+  }
+}
+
+function renderGraphLoopPaths(loopOverlays: readonly GraphLoopOverlay[]): string {
+  return loopOverlays
+    .flatMap((overlay) => [
+      `<path class="graph-loop-path${overlay.selected ? " graph-loop-path--selected" : ""}" data-loop-id="${escapeHtmlAttribute(overlay.loopId)}" d="${overlay.pathToSource}"></path>`,
+      `<path class="graph-loop-path${overlay.selected ? " graph-loop-path--selected" : ""}" data-loop-id="${escapeHtmlAttribute(overlay.loopId)}" d="${overlay.pathToTarget}"></path>`
+    ])
+    .join("");
+}
+
+function renderGraphLoopBoxes(
+  desktopHorizontalLoops: readonly GraphLoopOverlay[],
+  desktopVerticalLoops: readonly GraphLoopOverlay[],
+  mobileHorizontalLoops: readonly GraphLoopOverlay[],
+  mobileVerticalLoops: readonly GraphLoopOverlay[]
+): string {
+  const renderLoopSet = (
+    loopOverlays: readonly GraphLoopOverlay[],
+    className: string
+  ): string => loopOverlays.map((overlay) => `
+      <div
+        class="graph-loop-box ${className}${overlay.selected ? " graph-loop-box--selected" : ""}"
+        data-loop-id="${escapeHtmlAttribute(overlay.loopId)}"
+        style="left: ${overlay.box.left}px; top: ${overlay.box.top}px; width: ${overlay.box.width}px; min-height: ${overlay.box.height}px;">
+        <span class="graph-loop-box__icon" aria-hidden="true">${renderGraphLoopIcon()}</span>
+        <span class="graph-loop-box__label">${escapeHtml(overlay.label)}</span>
+      </div>
+    `).join("");
+
+  return [
+    renderLoopSet(desktopHorizontalLoops, "graph-loop-box--desktop graph-loop-box--desktop-horizontal"),
+    renderLoopSet(desktopVerticalLoops, "graph-loop-box--desktop graph-loop-box--desktop-vertical"),
+    renderLoopSet(mobileHorizontalLoops, "graph-loop-box--mobile graph-loop-box--mobile-horizontal"),
+    renderLoopSet(mobileVerticalLoops, "graph-loop-box--mobile graph-loop-box--mobile-vertical")
+  ].join("");
+}
+
+function renderGraphLoopIcon(): string {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 5a7 7 0 1 1-6.77 8.8.75.75 0 1 1 1.46-.38A5.5 5.5 0 1 0 8.2 7.22l1.55 1.55a.75.75 0 1 1-1.06 1.06L5.9 7.04a.75.75 0 0 1 0-1.06l2.8-2.8a.75.75 0 0 1 1.06 1.06L8.33 5.66A6.96 6.96 0 0 1 12 5Z"></path>
+    </svg>
+  `;
+}
+
+function computeGraphLoopBounds(loopOverlays: readonly GraphLoopOverlay[]): { width: number; height: number } {
+  return loopOverlays.reduce((aggregate, overlay) => ({
+    width: Math.max(aggregate.width, overlay.box.left + overlay.box.width + 24),
+    height: Math.max(aggregate.height, overlay.box.top + overlay.box.height + 24)
+  }), { width: 0, height: 0 });
 }
 
 function buildGraphLinks(
