@@ -23,7 +23,7 @@ const technicalDesignPhaseView_1 = require("./workflow-view/technicalDesignPhase
 const webviewTypography_1 = require("./webviewTypography");
 const workflowGraphLayout_1 = require("./workflowGraphLayout");
 const phaseNodeWidth = 300;
-const phaseNodeHeight = 142;
+const phaseNodeHeight = 118;
 const mobilePhaseNodeWidth = 258;
 const defaultPhaseSequence = [
     { phaseId: "capture", expectsHumanIntervention: false },
@@ -3247,14 +3247,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       position: relative;
       z-index: 1;
     }
-    .phase-tags {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin-top: 8px;
-      position: relative;
-      z-index: 1;
-    }
     .phase-tag {
       border-radius: 999px;
       padding: 5px 10px;
@@ -3299,11 +3291,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .phase-node.selected .phase-index {
       box-shadow: 0 0 0 8px rgba(114, 241, 184, 0.08);
-    }
-    .phase-tag--graph-status {
-      text-transform: uppercase;
-      letter-spacing: 0;
-      line-height: 1;
     }
     .phase-tag--active,
     .phase-tag--paused {
@@ -6494,7 +6481,6 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         const pauseButtonLabel = pauseArmed
             ? `Remove pause before ${phase.title}`
             : `Pause before ${phase.title}`;
-        const statusBadge = renderGraphPhaseStatusBadge(visualTone, phase.state, playbackState, phaseIsCurrent);
         const statusIcon = renderGraphPhaseStatusIcon(phase, visualTone, state.completedUsLockOnCompleted !== false);
         return `
     <div
@@ -6530,9 +6516,6 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         </div>
         <h3>${(0, htmlEscape_1.escapeHtml)(graphPhaseTitle(phase))}</h3>
         <div class="phase-slug">${(0, htmlEscape_1.escapeHtml)(graphPhaseSecondaryLabel(phase))}</div>
-        <div class="phase-tags">
-              <span class="phase-tag phase-tag--graph-status phase-tag--${(0, htmlEscape_1.escapeHtmlAttr)(visualTone)}">${(0, htmlEscape_1.escapeHtml)(statusBadge)}</span>
-            </div>
       </div>
     </div>
   `;
@@ -6617,27 +6600,6 @@ function renderGraphLegend(usId) {
       <div class="graph-legend__row"><span class="graph-legend__dot graph-legend__dot--final"></span><span>Final</span></div>
     </aside>
   `;
-}
-function renderGraphPhaseStatusBadge(tone, fallbackState, playbackState, isCurrent) {
-    const label = phaseToneLabel(tone, fallbackState, playbackState, isCurrent);
-    switch (label) {
-        case "completed":
-            return "COMPLETADO";
-        case "ready":
-        case "active":
-        case "executing":
-            return isCurrent || label === "executing" ? "ACTUAL" : "LISTO";
-        case "blocked":
-            return "BLOQUEADO";
-        case "paused":
-            return "PAUSADO";
-        case "waiting-user":
-            return "ESPERA";
-        case "disabled":
-            return "DESACTIVADO";
-        default:
-            return "PENDIENTE";
-    }
 }
 function renderGraphPhaseStatusIcon(phase, tone, completedWorkflowLocked) {
     if (phase.phaseId === "completed") {
