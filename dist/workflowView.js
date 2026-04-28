@@ -3080,22 +3080,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       pointer-events: none;
       opacity: 0.9;
     }
-    .phase-node-content::after {
-      content: "";
-      position: absolute;
-      top: 10px;
-      right: -8px;
-      width: 14px;
-      height: calc(100% - 20px);
-      border-radius: 0 18px 18px 0;
-      background:
-        linear-gradient(180deg, rgba(141, 197, 255, 0.12), rgba(54, 92, 144, 0.1) 24%, rgba(8, 14, 24, 0.4));
-      box-shadow:
-        inset 1px 0 0 rgba(255, 255, 255, 0.08),
-        6px 0 14px rgba(0, 0, 0, 0.12);
-      opacity: 0.92;
-      pointer-events: none;
-    }
     .phase-node:hover {
       transform: translateY(-2px);
       border-color: rgba(150, 204, 255, 0.5);
