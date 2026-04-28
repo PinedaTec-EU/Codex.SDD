@@ -50,6 +50,7 @@ const repoPromptsStatus_1 = require("./repoPromptsStatus");
 const specsExplorer_1 = require("./specsExplorer");
 const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
 const backendClientModel_1 = require("./backendClientModel");
+const workflowGraphLayout_1 = require("./workflowGraphLayout");
 let previousAttentionSnapshot = new Map();
 function activate(context) {
     (0, specsExplorer_1.configureBackendHostRoot)(context.extensionUri.fsPath);
@@ -108,6 +109,7 @@ function activate(context) {
         void refreshWorkspaceUiAsync("configurationChanged");
     }));
     void ensureRepoPromptsInitializedAsync();
+    void ensureWorkflowGraphLayoutInitializedAsync();
     void autoOpenStarredUserStoryAsync(sidebarProvider, workflowAuditProvider, mcpProvider);
 }
 function deactivate() {
@@ -137,6 +139,18 @@ async function ensureRepoPromptsInitializedAsync() {
     }
     catch (error) {
         (0, outputChannel_1.appendSpecForgeLog)(`Repo prompts bootstrap failed for '${workspaceRoot}': ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+async function ensureWorkflowGraphLayoutInitializedAsync() {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+        return;
+    }
+    try {
+        await (0, workflowGraphLayout_1.ensureWorkflowGraphLayoutConfigExistsAsync)(workspaceRoot);
+    }
+    catch (error) {
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow graph layout bootstrap failed for '${workspaceRoot}': ${error instanceof Error ? error.message : String(error)}`);
     }
 }
 function createVsCodeHost() {
@@ -202,6 +216,7 @@ function createExtensionActions(explorerProvider, sidebarProvider, workflowAudit
             if (!workspaceRoot || !summary || typeof summary !== "object" || !("usId" in summary)) {
                 return;
             }
+            await (0, workflowGraphLayout_1.ensureWorkflowGraphLayoutConfigExistsAsync)(workspaceRoot);
             await (0, workflowPanel_1.openWorkflowView)(workspaceRoot, summary, () => (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot), {
                 refreshExplorer: async () => {
                     explorerProvider.refresh();

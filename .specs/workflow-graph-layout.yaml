@@ -1,0 +1,59 @@
+# SpecForge workflow graph layout
+# Edit x/y coordinates to reposition cards in the workflow graph.
+horizontal:
+  capture:
+    x: 72
+    y: 56
+  refinement:
+    x: 430
+    y: 56
+  spec:
+    x: 788
+    y: 56
+  technical-design:
+    x: 788
+    y: 398
+  implementation:
+    x: 430
+    y: 398
+  review:
+    x: 72
+    y: 398
+  release-approval:
+    x: 72
+    y: 740
+  pr-preparation:
+    x: 430
+    y: 740
+  completed:
+    x: 788
+    y: 740
+
+vertical:
+  capture:
+    x: 298
+    y: 36
+  refinement:
+    x: 632
+    y: 198
+  spec:
+    x: 360
+    y: 418
+  technical-design:
+    x: 72
+    y: 590
+  implementation:
+    x: 470
+    y: 612
+  review:
+    x: 420
+    y: 846
+  release-approval:
+    x: 738
+    y: 1018
+  pr-preparation:
+    x: 356
+    y: 1188
+  completed:
+    x: 440
+    y: 1378

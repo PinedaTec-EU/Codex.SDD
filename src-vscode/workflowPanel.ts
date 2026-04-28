@@ -22,6 +22,7 @@ import { buildWorkflowHtml } from "./workflowView";
 import type { WorkflowViewState } from "./workflow-view/models";
 import { getEditorTypographyCssVars } from "./webviewTypography";
 import { readUserWorkspacePreferences, setPausedWorkflowPhaseIds } from "./userWorkspacePreferences";
+import { readWorkflowGraphLayoutConfigAsync } from "./workflowGraphLayout";
 import { asErrorMessage, getNextAttachmentPathAsync } from "./utils";
 
 type WorkflowPanelCommand =
@@ -1453,6 +1454,7 @@ class WorkflowPanelController {
       ? await suggestContextFiles(this.workspaceRoot, workflow, sourceText)
       : [];
     const runtimeVersion = await readRuntimeVersionAsync();
+    const workflowGraphLayout = await readWorkflowGraphLayoutConfigAsync(this.workspaceRoot);
     const viewState: WorkflowViewState = {
       selectedPhaseId: this.selectedPhaseId,
       selectedIterationKey: this.selectedIterationKey,
@@ -1483,7 +1485,8 @@ class WorkflowPanelController {
       debugMode: isSpecForgeDebugLoggingEnabled(),
       approvalBaseBranchProposal: this.specApprovalBaseBranchProposal,
       approvalWorkBranchProposal: this.buildSpecApprovalWorkBranchProposal(workflow),
-      requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance
+      requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance,
+      workflowGraphLayout
     };
     this.panel.title = `${workflow.usId} workflow`;
     this.lastRenderedViewState = viewState;

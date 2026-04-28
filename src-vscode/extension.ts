@@ -38,6 +38,7 @@ import {
 import { getUserWorkspacePreferencesPath, readUserWorkspacePreferences, setStarredUserStory } from "./userWorkspacePreferences";
 import type { UserStorySummary } from "./backendClient";
 import { buildServerProjectPath } from "./backendClientModel";
+import { ensureWorkflowGraphLayoutConfigExistsAsync } from "./workflowGraphLayout";
 
 let previousAttentionSnapshot = new Map<string, string>();
 
@@ -123,6 +124,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   void ensureRepoPromptsInitializedAsync();
+  void ensureWorkflowGraphLayoutInitializedAsync();
   void autoOpenStarredUserStoryAsync(sidebarProvider, workflowAuditProvider, mcpProvider);
 }
 
@@ -163,6 +165,21 @@ async function ensureRepoPromptsInitializedAsync(): Promise<void> {
     );
   } catch (error) {
     appendSpecForgeLog(`Repo prompts bootstrap failed for '${workspaceRoot}': ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function ensureWorkflowGraphLayoutInitializedAsync(): Promise<void> {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceRoot) {
+    return;
+  }
+
+  try {
+    await ensureWorkflowGraphLayoutConfigExistsAsync(workspaceRoot);
+  } catch (error) {
+    appendSpecForgeLog(
+      `Workflow graph layout bootstrap failed for '${workspaceRoot}': ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -253,6 +270,8 @@ function createExtensionActions(
       if (!workspaceRoot || !summary || typeof summary !== "object" || !("usId" in summary)) {
         return;
       }
+
+      await ensureWorkflowGraphLayoutConfigExistsAsync(workspaceRoot);
 
       await openWorkflowView(
         workspaceRoot,

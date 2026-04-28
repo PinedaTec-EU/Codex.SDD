@@ -1,4 +1,5 @@
 import type { SuggestedContextFile } from "../contextSuggestions";
+import type { WorkflowGraphLayoutConfig } from "../workflowGraphLayout";
 
 export interface WorkflowViewState {
   readonly selectedPhaseId: string;
@@ -47,6 +48,7 @@ export interface WorkflowViewState {
   readonly completedUsLockOnCompleted?: boolean;
   readonly pendingRewindPhaseId?: string | null;
   readonly graphLayoutMode?: "horizontal" | "vertical";
+  readonly workflowGraphLayout?: WorkflowGraphLayoutConfig;
 }
 
 export interface ApprovalQuestionItem {

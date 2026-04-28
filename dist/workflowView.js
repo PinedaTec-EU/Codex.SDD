@@ -21,6 +21,7 @@ const releaseApprovalPhaseView_1 = require("./workflow-view/releaseApprovalPhase
 const reviewPhaseView_1 = require("./workflow-view/reviewPhaseView");
 const technicalDesignPhaseView_1 = require("./workflow-view/technicalDesignPhaseView");
 const webviewTypography_1 = require("./webviewTypography");
+const workflowGraphLayout_1 = require("./workflowGraphLayout");
 const phaseNodeWidth = 300;
 const phaseNodeHeight = 142;
 const mobilePhaseNodeWidth = 258;
@@ -102,10 +103,10 @@ const defaultPhaseSequence = [
     { phaseId: "pr-preparation", expectsHumanIntervention: false },
     { phaseId: "completed", expectsHumanIntervention: false }
 ];
-const defaultDesktopHorizontalLayout = buildHorizontalPhaseLayout(defaultPhaseSequence, phaseNodeWidth);
-const defaultDesktopVerticalLayout = buildVerticalPhaseLayout(defaultPhaseSequence, phaseNodeWidth);
-const defaultMobileHorizontalLayout = buildHorizontalPhaseLayout(defaultPhaseSequence, mobilePhaseNodeWidth, true);
-const defaultMobileVerticalLayout = buildVerticalPhaseLayout(defaultPhaseSequence, mobilePhaseNodeWidth, true);
+const defaultDesktopHorizontalLayout = buildHorizontalPhaseLayout(defaultPhaseSequence, phaseNodeWidth, false, workflowGraphLayout_1.defaultHorizontalWorkflowGraphPositions);
+const defaultDesktopVerticalLayout = buildVerticalPhaseLayout(defaultPhaseSequence, phaseNodeWidth, false, workflowGraphLayout_1.defaultVerticalWorkflowGraphPositions);
+const defaultMobileHorizontalLayout = buildHorizontalPhaseLayout(defaultPhaseSequence, mobilePhaseNodeWidth, true, workflowGraphLayout_1.defaultHorizontalWorkflowGraphPositions);
+const defaultMobileVerticalLayout = buildVerticalPhaseLayout(defaultPhaseSequence, mobilePhaseNodeWidth, true, workflowGraphLayout_1.defaultVerticalWorkflowGraphPositions);
 const desktopGraphHeight = Math.max(defaultDesktopHorizontalLayout.height, defaultDesktopVerticalLayout.height);
 const mobileGraphHeight = Math.max(defaultMobileHorizontalLayout.height, defaultMobileVerticalLayout.height);
 const desktopGraphWidth = Math.max(defaultDesktopHorizontalLayout.width, defaultDesktopVerticalLayout.width);
@@ -118,22 +119,14 @@ function computeGraphWidth(positions, nodeWidth, rightPadding) {
     const maxLeft = Math.max(...Object.values(positions).map((position) => position.left));
     return maxLeft + nodeWidth + rightPadding;
 }
-function buildHorizontalPhaseLayout(phases, nodeWidth, compact = false) {
+function buildHorizontalPhaseLayout(phases, nodeWidth, compact = false, sourcePositions = workflowGraphLayout_1.defaultHorizontalWorkflowGraphPositions) {
     const positions = {};
     const scale = compact ? 0.72 : 1;
-    const map = {
-        capture: { left: Math.round(72 * scale), top: Math.round(56 * scale) },
-        refinement: { left: Math.round(430 * scale), top: Math.round(56 * scale) },
-        spec: { left: Math.round(788 * scale), top: Math.round(56 * scale) },
-        "technical-design": { left: Math.round(788 * scale), top: Math.round(398 * scale) },
-        implementation: { left: Math.round(430 * scale), top: Math.round(398 * scale) },
-        review: { left: Math.round(72 * scale), top: Math.round(398 * scale) },
-        "release-approval": { left: Math.round(72 * scale), top: Math.round(740 * scale) },
-        "pr-preparation": { left: Math.round(430 * scale), top: Math.round(740 * scale) },
-        completed: { left: Math.round(788 * scale), top: Math.round(740 * scale) }
-    };
     for (const phase of phases) {
-        positions[phase.phaseId] = map[phase.phaseId] ?? { left: Math.round(150 * scale), top: Math.round(120 * scale) };
+        const source = sourcePositions[phase.phaseId];
+        positions[phase.phaseId] = source
+            ? { left: Math.round(source.x * scale), top: Math.round(source.y * scale) }
+            : { left: Math.round(150 * scale), top: Math.round(120 * scale) };
     }
     return {
         positions,
@@ -141,22 +134,14 @@ function buildHorizontalPhaseLayout(phases, nodeWidth, compact = false) {
         height: computeGraphHeight(positions, phaseNodeHeight, compact ? 98 : 162)
     };
 }
-function buildVerticalPhaseLayout(phases, nodeWidth, compact = false) {
+function buildVerticalPhaseLayout(phases, nodeWidth, compact = false, sourcePositions = workflowGraphLayout_1.defaultVerticalWorkflowGraphPositions) {
     const positions = {};
     const scale = compact ? 0.72 : 1;
-    const map = {
-        capture: { left: Math.round(298 * scale), top: Math.round(36 * scale) },
-        refinement: { left: Math.round(632 * scale), top: Math.round(198 * scale) },
-        spec: { left: Math.round(360 * scale), top: Math.round(418 * scale) },
-        "technical-design": { left: Math.round(72 * scale), top: Math.round(590 * scale) },
-        implementation: { left: Math.round(470 * scale), top: Math.round(612 * scale) },
-        review: { left: Math.round(420 * scale), top: Math.round(846 * scale) },
-        "release-approval": { left: Math.round(738 * scale), top: Math.round(1018 * scale) },
-        "pr-preparation": { left: Math.round(356 * scale), top: Math.round(1188 * scale) },
-        completed: { left: Math.round(440 * scale), top: Math.round(1378 * scale) }
-    };
     for (const phase of phases) {
-        positions[phase.phaseId] = map[phase.phaseId] ?? { left: Math.round(72 * scale), top: Math.round(36 * scale) };
+        const source = sourcePositions[phase.phaseId];
+        positions[phase.phaseId] = source
+            ? { left: Math.round(source.x * scale), top: Math.round(source.y * scale) }
+            : { left: Math.round(72 * scale), top: Math.round(36 * scale) };
     }
     return {
         positions,
@@ -6549,10 +6534,10 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         expectsHumanIntervention: phase.expectsHumanIntervention
     }));
     const graphLayoutMode = state.graphLayoutMode === "horizontal" ? "horizontal" : "vertical";
-    const desktopHorizontalLayout = buildHorizontalPhaseLayout(layoutPhases, phaseNodeWidth);
-    const desktopVerticalLayout = buildVerticalPhaseLayout(layoutPhases, phaseNodeWidth);
-    const mobileHorizontalLayout = buildHorizontalPhaseLayout(layoutPhases, mobilePhaseNodeWidth, true);
-    const mobileVerticalLayout = buildVerticalPhaseLayout(layoutPhases, mobilePhaseNodeWidth, true);
+    const desktopHorizontalLayout = buildHorizontalPhaseLayout(layoutPhases, phaseNodeWidth, false, state.workflowGraphLayout?.horizontal ?? workflowGraphLayout_1.defaultHorizontalWorkflowGraphPositions);
+    const desktopVerticalLayout = buildVerticalPhaseLayout(layoutPhases, phaseNodeWidth, false, state.workflowGraphLayout?.vertical ?? workflowGraphLayout_1.defaultVerticalWorkflowGraphPositions);
+    const mobileHorizontalLayout = buildHorizontalPhaseLayout(layoutPhases, mobilePhaseNodeWidth, true, state.workflowGraphLayout?.horizontal ?? workflowGraphLayout_1.defaultHorizontalWorkflowGraphPositions);
+    const mobileVerticalLayout = buildVerticalPhaseLayout(layoutPhases, mobilePhaseNodeWidth, true, state.workflowGraphLayout?.vertical ?? workflowGraphLayout_1.defaultVerticalWorkflowGraphPositions);
     const desktopHorizontalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopHorizontalLayout.positions, phaseNodeWidth, "horizontal");
     const desktopVerticalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, desktopVerticalLayout.positions, phaseNodeWidth, "vertical");
     const mobileHorizontalLinks = buildGraphLinks(visiblePhases, executionPhaseId, currentPhase.phaseId, completedPhaseIds, mobileHorizontalLayout.positions, mobilePhaseNodeWidth, "horizontal");

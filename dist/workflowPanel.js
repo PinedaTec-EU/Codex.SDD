@@ -56,6 +56,7 @@ const workflowRejectPlan_1 = require("./workflowRejectPlan");
 const workflowView_1 = require("./workflowView");
 const webviewTypography_1 = require("./webviewTypography");
 const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
+const workflowGraphLayout_1 = require("./workflowGraphLayout");
 const utils_1 = require("./utils");
 const panels = new Map();
 async function openWorkflowView(workspaceRoot, summary, getBackendClient, callbacks) {
@@ -1106,6 +1107,7 @@ class WorkflowPanelController {
             ? await (0, contextSuggestions_1.suggestContextFiles)(this.workspaceRoot, workflow, sourceText)
             : [];
         const runtimeVersion = await (0, runtimeVersion_1.readRuntimeVersionAsync)();
+        const workflowGraphLayout = await (0, workflowGraphLayout_1.readWorkflowGraphLayoutConfigAsync)(this.workspaceRoot);
         const viewState = {
             selectedPhaseId: this.selectedPhaseId,
             selectedIterationKey: this.selectedIterationKey,
@@ -1136,7 +1138,8 @@ class WorkflowPanelController {
             debugMode: (0, outputChannel_1.isSpecForgeDebugLoggingEnabled)(),
             approvalBaseBranchProposal: this.specApprovalBaseBranchProposal,
             approvalWorkBranchProposal: this.buildSpecApprovalWorkBranchProposal(workflow),
-            requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance
+            requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance,
+            workflowGraphLayout
         };
         this.panel.title = `${workflow.usId} workflow`;
         this.lastRenderedViewState = viewState;
