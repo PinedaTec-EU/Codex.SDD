@@ -5421,6 +5421,12 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     const graphPanel = document.querySelector('[data-panel-scroll="graph"]');
     const detailPanel = document.querySelector('[data-panel-scroll="detail"]');
     const phaseGraph = document.querySelector(".phase-graph");
+    const completedReopenTargetPhaseByReason = ${JSON.stringify({
+        "merge-conflict": "implementation",
+        defect: "implementation",
+        "functional-issue": "spec",
+        "technical-issue": "technical-design"
+    })};
     const completedReopenTargetDescriptors = ${JSON.stringify({
         implementation: {
             title: "Implementation",
@@ -5491,6 +5497,12 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         overlay,
         path: path instanceof SVGPathElement ? path : null
       };
+    };
+    const resolveCompletedReopenTargetPhaseId = (reasonKind) => {
+      const normalizedReasonKind = typeof reasonKind === "string"
+        ? reasonKind.trim()
+        : "";
+      return completedReopenTargetPhaseByReason[normalizedReasonKind] ?? "";
     };
     const buildReopenPreviewPath = (fromNode, toNode) => {
       const startCenterX = fromNode.offsetLeft + (fromNode.offsetWidth / 2);
@@ -5627,7 +5639,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     };
     const syncCompletedReopenPreviewPath = () => {
       const targetPhaseId = completedReopenReason instanceof HTMLSelectElement
-        ? resolveCompletedWorkflowReopenTargetPhase(completedReopenReason.value.trim())
+        ? resolveCompletedReopenTargetPhaseId(completedReopenReason.value)
         : "";
       syncReopenTargetHighlight(targetPhaseId);
       if (!targetPhaseId) {
@@ -6852,7 +6864,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       const reasonValue = completedReopenReason instanceof HTMLSelectElement
         ? completedReopenReason.value.trim()
         : "";
-      const targetPhaseLabel = resolveCompletedWorkflowReopenTargetPhase(reasonValue);
+      const targetPhaseLabel = resolveCompletedReopenTargetPhaseId(reasonValue);
       renderCompletedReopenTargetMessage(targetPhaseLabel);
 
       if (!(completedReopenSubmitButton instanceof HTMLButtonElement)) {

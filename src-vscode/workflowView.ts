@@ -9,7 +9,6 @@ import { renderMarkdownToHtml } from "./workflow-view/markdownRenderer";
 import type { ApprovalQuestionItem, PhaseIterationItem, PhaseSectionFragments, WorkflowViewState } from "./workflow-view/models";
 import { buildPrPreparationPhaseSections } from "./workflow-view/prPreparationPhaseView";
 import { hasReachedImplementationReviewCycleLimit } from "./workflowAutomation";
-import { resolveCompletedWorkflowReopenTargetPhase } from "./workflowCompletedReopen";
 import { canPauseWorkflowExecutionPhase, resolveWorkflowExecutionPhaseId } from "./workflowPlaybackState";
 import { buildTimelineRewindPoints, resolveTimelineRewindDecision } from "./workflowRewind";
 import { resolveWorkflowRejectPlan } from "./workflowRejectPlan";
@@ -5895,6 +5894,12 @@ export function buildWorkflowHtml(
     const graphPanel = document.querySelector('[data-panel-scroll="graph"]');
     const detailPanel = document.querySelector('[data-panel-scroll="detail"]');
     const phaseGraph = document.querySelector(".phase-graph");
+    const completedReopenTargetPhaseByReason = ${JSON.stringify({
+      "merge-conflict": "implementation",
+      defect: "implementation",
+      "functional-issue": "spec",
+      "technical-issue": "technical-design"
+    })};
     const completedReopenTargetDescriptors = ${JSON.stringify({
       implementation: {
         title: "Implementation",
@@ -5965,6 +5970,12 @@ export function buildWorkflowHtml(
         overlay,
         path: path instanceof SVGPathElement ? path : null
       };
+    };
+    const resolveCompletedReopenTargetPhaseId = (reasonKind) => {
+      const normalizedReasonKind = typeof reasonKind === "string"
+        ? reasonKind.trim()
+        : "";
+      return completedReopenTargetPhaseByReason[normalizedReasonKind] ?? "";
     };
     const buildReopenPreviewPath = (fromNode, toNode) => {
       const startCenterX = fromNode.offsetLeft + (fromNode.offsetWidth / 2);
@@ -6101,7 +6112,7 @@ export function buildWorkflowHtml(
     };
     const syncCompletedReopenPreviewPath = () => {
       const targetPhaseId = completedReopenReason instanceof HTMLSelectElement
-        ? resolveCompletedWorkflowReopenTargetPhase(completedReopenReason.value.trim())
+        ? resolveCompletedReopenTargetPhaseId(completedReopenReason.value)
         : "";
       syncReopenTargetHighlight(targetPhaseId);
       if (!targetPhaseId) {
@@ -7326,7 +7337,7 @@ export function buildWorkflowHtml(
       const reasonValue = completedReopenReason instanceof HTMLSelectElement
         ? completedReopenReason.value.trim()
         : "";
-      const targetPhaseLabel = resolveCompletedWorkflowReopenTargetPhase(reasonValue);
+      const targetPhaseLabel = resolveCompletedReopenTargetPhaseId(reasonValue);
       renderCompletedReopenTargetMessage(targetPhaseLabel);
 
       if (!(completedReopenSubmitButton instanceof HTMLButtonElement)) {
