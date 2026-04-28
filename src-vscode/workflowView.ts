@@ -3299,13 +3299,13 @@ export function buildWorkflowHtml(
     }
     .graph-reopen-preview__path {
       fill: none;
-      stroke: rgba(172, 178, 189, 0.92);
-      stroke-width: 3.6;
+      stroke: rgba(255, 214, 109, 0.96);
+      stroke-width: 4.2;
       stroke-linecap: round;
       stroke-linejoin: round;
-      stroke-dasharray: 12 10;
+      stroke-dasharray: 14 10;
       animation: reopenPreviewBlink 0.92s ease-in-out infinite;
-      filter: drop-shadow(0 0 8px rgba(142, 149, 160, 0.2));
+      filter: drop-shadow(0 0 10px rgba(255, 214, 109, 0.22));
     }
     @keyframes reopenPreviewBlink {
       0%, 100% {
@@ -4003,6 +4003,22 @@ export function buildWorkflowHtml(
         inset 0 1px 0 rgba(255, 255, 255, 0.28),
         inset 0 -8px 18px rgba(0, 0, 0, 0.16),
         0 14px 24px rgba(96, 58, 182, 0.24);
+    }
+    .phase-node--reopen-target {
+      border-color: rgba(255, 214, 109, 0.72);
+      box-shadow:
+        0 24px 40px rgba(66, 47, 11, 0.26),
+        0 10px 0 rgba(34, 24, 8, 0.58),
+        0 0 0 1px rgba(255, 230, 164, 0.18),
+        0 0 34px rgba(255, 214, 109, 0.22);
+    }
+    .phase-node--reopen-target .phase-node-visual {
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -8px 18px rgba(0, 0, 0, 0.14),
+        0 14px 24px rgba(28, 106, 255, 0.24),
+        0 0 0 2px rgba(255, 214, 109, 0.22),
+        0 0 22px rgba(255, 214, 109, 0.18);
     }
     .phase-pause-toggle {
       width: 38px;
@@ -5879,6 +5895,20 @@ export function buildWorkflowHtml(
     const graphPanel = document.querySelector('[data-panel-scroll="graph"]');
     const detailPanel = document.querySelector('[data-panel-scroll="detail"]');
     const phaseGraph = document.querySelector(".phase-graph");
+    const completedReopenTargetDescriptors = ${JSON.stringify({
+      implementation: {
+        title: "Implementation",
+        iconHtml: workflowPhaseIcon("implementation")
+      },
+      spec: {
+        title: "Spec",
+        iconHtml: workflowPhaseIcon("spec")
+      },
+      "technical-design": {
+        title: "Technical Design",
+        iconHtml: workflowPhaseIcon("technical-design")
+      }
+    })};
     const graphLegendElements = Array.from(document.querySelectorAll("[data-graph-legend]"));
     const exportWorkflowSnapshotButton = document.querySelector("[data-export-workflow-snapshot]");
     const selectedPhaseNode = document.querySelector(".phase-node.selected");
@@ -5936,27 +5966,28 @@ export function buildWorkflowHtml(
         path: path instanceof SVGPathElement ? path : null
       };
     };
-    const buildReopenPreviewPath = (fromRect, toRect, stageRect) => {
-      const startX = fromRect.right - stageRect.left;
-      const startY = fromRect.top - stageRect.top + (fromRect.height / 2);
-      const targetX = toRect.right - stageRect.left;
-      const targetY = toRect.top - stageRect.top + (toRect.height / 2);
-      const stageWidth = Math.max(phaseGraph instanceof HTMLElement ? phaseGraph.clientWidth : 0, stageRect.width);
-      const rightLaneX = Math.max(startX, targetX) + 52;
-      const laneX = Math.min(stageWidth - 18, rightLaneX);
-      const verticalDirection = targetY < startY ? -1 : 1;
-      const cornerRadius = Math.min(18, Math.max(10, Math.abs(targetY - startY) * 0.18));
-      const verticalTurnY = targetY - (cornerRadius * verticalDirection);
-      const laneStartX = laneX - cornerRadius;
-      const laneEndX = targetX + cornerRadius;
+    const buildReopenPreviewPath = (fromNode, toNode) => {
+      const startCenterX = fromNode.offsetLeft + (fromNode.offsetWidth / 2);
+      const startCenterY = fromNode.offsetTop + (fromNode.offsetHeight / 2);
+      const targetCenterX = toNode.offsetLeft + (toNode.offsetWidth / 2);
+      const targetCenterY = toNode.offsetTop + (toNode.offsetHeight / 2);
+      const horizontalDirection = targetCenterX >= startCenterX ? 1 : -1;
+      const startX = startCenterX + ((fromNode.offsetWidth / 2) * horizontalDirection);
+      const startY = startCenterY;
+      const targetX = targetCenterX - ((toNode.offsetWidth / 2) * horizontalDirection);
+      const targetY = targetCenterY;
+      const horizontalDistance = Math.abs(targetX - startX);
+      const verticalDistance = Math.abs(targetY - startY);
+      const curveX = Math.max(88, Math.min(220, horizontalDistance * 0.42));
+      const curveY = Math.max(16, Math.min(72, verticalDistance * 0.18));
+      const control1X = startX + (curveX * horizontalDirection);
+      const control1Y = startY - curveY;
+      const control2X = targetX - (curveX * horizontalDirection);
+      const control2Y = targetY + curveY;
 
       return [
         "M", startX, startY,
-        "L", laneStartX, startY,
-        "Q", laneX, startY, laneX, startY + (cornerRadius * verticalDirection),
-        "L", laneX, verticalTurnY,
-        "Q", laneX, targetY, laneEndX, targetY,
-        "L", targetX, targetY
+        "C", control1X, control1Y, control2X, control2Y, targetX, targetY
       ].join(" ");
     };
     const hideReopenPreviewPath = () => {
@@ -5968,15 +5999,45 @@ export function buildWorkflowHtml(
         path.removeAttribute("d");
       }
     };
+    const clearReopenTargetHighlight = () => {
+      if (!(phaseGraph instanceof HTMLElement)) {
+        return;
+      }
+
+      for (const node of phaseGraph.querySelectorAll(".phase-node--reopen-target")) {
+        node.classList.remove("phase-node--reopen-target");
+      }
+    };
     const resolvePhaseTitleById = (phaseId) => {
       const phaseNode = getPhaseNodeById(phaseId);
       const titleElement = phaseNode instanceof HTMLElement ? phaseNode.querySelector("h3") : null;
-      return titleElement instanceof HTMLElement ? titleElement.textContent?.trim() ?? phaseId : phaseId;
+      if (titleElement instanceof HTMLElement) {
+        return titleElement.textContent?.trim() ?? phaseId;
+      }
+
+      const fallbackDescriptor = completedReopenTargetDescriptors[phaseId];
+      return fallbackDescriptor?.title ?? phaseId;
     };
     const resolvePhaseIconHtmlById = (phaseId) => {
       const phaseNode = getPhaseNodeById(phaseId);
       const iconElement = phaseNode instanceof HTMLElement ? phaseNode.querySelector(".phase-node-visual") : null;
-      return iconElement instanceof HTMLElement ? iconElement.innerHTML : "";
+      if (iconElement instanceof HTMLElement) {
+        return iconElement.innerHTML;
+      }
+
+      const fallbackDescriptor = completedReopenTargetDescriptors[phaseId];
+      return fallbackDescriptor?.iconHtml ?? "";
+    };
+    const syncReopenTargetHighlight = (targetPhaseId) => {
+      clearReopenTargetHighlight();
+      if (!targetPhaseId) {
+        return;
+      }
+
+      const targetNode = getPhaseNodeById(targetPhaseId);
+      if (targetNode instanceof HTMLElement) {
+        targetNode.classList.add("phase-node--reopen-target");
+      }
     };
     const renderCompletedReopenTargetMessage = (targetPhaseId) => {
       if (!(completedReopenTargetMessage instanceof HTMLElement)) {
@@ -6042,6 +6103,7 @@ export function buildWorkflowHtml(
       const targetPhaseId = completedReopenReason instanceof HTMLSelectElement
         ? resolveCompletedWorkflowReopenTargetPhase(completedReopenReason.value.trim())
         : "";
+      syncReopenTargetHighlight(targetPhaseId);
       if (!targetPhaseId) {
         hideReopenPreviewPath();
         return;
@@ -6055,11 +6117,12 @@ export function buildWorkflowHtml(
         return;
       }
 
-      const stageRect = phaseGraph.getBoundingClientRect();
-      const sourceRect = sourceNode.getBoundingClientRect();
-      const targetRect = targetNode.getBoundingClientRect();
-      overlay.setAttribute("viewBox", "0 0 " + Math.max(1, phaseGraph.clientWidth) + " " + Math.max(1, phaseGraph.clientHeight));
-      path.setAttribute("d", buildReopenPreviewPath(sourceRect, targetRect, stageRect));
+      const graphWidth = Math.max(1, phaseGraph.scrollWidth, phaseGraph.clientWidth);
+      const graphHeight = Math.max(1, phaseGraph.scrollHeight, phaseGraph.clientHeight);
+      overlay.setAttribute("viewBox", "0 0 " + graphWidth + " " + graphHeight);
+      overlay.style.width = graphWidth + "px";
+      overlay.style.height = graphHeight + "px";
+      path.setAttribute("d", buildReopenPreviewPath(sourceNode, targetNode));
       overlay.hidden = false;
     };
     const autoScrollStateKey = workflowShell instanceof HTMLElement
@@ -7294,6 +7357,8 @@ export function buildWorkflowHtml(
     window.addEventListener("resize", () => {
       syncCompletedReopenPreviewPath();
     });
+
+    syncCompletedReopenState();
 
     if (completedReopenSubmitButton instanceof HTMLButtonElement) {
       completedReopenSubmitButton.addEventListener("click", () => {
