@@ -385,13 +385,13 @@ function parseWorkflowGraphLayoutConfig(raw: string): WorkflowGraphLayoutConfig 
     }
 
     const xMatch = /^x:\s*(-?\d+)\s*$/.exec(trimmed);
-    if (xMatch && currentPhaseId) {
+    if (xMatch && (currentPhaseId || currentLegendTarget)) {
       pendingX = Number.parseInt(xMatch[1], 10);
       continue;
     }
 
     const yMatch = /^y:\s*(-?\d+)\s*$/.exec(trimmed);
-    if (yMatch && currentPhaseId) {
+    if (yMatch && (currentPhaseId || currentLegendTarget)) {
       pendingY = Number.parseInt(yMatch[1], 10);
       continue;
     }
