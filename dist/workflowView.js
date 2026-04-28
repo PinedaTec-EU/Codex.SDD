@@ -23,7 +23,7 @@ const technicalDesignPhaseView_1 = require("./workflow-view/technicalDesignPhase
 const webviewTypography_1 = require("./webviewTypography");
 const workflowGraphLayout_1 = require("./workflowGraphLayout");
 const phaseNodeWidth = 240;
-const phaseNodeHeight = 118;
+const phaseNodeHeight = 102;
 const mobilePhaseNodeWidth = 206;
 const graphLoopBoxWidth = 196;
 const graphLoopBoxHeight = 90;
@@ -2930,17 +2930,21 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       top: var(--phase-top-desktop-vertical);
       width: ${phaseNodeWidth}px;
       min-height: ${phaseNodeHeight}px;
-      border-radius: 18px;
-      border: 1px solid rgba(125, 145, 170, 0.42);
-      padding: 20px 24px;
-      color: inherit;
+      border-radius: 24px;
+      border: 1px solid rgba(168, 205, 245, 0.3);
+      padding: 12px 14px 14px;
+      color: #e8f3ff;
       background:
-        radial-gradient(circle at 55% 10%, rgba(66, 80, 104, 0.28), transparent 64%),
-        linear-gradient(180deg, rgba(24, 31, 43, 0.92), rgba(7, 14, 25, 0.96));
+        radial-gradient(120% 120% at 16% 0%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08) 28%, transparent 34%),
+        radial-gradient(120% 130% at 100% 100%, rgba(86, 142, 229, 0.16), transparent 44%),
+        linear-gradient(180deg, rgba(34, 48, 66, 0.96), rgba(17, 28, 42, 0.98) 54%, rgba(10, 18, 29, 0.99));
       text-align: left;
       cursor: pointer;
-      box-shadow: 0 18px 32px rgba(0, 0, 0, 0.24);
-      transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+      box-shadow:
+        0 24px 34px rgba(0, 0, 0, 0.26),
+        0 8px 0 rgba(7, 14, 24, 0.32),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      transition: transform 180ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
       overflow: visible;
       isolation: isolate;
       animation: nodeRise 420ms ease both;
@@ -2953,38 +2957,80 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     .phase-node::after {
       content: "";
       position: absolute;
-      inset: 0;
+      inset: 1px;
       border-radius: inherit;
-      background: inherit;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02) 24%, rgba(255, 255, 255, 0) 48%),
+        radial-gradient(76% 82% at 0% 0%, rgba(255, 255, 255, 0.08), transparent 32%);
       z-index: -1;
+      pointer-events: none;
+      opacity: 0.72;
+    }
+    .phase-node::before {
+      content: "";
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: -12px;
+      height: 22px;
+      border-radius: 999px;
+      background: radial-gradient(closest-side, rgba(0, 0, 0, 0.36), transparent 78%);
+      filter: blur(10px);
+      z-index: -2;
+      pointer-events: none;
+      opacity: 0.9;
+    }
+    .phase-node-content::after {
+      content: "";
+      position: absolute;
+      top: 10px;
+      right: -8px;
+      width: 14px;
+      height: calc(100% - 20px);
+      border-radius: 0 18px 18px 0;
+      background:
+        linear-gradient(180deg, rgba(141, 197, 255, 0.12), rgba(54, 92, 144, 0.1) 24%, rgba(8, 14, 24, 0.4));
+      box-shadow:
+        inset 1px 0 0 rgba(255, 255, 255, 0.08),
+        6px 0 14px rgba(0, 0, 0, 0.12);
+      opacity: 0.92;
       pointer-events: none;
     }
     .phase-node:hover {
-      border-color: rgba(164, 231, 255, 0.42);
-      background: linear-gradient(180deg, rgba(34, 42, 56, 0.98), rgba(14, 18, 26, 1));
+      transform: translateY(-2px);
+      border-color: rgba(150, 204, 255, 0.5);
+      background:
+        radial-gradient(120% 120% at 16% 0%, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.1) 28%, transparent 34%),
+        radial-gradient(120% 130% at 100% 100%, rgba(120, 173, 255, 0.22), transparent 44%),
+        linear-gradient(180deg, rgba(40, 56, 77, 0.98), rgba(21, 34, 50, 0.99) 54%, rgba(12, 20, 32, 1));
       box-shadow:
-        0 22px 34px rgba(0, 0, 0, 0.28),
-        0 0 0 1px rgba(210, 229, 246, 0.08),
-        0 0 24px rgba(124, 190, 255, 0.12);
+        0 28px 40px rgba(0, 0, 0, 0.28),
+        0 10px 0 rgba(7, 14, 24, 0.34),
+        0 0 0 1px rgba(210, 229, 246, 0.12),
+        0 0 28px rgba(124, 190, 255, 0.18);
     }
     .phase-node.selected {
       outline: none;
       z-index: 5;
       box-shadow:
-        0 0 0 1px rgba(226, 232, 240, 0.14),
-        0 18px 34px rgba(0, 0, 0, 0.28),
-        0 0 30px rgba(196, 203, 214, 0.08);
+        0 0 0 1px rgba(115, 177, 255, 0.34),
+        0 26px 38px rgba(0, 0, 0, 0.28),
+        0 10px 0 rgba(7, 14, 24, 0.34),
+        0 0 30px rgba(119, 176, 255, 0.16);
     }
     .phase-node.phase-node--current {
       border-color: rgba(40, 147, 255, 0.86);
       box-shadow:
-        0 22px 38px rgba(8, 72, 148, 0.28),
-        0 0 28px rgba(40, 147, 255, 0.18);
+        0 26px 42px rgba(8, 72, 148, 0.24),
+        0 10px 0 rgba(4, 18, 34, 0.42),
+        0 0 28px rgba(40, 147, 255, 0.22);
       z-index: 6;
     }
     .phase-node-content {
       position: relative;
       z-index: 2;
+      display: grid;
+      gap: 12px;
     }
     .phase-node.phase-tone-pending.selected {
       outline: 2px solid rgba(255, 255, 255, 0.24);
@@ -3016,132 +3062,188 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .phase-node.phase-tone-active {
       background:
-        radial-gradient(circle at 62% 10%, rgba(26, 130, 255, 0.28), transparent 60%),
-        linear-gradient(180deg, rgba(5, 44, 76, 0.96), rgba(4, 18, 32, 0.98));
+        radial-gradient(120% 120% at 16% 0%, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.08) 28%, transparent 34%),
+        radial-gradient(130% 130% at 100% 100%, rgba(95, 160, 255, 0.18), transparent 42%),
+        linear-gradient(180deg, rgba(24, 48, 78, 0.97), rgba(13, 31, 54, 0.99) 54%, rgba(8, 20, 36, 1));
       border-color: rgba(40, 147, 255, 0.86);
-      box-shadow: 0 22px 38px rgba(48, 120, 255, 0.22);
+      box-shadow:
+        0 24px 38px rgba(48, 120, 255, 0.18),
+        0 8px 0 rgba(4, 20, 40, 0.38);
       animation: nodeRise 420ms ease both, currentPulse 2.8s ease-in-out infinite;
     }
     .phase-node.phase-tone-active:hover {
       border-color: rgba(110, 198, 255, 0.72);
-      background: linear-gradient(180deg, rgb(34, 69, 114), rgb(12, 28, 46));
+      background:
+        radial-gradient(120% 120% at 16% 0%, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.1) 28%, transparent 34%),
+        radial-gradient(130% 130% at 100% 100%, rgba(95, 160, 255, 0.22), transparent 42%),
+        linear-gradient(180deg, rgba(28, 55, 88, 0.98), rgba(16, 37, 61, 0.99) 54%, rgba(10, 23, 40, 1));
       box-shadow:
-        0 24px 36px rgba(30, 86, 150, 0.28),
-        0 0 0 1px rgba(128, 205, 255, 0.16),
+        0 28px 40px rgba(30, 86, 150, 0.22),
+        0 10px 0 rgba(4, 20, 40, 0.4),
+        0 0 0 1px rgba(128, 205, 255, 0.18),
         0 0 28px rgba(92, 181, 255, 0.22);
     }
     .phase-node.phase-tone-waiting-user {
-      background: linear-gradient(180deg, rgb(74, 56, 12), rgb(24, 18, 7));
+      background:
+        radial-gradient(120% 120% at 16% 0%, rgba(255, 244, 201, 0.18), rgba(255, 232, 163, 0.08) 28%, transparent 34%),
+        radial-gradient(130% 130% at 100% 100%, rgba(196, 130, 24, 0.14), transparent 42%),
+        linear-gradient(180deg, rgba(60, 44, 14, 0.97), rgba(36, 26, 9, 0.99) 54%, rgba(23, 16, 6, 1));
       border-color: rgba(255, 213, 90, 0.5);
-      box-shadow: 0 20px 34px rgba(154, 118, 24, 0.24);
+      box-shadow:
+        0 22px 34px rgba(154, 118, 24, 0.2),
+        0 8px 0 rgba(88, 62, 13, 0.52);
     }
     .phase-node.phase-tone-waiting-user:hover {
       border-color: rgba(255, 223, 116, 0.74);
-      background: linear-gradient(180deg, rgb(96, 73, 16), rgb(36, 27, 10));
+      background:
+        radial-gradient(120% 120% at 16% 0%, rgba(255, 244, 201, 0.22), rgba(255, 232, 163, 0.1) 28%, transparent 34%),
+        radial-gradient(130% 130% at 100% 100%, rgba(196, 130, 24, 0.18), transparent 42%),
+        linear-gradient(180deg, rgba(68, 50, 17, 0.98), rgba(42, 30, 10, 0.99) 54%, rgba(26, 18, 7, 1));
       box-shadow:
-        0 24px 36px rgba(154, 118, 24, 0.28),
+        0 28px 38px rgba(154, 118, 24, 0.22),
+        0 10px 0 rgba(88, 62, 13, 0.56),
         0 0 0 1px rgba(255, 231, 162, 0.14),
         0 0 28px rgba(255, 213, 90, 0.18);
     }
     .phase-node.phase-tone-paused {
-      background: linear-gradient(180deg, rgb(24, 49, 82), rgb(10, 20, 32));
+      background:
+        radial-gradient(120% 120% at 16% 0%, rgba(171, 215, 255, 0.18), rgba(130, 188, 255, 0.08) 28%, transparent 34%),
+        radial-gradient(130% 130% at 100% 100%, rgba(54, 118, 214, 0.16), transparent 42%),
+        linear-gradient(180deg, rgba(24, 44, 72, 0.97), rgba(14, 29, 50, 0.99) 54%, rgba(9, 18, 32, 1));
       border-color: rgba(92, 181, 255, 0.34);
-      box-shadow: 0 18px 30px rgba(48, 120, 255, 0.14);
+      box-shadow:
+        0 20px 30px rgba(48, 120, 255, 0.16),
+        0 8px 0 rgba(12, 32, 60, 0.52);
     }
     .phase-node.phase-tone-paused:hover {
       border-color: rgba(122, 201, 255, 0.62);
-      background: linear-gradient(180deg, rgb(33, 63, 102), rgb(12, 25, 40));
+      background:
+        radial-gradient(120% 120% at 16% 0%, rgba(171, 215, 255, 0.22), rgba(130, 188, 255, 0.1) 28%, transparent 34%),
+        radial-gradient(130% 130% at 100% 100%, rgba(54, 118, 214, 0.2), transparent 42%),
+        linear-gradient(180deg, rgba(28, 50, 82, 0.98), rgba(16, 34, 58, 0.99) 54%, rgba(10, 20, 36, 1));
       box-shadow:
-        0 22px 34px rgba(40, 98, 160, 0.24),
-        0 0 0 1px rgba(141, 208, 255, 0.12),
+        0 24px 34px rgba(40, 98, 160, 0.2),
+        0 10px 0 rgba(12, 32, 60, 0.56),
+        0 0 0 1px rgba(141, 208, 255, 0.14),
         0 0 24px rgba(92, 181, 255, 0.16);
     }
     .phase-node.phase-tone-blocked {
-      background: linear-gradient(180deg, rgb(54, 23, 23), rgb(20, 10, 10));
+      background:
+        radial-gradient(120% 120% at 16% 0%, rgba(255, 175, 175, 0.18), rgba(255, 132, 132, 0.08) 28%, transparent 34%),
+        radial-gradient(130% 130% at 100% 100%, rgba(140, 38, 38, 0.16), transparent 42%),
+        linear-gradient(180deg, rgba(62, 24, 24, 0.97), rgba(38, 14, 14, 0.99) 54%, rgba(24, 9, 9, 1));
       border-color: rgba(255, 120, 120, 0.28);
-      box-shadow: 0 18px 30px rgba(140, 38, 38, 0.16);
+      box-shadow:
+        0 18px 30px rgba(140, 38, 38, 0.18),
+        0 8px 0 rgba(66, 20, 20, 0.52);
     }
     .phase-node.phase-tone-blocked:hover {
       border-color: rgba(255, 146, 146, 0.58);
-      background: linear-gradient(180deg, rgb(72, 29, 29), rgb(28, 12, 12));
+      background:
+        radial-gradient(120% 120% at 16% 0%, rgba(255, 175, 175, 0.22), rgba(255, 132, 132, 0.1) 28%, transparent 34%),
+        radial-gradient(130% 130% at 100% 100%, rgba(140, 38, 38, 0.2), transparent 42%),
+        linear-gradient(180deg, rgba(70, 28, 28, 0.98), rgba(43, 16, 16, 0.99) 54%, rgba(27, 10, 10, 1));
       box-shadow:
         0 22px 34px rgba(140, 38, 38, 0.22),
-        0 0 0 1px rgba(255, 184, 184, 0.08),
+        0 10px 0 rgba(66, 20, 20, 0.56),
+        0 0 0 1px rgba(255, 184, 184, 0.1),
         0 0 24px rgba(255, 120, 120, 0.12);
     }
     .phase-node.phase-tone-completed {
       background:
-        radial-gradient(circle at 62% 18%, rgba(45, 214, 126, 0.22), transparent 64%),
-        linear-gradient(180deg, rgba(5, 48, 31, 0.94), rgba(3, 22, 18, 0.98));
+        radial-gradient(120% 120% at 16% 0%, rgba(114, 241, 184, 0.18), rgba(54, 214, 130, 0.08) 28%, transparent 34%),
+        radial-gradient(circle at 100% 100%, rgba(45, 214, 126, 0.14), transparent 54%),
+        linear-gradient(180deg, rgba(13, 50, 34, 0.97), rgba(7, 31, 21, 0.99) 54%, rgba(4, 20, 14, 1));
       border-color: rgba(43, 210, 122, 0.72);
       box-shadow:
-        0 20px 36px rgba(8, 80, 48, 0.22),
-        0 0 26px rgba(43, 210, 122, 0.1);
+        0 20px 36px rgba(8, 80, 48, 0.18),
+        0 8px 0 rgba(6, 28, 19, 0.52),
+        0 0 26px rgba(43, 210, 122, 0.12);
     }
     .phase-node.phase-tone-completed:hover {
       border-color: rgba(114, 241, 184, 0.56);
-      background: linear-gradient(180deg, rgb(24, 61, 46), rgb(11, 27, 21));
+      background:
+        radial-gradient(120% 120% at 16% 0%, rgba(114, 241, 184, 0.22), rgba(54, 214, 130, 0.1) 28%, transparent 34%),
+        radial-gradient(circle at 100% 100%, rgba(45, 214, 126, 0.18), transparent 54%),
+        linear-gradient(180deg, rgba(16, 58, 40, 0.98), rgba(8, 36, 24, 0.99) 54%, rgba(5, 23, 16, 1));
       box-shadow:
-        0 22px 34px rgba(18, 72, 53, 0.22),
-        0 0 0 1px rgba(173, 255, 218, 0.1),
-        0 0 26px rgba(114, 241, 184, 0.14);
+        0 22px 34px rgba(18, 72, 53, 0.2),
+        0 10px 0 rgba(6, 28, 19, 0.56),
+        0 0 0 1px rgba(173, 255, 218, 0.12),
+        0 0 26px rgba(114, 241, 184, 0.16);
     }
     .phase-node--final,
     .phase-node--final.phase-tone-completed,
     .phase-node--final.phase-tone-pending {
-      background: linear-gradient(180deg, rgba(34, 22, 58, 0.98), rgba(18, 10, 34, 0.98));
+      background:
+        radial-gradient(120% 120% at 16% 0%, rgba(194, 150, 255, 0.18), rgba(140, 93, 255, 0.08) 28%, transparent 34%),
+        radial-gradient(130% 130% at 100% 100%, rgba(91, 50, 170, 0.16), transparent 42%),
+        linear-gradient(180deg, rgba(41, 24, 68, 0.98), rgba(24, 13, 42, 0.99) 54%, rgba(16, 9, 29, 1));
       border-color: rgba(143, 89, 255, 0.58);
       box-shadow:
-        0 20px 34px rgba(44, 20, 90, 0.24),
+        0 20px 34px rgba(44, 20, 90, 0.2),
+        0 8px 0 rgba(28, 15, 48, 0.56),
         0 0 0 1px rgba(170, 132, 255, 0.12),
         0 0 28px rgba(120, 74, 255, 0.12);
       opacity: 1;
     }
     .phase-node--final:hover {
       border-color: rgba(170, 120, 255, 0.78);
-      background: linear-gradient(180deg, rgba(46, 28, 76, 0.98), rgba(23, 12, 43, 1));
+      background:
+        radial-gradient(120% 120% at 16% 0%, rgba(194, 150, 255, 0.22), rgba(140, 93, 255, 0.1) 28%, transparent 34%),
+        radial-gradient(130% 130% at 100% 100%, rgba(91, 50, 170, 0.2), transparent 42%),
+        linear-gradient(180deg, rgba(47, 28, 78, 0.98), rgba(28, 16, 48, 0.99) 54%, rgba(18, 10, 33, 1));
       box-shadow:
-        0 24px 36px rgba(50, 22, 96, 0.28),
-        0 0 0 1px rgba(185, 148, 255, 0.16),
+        0 24px 36px rgba(50, 22, 96, 0.22),
+        0 10px 0 rgba(28, 15, 48, 0.58),
+        0 0 0 1px rgba(185, 148, 255, 0.14),
         0 0 32px rgba(146, 100, 255, 0.18);
     }
-    .phase-node--final .phase-index,
     .phase-node--final .phase-role-badge {
       color: rgba(212, 194, 255, 0.96);
       border-color: rgba(160, 124, 255, 0.24);
-      background: rgba(142, 93, 255, 0.14);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.04)),
+        rgba(142, 93, 255, 0.14);
     }
     .phase-node.phase-tone-pending {
       background:
-        radial-gradient(circle at 62% 12%, rgba(96, 113, 138, 0.2), transparent 66%),
-        linear-gradient(180deg, rgba(24, 31, 43, 0.9), rgba(7, 14, 25, 0.96));
+        radial-gradient(120% 120% at 16% 0%, rgba(196, 214, 236, 0.14), rgba(196, 214, 236, 0.06) 28%, transparent 34%),
+        radial-gradient(130% 130% at 100% 100%, rgba(78, 101, 132, 0.12), transparent 42%),
+        linear-gradient(180deg, rgba(39, 47, 59, 0.96), rgba(24, 31, 43, 0.98) 54%, rgba(15, 21, 31, 0.99));
       border-color: rgba(155, 171, 195, 0.34);
-      box-shadow: 0 16px 30px rgba(7, 10, 16, 0.22);
+      box-shadow:
+        0 16px 30px rgba(7, 10, 16, 0.18),
+        0 8px 0 rgba(18, 24, 34, 0.5);
       opacity: 1;
     }
     .phase-node.phase-tone-pending:hover {
       border-color: rgba(214, 222, 235, 0.28);
       background:
-        linear-gradient(180deg, rgb(84, 90, 102), rgb(26, 31, 39)),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+        radial-gradient(120% 120% at 16% 0%, rgba(196, 214, 236, 0.18), rgba(196, 214, 236, 0.08) 28%, transparent 34%),
+        radial-gradient(130% 130% at 100% 100%, rgba(78, 101, 132, 0.16), transparent 42%),
+        linear-gradient(180deg, rgba(45, 54, 68, 0.97), rgba(28, 36, 50, 0.99) 54%, rgba(18, 24, 35, 1));
       box-shadow:
-        0 22px 34px rgba(7, 10, 16, 0.28),
-        0 0 0 1px rgba(226, 232, 240, 0.06),
+        0 22px 34px rgba(7, 10, 16, 0.2),
+        0 10px 0 rgba(18, 24, 34, 0.54),
+        0 0 0 1px rgba(226, 232, 240, 0.08),
         0 0 20px rgba(196, 203, 214, 0.08);
     }
     .phase-node.phase-tone-disabled {
       background:
-        linear-gradient(180deg, rgb(64, 68, 76), rgb(15, 18, 24)),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+        radial-gradient(120% 120% at 16% 0%, rgba(177, 186, 200, 0.12), rgba(177, 186, 200, 0.04) 28%, transparent 34%),
+        linear-gradient(180deg, rgba(46, 50, 56, 0.94), rgba(29, 32, 38, 0.96));
       border-color: rgba(255, 255, 255, 0.08);
       opacity: 0.72;
-      box-shadow: 0 10px 18px rgba(6, 8, 12, 0.14);
+      box-shadow:
+        0 10px 18px rgba(6, 8, 12, 0.14),
+        0 6px 0 rgba(17, 20, 24, 0.44);
     }
     .phase-node-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 12px;
+      gap: 14px;
       position: relative;
       z-index: 1;
     }
@@ -3152,22 +3254,27 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       gap: 10px;
       min-width: 0;
       flex-wrap: wrap;
+      min-height: 24px;
     }
     .phase-role-badge {
-      width: 28px;
-      height: 28px;
-      border-radius: 10px;
+      width: 38px;
+      height: 38px;
+      border-radius: 14px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(255, 255, 255, 0.04);
-      color: rgba(222, 240, 235, 0.9);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03)),
+        rgba(255, 255, 255, 0.05);
+      color: rgba(239, 249, 255, 0.96);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 8px 18px rgba(0, 0, 0, 0.18);
     }
     .phase-role-badge svg {
-      width: 15px;
-      height: 15px;
+      width: 18px;
+      height: 18px;
       fill: currentColor;
     }
     .phase-current-rail {
@@ -3232,35 +3339,130 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       text-transform: uppercase;
       white-space: nowrap;
     }
-    .phase-index {
-      width: 30px;
-      height: 30px;
-      border-radius: 10px;
+    .phase-node-body {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .phase-node-visual {
+      position: relative;
+      width: 54px;
+      height: 54px;
+      border-radius: 17px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: rgba(255, 255, 255, 0.08);
-      font-size: 0.9rem;
-      font-weight: 700;
+      color: #fff;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.08) 24%, rgba(255, 255, 255, 0) 100%),
+        linear-gradient(145deg, #39d7d6, #2564ff);
+      border: 1px solid rgba(255, 255, 255, 0.34);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -8px 18px rgba(0, 0, 0, 0.14),
+        0 14px 24px rgba(28, 106, 255, 0.24);
+      flex: 0 0 auto;
+      overflow: hidden;
     }
-    .phase-index--icon svg {
-      width: 16px;
-      height: 16px;
+    .phase-node-visual::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.36), transparent 36%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 38%);
+      pointer-events: none;
+    }
+    .phase-node-visual svg {
+      position: relative;
+      z-index: 1;
+      width: 28px;
+      height: 28px;
       fill: currentColor;
+      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.18));
+    }
+    .phase-node-copy {
+      min-width: 0;
+      display: grid;
+      gap: 4px;
+      align-content: center;
+    }
+    .phase-node.capture .phase-node-visual {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.08) 24%, rgba(255, 255, 255, 0) 100%),
+        linear-gradient(145deg, #23d0c7, #1987ff);
+    }
+    .phase-node.refinement .phase-node-visual {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.08) 24%, rgba(255, 255, 255, 0) 100%),
+        linear-gradient(145deg, #4de1d6, #3978ff);
+    }
+    .phase-node.spec .phase-node-visual {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.08) 24%, rgba(255, 255, 255, 0) 100%),
+        linear-gradient(145deg, #47dfb6, #12aa72);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -8px 18px rgba(0, 0, 0, 0.14),
+        0 14px 24px rgba(20, 150, 95, 0.22);
+    }
+    .phase-node.technical-design .phase-node-visual {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.08) 24%, rgba(255, 255, 255, 0) 100%),
+        linear-gradient(145deg, #78c8ff, #4562ff);
+    }
+    .phase-node.implementation .phase-node-visual {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.08) 24%, rgba(255, 255, 255, 0) 100%),
+        linear-gradient(145deg, #8e78ff, #4568ff);
+    }
+    .phase-node.review .phase-node-visual {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.08) 24%, rgba(255, 255, 255, 0) 100%),
+        linear-gradient(145deg, #58b9ff, #2462d9);
+    }
+    .phase-node.release-approval .phase-node-visual {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.08) 24%, rgba(255, 255, 255, 0) 100%),
+        linear-gradient(145deg, #4cdbb6, #1aaf8d);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -8px 18px rgba(0, 0, 0, 0.14),
+        0 14px 24px rgba(20, 150, 95, 0.22);
+    }
+    .phase-node.pr-preparation .phase-node-visual {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.08) 24%, rgba(255, 255, 255, 0) 100%),
+        linear-gradient(145deg, #73d6ff, #2588f7);
+    }
+    .phase-node--final .phase-node-visual {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.08) 24%, rgba(255, 255, 255, 0) 100%),
+        linear-gradient(145deg, #b578ff, #6a47ff);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -8px 18px rgba(0, 0, 0, 0.16),
+        0 14px 24px rgba(96, 58, 182, 0.24);
     }
     .phase-pause-toggle {
-      width: 30px;
-      height: 30px;
-      margin-top: 2px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 10px;
+      width: 38px;
+      height: 38px;
+      margin-top: 0;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 14px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       padding: 0;
-      color: rgba(235, 244, 255, 0.82);
-      background: rgba(255, 255, 255, 0.05);
-      box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.03);
+      color: rgba(244, 250, 255, 0.92);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03)),
+        rgba(255, 255, 255, 0.04);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 8px 16px rgba(0, 0, 0, 0.16);
       cursor: pointer;
       transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, color 140ms ease;
     }
@@ -3281,8 +3483,8 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       box-shadow: none;
     }
     .phase-pause-toggle svg {
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       fill: currentColor;
     }
     .phase-pause-toggle--armed {
@@ -3309,12 +3511,14 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       box-shadow: none;
     }
     .phase-node h3 {
-      margin: 14px 0 8px;
-      font-size: 1.24rem;
+      margin: 0;
+      font-size: 1.05rem;
       font-weight: 800;
-      line-height: 1.15;
+      line-height: 1.02;
+      letter-spacing: -0.02em;
       position: relative;
       z-index: 1;
+      color: #eef6ff;
     }
     .phase-priority-tags {
       display: flex;
@@ -3334,9 +3538,10 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .phase-slug {
       font-family: var(--specforge-editor-font-family);
-      font-size: 1rem;
-      opacity: 0.72;
-      line-height: 1.35;
+      font-size: 0.82rem;
+      color: rgba(226, 236, 248, 0.86);
+      opacity: 1;
+      line-height: 1.22;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
@@ -3348,14 +3553,19 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     .phase-tag {
       border-radius: 999px;
       padding: 5px 10px;
-      font-size: 0.8rem;
-      background: rgba(255, 255, 255, 0.07);
-      color: rgba(255, 255, 255, 0.84);
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: rgba(226, 235, 247, 0.12);
+      color: rgba(220, 236, 252, 0.88);
       font-weight: 800;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
     .phase-tag.approval {
-      background: rgba(255, 170, 84, 0.15);
-      color: #ffc178;
+      background: linear-gradient(180deg, rgba(255, 210, 153, 0.96), rgba(255, 189, 107, 0.9));
+      color: #7a3d00;
+      border-color: rgba(240, 163, 67, 0.3);
     }
     .phase-tag.phase-tag--active {
       background: rgba(92, 181, 255, 0.14);
@@ -3387,9 +3597,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       background: rgba(255, 255, 255, 0.05);
       color: rgba(255, 255, 255, 0.52);
     }
-    .phase-node.selected .phase-index {
-      box-shadow: 0 0 0 8px rgba(114, 241, 184, 0.08);
-    }
     .phase-tag--active,
     .phase-tag--paused {
       background: rgba(40, 147, 255, 0.22);
@@ -3402,19 +3609,29 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .graph-phase-status-icon {
       margin-left: auto;
-      width: 34px;
-      height: 34px;
-      border-radius: 999px;
+      width: 38px;
+      height: 38px;
+      border-radius: 14px;
       color: rgba(64, 242, 145, 0.96);
       border-color: currentColor;
-      background: rgba(9, 40, 26, 0.58);
-      box-shadow: 0 0 18px rgba(64, 242, 145, 0.16);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04)),
+        rgba(8, 42, 24, 0.88);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        0 10px 18px rgba(16, 64, 38, 0.16),
+        0 0 18px rgba(64, 242, 145, 0.16);
     }
     .phase-tone-active .graph-phase-status-icon,
     .phase-tone-paused .graph-phase-status-icon {
       color: rgba(76, 166, 255, 0.96);
-      background: rgba(8, 38, 74, 0.58);
-      box-shadow: 0 0 18px rgba(76, 166, 255, 0.16);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04)),
+        rgba(8, 32, 62, 0.9);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        0 10px 18px rgba(9, 39, 82, 0.16),
+        0 0 18px rgba(76, 166, 255, 0.16);
     }
     .detail-panel {
       padding: 22px;
@@ -4687,10 +4904,43 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         left: var(--phase-left-mobile-vertical);
         top: var(--phase-top-mobile-vertical);
         width: ${mobilePhaseNodeWidth}px;
+        padding: 10px 12px 12px;
+        border-radius: 20px;
       }
       .phase-graph[data-graph-layout-mode="horizontal"] .phase-node {
         left: var(--phase-left-mobile-horizontal);
         top: var(--phase-top-mobile-horizontal);
+      }
+      .phase-node-body {
+        grid-template-columns: 46px minmax(0, 1fr);
+        gap: 10px;
+      }
+      .phase-node-visual {
+        width: 46px;
+        height: 46px;
+        border-radius: 15px;
+      }
+      .phase-node-visual svg {
+        width: 22px;
+        height: 22px;
+      }
+      .phase-node h3 {
+        font-size: 0.95rem;
+      }
+      .phase-slug {
+        font-size: 0.76rem;
+      }
+      .phase-role-badge,
+      .graph-phase-status-icon,
+      .phase-pause-toggle {
+        min-width: 32px;
+        width: 32px;
+        height: 32px;
+        border-radius: 11px;
+      }
+      .phase-tag {
+        padding: 5px 9px;
+        font-size: 0.62rem;
       }
       .graph-stage, .phase-graph {
         width: var(--graph-width-mobile-vertical, ${mobileGraphWidth}px);
@@ -6603,6 +6853,8 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         const phaseSelectTargetId = phase.phaseId;
         const phaseRoleIcon = phase.expectsHumanIntervention ? (0, icons_1.userPhaseIcon)() : (0, icons_1.automationPhaseIcon)();
         const phaseRoleLabel = phase.expectsHumanIntervention ? "User step" : "Automated step";
+        const phaseVisualIcon = (0, icons_1.workflowPhaseIcon)(phase.phaseId);
+        const phaseHeaderMeta = phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : "";
         const pauseButtonLabel = pauseArmed
             ? `Remove pause before ${phase.title}`
             : `Pause before ${phase.title}`;
@@ -6619,12 +6871,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
       ${phaseIsSelected ? `<span class="phase-viewing-rail"><span class="phase-viewing-rail__label">Viewing</span></span>` : ""}
       <div class="phase-node-content${phaseIsCurrent ? " phase-node-content--current" : ""}">
         <div class="phase-node-header">
-          <div class="phase-node-header-main">
-            <span class="phase-index${phase.phaseId === "completed" ? " phase-index--icon" : ""}">${phase.phaseId === "completed"
-            ? (state.completedUsLockOnCompleted !== false ? (0, icons_1.lockClosedIcon)() : (0, icons_1.lockOpenIcon)())
-            : String(graphPhaseDisplayIndex(phase, index))}</span>
-            ${phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : ""}
-          </div>
+          <div class="phase-node-header-main">${phaseHeaderMeta}</div>
           ${canPausePhase
             ? `<button
                 class="phase-pause-toggle${pauseArmed ? " phase-pause-toggle--armed" : ""}"
@@ -6639,8 +6886,13 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
               </button>`
             : `<span class="phase-role-badge graph-phase-status-icon" title="${(0, htmlEscape_1.escapeHtmlAttr)(phaseRoleLabel)}" aria-label="${(0, htmlEscape_1.escapeHtmlAttr)(phaseRoleLabel)}">${statusIcon || phaseRoleIcon}</span>`}
         </div>
-        <h3>${(0, htmlEscape_1.escapeHtml)(graphPhaseTitle(phase))}</h3>
-        <div class="phase-slug">${(0, htmlEscape_1.escapeHtml)(graphPhaseSecondaryLabel(phase))}</div>
+        <div class="phase-node-body">
+          <span class="phase-node-visual" aria-hidden="true">${phaseVisualIcon}</span>
+          <div class="phase-node-copy">
+            <h3>${(0, htmlEscape_1.escapeHtml)(graphPhaseTitle(phase))}</h3>
+            <div class="phase-slug">${(0, htmlEscape_1.escapeHtml)(graphPhaseSecondaryLabel(phase))}</div>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -6914,30 +7166,6 @@ function renderGraphPhaseStatusIcon(phase, tone, completedWorkflowLocked) {
     `;
     }
     return "";
-}
-function graphPhaseDisplayIndex(phase, fallbackIndex) {
-    switch (phase.phaseId) {
-        case "capture":
-            return 1;
-        case "refinement":
-            return 2;
-        case "spec":
-            return 3;
-        case "technical-design":
-            return 4;
-        case "implementation":
-            return 5;
-        case "review":
-            return 6;
-        case "release-approval":
-            return 7;
-        case "pr-preparation":
-            return 8;
-        case "completed":
-            return 9;
-        default:
-            return fallbackIndex + 1;
-    }
 }
 function buildPrimaryGraphEdges(visiblePhases, visiblePhaseMap, executingTargetPhaseId, currentPhaseId, completedPhaseIds) {
     const edges = [];
