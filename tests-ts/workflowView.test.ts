@@ -3035,6 +3035,63 @@ test("buildWorkflowHtml groups implementation review loops in the bottom timelin
   assert.match(html, /2 cycles between Implementation and Review/);
 });
 
+test("buildWorkflowHtml does not overstate implementation-review loops when review has fewer recorded iterations", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0015C",
+    title: "Asymmetric implementation review history",
+    category: "workflow",
+    status: "active",
+    currentPhase: "review",
+    directoryPath: "/tmp/us.US-0015C",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      { phaseId: "capture", title: "Capture", order: 0, requiresApproval: false, expectsHumanIntervention: false, isApproved: true, isCurrent: false, state: "completed", artifactPath: null, executePromptPath: null, approvePromptPath: null },
+      { phaseId: "spec", title: "Spec", order: 1, requiresApproval: true, expectsHumanIntervention: true, isApproved: true, isCurrent: false, state: "completed", artifactPath: null, executePromptPath: null, approvePromptPath: null },
+      { phaseId: "implementation", title: "Implementation", order: 4, requiresApproval: false, expectsHumanIntervention: false, isApproved: false, isCurrent: false, state: "completed", artifactPath: "/tmp/03-implementation.v3.md", executePromptPath: null, approvePromptPath: null },
+      { phaseId: "review", title: "Review", order: 5, requiresApproval: false, expectsHumanIntervention: false, isApproved: false, isCurrent: true, state: "current", artifactPath: "/tmp/04-review.md", executePromptPath: null, approvePromptPath: null }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: true,
+      regressionTargets: [],
+      rewindTargets: []
+    },
+    refinement: null,
+    events: [
+      { timestampUtc: "2026-04-27T08:00:00Z", code: "phase_completed", actor: "system", phase: "capture", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
+      { timestampUtc: "2026-04-27T08:15:00Z", code: "phase_completed", actor: "system", phase: "spec", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
+      { timestampUtc: "2026-04-27T08:30:00Z", code: "phase_completed", actor: "system", phase: "implementation", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
+      { timestampUtc: "2026-04-27T08:45:00Z", code: "phase_completed", actor: "system", phase: "review", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
+      { timestampUtc: "2026-04-27T09:00:00Z", code: "phase_completed", actor: "system", phase: "implementation", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
+      { timestampUtc: "2026-04-27T09:15:00Z", code: "phase_completed", actor: "system", phase: "implementation", summary: null, artifacts: [], usage: null, durationMs: null, execution: null }
+    ],
+    phaseIterations: [
+      { iterationKey: "implementation:1", attempt: 1, phaseId: "implementation", timestampUtc: "2026-04-27T08:30:00Z", code: "phase_completed", actor: "system", summary: null, outputArtifactPath: "/tmp/03-implementation.md", inputArtifactPath: null, contextArtifactPaths: [], operationLogPath: null, operationPrompt: null, usage: null, durationMs: null, execution: null },
+      { iterationKey: "review:1", attempt: 1, phaseId: "review", timestampUtc: "2026-04-27T08:45:00Z", code: "phase_completed", actor: "system", summary: null, outputArtifactPath: "/tmp/04-review.md", inputArtifactPath: null, contextArtifactPaths: [], operationLogPath: null, operationPrompt: null, usage: null, durationMs: null, execution: null },
+      { iterationKey: "implementation:2", attempt: 2, phaseId: "implementation", timestampUtc: "2026-04-27T09:00:00Z", code: "phase_completed", actor: "system", summary: null, outputArtifactPath: "/tmp/03-implementation.v2.md", inputArtifactPath: null, contextArtifactPaths: [], operationLogPath: null, operationPrompt: null, usage: null, durationMs: null, execution: null },
+      { iterationKey: "implementation:3", attempt: 3, phaseId: "implementation", timestampUtc: "2026-04-27T09:15:00Z", code: "phase_completed", actor: "system", summary: null, outputArtifactPath: "/tmp/03-implementation.v3.md", inputArtifactPath: null, contextArtifactPaths: [], operationLogPath: null, operationPrompt: null, usage: null, durationMs: null, execution: null }
+    ],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "review",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null
+  }, "idle");
+
+  assert.doesNotMatch(html, /cycles between Implementation and Review/);
+  assert.doesNotMatch(html, /Loop x\d+/);
+  assert.match(html, /Iterations<\/span><span class="token-summary__value">1<\/span>/);
+});
+
 test("buildWorkflowHtml prefers assigned overlay profile over stale history when configured model is blank", () => {
   const html = buildWorkflowHtml({
     usId: "US-0016",

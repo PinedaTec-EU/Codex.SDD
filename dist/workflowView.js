@@ -987,7 +987,12 @@ function buildTimelineLoopGroups(points, selectedPhaseId) {
         const segment = points.slice(startIndex, endIndex + 1);
         const implementationCount = segment.filter((point) => point.phaseId === "implementation").length;
         const reviewCount = segment.filter((point) => point.phaseId === "review").length;
-        const iterationCount = Math.max(...segment.map((point) => point.attempt ?? 0), implementationCount, reviewCount);
+        const iterationCount = countPairedImplementationReviewAttempts(segment
+            .filter((point) => point.phaseId === "implementation" || point.phaseId === "review")
+            .map((point) => ({
+            phaseId: point.phaseId,
+            attempt: point.attempt
+        })), implementationCount, reviewCount);
         if (implementationCount > 0 && reviewCount > 0 && iterationCount >= 2 && segment.length >= 3) {
             groups.push({
                 startIndex,
@@ -1002,6 +1007,32 @@ function buildTimelineLoopGroups(points, selectedPhaseId) {
 }
 function isImplementationReviewTimelinePhase(phaseId) {
     return phaseId === "implementation" || phaseId === "review";
+}
+function countPairedImplementationReviewAttempts(attempts, implementationFallbackCount, reviewFallbackCount) {
+    const implementationAttempts = new Set();
+    const reviewAttempts = new Set();
+    for (const entry of attempts) {
+        if (entry.attempt === null || entry.attempt < 1) {
+            continue;
+        }
+        if (entry.phaseId === "implementation") {
+            implementationAttempts.add(entry.attempt);
+            continue;
+        }
+        if (entry.phaseId === "review") {
+            reviewAttempts.add(entry.attempt);
+        }
+    }
+    if (implementationAttempts.size > 0 || reviewAttempts.size > 0) {
+        let pairedCount = 0;
+        for (const attempt of implementationAttempts) {
+            if (reviewAttempts.has(attempt)) {
+                pairedCount += 1;
+            }
+        }
+        return pairedCount;
+    }
+    return Math.min(implementationFallbackCount, reviewFallbackCount);
 }
 function createWebviewNonce() {
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -6993,16 +7024,14 @@ function buildGraphLoopOverlays(workflow, visiblePhases, positions, nodeWidth, b
 }
 function countGraphLoopCycles(workflow, fromPhaseId, toPhaseId) {
     const iterations = workflow.phaseIterations ?? [];
-    const iterationAttempts = iterations
-        .filter((iteration) => iteration.phaseId === fromPhaseId || iteration.phaseId === toPhaseId)
-        .map((iteration) => iteration.attempt);
-    if (iterationAttempts.length > 0) {
-        return Math.max(...iterationAttempts);
+    const relevantIterations = iterations.filter((iteration) => iteration.phaseId === fromPhaseId || iteration.phaseId === toPhaseId);
+    if (relevantIterations.length > 0) {
+        return countPairedImplementationReviewAttempts(relevantIterations, 0, 0);
     }
     const completedEvents = workflow.events.filter((event) => event.code === "phase_completed");
     const fromCount = completedEvents.filter((event) => event.phase === fromPhaseId).length;
     const toCount = completedEvents.filter((event) => event.phase === toPhaseId).length;
-    return Math.max(fromCount, toCount);
+    return Math.min(fromCount, toCount);
 }
 function computeGraphLoopBox(sourcePosition, targetPosition, nodeWidth, boxWidth, boxHeight, side) {
     const sourceCenterX = sourcePosition.left + nodeWidth * 0.5;
