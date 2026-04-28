@@ -6188,20 +6188,6 @@ export function buildWorkflowHtml(
     document.querySelectorAll("[data-command]").forEach((element) => {
       bindCommandElement(element);
     });
-    document.addEventListener("click", (event) => {
-      const commandElement = event.target instanceof Element
-        ? event.target.closest("[data-command]")
-        : null;
-      if (
-        !(commandElement instanceof HTMLElement)
-        || commandElement.dataset.command === "approve"
-        || commandElement.dataset.command === "selectPhase"
-      ) {
-        return;
-      }
-
-      postCommand(commandElement);
-    }, true);
     document.addEventListener("keydown", (event) => {
       const commandElement = event.target instanceof Element
         ? event.target.closest('[data-command="selectPhase"]')
