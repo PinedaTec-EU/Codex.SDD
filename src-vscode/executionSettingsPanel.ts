@@ -19,6 +19,7 @@ type ExecutionSettingsMessage =
       readonly attentionNotificationsEnabled?: boolean;
       readonly contextSuggestionsEnabled?: boolean;
       readonly workflowGraphLayoutMode?: "horizontal" | "vertical";
+      readonly visualTimelineEnabled?: boolean;
       readonly requireExplicitApprovalBranchAcceptance?: boolean;
       readonly autoRefinementAnswersEnabled?: boolean;
       readonly autoRefinementAnswersProfile?: string | null;
@@ -89,6 +90,7 @@ class ExecutionSettingsPanelController {
               message.attentionNotificationsEnabled ?? true,
               message.contextSuggestionsEnabled ?? true,
               message.workflowGraphLayoutMode ?? "vertical",
+              message.visualTimelineEnabled ?? false,
               message.requireExplicitApprovalBranchAcceptance ?? false,
               message.autoRefinementAnswersEnabled ?? false,
               message.autoRefinementAnswersProfile,
@@ -124,6 +126,7 @@ class ExecutionSettingsPanelController {
       attentionNotificationsEnabled: settings.attentionNotificationsEnabled,
       contextSuggestionsEnabled: settings.contextSuggestionsEnabled,
       workflowGraphLayoutMode: settings.workflowGraphLayoutMode,
+      visualTimelineEnabled: settings.visualTimelineEnabled,
       requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance,
       autoRefinementAnswersEnabled: settings.autoRefinementAnswersEnabled,
       autoRefinementAnswersProfile: settings.autoRefinementAnswersProfile,
@@ -147,6 +150,7 @@ type ExecutionSettingsViewModel = {
   readonly attentionNotificationsEnabled: boolean;
   readonly contextSuggestionsEnabled: boolean;
   readonly workflowGraphLayoutMode: "horizontal" | "vertical";
+  readonly visualTimelineEnabled: boolean;
   readonly requireExplicitApprovalBranchAcceptance: boolean;
   readonly autoRefinementAnswersEnabled: boolean;
   readonly autoRefinementAnswersProfile: string | null;
@@ -598,6 +602,14 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
           <span class="phase-field__hint">Default graph orientation for this user in this workspace.</span>
         </label>
         <label class="phase-field">
+          <span>Visual timeline</span>
+          <select data-visual-timeline-enabled>
+            <option value="false"${model.visualTimelineEnabled ? "" : " selected"}>Hidden</option>
+            <option value="true"${model.visualTimelineEnabled ? " selected" : ""}>Visible</option>
+          </select>
+          <span class="phase-field__hint">Show or hide the visual workflow timeline dock in the workflow detail view.</span>
+        </label>
+        <label class="phase-field">
           <span>Workspace watcher</span>
           <select data-watcher-enabled>
             <option value="true"${model.watcherEnabled ? " selected" : ""}>Enabled</option>
@@ -639,6 +651,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       attentionNotificationsEnabled: ${JSON.stringify(model.attentionNotificationsEnabled)},
       contextSuggestionsEnabled: ${JSON.stringify(model.contextSuggestionsEnabled)},
       workflowGraphLayoutMode: ${JSON.stringify(model.workflowGraphLayoutMode)},
+      visualTimelineEnabled: ${JSON.stringify(model.visualTimelineEnabled)},
       requireExplicitApprovalBranchAcceptance: ${JSON.stringify(model.requireExplicitApprovalBranchAcceptance)},
       autoRefinementAnswersEnabled: ${JSON.stringify(model.autoRefinementAnswersEnabled)},
       autoRefinementAnswersProfile: ${JSON.stringify(model.autoRefinementAnswersProfile)},
@@ -774,6 +787,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       const attentionNotificationsEnabled = document.querySelector("[data-attention-notifications-enabled]");
       const contextSuggestionsEnabled = document.querySelector("[data-context-suggestions-enabled]");
       const workflowGraphLayoutMode = document.querySelector("[data-workflow-graph-layout-mode]");
+      const visualTimelineEnabled = document.querySelector("[data-visual-timeline-enabled]");
       const requireApprovalBranchAcceptance = document.querySelector("[data-require-approval-branch-acceptance]");
       const autoRefinementEnabled = document.querySelector("[data-auto-refinement-enabled]");
       const autoPlayEnabled = document.querySelector("[data-auto-play-enabled]");
@@ -882,6 +896,13 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         workflowGraphLayoutMode.value = state.workflowGraphLayoutMode === "horizontal" ? "horizontal" : "vertical";
         workflowGraphLayoutMode.addEventListener("change", () => {
           state.workflowGraphLayoutMode = workflowGraphLayoutMode.value === "horizontal" ? "horizontal" : "vertical";
+        });
+      }
+
+      if (visualTimelineEnabled instanceof HTMLSelectElement) {
+        visualTimelineEnabled.value = state.visualTimelineEnabled ? "true" : "false";
+        visualTimelineEnabled.addEventListener("change", () => {
+          state.visualTimelineEnabled = visualTimelineEnabled.value === "true";
         });
       }
 
@@ -1187,6 +1208,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         attentionNotificationsEnabled: state.attentionNotificationsEnabled,
         contextSuggestionsEnabled: state.contextSuggestionsEnabled,
         workflowGraphLayoutMode: state.workflowGraphLayoutMode,
+        visualTimelineEnabled: state.visualTimelineEnabled,
         requireExplicitApprovalBranchAcceptance: state.requireExplicitApprovalBranchAcceptance,
         autoRefinementAnswersEnabled: state.autoRefinementAnswersEnabled,
         autoRefinementAnswersProfile: state.autoRefinementAnswersProfile,
@@ -1214,6 +1236,7 @@ async function saveExecutionSettingsAsync(
   attentionNotificationsEnabled = true,
   contextSuggestionsEnabled = true,
   workflowGraphLayoutMode: "horizontal" | "vertical" = "vertical",
+  visualTimelineEnabled = false,
   requireExplicitApprovalBranchAcceptance = false,
   autoRefinementAnswersEnabled = false,
   autoRefinementAnswersProfile?: string | null,
@@ -1271,6 +1294,7 @@ async function saveExecutionSettingsAsync(
   await configuration.update("execution.refinementTolerance", refinementTolerance, vscode.ConfigurationTarget.Workspace);
   await configuration.update("execution.reviewTolerance", reviewTolerance, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.workflowGraphLayoutMode", workflowGraphLayoutMode, vscode.ConfigurationTarget.Global);
+  await configuration.update("ui.visualTimelineEnabled", visualTimelineEnabled, vscode.ConfigurationTarget.Global);
   await configuration.update("ui.enableWatcher", watcherEnabled, vscode.ConfigurationTarget.Global);
   await configuration.update("ui.notifyOnAttention", attentionNotificationsEnabled, vscode.ConfigurationTarget.Global);
   await configuration.update("features.enableContextSuggestions", contextSuggestionsEnabled, vscode.ConfigurationTarget.Global);
@@ -1293,6 +1317,7 @@ async function saveExecutionSettingsAsync(
     completedUsLockOnCompleted,
     vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.workflowGraphLayoutMode", undefined, vscode.ConfigurationTarget.Workspace);
+  await configuration.update("ui.visualTimelineEnabled", undefined, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.enableWatcher", undefined, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.notifyOnAttention", undefined, vscode.ConfigurationTarget.Workspace);
   await configuration.update("features.enableContextSuggestions", undefined, vscode.ConfigurationTarget.Workspace);

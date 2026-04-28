@@ -8,6 +8,7 @@ export interface SpecForgeSettings {
   readonly refinementTolerance: string;
   readonly reviewTolerance: string;
   readonly workflowGraphLayoutMode: "horizontal" | "vertical";
+  readonly visualTimelineEnabled: boolean;
   readonly watcherEnabled: boolean;
   readonly attentionNotificationsEnabled: boolean;
   readonly contextSuggestionsEnabled: boolean;
@@ -85,6 +86,7 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
     workflowGraphLayoutMode: configuration.get<"horizontal" | "vertical">("ui.workflowGraphLayoutMode", "vertical") === "horizontal"
       ? "horizontal"
       : "vertical",
+    visualTimelineEnabled: configuration.get<boolean>("ui.visualTimelineEnabled", false),
     watcherEnabled: configuration.get<boolean>("ui.enableWatcher", true),
     attentionNotificationsEnabled: configuration.get<boolean>("ui.notifyOnAttention", true),
     contextSuggestionsEnabled: configuration.get<boolean>("features.enableContextSuggestions", true),

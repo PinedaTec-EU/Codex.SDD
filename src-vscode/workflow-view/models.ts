@@ -46,6 +46,7 @@ export interface WorkflowViewState {
   readonly reviewRegressionDraft?: string | null;
   readonly reviewRegressionIncludeArtifact?: boolean;
   readonly completedUsLockOnCompleted?: boolean;
+  readonly visualTimelineEnabled?: boolean;
   readonly pendingRewindPhaseId?: string | null;
   readonly graphLayoutMode?: "horizontal" | "vertical";
   readonly workflowGraphLayout?: WorkflowGraphLayoutConfig;

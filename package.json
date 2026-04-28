@@ -294,6 +294,11 @@
           "default": true,
           "description": "Show notifications when a user story becomes waiting-user, blocked, or completed."
         },
+        "specForge.ui.visualTimelineEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show the visual workflow timeline dock inside the workflow detail view."
+        },
         "specForge.features.enableContextSuggestions": {
           "type": "boolean",
           "default": true,

@@ -1709,7 +1709,7 @@ export function buildWorkflowHtml(
   const heroRewindDisabled = !rewindDecision.allowed || playbackState !== "idle";
   const timelineRewindPoints = buildTimelineRewindPoints(workflow, displayedCurrentPhaseId);
   const timelineLoopGroups = buildTimelineLoopGroups(timelineRewindPoints, selectedPhase.phaseId);
-  const timelineRewindDock = timelineRewindPoints.length > 1
+  const timelineRewindDock = state.visualTimelineEnabled === true && timelineRewindPoints.length > 1
     ? `
       <div class="time-dock" aria-label="Workflow time navigation">
         <button class="time-dock__scroll" type="button" data-time-dock-scroll="left" aria-label="Move timeline left">&lt;</button>

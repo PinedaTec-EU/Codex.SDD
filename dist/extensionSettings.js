@@ -23,6 +23,7 @@ function readSpecForgeSettings(configuration) {
         workflowGraphLayoutMode: configuration.get("ui.workflowGraphLayoutMode", "vertical") === "horizontal"
             ? "horizontal"
             : "vertical",
+        visualTimelineEnabled: configuration.get("ui.visualTimelineEnabled", false),
         watcherEnabled: configuration.get("ui.enableWatcher", true),
         attentionNotificationsEnabled: configuration.get("ui.notifyOnAttention", true),
         contextSuggestionsEnabled: configuration.get("features.enableContextSuggestions", true),

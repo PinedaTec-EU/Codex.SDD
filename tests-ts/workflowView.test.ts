@@ -971,6 +971,7 @@ test("buildWorkflowHtml shows a single hero rewind control and keeps per-phase p
     selectedPhaseId: "technical-design",
     selectedArtifactContent: "## Technical Design",
     contextSuggestions: [],
+    visualTimelineEnabled: true,
     settingsConfigured: true,
     settingsMessage: null
   }, "idle");
@@ -3023,6 +3024,7 @@ test("buildWorkflowHtml groups implementation review loops in the bottom timelin
     selectedPhaseId: "implementation",
     selectedArtifactContent: null,
     contextSuggestions: [],
+    visualTimelineEnabled: true,
     settingsConfigured: true,
     settingsMessage: null
   }, "idle");
@@ -3083,6 +3085,7 @@ test("buildWorkflowHtml does not overstate implementation-review loops when revi
     selectedPhaseId: "review",
     selectedArtifactContent: null,
     contextSuggestions: [],
+    visualTimelineEnabled: true,
     settingsConfigured: true,
     settingsMessage: null
   }, "idle");

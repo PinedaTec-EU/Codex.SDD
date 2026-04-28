@@ -1135,6 +1135,7 @@ class WorkflowPanelController {
                 : null,
             maxImplementationReviewCycles: settings.maxImplementationReviewCycles,
             completedUsLockOnCompleted: settings.completedUsLockOnCompleted,
+            visualTimelineEnabled: settings.visualTimelineEnabled,
             debugMode: (0, outputChannel_1.isSpecForgeDebugLoggingEnabled)(),
             approvalBaseBranchProposal: this.specApprovalBaseBranchProposal,
             approvalWorkBranchProposal: this.buildSpecApprovalWorkBranchProposal(workflow),
