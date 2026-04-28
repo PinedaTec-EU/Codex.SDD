@@ -7274,7 +7274,7 @@ function buildGraphLoopOverlays(
       loopId,
       box,
       selected: selectedPhaseId === definition.fromPhaseId || selectedPhaseId === definition.toPhaseId,
-      label: `${cycleCount} ciclos entre ${sourcePhase.title} y ${targetPhase.title}`,
+      label: `${cycleCount} cycles between ${sourcePhase.title} and ${targetPhase.title}`,
       pathToSource: buildGraphLoopConnectorPath(sourcePosition, nodeWidth, box, definition.side, "source"),
       pathToTarget: buildGraphLoopConnectorPath(targetPosition, nodeWidth, box, definition.side, "target")
     });
