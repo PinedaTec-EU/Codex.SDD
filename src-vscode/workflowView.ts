@@ -78,9 +78,9 @@ type GraphAnchor =
   | "exit-bottom-left"
   | "exit-bottom-mid"
   | "exit-bottom-right";
-const phaseNodeWidth = 300;
+const phaseNodeWidth = 240;
 const phaseNodeHeight = 118;
-const mobilePhaseNodeWidth = 258;
+const mobilePhaseNodeWidth = 206;
 const defaultPhaseSequence: readonly LayoutPhaseDescriptor[] = [
   { phaseId: "capture", expectsHumanIntervention: false },
   { phaseId: "refinement", expectsHumanIntervention: true },

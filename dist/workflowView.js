@@ -22,9 +22,9 @@ const reviewPhaseView_1 = require("./workflow-view/reviewPhaseView");
 const technicalDesignPhaseView_1 = require("./workflow-view/technicalDesignPhaseView");
 const webviewTypography_1 = require("./webviewTypography");
 const workflowGraphLayout_1 = require("./workflowGraphLayout");
-const phaseNodeWidth = 300;
+const phaseNodeWidth = 240;
 const phaseNodeHeight = 118;
-const mobilePhaseNodeWidth = 258;
+const mobilePhaseNodeWidth = 206;
 const defaultPhaseSequence = [
     { phaseId: "capture", expectsHumanIntervention: false },
     { phaseId: "refinement", expectsHumanIntervention: true },

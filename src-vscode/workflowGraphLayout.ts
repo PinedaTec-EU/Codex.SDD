@@ -46,7 +46,7 @@ const workflowGraphPhaseIds: readonly WorkflowGraphPhaseId[] = [
 ] as const;
 
 // Keep this comment aligned with workflowView.ts card constants.
-// Card dimensions used by the renderer: desktop 300x118, mobile 258x118.
+// Card dimensions used by the renderer: desktop 240x118, mobile 206x118.
 export const defaultHorizontalWorkflowGraphPositions: Record<string, WorkflowGraphPhasePosition> = {
   capture: { x: 72, y: 56 },
   refinement: { x: 430, y: 56 },
@@ -284,7 +284,7 @@ function serializeWorkflowGraphLayoutConfig(config: WorkflowGraphLayoutConfig): 
   return [
     "# SpecForge workflow graph layout",
     "# Edit x/y coordinates to reposition cards in the workflow graph.",
-    "# Card dimensions used by the renderer: desktop 300x118, mobile 258x118.",
+    "# Card dimensions used by the renderer: desktop 240x118, mobile 206x118.",
     "# Connection anchors use T1..T5, R1..R5, B1..B5, L1..L5.",
     serializeMode("horizontal"),
     "",

@@ -1,6 +1,6 @@
 # SpecForge workflow graph layout
 # Edit x/y coordinates to reposition cards in the workflow graph.
-# Card dimensions used by the renderer: desktop 300x118, mobile 258x118.
+# Card dimensions used by the renderer: desktop 240x118, mobile 206x118.
 # Connection anchors use T1..T5, R1..R5, B1..B5, L1..L5.
 horizontal:
   capture:
