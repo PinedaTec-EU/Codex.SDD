@@ -78,9 +78,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerWebviewViewProvider("specForge.auditStream", workflowAuditProvider),
     vscode.lm.registerMcpServerDefinitionProvider("specForge.workspaceMcp", mcpProvider),
     vscode.commands.registerCommand("specForge.openExecutionSettings", async () => {
-      await openExecutionSettingsPanelAsync(context.extensionUri, async () => {
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null;
+      await openExecutionSettingsPanelAsync(context.extensionUri, workspaceRoot, async () => {
         await refreshWorkspaceUiAsync("executionSettingsSaved");
-        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         if (!workspaceRoot) {
           mcpProvider.refresh();
           return;
@@ -292,9 +292,7 @@ function createExtensionActions(
             workflowAuditProvider.clearWorkflowAudit(usId);
           },
           notifyAttention: (message) => {
-            if (getSpecForgeSettings().attentionNotificationsEnabled) {
-              void vscode.window.showInformationMessage(message);
-            }
+            void showAttentionNotificationIfEnabledAsync(message);
           },
           stopBackend: (root) => {
             resetBackendClient(root);
@@ -327,7 +325,12 @@ function createExtensionActions(
 
 async function notifyAttentionChangesAsync(): Promise<void> {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!workspaceRoot || !getSpecForgeSettings().attentionNotificationsEnabled) {
+  if (!workspaceRoot) {
+    return;
+  }
+
+  const preferences = await readUserWorkspacePreferencesWithWorkspaceFallbackAsync(workspaceRoot);
+  if (!preferences.attentionNotificationsEnabled) {
     return;
   }
 
@@ -359,29 +362,37 @@ function createWorkspaceWatcher(onChange: (reason: string) => Promise<void>): vs
   let debounceHandle: NodeJS.Timeout | undefined;
 
   const scheduleRefresh = (uri?: vscode.Uri) => {
-    if (!getSpecForgeSettings().watcherEnabled) {
-      appendSpecForgeDebugLog(`Watcher ignored change because watcher is disabled. path='${uri?.fsPath ?? "unknown"}'.`);
-      return;
-    }
+    void (async () => {
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot) {
+        return;
+      }
 
-    if (uri && /(?:^|[\\/])runtime\.yaml$/i.test(uri.fsPath)) {
-      appendSpecForgeDebugLog(`Watcher ignored runtime heartbeat file. path='${uri.fsPath}'.`);
-      return;
-    }
+      const preferences = await readUserWorkspacePreferencesWithWorkspaceFallbackAsync(workspaceRoot);
+      if (!preferences.watcherEnabled) {
+        appendSpecForgeDebugLog(`Watcher ignored change because watcher is disabled. path='${uri?.fsPath ?? "unknown"}'.`);
+        return;
+      }
 
-    if (uri) {
-      notifyWorkflowFileChanged(uri.fsPath);
-    }
+      if (uri && /(?:^|[\\/])runtime\.yaml$/i.test(uri.fsPath)) {
+        appendSpecForgeDebugLog(`Watcher ignored runtime heartbeat file. path='${uri.fsPath}'.`);
+        return;
+      }
 
-    appendSpecForgeDebugLog(`Watcher scheduled refresh. path='${uri?.fsPath ?? "unknown"}'.`);
+      if (uri) {
+        notifyWorkflowFileChanged(uri.fsPath);
+      }
 
-    if (debounceHandle) {
-      clearTimeout(debounceHandle);
-    }
+      appendSpecForgeDebugLog(`Watcher scheduled refresh. path='${uri?.fsPath ?? "unknown"}'.`);
 
-    debounceHandle = setTimeout(() => {
-      void onChange(`watcher:${uri?.fsPath ?? "unknown"}`);
-    }, 300);
+      if (debounceHandle) {
+        clearTimeout(debounceHandle);
+      }
+
+      debounceHandle = setTimeout(() => {
+        void onChange(`watcher:${uri?.fsPath ?? "unknown"}`);
+      }, 300);
+    })();
   };
 
   const markdownWatcher = vscode.workspace.createFileSystemWatcher("**/.specs/us/**/*.md");
@@ -441,9 +452,7 @@ async function autoOpenStarredUserStoryAsync(
           workflowAuditProvider.clearWorkflowAudit(usId);
         },
         notifyAttention: (message) => {
-          if (getSpecForgeSettings().attentionNotificationsEnabled) {
-            void vscode.window.showInformationMessage(message);
-          }
+          void showAttentionNotificationIfEnabledAsync(message);
         },
         stopBackend: (root) => {
           resetBackendClient(root);
@@ -461,6 +470,27 @@ async function autoOpenStarredUserStoryAsync(
     );
   } catch {
     await clearMissingStarredUserStoryAsync(workspaceRoot);
+  }
+}
+
+async function readUserWorkspacePreferencesWithWorkspaceFallbackAsync(workspaceRoot: string) {
+  const settings = getSpecForgeSettings();
+  return readUserWorkspacePreferences(workspaceRoot, {
+    watcherEnabled: settings.watcherEnabled,
+    attentionNotificationsEnabled: settings.attentionNotificationsEnabled,
+    contextSuggestionsEnabled: settings.contextSuggestionsEnabled
+  });
+}
+
+async function showAttentionNotificationIfEnabledAsync(message: string): Promise<void> {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceRoot) {
+    return;
+  }
+
+  const preferences = await readUserWorkspacePreferencesWithWorkspaceFallbackAsync(workspaceRoot);
+  if (preferences.attentionNotificationsEnabled) {
+    void vscode.window.showInformationMessage(message);
   }
 }
 

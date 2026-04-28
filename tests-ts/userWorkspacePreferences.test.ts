@@ -7,7 +7,9 @@ import {
   getUserWorkspacePreferencesPath,
   readUserWorkspacePreferences,
   setPausedWorkflowPhaseIds,
-  setStarredUserStory
+  setStarredUserStory,
+  setUserWorkspaceUiPreferences,
+  setWorkflowGraphLayoutMode
 } from "../src-vscode/userWorkspacePreferences";
 
 test("user workspace preferences persist a starred user story per local user", async () => {
@@ -37,4 +39,47 @@ test("user workspace preferences persist paused workflow phase ids per user stor
   const preferences = await readUserWorkspacePreferences(workspaceRoot);
 
   assert.deepEqual(preferences.pausedWorkflowPhaseIdsByUsId["US-0042"], ["implementation", "review"]);
+});
+
+test("user workspace preferences persist user-only workflow UX flags", async () => {
+  const workspaceRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "specforge-prefs-"));
+
+  await setUserWorkspaceUiPreferences(workspaceRoot, {
+    watcherEnabled: false,
+    attentionNotificationsEnabled: false,
+    contextSuggestionsEnabled: false,
+    workflowGraphLayoutMode: "horizontal"
+  });
+  const preferences = await readUserWorkspacePreferences(workspaceRoot);
+
+  assert.equal(preferences.watcherEnabled, false);
+  assert.equal(preferences.attentionNotificationsEnabled, false);
+  assert.equal(preferences.contextSuggestionsEnabled, false);
+  assert.equal(preferences.workflowGraphLayoutMode, "horizontal");
+});
+
+test("user workspace preferences fall back to legacy workspace settings when user flags are absent", async () => {
+  const workspaceRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "specforge-prefs-"));
+
+  await setStarredUserStory(workspaceRoot, "US-0008");
+  const preferences = await readUserWorkspacePreferences(workspaceRoot, {
+    watcherEnabled: false,
+    attentionNotificationsEnabled: false,
+    contextSuggestionsEnabled: false
+  });
+
+  assert.equal(preferences.starredUserStoryId, "US-0008");
+  assert.equal(preferences.watcherEnabled, false);
+  assert.equal(preferences.attentionNotificationsEnabled, false);
+  assert.equal(preferences.contextSuggestionsEnabled, false);
+  assert.equal(preferences.workflowGraphLayoutMode, "vertical");
+});
+
+test("user workspace preferences persist graph layout mode independently", async () => {
+  const workspaceRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "specforge-prefs-"));
+
+  await setWorkflowGraphLayoutMode(workspaceRoot, "horizontal");
+  const preferences = await readUserWorkspacePreferences(workspaceRoot);
+
+  assert.equal(preferences.workflowGraphLayoutMode, "horizontal");
 });

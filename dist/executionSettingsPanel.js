@@ -39,15 +39,16 @@ const vscode = __importStar(require("vscode"));
 const htmlEscape_1 = require("./htmlEscape");
 const executionSettingsModel_1 = require("./executionSettingsModel");
 const extensionSettings_1 = require("./extensionSettings");
+const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
 const webviewTypography_1 = require("./webviewTypography");
 let currentPanel = null;
-async function openExecutionSettingsPanelAsync(extensionUri, onDidSave) {
+async function openExecutionSettingsPanelAsync(extensionUri, workspaceRoot, onDidSave) {
     if (currentPanel) {
         currentPanel.reveal();
         await currentPanel.refreshAsync();
         return;
     }
-    currentPanel = new ExecutionSettingsPanelController(extensionUri, onDidSave, () => {
+    currentPanel = new ExecutionSettingsPanelController(extensionUri, workspaceRoot, onDidSave, () => {
         currentPanel = null;
     });
     currentPanel.reveal();
@@ -55,11 +56,13 @@ async function openExecutionSettingsPanelAsync(extensionUri, onDidSave) {
 }
 class ExecutionSettingsPanelController {
     extensionUri;
+    workspaceRoot;
     onDidSave;
     onDidDisposePanel;
     panel;
-    constructor(extensionUri, onDidSave, onDidDisposePanel) {
+    constructor(extensionUri, workspaceRoot, onDidSave, onDidDisposePanel) {
         this.extensionUri = extensionUri;
+        this.workspaceRoot = workspaceRoot;
         this.onDidSave = onDidSave;
         this.onDidDisposePanel = onDidDisposePanel;
         this.panel = vscode.window.createWebviewPanel("specForge.executionSettings", "SpecForge Configuration", vscode.ViewColumn.Active, {
@@ -77,7 +80,7 @@ class ExecutionSettingsPanelController {
                     return;
                 case "saveExecutionSettings":
                     try {
-                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.refinementTolerance ?? "balanced", message.reviewTolerance ?? "balanced", message.watcherEnabled ?? true, message.attentionNotificationsEnabled ?? true, message.contextSuggestionsEnabled ?? true, message.requireExplicitApprovalBranchAcceptance ?? false, message.autoRefinementAnswersEnabled ?? false, message.autoRefinementAnswersProfile, message.autoPlayEnabled ?? false, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.destructiveRewindEnabled ?? false, message.pauseOnFailedReview ?? false, message.completedUsLockOnCompleted ?? true);
+                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.refinementTolerance ?? "balanced", message.reviewTolerance ?? "balanced", message.watcherEnabled ?? true, message.attentionNotificationsEnabled ?? true, message.contextSuggestionsEnabled ?? true, message.workflowGraphLayoutMode ?? "vertical", message.requireExplicitApprovalBranchAcceptance ?? false, message.autoRefinementAnswersEnabled ?? false, message.autoRefinementAnswersProfile, message.autoPlayEnabled ?? false, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.destructiveRewindEnabled ?? false, message.pauseOnFailedReview ?? false, message.completedUsLockOnCompleted ?? true);
                         await this.onDidSave();
                         await this.refreshAsync();
                     }
@@ -94,14 +97,22 @@ class ExecutionSettingsPanelController {
     }
     async refreshAsync() {
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
+        const userPreferences = this.workspaceRoot
+            ? await (0, userWorkspacePreferences_1.readUserWorkspacePreferences)(this.workspaceRoot, {
+                watcherEnabled: settings.watcherEnabled,
+                attentionNotificationsEnabled: settings.attentionNotificationsEnabled,
+                contextSuggestionsEnabled: settings.contextSuggestionsEnabled
+            })
+            : null;
         this.panel.webview.html = buildExecutionSettingsHtml({
             modelProfiles: settings.modelProfiles,
             phaseModelAssignments: settings.phaseModelAssignments,
             refinementTolerance: settings.refinementTolerance,
             reviewTolerance: settings.reviewTolerance,
-            watcherEnabled: settings.watcherEnabled,
-            attentionNotificationsEnabled: settings.attentionNotificationsEnabled,
-            contextSuggestionsEnabled: settings.contextSuggestionsEnabled,
+            watcherEnabled: userPreferences?.watcherEnabled ?? settings.watcherEnabled,
+            attentionNotificationsEnabled: userPreferences?.attentionNotificationsEnabled ?? settings.attentionNotificationsEnabled,
+            contextSuggestionsEnabled: userPreferences?.contextSuggestionsEnabled ?? settings.contextSuggestionsEnabled,
+            workflowGraphLayoutMode: userPreferences?.workflowGraphLayoutMode ?? "vertical",
             requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance,
             autoRefinementAnswersEnabled: settings.autoRefinementAnswersEnabled,
             autoRefinementAnswersProfile: settings.autoRefinementAnswersProfile,
@@ -385,7 +396,7 @@ function buildExecutionSettingsHtml(model) {
     <section class="hero">
       <p class="eyebrow">SpecForge Configuration</p>
       <h1>One panel, one source of truth</h1>
-      <p class="copy">Keep SpecForge settings together here instead of scattering workflow behavior across raw VS Code settings. Provider catalog, phase routing, tolerances, automation, workflow safety, and workspace UX all persist to the same <code>specForge.*</code> workspace configuration.</p>
+      <p class="copy">Keep SpecForge settings together here instead of scattering workflow behavior across raw VS Code settings. Workspace workflow rules persist in <code>specForge.*</code>, while personal UX preferences persist per user inside <code>.specs/users/&lt;user&gt;/vscode-preferences.json</code>.</p>
       <div class="actions">
         <button class="ghost-action" type="button" data-command="openRawSettings">Open Raw VS Code Settings</button>
       </div>
@@ -538,12 +549,20 @@ function buildExecutionSettingsHtml(model) {
       </div>
       <div class="section-header">
         <div>
-          <p class="eyebrow">Workspace UX</p>
-          <h2>Refresh and attention signals</h2>
-          <p class="copy">Keep the explorer and workflow views synchronized with disk changes and decide whether SpecForge should surface attention notifications.</p>
+          <p class="eyebrow">User Preferences</p>
+          <h2>Personal workflow UX</h2>
+          <p class="copy">These preferences only affect the current user in this workspace. They do not change shared workflow behavior for the rest of the team.</p>
         </div>
       </div>
       <div class="feature-grid">
+        <label class="phase-field">
+          <span>Workflow graph layout</span>
+          <select data-workflow-graph-layout-mode>
+            <option value="vertical"${model.workflowGraphLayoutMode === "vertical" ? " selected" : ""}>Vertical</option>
+            <option value="horizontal"${model.workflowGraphLayoutMode === "horizontal" ? " selected" : ""}>Horizontal</option>
+          </select>
+          <span class="phase-field__hint">Default graph orientation for this user in this workspace.</span>
+        </label>
         <label class="phase-field">
           <span>Workspace watcher</span>
           <select data-watcher-enabled>
@@ -585,6 +604,7 @@ function buildExecutionSettingsHtml(model) {
       watcherEnabled: ${JSON.stringify(model.watcherEnabled)},
       attentionNotificationsEnabled: ${JSON.stringify(model.attentionNotificationsEnabled)},
       contextSuggestionsEnabled: ${JSON.stringify(model.contextSuggestionsEnabled)},
+      workflowGraphLayoutMode: ${JSON.stringify(model.workflowGraphLayoutMode)},
       requireExplicitApprovalBranchAcceptance: ${JSON.stringify(model.requireExplicitApprovalBranchAcceptance)},
       autoRefinementAnswersEnabled: ${JSON.stringify(model.autoRefinementAnswersEnabled)},
       autoRefinementAnswersProfile: ${JSON.stringify(model.autoRefinementAnswersProfile)},
@@ -719,6 +739,7 @@ function buildExecutionSettingsHtml(model) {
       const watcherEnabled = document.querySelector("[data-watcher-enabled]");
       const attentionNotificationsEnabled = document.querySelector("[data-attention-notifications-enabled]");
       const contextSuggestionsEnabled = document.querySelector("[data-context-suggestions-enabled]");
+      const workflowGraphLayoutMode = document.querySelector("[data-workflow-graph-layout-mode]");
       const requireApprovalBranchAcceptance = document.querySelector("[data-require-approval-branch-acceptance]");
       const autoRefinementEnabled = document.querySelector("[data-auto-refinement-enabled]");
       const autoPlayEnabled = document.querySelector("[data-auto-play-enabled]");
@@ -820,6 +841,13 @@ function buildExecutionSettingsHtml(model) {
         contextSuggestionsEnabled.value = state.contextSuggestionsEnabled ? "true" : "false";
         contextSuggestionsEnabled.addEventListener("change", () => {
           state.contextSuggestionsEnabled = contextSuggestionsEnabled.value === "true";
+        });
+      }
+
+      if (workflowGraphLayoutMode instanceof HTMLSelectElement) {
+        workflowGraphLayoutMode.value = state.workflowGraphLayoutMode === "horizontal" ? "horizontal" : "vertical";
+        workflowGraphLayoutMode.addEventListener("change", () => {
+          state.workflowGraphLayoutMode = workflowGraphLayoutMode.value === "horizontal" ? "horizontal" : "vertical";
         });
       }
 
@@ -1124,6 +1152,7 @@ function buildExecutionSettingsHtml(model) {
         watcherEnabled: state.watcherEnabled,
         attentionNotificationsEnabled: state.attentionNotificationsEnabled,
         contextSuggestionsEnabled: state.contextSuggestionsEnabled,
+        workflowGraphLayoutMode: state.workflowGraphLayoutMode,
         requireExplicitApprovalBranchAcceptance: state.requireExplicitApprovalBranchAcceptance,
         autoRefinementAnswersEnabled: state.autoRefinementAnswersEnabled,
         autoRefinementAnswersProfile: state.autoRefinementAnswersProfile,
@@ -1141,8 +1170,9 @@ function buildExecutionSettingsHtml(model) {
 </body>
 </html>`;
 }
-async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, refinementTolerance = "balanced", reviewTolerance = "balanced", watcherEnabled = true, attentionNotificationsEnabled = true, contextSuggestionsEnabled = true, requireExplicitApprovalBranchAcceptance = false, autoRefinementAnswersEnabled = false, autoRefinementAnswersProfile, autoPlayEnabled = false, autoReviewEnabled = false, maxImplementationReviewCycles, destructiveRewindEnabled = false, pauseOnFailedReview = false, completedUsLockOnCompleted = false) {
+async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, refinementTolerance = "balanced", reviewTolerance = "balanced", watcherEnabled = true, attentionNotificationsEnabled = true, contextSuggestionsEnabled = true, workflowGraphLayoutMode = "vertical", requireExplicitApprovalBranchAcceptance = false, autoRefinementAnswersEnabled = false, autoRefinementAnswersProfile, autoPlayEnabled = false, autoReviewEnabled = false, maxImplementationReviewCycles, destructiveRewindEnabled = false, pauseOnFailedReview = false, completedUsLockOnCompleted = false) {
     const configuration = vscode.workspace.getConfiguration("specForge");
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null;
     const normalizedProfiles = modelProfiles
         .map((profile) => ({
         name: typeof profile.name === "string" ? profile.name.trim() : "",
@@ -1185,9 +1215,9 @@ async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, 
     await configuration.update("execution.phaseModels", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
     await configuration.update("execution.refinementTolerance", refinementTolerance, vscode.ConfigurationTarget.Workspace);
     await configuration.update("execution.reviewTolerance", reviewTolerance, vscode.ConfigurationTarget.Workspace);
-    await configuration.update("ui.enableWatcher", watcherEnabled, vscode.ConfigurationTarget.Workspace);
-    await configuration.update("ui.notifyOnAttention", attentionNotificationsEnabled, vscode.ConfigurationTarget.Workspace);
-    await configuration.update("features.enableContextSuggestions", contextSuggestionsEnabled, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("ui.enableWatcher", undefined, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("ui.notifyOnAttention", undefined, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("features.enableContextSuggestions", undefined, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.requireApprovalBranchAcceptance", requireExplicitApprovalBranchAcceptance, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.autoRefinementAnswersEnabled", autoRefinementAnswersEnabled, vscode.ConfigurationTarget.Workspace);
     await configuration.update("execution.autoRefinementAnswersProfile", normalizeOptionalAssignment(autoRefinementAnswersProfile), vscode.ConfigurationTarget.Workspace);
@@ -1197,6 +1227,14 @@ async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, 
     await configuration.update("features.destructiveRewindEnabled", destructiveRewindEnabled, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.pauseOnFailedReview", pauseOnFailedReview, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.completedUsLockOnCompleted", completedUsLockOnCompleted, vscode.ConfigurationTarget.Workspace);
+    if (workspaceRoot) {
+        await (0, userWorkspacePreferences_1.setUserWorkspaceUiPreferences)(workspaceRoot, {
+            watcherEnabled,
+            attentionNotificationsEnabled,
+            contextSuggestionsEnabled,
+            workflowGraphLayoutMode
+        });
+    }
 }
 function normalizeOptionalAssignment(value) {
     const trimmed = value?.trim();

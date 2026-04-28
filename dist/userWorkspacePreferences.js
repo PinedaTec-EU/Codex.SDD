@@ -37,15 +37,21 @@ exports.readUserWorkspacePreferences = readUserWorkspacePreferences;
 exports.writeUserWorkspacePreferences = writeUserWorkspacePreferences;
 exports.setStarredUserStory = setStarredUserStory;
 exports.setPausedWorkflowPhaseIds = setPausedWorkflowPhaseIds;
+exports.setUserWorkspaceUiPreferences = setUserWorkspaceUiPreferences;
+exports.setWorkflowGraphLayoutMode = setWorkflowGraphLayoutMode;
 exports.getUserWorkspacePreferencesPath = getUserWorkspacePreferencesPath;
 const fs = __importStar(require("node:fs"));
 const os = __importStar(require("node:os"));
 const path = __importStar(require("node:path"));
 const defaultPreferences = {
     starredUserStoryId: null,
-    pausedWorkflowPhaseIdsByUsId: {}
+    pausedWorkflowPhaseIdsByUsId: {},
+    watcherEnabled: true,
+    attentionNotificationsEnabled: true,
+    contextSuggestionsEnabled: true,
+    workflowGraphLayoutMode: "vertical"
 };
-async function readUserWorkspacePreferences(workspaceRoot) {
+async function readUserWorkspacePreferences(workspaceRoot, fallbacks) {
     const filePath = getUserWorkspacePreferencesPath(workspaceRoot);
     try {
         const raw = await fs.promises.readFile(filePath, "utf8");
@@ -54,11 +60,18 @@ async function readUserWorkspacePreferences(workspaceRoot) {
             starredUserStoryId: typeof parsed?.starredUserStoryId === "string" && parsed.starredUserStoryId.trim().length > 0
                 ? parsed.starredUserStoryId.trim()
                 : null,
-            pausedWorkflowPhaseIdsByUsId: normalizePausedWorkflowPhaseIdsByUsId(parsed?.pausedWorkflowPhaseIdsByUsId)
+            pausedWorkflowPhaseIdsByUsId: normalizePausedWorkflowPhaseIdsByUsId(parsed?.pausedWorkflowPhaseIdsByUsId),
+            watcherEnabled: normalizeBooleanPreference(parsed, "watcherEnabled", fallbacks?.watcherEnabled ?? defaultPreferences.watcherEnabled),
+            attentionNotificationsEnabled: normalizeBooleanPreference(parsed, "attentionNotificationsEnabled", fallbacks?.attentionNotificationsEnabled ?? defaultPreferences.attentionNotificationsEnabled),
+            contextSuggestionsEnabled: normalizeBooleanPreference(parsed, "contextSuggestionsEnabled", fallbacks?.contextSuggestionsEnabled ?? defaultPreferences.contextSuggestionsEnabled),
+            workflowGraphLayoutMode: normalizeWorkflowGraphLayoutMode(parsed?.workflowGraphLayoutMode, fallbacks?.workflowGraphLayoutMode ?? defaultPreferences.workflowGraphLayoutMode)
         };
     }
     catch {
-        return defaultPreferences;
+        return {
+            ...defaultPreferences,
+            ...fallbacks
+        };
     }
 }
 async function writeUserWorkspacePreferences(workspaceRoot, preferences) {
@@ -96,6 +109,27 @@ async function setPausedWorkflowPhaseIds(workspaceRoot, usId, phaseIds) {
         pausedWorkflowPhaseIdsByUsId: nextPausedWorkflowPhaseIdsByUsId
     });
 }
+async function setUserWorkspaceUiPreferences(workspaceRoot, updates) {
+    const preferences = await readUserWorkspacePreferences(workspaceRoot);
+    await writeUserWorkspacePreferences(workspaceRoot, {
+        ...preferences,
+        watcherEnabled: typeof updates.watcherEnabled === "boolean"
+            ? updates.watcherEnabled
+            : preferences.watcherEnabled,
+        attentionNotificationsEnabled: typeof updates.attentionNotificationsEnabled === "boolean"
+            ? updates.attentionNotificationsEnabled
+            : preferences.attentionNotificationsEnabled,
+        contextSuggestionsEnabled: typeof updates.contextSuggestionsEnabled === "boolean"
+            ? updates.contextSuggestionsEnabled
+            : preferences.contextSuggestionsEnabled,
+        workflowGraphLayoutMode: normalizeWorkflowGraphLayoutMode(updates.workflowGraphLayoutMode, preferences.workflowGraphLayoutMode)
+    });
+}
+async function setWorkflowGraphLayoutMode(workspaceRoot, mode) {
+    await setUserWorkspaceUiPreferences(workspaceRoot, {
+        workflowGraphLayoutMode: mode
+    });
+}
 function normalizePausedWorkflowPhaseIdsByUsId(value) {
     if (!value || typeof value !== "object") {
         return {};
@@ -116,6 +150,14 @@ function normalizePausedWorkflowPhaseIdsByUsId(value) {
         result[normalizedUsId] = normalizedPhaseIds;
     }
     return result;
+}
+function normalizeBooleanPreference(parsed, key, fallback) {
+    return typeof parsed?.[key] === "boolean" ? parsed[key] : fallback;
+}
+function normalizeWorkflowGraphLayoutMode(value, fallback) {
+    return value === "horizontal" || value === "vertical"
+        ? value
+        : fallback;
 }
 function getUserWorkspacePreferencesPath(workspaceRoot) {
     return path.join(workspaceRoot, ".specs", "users", normalizeUserSegment(os.userInfo().username), "vscode-preferences.json");

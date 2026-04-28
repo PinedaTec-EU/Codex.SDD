@@ -21,7 +21,11 @@ import { resolveWorkflowRejectPlan } from "./workflowRejectPlan";
 import { buildWorkflowHtml } from "./workflowView";
 import type { WorkflowViewState } from "./workflow-view/models";
 import { getEditorTypographyCssVars } from "./webviewTypography";
-import { readUserWorkspacePreferences, setPausedWorkflowPhaseIds } from "./userWorkspacePreferences";
+import {
+  readUserWorkspacePreferences,
+  setPausedWorkflowPhaseIds,
+  setWorkflowGraphLayoutMode
+} from "./userWorkspacePreferences";
 import { readWorkflowGraphLayoutConfigAsync } from "./workflowGraphLayout";
 import { asErrorMessage, getNextAttachmentPathAsync } from "./utils";
 
@@ -58,6 +62,7 @@ type WorkflowPanelCommand =
   | { readonly command: "play" }
   | { readonly command: "pause" }
   | { readonly command: "togglePhasePause"; readonly phaseId?: string }
+  | { readonly command: "setGraphLayoutMode"; readonly graphLayoutMode?: "horizontal" | "vertical" }
   | { readonly command: "stop" };
 
 type WorkflowExecutionRequest = {
@@ -299,6 +304,14 @@ class WorkflowPanelController {
         return;
       case "openSettings":
         await vscode.commands.executeCommand("specForge.openExecutionSettings");
+        return;
+      case "setGraphLayoutMode":
+        if (message.graphLayoutMode === "horizontal" || message.graphLayoutMode === "vertical") {
+          await setWorkflowGraphLayoutMode(this.workspaceRoot, message.graphLayoutMode);
+          appendSpecForgeDebugLog(
+            `Workflow '${this.summary.usId}' persisted graph layout mode '${message.graphLayoutMode}' for user workspace preferences.`
+          );
+        }
         return;
       case "attachFiles":
         await this.attachFilesAsync(message.kind === "context" ? "context" : "attachment");
@@ -1446,11 +1459,16 @@ class WorkflowPanelController {
     const selectedOperationContent = await readArtifactContentAsync(selectedPhase.operationLogPath);
     const sourceText = await readArtifactContentAsync(workflow.mainArtifactPath) ?? "";
     const settings = getSpecForgeSettings();
+    const userPreferences = await readUserWorkspacePreferences(this.workspaceRoot, {
+      watcherEnabled: settings.watcherEnabled,
+      attentionNotificationsEnabled: settings.attentionNotificationsEnabled,
+      contextSuggestionsEnabled: settings.contextSuggestionsEnabled
+    });
     const settingsStatus = getSpecForgeSettingsStatus(settings);
     if (!settingsStatus.executionConfigured) {
       appendSpecForgeLog(`Workflow settings warning for '${this.workspaceRoot}' (${workflow.usId}): ${settingsStatus.message}. Diagnostics: ${settingsStatus.diagnostics}`);
     }
-    const contextSuggestions = settings.contextSuggestionsEnabled && workflow.currentPhase === "refinement"
+    const contextSuggestions = userPreferences.contextSuggestionsEnabled && workflow.currentPhase === "refinement"
       ? await suggestContextFiles(this.workspaceRoot, workflow, sourceText)
       : [];
     const runtimeVersion = await readRuntimeVersionAsync();
@@ -1486,6 +1504,7 @@ class WorkflowPanelController {
       approvalBaseBranchProposal: this.specApprovalBaseBranchProposal,
       approvalWorkBranchProposal: this.buildSpecApprovalWorkBranchProposal(workflow),
       requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance,
+      graphLayoutMode: userPreferences.workflowGraphLayoutMode,
       workflowGraphLayout
     };
     this.panel.title = `${workflow.usId} workflow`;

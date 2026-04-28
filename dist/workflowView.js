@@ -5407,6 +5407,10 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
           ...viewState,
           graphLayoutMode: nextMode
         });
+        vscode.postMessage({
+          command: "setGraphLayoutMode",
+          graphLayoutMode: nextMode
+        });
         window.requestAnimationFrame(() => centerFocusedPhaseInGraph());
       });
     }
