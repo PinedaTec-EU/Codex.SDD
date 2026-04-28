@@ -58,7 +58,6 @@ type WorkflowPanelCommand =
   | { readonly command: "play" }
   | { readonly command: "pause" }
   | { readonly command: "togglePhasePause"; readonly phaseId?: string }
-  | { readonly command: "setGraphLayoutMode"; readonly graphLayoutMode?: "horizontal" | "vertical" }
   | { readonly command: "stop" };
 
 type WorkflowExecutionRequest = {
@@ -300,16 +299,6 @@ class WorkflowPanelController {
         return;
       case "openSettings":
         await vscode.commands.executeCommand("specForge.openExecutionSettings");
-        return;
-      case "setGraphLayoutMode":
-        if (message.graphLayoutMode === "horizontal" || message.graphLayoutMode === "vertical") {
-          await vscode.workspace
-            .getConfiguration("specForge")
-            .update("ui.workflowGraphLayoutMode", message.graphLayoutMode, vscode.ConfigurationTarget.Global);
-          appendSpecForgeDebugLog(
-            `Workflow '${this.summary.usId}' persisted graph layout mode '${message.graphLayoutMode}' to VS Code user settings.`
-          );
-        }
         return;
       case "attachFiles":
         await this.attachFilesAsync(message.kind === "context" ? "context" : "attachment");

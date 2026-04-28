@@ -2495,14 +2495,14 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       align-items: flex-start;
       gap: 16px;
     }
-    .graph-view-toggle {
+    .graph-stage-actions {
       display: flex;
       justify-content: flex-end;
       align-items: center;
       gap: 10px;
       flex-shrink: 0;
     }
-    .graph-view-toggle__button {
+    .graph-stage-action-button {
       width: 38px;
       height: 38px;
       border-radius: 12px;
@@ -2516,23 +2516,16 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       transition: border-color 140ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
     }
-    .graph-view-toggle__button svg {
+    .graph-stage-action-button svg {
       width: 18px;
       height: 18px;
       fill: currentColor;
     }
-    .graph-view-toggle__button:hover {
+    .graph-stage-action-button:hover {
       border-color: rgba(114, 241, 184, 0.3);
       background: rgba(16, 32, 31, 0.96);
       color: rgba(244, 255, 250, 0.98);
       box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
-    }
-    .graph-view-toggle__label {
-      font-size: 0.74rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: rgba(196, 225, 212, 0.68);
-      white-space: nowrap;
     }
     .panel-copy {
       position: relative;
@@ -4944,24 +4937,14 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
               <h2 class="panel-title">Workflow Constellation</h2>
               <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and phase context.</p>
             </div>
-            <div class="graph-view-toggle" aria-label="Graph layout mode">
+            <div class="graph-stage-actions">
               <button
-                class="graph-view-toggle__button"
+                class="graph-stage-action-button"
                 type="button"
                 data-export-workflow-snapshot
                 aria-label="Copy workflow snapshot to clipboard"
                 title="Copy workflow snapshot to clipboard">
                 ${(0, icons_1.cameraIcon)()}
-              </button>
-              <span class="graph-view-toggle__label">${state.graphLayoutMode === "horizontal" ? "Horizontal" : "Vertical"}</span>
-              <button
-                class="graph-view-toggle__button"
-                type="button"
-                data-graph-layout-mode-toggle
-                data-layout-mode="${state.graphLayoutMode === "horizontal" ? "horizontal" : "vertical"}"
-                aria-label="${state.graphLayoutMode === "horizontal" ? "Switch graph layout to vertical" : "Switch graph layout to horizontal"}"
-                title="${state.graphLayoutMode === "horizontal" ? "Switch graph layout to vertical" : "Switch graph layout to horizontal"}">
-                ${(0, icons_1.graphLayoutModeIcon)(state.graphLayoutMode === "horizontal" ? "horizontal" : "vertical")}
               </button>
             </div>
           </div>
@@ -5379,41 +5362,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         });
       });
     });
-    const graphLayoutToggle = document.querySelector("[data-graph-layout-mode-toggle]");
-    const graphLayoutLabel = document.querySelector(".graph-view-toggle__label");
-    if (graphLayoutToggle instanceof HTMLButtonElement) {
-      graphLayoutToggle.addEventListener("click", () => {
-        if (!(phaseGraph instanceof HTMLElement)) {
-          return;
-        }
-
-        const currentMode = graphLayoutToggle.dataset.layoutMode === "horizontal" ? "horizontal" : "vertical";
-        const nextMode = currentMode === "horizontal" ? "vertical" : "horizontal";
-        const nextLabel = nextMode === "horizontal" ? "Horizontal" : "Vertical";
-        const nextTitle = nextMode === "horizontal"
-          ? "Switch graph layout to vertical"
-          : "Switch graph layout to horizontal";
-        phaseGraph.dataset.graphLayoutMode = nextMode;
-        graphLayoutToggle.dataset.layoutMode = nextMode;
-        graphLayoutToggle.setAttribute("aria-label", nextTitle);
-        graphLayoutToggle.title = nextTitle;
-        graphLayoutToggle.innerHTML = nextMode === "horizontal"
-          ? ${JSON.stringify((0, icons_1.graphLayoutModeIcon)("horizontal"))}
-          : ${JSON.stringify((0, icons_1.graphLayoutModeIcon)("vertical"))};
-        if (graphLayoutLabel instanceof HTMLElement) {
-          graphLayoutLabel.textContent = nextLabel;
-        }
-        vscode.setState({
-          ...viewState,
-          graphLayoutMode: nextMode
-        });
-        vscode.postMessage({
-          command: "setGraphLayoutMode",
-          graphLayoutMode: nextMode
-        });
-        window.requestAnimationFrame(() => centerFocusedPhaseInGraph());
-      });
-    }
     const postCommand = (element) => {
       try {
         persistWorkflowScrollState();

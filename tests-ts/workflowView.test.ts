@@ -2264,10 +2264,8 @@ test("buildWorkflowHtml computes deterministic two-column graph positions with o
   assert.match(html, /phase-node spec[\s\S]*?--phase-left-desktop-horizontal:/);
   assert.match(html, /phase-node spec[\s\S]*?--phase-left-desktop-vertical:/);
   assert.match(html, /phase-graph" data-graph-layout-mode="vertical" aria-label="Workflow graph" style="--graph-width-desktop-horizontal:/);
-  assert.match(html, /graph-view-toggle/);
-  assert.match(html, /data-graph-layout-mode-toggle/);
-  assert.match(html, /graph-view-toggle__label">Vertical</);
-  assert.match(html, /Switch graph layout to horizontal/);
+  assert.match(html, /graph-stage-actions/);
+  assert.match(html, /data-export-workflow-snapshot/);
   assert.match(html, /phase-role-badge/);
 });
 

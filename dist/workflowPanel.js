@@ -246,14 +246,6 @@ class WorkflowPanelController {
             case "openSettings":
                 await vscode.commands.executeCommand("specForge.openExecutionSettings");
                 return;
-            case "setGraphLayoutMode":
-                if (message.graphLayoutMode === "horizontal" || message.graphLayoutMode === "vertical") {
-                    await vscode.workspace
-                        .getConfiguration("specForge")
-                        .update("ui.workflowGraphLayoutMode", message.graphLayoutMode, vscode.ConfigurationTarget.Global);
-                    (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' persisted graph layout mode '${message.graphLayoutMode}' to VS Code user settings.`);
-                }
-                return;
             case "attachFiles":
                 await this.attachFilesAsync(message.kind === "context" ? "context" : "attachment");
                 return;
