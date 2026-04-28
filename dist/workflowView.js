@@ -1125,6 +1125,11 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     const selectedPhaseIsCurrent = selectedPhase.phaseId === displayedCurrentPhaseId;
     const isRefinementDetail = selectedPhase.phaseId === "refinement" && workflow.refinement !== null;
     const phaseGraph = buildPhaseGraph(workflow, state, selectedPhase.phaseId, playbackState, effectiveExecutionPhaseId);
+    const graphStageDesktopHorizontalLegendPosition = buildGraphLegendPosition(state.workflowGraphLayout?.legend?.horizontal?.x ?? 28, state.workflowGraphLayout?.legend?.horizontal?.y ?? 748, false);
+    const graphStageDesktopVerticalLegendPosition = buildGraphLegendPosition(state.workflowGraphLayout?.legend?.vertical?.x ?? 28, state.workflowGraphLayout?.legend?.vertical?.y ?? 1402, false);
+    const graphStageMobileHorizontalLegendPosition = buildGraphLegendPosition(state.workflowGraphLayout?.legend?.horizontal?.x ?? 28, state.workflowGraphLayout?.legend?.horizontal?.y ?? 748, true);
+    const graphStageMobileVerticalLegendPosition = buildGraphLegendPosition(state.workflowGraphLayout?.legend?.vertical?.x ?? 28, state.workflowGraphLayout?.legend?.vertical?.y ?? 1402, true);
+    const graphStageLegendStyle = `--graph-legend-left-desktop-horizontal: ${graphStageDesktopHorizontalLegendPosition.left}px; --graph-legend-top-desktop-horizontal: ${graphStageDesktopHorizontalLegendPosition.top}px; --graph-legend-left-desktop-vertical: ${graphStageDesktopVerticalLegendPosition.left}px; --graph-legend-top-desktop-vertical: ${graphStageDesktopVerticalLegendPosition.top}px; --graph-legend-left-mobile-horizontal: ${graphStageMobileHorizontalLegendPosition.left}px; --graph-legend-top-mobile-horizontal: ${graphStageMobileHorizontalLegendPosition.top}px; --graph-legend-left-mobile-vertical: ${graphStageMobileVerticalLegendPosition.left}px; --graph-legend-top-mobile-vertical: ${graphStageMobileVerticalLegendPosition.top}px;`;
     const executionOverlay = buildExecutionOverlay(workflow, state, playbackState);
     const selectedPhaseVisualTone = resolvePhaseVisualTone(workflow.status, workflow, playbackState, selectedPhase, false, playbackState === "playing" ? effectiveExecutionPhaseId : null, pausedExecutionPhaseId, new Set(state.completedPhaseIds ?? []));
     const selectedPhaseDisplayState = phaseToneLabel(selectedPhaseVisualTone, selectedPhase.state, playbackState, selectedPhase.isCurrent);
@@ -4960,7 +4965,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
               </button>
             </div>
           </div>
-          <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}${playbackState === "playing" || playbackState === "stopping" ? " graph-stage--overlay-blocking" : ""}">
+          <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}${playbackState === "playing" || playbackState === "stopping" ? " graph-stage--overlay-blocking" : ""}" style="${graphStageLegendStyle}">
             ${executionOverlay}
             ${phaseGraph}
             ${renderGraphLegend(workflow.usId)}
