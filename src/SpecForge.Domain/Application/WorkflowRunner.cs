@@ -2032,6 +2032,14 @@ public sealed class WorkflowRunner
                     builder.AppendLine($"  - warning: {warning}");
                 }
             }
+
+            if (!string.IsNullOrWhiteSpace(execution.InputSha256) ||
+                !string.IsNullOrWhiteSpace(execution.OutputSha256) ||
+                !string.IsNullOrWhiteSpace(execution.StructuredOutputSha256))
+            {
+                builder.AppendLine(
+                    $"<!-- specforge-execution-hashes input-sha256=\"{execution.InputSha256 ?? string.Empty}\" output-sha256=\"{execution.OutputSha256 ?? string.Empty}\" structured-output-sha256=\"{execution.StructuredOutputSha256 ?? string.Empty}\" -->");
+            }
         }
 
         if (durationMs is not null)

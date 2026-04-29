@@ -6,6 +6,7 @@ public static partial class TimelineMarkdownParser
 {
     private static readonly Regex EventHeaderRegex = EventHeader();
     private static readonly Regex InlineCodeRegex = InlineCode();
+    private static readonly Regex ExecutionHashesRegex = ExecutionHashes();
 
     public static IReadOnlyCollection<TimelineEventDetails> ParseEvents(string markdown)
     {
@@ -75,6 +76,19 @@ public static partial class TimelineMarkdownParser
 
             if (timestamp is null)
             {
+                continue;
+            }
+
+            var executionHashesMatch = ExecutionHashesRegex.Match(trimmed.Trim());
+            if (executionHashesMatch.Success)
+            {
+                var currentExecution = execution ?? new PhaseExecutionMetadata(string.Empty, string.Empty);
+                execution = currentExecution with
+                {
+                    InputSha256 = EmptyToNull(executionHashesMatch.Groups["input"].Value),
+                    OutputSha256 = EmptyToNull(executionHashesMatch.Groups["output"].Value),
+                    StructuredOutputSha256 = EmptyToNull(executionHashesMatch.Groups["structured"].Value)
+                };
                 continue;
             }
 
@@ -201,6 +215,9 @@ public static partial class TimelineMarkdownParser
         return match.Success ? match.Groups["value"].Value : null;
     }
 
+    private static string? EmptyToNull(string value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value;
+
     private static TokenUsage ParseTokenUsageLine(TokenUsage? current, string line)
     {
         var separatorIndex = line.IndexOf(':', StringComparison.Ordinal);
@@ -286,4 +303,7 @@ public static partial class TimelineMarkdownParser
 
     [GeneratedRegex(@"`(?<value>[^`]+)`", RegexOptions.Compiled)]
     private static partial Regex InlineCode();
+
+    [GeneratedRegex("^<!--\\s*specforge-execution-hashes\\s+input-sha256=\"(?<input>[^\"]*)\"\\s+output-sha256=\"(?<output>[^\"]*)\"\\s+structured-output-sha256=\"(?<structured>[^\"]*)\"\\s*-->$", RegexOptions.Compiled)]
+    private static partial Regex ExecutionHashes();
 }

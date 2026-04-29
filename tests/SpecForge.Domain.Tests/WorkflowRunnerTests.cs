@@ -862,6 +862,7 @@ public sealed class WorkflowRunnerTests : IDisposable
   - provider: `openai-compatible`
   - model: `gpt-4.1-mini`
   - profile: `light`
+<!-- specforge-execution-hashes input-sha256="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" output-sha256="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" structured-output-sha256="cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" -->
 - Duration: `18765` ms
 """;
 
@@ -878,6 +879,9 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal("openai-compatible", timelineEvent.Execution!.ProviderKind);
         Assert.Equal("gpt-4.1-mini", timelineEvent.Execution.Model);
         Assert.Equal("light", timelineEvent.Execution.ProfileName);
+        Assert.Equal("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", timelineEvent.Execution.InputSha256);
+        Assert.Equal("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", timelineEvent.Execution.OutputSha256);
+        Assert.Equal("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", timelineEvent.Execution.StructuredOutputSha256);
         Assert.Equal(18765, timelineEvent.DurationMs);
     }
 
@@ -904,6 +908,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Contains("model: `stub-model`", timeline);
         Assert.Contains("profile: `test-profile`", timeline);
         Assert.Contains("runtime-version: `0.1.3.224`", timeline);
+        Assert.Contains("<!-- specforge-execution-hashes input-sha256=\"input-hash\" output-sha256=\"output-hash\" structured-output-sha256=\"structured-hash\" -->", timeline);
         Assert.Contains("- Duration:", timeline);
     }
 
@@ -1436,7 +1441,14 @@ public sealed class WorkflowRunnerTests : IDisposable
                     "# generated markdown\n\n## Tokens\n- captured",
                     "test-double",
                     new TokenUsage(321, 123, 444),
-                    new PhaseExecutionMetadata("test-double", "stub-model", "test-profile", "http://stub.test/v1")));
+                    new PhaseExecutionMetadata(
+                        "test-double",
+                        "stub-model",
+                        "test-profile",
+                        "http://stub.test/v1",
+                        InputSha256: "input-hash",
+                        OutputSha256: "output-hash",
+                        StructuredOutputSha256: "structured-hash")));
     }
 
     private sealed class CapabilityAwarePhaseExecutionProvider : IPhaseExecutionProvider

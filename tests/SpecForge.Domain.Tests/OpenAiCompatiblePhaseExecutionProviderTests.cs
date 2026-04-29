@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using SpecForge.Domain.Application;
@@ -45,6 +46,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("openai-compatible", result.Execution!.ProviderKind);
         Assert.Equal("llama3.1", result.Execution.Model);
         Assert.Equal("default", result.Execution.ProfileName);
+        Assert.Equal(ComputeSha256(handler.LastBody), result.Execution.InputSha256);
+        Assert.Equal(ComputeSha256(BuildMinimalSpecJson()), result.Execution.OutputSha256);
+        Assert.Equal(ComputeSha256(result.StructuredJsonContent!), result.Execution.StructuredOutputSha256);
         Assert.NotNull(handler.LastRequest);
         Assert.Equal(HttpMethod.Post, handler.LastRequest!.Method);
         Assert.Equal("http://localhost:11434/v1/chat/completions", handler.LastRequest.RequestUri!.ToString());
@@ -1323,6 +1327,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
           ]
         }
         """;
+
+    private static string ComputeSha256(string content) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
 
     private static string BuildReadyRefinementJson() =>
         """

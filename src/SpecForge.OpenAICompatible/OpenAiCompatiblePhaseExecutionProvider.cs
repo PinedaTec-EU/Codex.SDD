@@ -140,13 +140,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         if (ShouldUseNativeCli(modelSelection))
         {
             var autoRefinementAnswersSchema = BuildAutoRefinementAnswersSchema().GetRawText();
+            var nativePrompt = NativeCliPromptBuilder.BuildStandalonePrompt(
+                modelSelection.ProviderKind,
+                "SpecForge Native Refinement Auto Answers",
+                prompt,
+                autoRefinementAnswersSchema);
             var responseJson = await ExecuteStructuredNativeAsync(
                 context.WorkspaceRoot,
-                NativeCliPromptBuilder.BuildStandalonePrompt(
-                    modelSelection.ProviderKind,
-                    "SpecForge Native Refinement Auto Answers",
-                    prompt,
-                    autoRefinementAnswersSchema),
+                nativePrompt,
                 modelSelection,
                 autoRefinementAnswersSchema,
                 sandboxMode: "read-only",
@@ -160,10 +161,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                     ProviderKind: modelSelection.ProviderKind,
                     Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
                     ProfileName: modelSelection.ProfileName,
-                    Warnings: prompt.Warnings));
+                    Warnings: prompt.Warnings,
+                    InputSha256: ComputeSha256(nativePrompt),
+                    OutputSha256: ComputeSha256(responseJson),
+                    StructuredOutputSha256: ComputeSha256(responseJson)));
         }
 
-        var (content, usage) = await ExecuteStructuredHttpAsync(
+        var (content, usage, inputSha256, outputSha256) = await ExecuteStructuredHttpAsync(
             modelSelection,
             prompt.SystemPrompt,
             prompt.UserPrompt,
@@ -186,7 +190,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 Model: modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
                 BaseUrl: modelSelection.BaseUrl,
-                Warnings: prompt.Warnings));
+                Warnings: prompt.Warnings,
+                InputSha256: inputSha256,
+                OutputSha256: outputSha256,
+                StructuredOutputSha256: outputSha256));
     }
 
     public async Task<PhaseExecutionResult> ExecuteAsync(
@@ -209,7 +216,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var contract = StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var phaseContract)
             ? phaseContract
             : throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract.");
-        var (content, usage) = await ExecuteStructuredHttpAsync(
+        var (content, usage, inputSha256, outputSha256) = await ExecuteStructuredHttpAsync(
             modelSelection,
             prompt.SystemPrompt,
             prompt.UserPrompt,
@@ -246,11 +253,32 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 Model: modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
                 BaseUrl: modelSelection.BaseUrl,
-                Warnings: prompt.Warnings),
+                Warnings: prompt.Warnings,
+                InputSha256: inputSha256,
+                OutputSha256: outputSha256,
+                StructuredOutputSha256: ComputeSha256(canonicalJsonContent)),
             canonicalJsonContent);
     }
 
-    private HttpRequestMessage BuildRequest(
+    private static HttpRequestMessage BuildRequest(
+        ResolvedModelSelection modelSelection,
+        string requestBody,
+        string endpoint)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = new StringContent(requestBody, Encoding.UTF8, "application/json")
+        };
+
+        if (!string.IsNullOrWhiteSpace(modelSelection.ApiKey))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", modelSelection.ApiKey);
+        }
+
+        return request;
+    }
+
+    private static string BuildRequestBody(
         ResolvedModelSelection modelSelection,
         string systemPrompt,
         string userPrompt,
@@ -275,7 +303,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             content = userPrompt
         });
 
-        var requestBody = JsonSerializer.Serialize(new
+        return JsonSerializer.Serialize(new
         {
             model = modelSelection.Model,
             messages,
@@ -283,21 +311,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             reasoning_effort = modelSelection.ReasoningEffort,
             response_format = responseFormat
         });
-
-        var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
-        {
-            Content = new StringContent(requestBody, Encoding.UTF8, "application/json")
-        };
-
-        if (!string.IsNullOrWhiteSpace(modelSelection.ApiKey))
-        {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", modelSelection.ApiKey);
-        }
-
-        return request;
     }
 
-    private async Task<(string Content, TokenUsage? Usage)> ExecuteStructuredHttpAsync(
+    private async Task<(string Content, TokenUsage? Usage, string? InputSha256, string? OutputSha256)> ExecuteStructuredHttpAsync(
         ResolvedModelSelection modelSelection,
         string systemPrompt,
         string userPrompt,
@@ -310,7 +326,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             interval: TimeSpan.FromSeconds(20));
         SpecForgeDiagnostics.Log(
             $"[provider.http] sending model={modelSelection.Model} endpoint={modelSelection.BaseUrl.TrimEnd('/')}/chat/completions temperature={temperature:0.###} responseFormat={responseFormat?.Type ?? "(none)"}");
-        var request = BuildRequest(modelSelection, systemPrompt, userPrompt, temperature, responseFormat);
+        var endpoint = $"{modelSelection.BaseUrl.TrimEnd('/')}/chat/completions";
+        var requestBody = BuildRequestBody(modelSelection, systemPrompt, userPrompt, temperature, responseFormat);
+        var request = BuildRequest(modelSelection, requestBody, endpoint);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         SpecForgeDiagnostics.Log(
             $"[provider.http] response received status={(int)response.StatusCode} model={modelSelection.Model}");
@@ -331,7 +349,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .GetProperty("content")
             .GetString();
         diagnostics.MarkCompleted($"payloadChars={payload.Length} contentChars={(content ?? string.Empty).Length}");
-        return (content ?? string.Empty, TryReadUsage(document.RootElement));
+        return (content ?? string.Empty, TryReadUsage(document.RootElement), ComputeSha256(requestBody), ComputeSha256(content));
     }
 
     private async Task<EffectivePrompt> BuildEffectivePromptAsync(
@@ -827,8 +845,21 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 ProviderKind: modelSelection.ProviderKind,
                 Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
-                Warnings: prompt.Warnings),
+                Warnings: prompt.Warnings,
+                InputSha256: ComputeSha256(nativePrompt),
+                OutputSha256: ComputeSha256(responseJson),
+                StructuredOutputSha256: ComputeSha256(canonicalJsonContent)),
             canonicalJsonContent);
+    }
+
+    private static string? ComputeSha256(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return null;
+        }
+
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
     }
 
     private async Task<string> ExecuteStructuredNativeAsync(
