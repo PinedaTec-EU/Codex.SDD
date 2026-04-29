@@ -276,6 +276,9 @@ test("buildWorkflowAuditHtml renders workflow audit content in a standalone pane
   });
 
   assert.match(html, /<div class="audit-stream" data-audit-stream>/);
+  assert.match(html, /class="audit-row audit-row--spec"/);
+  assert.match(html, /class="audit-row__phase-icon" aria-hidden="true"[^]*<svg viewBox="0 0 24 24"/);
+  assert.match(html, /--audit-phase-start: #47dfb6;/);
   assert.match(html, /Generated spec artifact\./);
   assert.match(html, /phase_completed[^]*badge\">system</);
   assert.match(html, /phase_completed[^]*badge\">spec</);
