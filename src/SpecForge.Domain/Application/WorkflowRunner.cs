@@ -603,6 +603,58 @@ public sealed class WorkflowRunner
                 reviewGeneration.Execution);
         }
 
+        var pendingReopen = await TryReadPendingCompletedWorkflowReopenAsync(paths, workflowRun.CurrentPhase, cancellationToken);
+        if (pendingReopen is not null && HasArtifact(workflowRun.CurrentPhase))
+        {
+            var sourceArtifactPath = paths.GetLatestExistingPhaseArtifactPath(workflowRun.CurrentPhase)
+                ?? throw new WorkflowDomainException(
+                    $"Phase '{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}' does not yet have a current artifact to operate on after completed-workflow reopen.");
+            var operationPrompt = BuildCompletedWorkflowReopenOperationPrompt(workflowRun.CurrentPhase, pendingReopen.Summary);
+            SpecForgeDiagnostics.Log(
+                $"[runner.continue_phase] usId={usId} materializing reopened phase {WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} from workflow_reopened event at {pendingReopen.TimestampUtc}.");
+            var reopenGeneration = await MaterializePhaseArtifactAsync(
+                workspaceRoot,
+                paths,
+                workflowRun,
+                sourceArtifactPath,
+                operationPrompt,
+                includeReviewArtifactInContext: true,
+                cancellationToken);
+            var operationLogPath = paths.GetPhaseOperationLogPath(workflowRun.CurrentPhase);
+            var contextArtifactPaths = ResolveOperationContextArtifactPaths(paths, workflowRun.CurrentPhase, includeReviewArtifactInContext: true);
+            await AppendArtifactOperationEntryAsync(
+                operationLogPath,
+                workflowRun.CurrentPhase,
+                normalizedActor,
+                sourceArtifactPath,
+                operationPrompt,
+                reopenGeneration.ArtifactPath,
+                contextArtifactPaths,
+                cancellationToken);
+            await AppendTimelineEventAsync(
+                paths.TimelineFilePath,
+                "artifact_operated",
+                normalizedActor,
+                workflowRun.CurrentPhase,
+                $"Applied completed-workflow reopen note to phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}` and produced `{Path.GetFileName(reopenGeneration.ArtifactPath)}`.",
+                cancellationToken,
+                [operationLogPath, reopenGeneration.ArtifactPath],
+                reopenGeneration.Usage,
+                reopenGeneration.DurationMs,
+                reopenGeneration.Execution);
+            await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+            diagnostics.MarkCompleted(
+                $"phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} status={WorkflowPresentation.ToStatusSlug(workflowRun.Status)} artifact={reopenGeneration.ArtifactPath}");
+
+            return new ContinuePhaseResult(
+                workflowRun.UsId,
+                workflowRun.CurrentPhase,
+                workflowRun.Status,
+                reopenGeneration.ArtifactPath,
+                reopenGeneration.Usage,
+                reopenGeneration.Execution);
+        }
+
         if (workflowRun.CurrentPhase == PhaseId.PrPreparation)
         {
             var publicationArtifactPath = await PublishPullRequestAsync(workspaceRoot, paths, workflowRun, normalizedActor, cancellationToken);
@@ -1248,6 +1300,72 @@ public sealed class WorkflowRunner
 
         diagnostics.MarkCompleted($"artifactPath='{artifactPath}'");
         return new ArtifactGenerationResult(artifactPath, result.Usage, stopwatch.ElapsedMilliseconds, executionMetadata);
+    }
+
+    private static async Task<TimelineEventDetails?> TryReadPendingCompletedWorkflowReopenAsync(
+        UserStoryFilePaths paths,
+        PhaseId currentPhase,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(paths.TimelineFilePath))
+        {
+            return null;
+        }
+
+        var events = TimelineMarkdownParser
+            .ParseEvents(await File.ReadAllTextAsync(paths.TimelineFilePath, cancellationToken))
+            .ToArray();
+        var currentPhaseSlug = WorkflowPresentation.ToPhaseSlug(currentPhase);
+        var latestReopenIndex = Array.FindLastIndex(
+            events,
+            timelineEvent =>
+                timelineEvent.Code == "workflow_reopened" &&
+                string.Equals(timelineEvent.Phase, currentPhaseSlug, StringComparison.Ordinal));
+        if (latestReopenIndex < 0)
+        {
+            return null;
+        }
+
+        var hasPhaseArtifactAfterReopen = events
+            .Skip(latestReopenIndex + 1)
+            .Any(timelineEvent =>
+                string.Equals(timelineEvent.Phase, currentPhaseSlug, StringComparison.Ordinal) &&
+                timelineEvent.Code is "phase_completed" or "artifact_operated" &&
+                timelineEvent.Artifacts.Any(static artifact => artifact.EndsWith(".md", StringComparison.OrdinalIgnoreCase)));
+
+        return hasPhaseArtifactAfterReopen ? null : events[latestReopenIndex];
+    }
+
+    private static string BuildCompletedWorkflowReopenOperationPrompt(PhaseId phaseId, string? reopenSummary)
+    {
+        var target = phaseId switch
+        {
+            PhaseId.Spec => "current spec artifact",
+            PhaseId.TechnicalDesign => "current technical design artifact",
+            PhaseId.Implementation => "current implementation artifact",
+            _ => $"current {WorkflowPresentation.ToPhaseSlug(phaseId)} artifact"
+        };
+        var phaseGuidance = phaseId switch
+        {
+            PhaseId.Spec => "Update scope, constraints, acceptance criteria, and approval-facing details so the reopened issue is explicit and reviewable.",
+            PhaseId.TechnicalDesign => "Update architecture, implementation plan, and validation strategy so the reopened technical issue is explicit and testable.",
+            PhaseId.Implementation => "Update the implementation narrative and execution intent so the reopened defect or merge issue is explicit and actionable.",
+            _ => "Update the artifact so the reopened issue is explicit and actionable."
+        };
+        var summary = string.IsNullOrWhiteSpace(reopenSummary)
+            ? "The completed workflow was reopened for this phase."
+            : reopenSummary.Trim();
+
+        return string.Join(
+            Environment.NewLine,
+            [
+                $"Apply this completed-workflow reopen note directly to the {target}.",
+                $"Treat this as a corrective {WorkflowPresentation.ToPhaseSlug(phaseId)} pass over the approved artifact, not a restart.",
+                phaseGuidance,
+                string.Empty,
+                "Reopen note:",
+                summary
+            ]);
     }
 
     private PhaseExecutionMetadata? WithRuntimeVersion(PhaseExecutionMetadata? execution) =>

@@ -497,6 +497,56 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ContinuePhaseAsync_AfterCompletedWorkflowTechnicalReopen_RegeneratesTechnicalDesignBeforeImplementation()
+    {
+        var provider = new CompletedReopenCapturingPhaseExecutionProvider();
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            provider,
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager(),
+            new RecordingPullRequestPublisher());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ReopenCompletedWorkflowAsync(
+            workspaceRoot,
+            "US-0001",
+            PhaseId.TechnicalDesign,
+            "technical-issue",
+            "CultureInfo.InvariantCulture is missing from decimal serialization tests.");
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        var firstResult = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal(PhaseId.TechnicalDesign, firstResult.CurrentPhase);
+        Assert.NotNull(provider.LastTechnicalDesignOperationContext);
+        Assert.Equal(paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign), provider.LastTechnicalDesignOperationContext!.CurrentArtifactPath);
+        Assert.Contains("current technical design artifact", provider.LastTechnicalDesignOperationContext.OperationPrompt);
+        Assert.Contains("CultureInfo.InvariantCulture", provider.LastTechnicalDesignOperationContext.OperationPrompt);
+        Assert.Equal(paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign, 2), firstResult.GeneratedArtifactPath);
+
+        var secondResult = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal(PhaseId.Implementation, secondResult.CurrentPhase);
+        Assert.NotNull(provider.LastImplementationContext);
+        Assert.True(provider.LastImplementationContext!.PreviousArtifactPaths.TryGetValue(PhaseId.TechnicalDesign, out var technicalDesignPath));
+        Assert.Equal(paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign, 2), technicalDesignPath);
+
+        var timeline = await File.ReadAllTextAsync(paths.TimelineFilePath);
+        Assert.Contains("`workflow_reopened`", timeline);
+        Assert.Contains("`artifact_operated`", timeline);
+    }
+
+    [Fact]
     public async Task ContinuePhaseAsync_FromPrPreparation_PublishesDraftPullRequestAndCompletesWorkflow()
     {
         var publisher = new RecordingPullRequestPublisher();
@@ -1827,6 +1877,77 @@ public sealed class WorkflowRunnerTests : IDisposable
                 var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(context.WorkspaceRoot, context.UsId);
                 var validationItems = WorkflowRunner.ReadTechnicalDesignValidationStrategy(paths);
                 var checklist = validationItems.Select(item => $"- ✅ {item} Evidence: Validated in PR publication test.").ToArray();
+                var content = string.Join(
+                    Environment.NewLine,
+                    [
+                        $"# Review · {context.UsId} · v01",
+                        string.Empty,
+                        "## State",
+                        "- Result: `pass`",
+                        string.Empty,
+                        "## Validation Checklist",
+                        ..checklist,
+                        string.Empty,
+                        "## Findings",
+                        "- No findings.",
+                        string.Empty,
+                        "## Verdict",
+                        "- Final result: `pass`",
+                        "- Primary reason: Review passed.",
+                        string.Empty,
+                        "## Recommendation",
+                        "- Advance."
+                    ]) + Environment.NewLine;
+
+                return new PhaseExecutionResult(content, "test-double");
+            }
+
+            return await inner.ExecuteAsync(context, cancellationToken);
+        }
+    }
+
+    private sealed class CompletedReopenCapturingPhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        private readonly DeterministicPhaseExecutionProvider inner = new();
+
+        public PhaseExecutionContext? LastTechnicalDesignOperationContext { get; private set; }
+
+        public PhaseExecutionContext? LastImplementationContext { get; private set; }
+
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) => inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
+            PhaseExecutionContext context,
+            RefinementSession session,
+            CancellationToken cancellationToken = default) =>
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
+
+        public async Task<PhaseExecutionResult> ExecuteAsync(
+            PhaseExecutionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            if (context.PhaseId == PhaseId.TechnicalDesign &&
+                !string.IsNullOrWhiteSpace(context.OperationPrompt))
+            {
+                LastTechnicalDesignOperationContext = context;
+            }
+
+            if (context.PhaseId == PhaseId.Implementation)
+            {
+                LastImplementationContext = context;
+                var featurePath = Path.Combine(context.WorkspaceRoot, "src", "Feature.cs");
+                Directory.CreateDirectory(Path.GetDirectoryName(featurePath)!);
+                await File.WriteAllTextAsync(
+                    featurePath,
+                    "namespace SpecForge;\npublic static class Feature { public const int Enabled = 1; }\n",
+                    cancellationToken);
+            }
+
+            if (context.PhaseId == PhaseId.Review)
+            {
+                var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(context.WorkspaceRoot, context.UsId);
+                var validationItems = WorkflowRunner.ReadTechnicalDesignValidationStrategy(paths);
+                var checklist = validationItems.Select(item => $"- ✅ {item} Evidence: Validated in completed reopen test.").ToArray();
                 var content = string.Join(
                     Environment.NewLine,
                     [
