@@ -1056,6 +1056,34 @@ function renderChevronIcon(className) {
     </span>
   `;
 }
+function zoomInIcon() {
+    return `
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path d="M8.5 3.5a5 5 0 1 0 3.2 8.84l2.98 2.98a.75.75 0 1 0 1.06-1.06l-2.98-2.98A5 5 0 0 0 8.5 3.5Zm0 1.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm-.75 1.5a.75.75 0 0 1 1.5 0v1.25h1.25a.75.75 0 0 1 0 1.5H9.25v1.25a.75.75 0 0 1-1.5 0V9.25H6.5a.75.75 0 0 1 0-1.5h1.25V6.5Z"></path>
+    </svg>
+  `;
+}
+function zoomOutIcon() {
+    return `
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path d="M8.5 3.5a5 5 0 1 0 3.2 8.84l2.98 2.98a.75.75 0 1 0 1.06-1.06l-2.98-2.98A5 5 0 0 0 8.5 3.5Zm0 1.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm-2 2.75a.75.75 0 0 0 0 1.5h4a.75.75 0 0 0 0-1.5h-4Z"></path>
+    </svg>
+  `;
+}
+function fitGraphIcon() {
+    return `
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path d="M3.75 4a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5H5.25V7a.75.75 0 0 1-1.5 0V4Zm8.75 0a.75.75 0 0 1 .75-.75h3A.75.75 0 0 1 17 4v3a.75.75 0 0 1-1.5 0V4.75H13.25A.75.75 0 0 1 12.5 4Zm-8.75 9.25A.75.75 0 0 1 4.5 14v2.25h2.25a.75.75 0 0 1 0 1.5h-3A.75.75 0 0 1 3 17v-3a.75.75 0 0 1 .75-.75Zm12.5 0A.75.75 0 0 1 17 14v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1 0-1.5h2.25V14a.75.75 0 0 1 .75-.75ZM7 7h6v6H7V7Zm1.5 1.5v3h3v-3h-3Z"></path>
+    </svg>
+  `;
+}
+function fitWidthGraphIcon() {
+    return `
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path d="M3.75 5.25A.75.75 0 0 1 4.5 4.5h2.75a.75.75 0 0 1 0 1.5H6.31l1.22 1.22a.75.75 0 0 1-1.06 1.06L5.25 7.06v.94a.75.75 0 0 1-1.5 0V5.25Zm8.25 0a.75.75 0 0 1 .75-.75h2.75a.75.75 0 0 1 .75.75V8a.75.75 0 0 1-1.5 0v-.94l-1.22 1.22a.75.75 0 0 1-1.06-1.06L13.69 6h-.94a.75.75 0 0 1-.75-.75ZM5 9.25h10a.75.75 0 0 1 0 1.5H5a.75.75 0 0 1 0-1.5Zm-.75 2.75A.75.75 0 0 1 5 12.75v.94l1.22-1.22a.75.75 0 0 1 1.06 1.06L6.06 14.75H7a.75.75 0 0 1 0 1.5H4.25A.75.75 0 0 1 3.5 15.5v-2.75a.75.75 0 0 1 .75-.75Zm11.5 0a.75.75 0 0 1 .75.75v2.75a.75.75 0 0 1-.75.75H13a.75.75 0 0 1 0-1.5h.94l-1.22-1.22a.75.75 0 0 1 1.06-1.06L15 13.69v-.94a.75.75 0 0 1 .75-.75Z"></path>
+    </svg>
+  `;
+}
 function createWebviewNonce() {
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let nonce = "";
@@ -1064,13 +1092,18 @@ function createWebviewNonce() {
     }
     return nonce;
 }
-function buildWorkflowAuditHtml(workflow, state, typographyCssVars = "") {
+function buildWorkflowAuditHtml(workflow, state, typographyCssVars = "", cspSource = "") {
+    const scriptNonce = createWebviewNonce();
+    const cspMeta = cspSource.trim().length > 0
+        ? `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${(0, htmlEscape_1.escapeHtmlAttr)(cspSource)} 'unsafe-inline'; script-src 'nonce-${scriptNonce}';">`
+        : "";
     const auditRows = buildWorkflowAuditRowsHtml(workflow, state);
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  ${cspMeta}
   <style>
     :root {
       ${(0, webviewTypography_1.buildWebviewTypographyRootCss)(typographyCssVars)}
@@ -1157,7 +1190,20 @@ function buildWorkflowAuditHtml(workflow, state, typographyCssVars = "") {
   </style>
 </head>
 <body>
-  <div class="audit-stream">${auditRows}</div>
+  <div class="audit-stream" data-audit-stream>${auditRows}</div>
+  <script nonce="${scriptNonce}">
+    const auditStream = document.querySelector("[data-audit-stream]");
+    const scrollAuditStreamToLatest = () => {
+      if (!(auditStream instanceof HTMLElement)) {
+        return;
+      }
+
+      auditStream.scrollTop = auditStream.scrollHeight;
+    };
+
+    window.requestAnimationFrame(() => scrollAuditStreamToLatest());
+    window.setTimeout(() => scrollAuditStreamToLatest(), 60);
+  </script>
 </body>
 </html>`;
 }
@@ -2534,8 +2580,11 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       padding: 22px;
       min-height: 0;
       position: relative;
-      overflow: auto;
+      overflow: hidden;
       overscroll-behavior: contain;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 14px;
       background:
         linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
@@ -2565,12 +2614,29 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       align-items: flex-start;
       gap: 16px;
     }
+    .graph-panel__viewport {
+      min-height: 0;
+      overflow: auto;
+      overscroll-behavior: contain;
+      position: relative;
+      z-index: 2;
+      padding: 4px 2px 2px 0;
+    }
     .graph-stage-actions {
       display: flex;
       justify-content: flex-end;
       align-items: center;
       gap: 10px;
       flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
+      padding: 10px;
+      border-radius: 16px;
+      border: 1px solid rgba(114, 241, 184, 0.14);
+      background: rgba(8, 16, 22, 0.72);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 18px 32px rgba(0, 0, 0, 0.22);
     }
     .graph-stage-action-button {
       width: 38px;
@@ -2608,6 +2674,16 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       min-width: ${desktopGraphWidth}px;
       min-height: ${desktopGraphHeight}px;
       z-index: 2;
+      width: max-content;
+      height: max-content;
+    }
+    .graph-stage__canvas {
+      position: relative;
+      width: max-content;
+      height: max-content;
+      transform-origin: top left;
+      transform: scale(var(--graph-stage-zoom, 1));
+      transition: transform 160ms ease;
     }
     .graph-stage.graph-stage--overlay-active .phase-graph {
       filter: blur(2px) saturate(0.85) brightness(0.78);
@@ -4990,6 +5066,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       .graph-panel {
         min-height: auto;
       }
+      .graph-panel__viewport {
+        min-height: 480px;
+      }
       .graph-stage, .phase-graph {
         min-width: var(--graph-width-desktop-vertical, ${desktopGraphWidth}px);
         min-height: var(--graph-height-desktop-vertical, ${desktopGraphHeight}px);
@@ -5044,6 +5123,12 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       }
       .graph-panel__head {
         flex-direction: column;
+      }
+      .graph-stage-actions {
+        top: 0;
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
       }
       .review-regression__header {
         grid-template-columns: 1fr;
@@ -5332,13 +5417,45 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     <div class="shell-body">
       <section class="layout">
         <div class="layout-main">
-        <aside class="panel graph-panel" data-panel-scroll="graph">
+        <aside class="panel graph-panel">
           <div class="graph-panel__head">
             <div>
               <h2 class="panel-title">Workflow Constellation</h2>
               <p class="panel-copy">The graph is the primary surface. Click any phase node to move the detail focus and inspect its artifact and phase context.</p>
             </div>
             <div class="graph-stage-actions">
+              <button
+                class="graph-stage-action-button"
+                type="button"
+                data-graph-zoom-out
+                aria-label="Zoom out workflow graph"
+                title="Zoom out workflow graph">
+                ${zoomOutIcon()}
+              </button>
+              <button
+                class="graph-stage-action-button"
+                type="button"
+                data-graph-auto-fit
+                aria-label="Auto-fit workflow graph"
+                title="Auto-fit workflow graph">
+                ${fitGraphIcon()}
+              </button>
+              <button
+                class="graph-stage-action-button"
+                type="button"
+                data-graph-fit-width
+                aria-label="Fit workflow graph to panel width"
+                title="Fit workflow graph to panel width">
+                ${fitWidthGraphIcon()}
+              </button>
+              <button
+                class="graph-stage-action-button"
+                type="button"
+                data-graph-zoom-in
+                aria-label="Zoom in workflow graph"
+                title="Zoom in workflow graph">
+                ${zoomInIcon()}
+              </button>
               <button
                 class="graph-stage-action-button"
                 type="button"
@@ -5349,10 +5466,14 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
               </button>
             </div>
           </div>
-          <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}${playbackState === "playing" || playbackState === "stopping" ? " graph-stage--overlay-blocking" : ""}" style="${graphStageLegendStyle}">
-            ${executionOverlay}
-            ${phaseGraph}
-            ${renderGraphLegend(workflow.usId)}
+          <div class="graph-panel__viewport" data-panel-scroll="graph">
+            <div class="graph-stage${executionOverlay ? " graph-stage--overlay-active" : ""}${playbackState === "playing" || playbackState === "stopping" ? " graph-stage--overlay-blocking" : ""}" style="${graphStageLegendStyle}">
+              <div class="graph-stage__canvas" data-graph-stage-canvas>
+                ${executionOverlay}
+                ${phaseGraph}
+                ${renderGraphLegend(workflow.usId)}
+              </div>
+            </div>
           </div>
         </aside>
         <main class="panel detail-panel" data-panel-scroll="detail">
@@ -5420,7 +5541,13 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     const workflowShell = document.querySelector("[data-workflow-shell]");
     const graphPanel = document.querySelector('[data-panel-scroll="graph"]');
     const detailPanel = document.querySelector('[data-panel-scroll="detail"]');
+    const graphStage = document.querySelector(".graph-stage");
+    const graphStageCanvas = document.querySelector("[data-graph-stage-canvas]");
     const phaseGraph = document.querySelector(".phase-graph");
+    const graphZoomInButton = document.querySelector("[data-graph-zoom-in]");
+    const graphZoomOutButton = document.querySelector("[data-graph-zoom-out]");
+    const graphAutoFitButton = document.querySelector("[data-graph-auto-fit]");
+    const graphFitWidthButton = document.querySelector("[data-graph-fit-width]");
     const completedReopenTargetPhaseByReason = ${JSON.stringify({
         "merge-conflict": "implementation",
         defect: "implementation",
@@ -5453,13 +5580,137 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     const focusedPhaseId = focusedPhaseNode instanceof HTMLElement
       ? focusedPhaseNode.dataset.phaseId ?? ""
       : "";
+    const graphZoomMin = 0.35;
+    const graphZoomMax = 2.2;
+    const graphZoomStep = 0.12;
+    const graphZoomState = {
+      mode: viewState.graphZoomMode === "manual" || viewState.graphZoomMode === "fit-width"
+        ? viewState.graphZoomMode
+        : "fit",
+      scale: typeof viewState.graphZoomScale === "number" && Number.isFinite(viewState.graphZoomScale)
+        ? Math.max(graphZoomMin, Math.min(graphZoomMax, viewState.graphZoomScale))
+        : 1
+    };
+    const graphPointerState = {
+      clientX: null,
+      clientY: null
+    };
+    const getGraphZoomScale = () => graphZoomState.scale;
+    const measureGraphStageCanvasBounds = () => {
+      if (!(graphStageCanvas instanceof HTMLElement)) {
+        return { width: 0, height: 0 };
+      }
+
+      let maxRight = 0;
+      let maxBottom = 0;
+      for (const child of Array.from(graphStageCanvas.children)) {
+        if (!(child instanceof HTMLElement || child instanceof SVGElement)) {
+          continue;
+        }
+
+        const childLeft = child instanceof HTMLElement ? child.offsetLeft : 0;
+        const childTop = child instanceof HTMLElement ? child.offsetTop : 0;
+        const childWidth = child instanceof HTMLElement ? child.offsetWidth : child.getBoundingClientRect().width;
+        const childHeight = child instanceof HTMLElement ? child.offsetHeight : child.getBoundingClientRect().height;
+        maxRight = Math.max(maxRight, childLeft + childWidth);
+        maxBottom = Math.max(maxBottom, childTop + childHeight);
+      }
+
+      return {
+        width: Math.max(maxRight, graphStageCanvas.scrollWidth, graphStageCanvas.offsetWidth, 1),
+        height: Math.max(maxBottom, graphStageCanvas.scrollHeight, graphStageCanvas.offsetHeight, 1)
+      };
+    };
+    const measureGraphPanelViewport = () => {
+      if (!(graphPanel instanceof HTMLElement) || !(graphStage instanceof HTMLElement)) {
+        return { availableWidth: 120, availableHeight: 120 };
+      }
+
+      const panelStyle = window.getComputedStyle(graphPanel);
+      const paddingLeft = Number.parseFloat(panelStyle.paddingLeft) || 0;
+      const paddingRight = Number.parseFloat(panelStyle.paddingRight) || 0;
+      const paddingBottom = Number.parseFloat(panelStyle.paddingBottom) || 0;
+      const availableWidth = Math.max(120, graphPanel.clientWidth - paddingLeft - paddingRight);
+      const stageTop = graphStage.offsetTop;
+      const availableHeight = Math.max(120, graphPanel.clientHeight - stageTop - paddingBottom);
+      return { availableWidth, availableHeight };
+    };
+    const computeAutoFitGraphZoom = () => {
+      const canvasBounds = measureGraphStageCanvasBounds();
+      const { availableWidth, availableHeight } = measureGraphPanelViewport();
+      const widthRatio = availableWidth / Math.max(1, canvasBounds.width);
+      const heightRatio = availableHeight / Math.max(1, canvasBounds.height);
+      return Math.max(graphZoomMin, Math.min(graphZoomMax, Math.min(widthRatio, heightRatio)));
+    };
+    const computeFitWidthGraphZoom = () => {
+      const canvasBounds = measureGraphStageCanvasBounds();
+      const { availableWidth } = measureGraphPanelViewport();
+      return Math.max(graphZoomMin, Math.min(graphZoomMax, availableWidth / Math.max(1, canvasBounds.width)));
+    };
+    const resolveGraphZoomViewportAnchor = (clientX, clientY) => {
+      if (!(graphPanel instanceof HTMLElement)) {
+        return { viewportX: 0, viewportY: 0 };
+      }
+
+      const panelRect = graphPanel.getBoundingClientRect();
+      const hasPointer = Number.isFinite(clientX) && Number.isFinite(clientY);
+      const fallbackClientX = Number.isFinite(graphPointerState.clientX) ? graphPointerState.clientX : null;
+      const fallbackClientY = Number.isFinite(graphPointerState.clientY) ? graphPointerState.clientY : null;
+      const resolvedClientX = hasPointer ? clientX : fallbackClientX;
+      const resolvedClientY = hasPointer ? clientY : fallbackClientY;
+      const viewportX = resolvedClientX === null
+        ? graphPanel.clientWidth / 2
+        : Math.max(0, Math.min(graphPanel.clientWidth, resolvedClientX - panelRect.left));
+      const viewportY = resolvedClientY === null
+        ? graphPanel.clientHeight / 2
+        : Math.max(0, Math.min(graphPanel.clientHeight, resolvedClientY - panelRect.top));
+
+      return { viewportX, viewportY };
+    };
+    const applyGraphZoom = (scale, mode, anchor = {}) => {
+      if (!(graphStage instanceof HTMLElement) || !(graphPanel instanceof HTMLElement)) {
+        return;
+      }
+
+      const previousScale = Math.max(graphZoomMin, Math.min(graphZoomMax, getGraphZoomScale()));
+      const nextScale = Math.max(graphZoomMin, Math.min(graphZoomMax, scale));
+      const { viewportX, viewportY } = resolveGraphZoomViewportAnchor(anchor.clientX, anchor.clientY);
+      const contentX = (graphPanel.scrollLeft + viewportX) / previousScale;
+      const contentY = (graphPanel.scrollTop + viewportY) / previousScale;
+      const canvasBounds = measureGraphStageCanvasBounds();
+      graphZoomState.mode = mode;
+      graphZoomState.scale = nextScale;
+      graphStage.style.setProperty("--graph-stage-zoom", String(nextScale));
+      graphStage.style.width = Math.max(1, Math.ceil(canvasBounds.width * nextScale)) + "px";
+      graphStage.style.height = Math.max(1, Math.ceil(canvasBounds.height * nextScale)) + "px";
+      if (graphZoomOutButton instanceof HTMLButtonElement) {
+        graphZoomOutButton.disabled = nextScale <= graphZoomMin + 0.001;
+      }
+      if (graphZoomInButton instanceof HTMLButtonElement) {
+        graphZoomInButton.disabled = nextScale >= graphZoomMax - 0.001;
+      }
+      window.requestAnimationFrame(() => {
+        graphPanel.scrollLeft = Math.max(0, (contentX * nextScale) - viewportX);
+        graphPanel.scrollTop = Math.max(0, (contentY * nextScale) - viewportY);
+      });
+    };
+    const autoFitGraph = () => {
+      applyGraphZoom(computeAutoFitGraphZoom(), "fit");
+    };
+    const fitGraphWidth = () => {
+      applyGraphZoom(computeFitWidthGraphZoom(), "fit-width");
+    };
+    const setManualGraphZoom = (scale) => {
+      applyGraphZoom(scale, "manual");
+    };
     const centerFocusedPhaseInGraph = () => {
       if (!(graphPanel instanceof HTMLElement) || !(focusedPhaseNode instanceof HTMLElement) || !focusedPhaseId) {
         return;
       }
 
-      const targetTop = focusedPhaseNode.offsetTop - ((graphPanel.clientHeight - focusedPhaseNode.offsetHeight) / 2);
-      const targetLeft = focusedPhaseNode.offsetLeft - ((graphPanel.clientWidth - focusedPhaseNode.offsetWidth) / 2);
+      const zoomScale = getGraphZoomScale();
+      const targetTop = (focusedPhaseNode.offsetTop * zoomScale) - ((graphPanel.clientHeight - (focusedPhaseNode.offsetHeight * zoomScale)) / 2);
+      const targetLeft = (focusedPhaseNode.offsetLeft * zoomScale) - ((graphPanel.clientWidth - (focusedPhaseNode.offsetWidth * zoomScale)) / 2);
       graphPanel.scrollTop = Math.max(0, targetTop);
       graphPanel.scrollLeft = Math.max(0, targetLeft);
     };
@@ -5629,8 +5880,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         return;
       }
 
-      const nextTop = Math.max(0, targetNode.offsetTop - verticalPadding);
-      const nextLeft = Math.max(0, targetNode.offsetLeft - Math.max(24, Math.round((graphPanel.clientWidth - targetNode.offsetWidth) / 2)));
+      const zoomScale = getGraphZoomScale();
+      const nextTop = Math.max(0, (targetNode.offsetTop * zoomScale) - verticalPadding);
+      const nextLeft = Math.max(0, (targetNode.offsetLeft * zoomScale) - Math.max(24, Math.round((graphPanel.clientWidth - (targetNode.offsetWidth * zoomScale)) / 2)));
       graphPanel.scrollTo({
         top: nextTop,
         left: nextLeft,
@@ -5853,13 +6105,13 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         return;
       }
 
-      const graphStage = document.querySelector(".graph-stage");
       if (!(graphStage instanceof HTMLElement)) {
         return;
       }
 
-      const captureWidth = Math.ceil(phaseGraph.scrollWidth);
-      const captureHeight = Math.ceil(phaseGraph.scrollHeight);
+      const captureBounds = measureGraphStageCanvasBounds();
+      const captureWidth = Math.ceil(captureBounds.width);
+      const captureHeight = Math.ceil(captureBounds.height);
       const clonedGraphStage = cloneElementForSnapshot(graphStage);
       if (!(clonedGraphStage instanceof HTMLElement)) {
         return;
@@ -5880,6 +6132,13 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       clonedGraphStage.style.transform = "none";
       clonedGraphStage.style.boxSizing = "border-box";
       applySnapshotBackground(clonedGraphStage);
+
+      const clonedGraphStageCanvas = clonedGraphStage.querySelector("[data-graph-stage-canvas]");
+      if (clonedGraphStageCanvas instanceof HTMLElement) {
+        clonedGraphStageCanvas.style.transform = "none";
+        clonedGraphStageCanvas.style.width = captureWidth + "px";
+        clonedGraphStageCanvas.style.height = captureHeight + "px";
+      }
 
       const clonedPhaseGraph = clonedGraphStage.querySelector(".phase-graph");
       if (clonedPhaseGraph instanceof HTMLElement) {
@@ -5924,6 +6183,15 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         void exportWorkflowSnapshot();
       });
     }
+    window.requestAnimationFrame(() => {
+      if (graphZoomState.mode === "manual") {
+        applyGraphZoom(graphZoomState.scale, "manual");
+      } else if (graphZoomState.mode === "fit-width") {
+        fitGraphWidth();
+      } else {
+        autoFitGraph();
+      }
+    });
     if (focusedPhaseNode instanceof HTMLElement && focusedPhaseId && autoScrollStateKey) {
       try {
         const previousPhaseId = window.sessionStorage.getItem(autoScrollStateKey) ?? "";
@@ -5949,7 +6217,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         vscode.setState({
           ...viewState,
           graphScrollTop: graphPanel instanceof HTMLElement ? graphPanel.scrollTop : 0,
-          detailScrollTop: detailPanel instanceof HTMLElement ? detailPanel.scrollTop : 0
+          detailScrollTop: detailPanel instanceof HTMLElement ? detailPanel.scrollTop : 0,
+          graphZoomMode: graphZoomState.mode,
+          graphZoomScale: graphZoomState.scale
         });
       } catch {
         // Do not let view-state persistence break workflow interaction.
@@ -6101,7 +6371,61 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       graphPanel.addEventListener("scroll", () => {
         persistWorkflowScrollState();
       }, { passive: true });
+      graphPanel.addEventListener("pointermove", (event) => {
+        graphPointerState.clientX = event.clientX;
+        graphPointerState.clientY = event.clientY;
+      }, { passive: true });
     }
+    if (graphZoomOutButton instanceof HTMLButtonElement) {
+      graphZoomOutButton.addEventListener("click", () => {
+        setManualGraphZoom(getGraphZoomScale() - graphZoomStep);
+        persistWorkflowScrollState();
+      });
+    }
+    if (graphZoomInButton instanceof HTMLButtonElement) {
+      graphZoomInButton.addEventListener("click", () => {
+        setManualGraphZoom(getGraphZoomScale() + graphZoomStep);
+        persistWorkflowScrollState();
+      });
+    }
+    if (graphAutoFitButton instanceof HTMLButtonElement) {
+      graphAutoFitButton.addEventListener("click", () => {
+        autoFitGraph();
+        persistWorkflowScrollState();
+        centerFocusedPhaseInGraph();
+      });
+    }
+    if (graphFitWidthButton instanceof HTMLButtonElement) {
+      graphFitWidthButton.addEventListener("click", () => {
+        fitGraphWidth();
+        persistWorkflowScrollState();
+        centerFocusedPhaseInGraph();
+      });
+    }
+    if (graphPanel instanceof HTMLElement) {
+      graphPanel.addEventListener("wheel", (event) => {
+        if (!event.ctrlKey && !event.metaKey) {
+          return;
+        }
+
+        event.preventDefault();
+        const direction = event.deltaY > 0 ? -1 : 1;
+        applyGraphZoom(getGraphZoomScale() + (graphZoomStep * direction), "manual", {
+          clientX: event.clientX,
+          clientY: event.clientY
+        });
+        persistWorkflowScrollState();
+      }, { passive: false });
+    }
+    window.addEventListener("resize", () => {
+      if (graphZoomState.mode === "fit") {
+        autoFitGraph();
+      } else if (graphZoomState.mode === "fit-width") {
+        fitGraphWidth();
+      } else {
+        applyGraphZoom(graphZoomState.scale, "manual");
+      }
+    });
     if (detailPanel instanceof HTMLElement) {
       const restoredDetailScrollTop = typeof viewState.detailScrollTop === "number" ? viewState.detailScrollTop : null;
       if (restoredDetailScrollTop !== null && restoredDetailScrollTop > 0) {

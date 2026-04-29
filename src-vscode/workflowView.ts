@@ -6069,6 +6069,10 @@ export function buildWorkflowHtml(
         ? Math.max(graphZoomMin, Math.min(graphZoomMax, viewState.graphZoomScale))
         : 1
     };
+    const graphPointerState = {
+      clientX: null,
+      clientY: null
+    };
     const getGraphZoomScale = () => graphZoomState.scale;
     const measureGraphStageCanvasBounds = () => {
       if (!(graphStageCanvas instanceof HTMLElement)) {
@@ -6121,12 +6125,36 @@ export function buildWorkflowHtml(
       const { availableWidth } = measureGraphPanelViewport();
       return Math.max(graphZoomMin, Math.min(graphZoomMax, availableWidth / Math.max(1, canvasBounds.width)));
     };
-    const applyGraphZoom = (scale, mode) => {
-      if (!(graphStage instanceof HTMLElement)) {
+    const resolveGraphZoomViewportAnchor = (clientX, clientY) => {
+      if (!(graphPanel instanceof HTMLElement)) {
+        return { viewportX: 0, viewportY: 0 };
+      }
+
+      const panelRect = graphPanel.getBoundingClientRect();
+      const hasPointer = Number.isFinite(clientX) && Number.isFinite(clientY);
+      const fallbackClientX = Number.isFinite(graphPointerState.clientX) ? graphPointerState.clientX : null;
+      const fallbackClientY = Number.isFinite(graphPointerState.clientY) ? graphPointerState.clientY : null;
+      const resolvedClientX = hasPointer ? clientX : fallbackClientX;
+      const resolvedClientY = hasPointer ? clientY : fallbackClientY;
+      const viewportX = resolvedClientX === null
+        ? graphPanel.clientWidth / 2
+        : Math.max(0, Math.min(graphPanel.clientWidth, resolvedClientX - panelRect.left));
+      const viewportY = resolvedClientY === null
+        ? graphPanel.clientHeight / 2
+        : Math.max(0, Math.min(graphPanel.clientHeight, resolvedClientY - panelRect.top));
+
+      return { viewportX, viewportY };
+    };
+    const applyGraphZoom = (scale, mode, anchor = {}) => {
+      if (!(graphStage instanceof HTMLElement) || !(graphPanel instanceof HTMLElement)) {
         return;
       }
 
+      const previousScale = Math.max(graphZoomMin, Math.min(graphZoomMax, getGraphZoomScale()));
       const nextScale = Math.max(graphZoomMin, Math.min(graphZoomMax, scale));
+      const { viewportX, viewportY } = resolveGraphZoomViewportAnchor(anchor.clientX, anchor.clientY);
+      const contentX = (graphPanel.scrollLeft + viewportX) / previousScale;
+      const contentY = (graphPanel.scrollTop + viewportY) / previousScale;
       const canvasBounds = measureGraphStageCanvasBounds();
       graphZoomState.mode = mode;
       graphZoomState.scale = nextScale;
@@ -6139,6 +6167,10 @@ export function buildWorkflowHtml(
       if (graphZoomInButton instanceof HTMLButtonElement) {
         graphZoomInButton.disabled = nextScale >= graphZoomMax - 0.001;
       }
+      window.requestAnimationFrame(() => {
+        graphPanel.scrollLeft = Math.max(0, (contentX * nextScale) - viewportX);
+        graphPanel.scrollTop = Math.max(0, (contentY * nextScale) - viewportY);
+      });
     };
     const autoFitGraph = () => {
       applyGraphZoom(computeAutoFitGraphZoom(), "fit");
@@ -6817,6 +6849,10 @@ export function buildWorkflowHtml(
       graphPanel.addEventListener("scroll", () => {
         persistWorkflowScrollState();
       }, { passive: true });
+      graphPanel.addEventListener("pointermove", (event) => {
+        graphPointerState.clientX = event.clientX;
+        graphPointerState.clientY = event.clientY;
+      }, { passive: true });
     }
     if (graphZoomOutButton instanceof HTMLButtonElement) {
       graphZoomOutButton.addEventListener("click", () => {
@@ -6852,7 +6888,10 @@ export function buildWorkflowHtml(
 
         event.preventDefault();
         const direction = event.deltaY > 0 ? -1 : 1;
-        setManualGraphZoom(getGraphZoomScale() + (graphZoomStep * direction));
+        applyGraphZoom(getGraphZoomScale() + (graphZoomStep * direction), "manual", {
+          clientX: event.clientX,
+          clientY: event.clientY
+        });
         persistWorkflowScrollState();
       }, { passive: false });
     }
