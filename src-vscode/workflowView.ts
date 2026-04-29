@@ -1966,26 +1966,26 @@ export function buildWorkflowHtml(
     )
     : "";
   const latestIteration = phaseIterations[0] ?? null;
-  const visibleIterations = isIterationRailExpanded
-    ? phaseIterations
-    : latestIteration
-      ? [latestIteration]
-      : [];
   const iterationRail = phaseIterations.length > 0
     ? `
-      <section class="detail-card detail-card--phase-iterations">
+      <section class="detail-card detail-card--phase-iterations" data-iteration-rail-section data-phase-id="${escapeHtmlAttribute(selectedPhase.phaseId)}">
         <div class="detail-card__header detail-card__header--iterations">
           <div>
             <h3>Phase Iterations</h3>
-            <p class="panel-copy">${isIterationRailExpanded
-              ? "Newest first. Select any iteration to inspect its readonly artifact, metrics, and recorded context."
-              : "Collapsed by default. The latest iteration stays selected until you expand the full history."}</p>
+            <p
+              class="panel-copy"
+              data-iteration-rail-copy
+              data-copy-expanded="Newest first. Select any iteration to inspect its readonly artifact, metrics, and recorded context."
+              data-copy-collapsed="Collapsed by default. The latest iteration stays selected until you expand the full history.">${isIterationRailExpanded
+                ? "Newest first. Select any iteration to inspect its readonly artifact, metrics, and recorded context."
+                : "Collapsed by default. The latest iteration stays selected until you expand the full history."}</p>
           </div>
           <button
             type="button"
             class="iteration-rail-toggle"
             data-command="togglePhaseIterations"
             data-phase-id="${escapeHtmlAttribute(selectedPhase.phaseId)}"
+            data-iteration-rail-toggle
             aria-label="${isIterationRailExpanded ? "Collapse phase iterations" : "Expand phase iterations"}"
             title="${isIterationRailExpanded ? "Collapse phase iterations" : "Expand phase iterations"}"
             aria-expanded="${isIterationRailExpanded ? "true" : "false"}">
@@ -1994,12 +1994,13 @@ export function buildWorkflowHtml(
         </div>
         <div class="iteration-rail${isIterationRailExpanded ? " iteration-rail--expanded" : " iteration-rail--collapsed"}">
           <span class="iteration-rail__line" aria-hidden="true"></span>
-          ${visibleIterations.map((iteration) => `
+          ${phaseIterations.map((iteration, index) => `
             <button
               type="button"
-              class="iteration-rail__item${selectedIteration?.iterationKey === iteration.iterationKey ? " iteration-rail__item--selected" : ""}"
+              class="iteration-rail__item${selectedIteration?.iterationKey === iteration.iterationKey ? " iteration-rail__item--selected" : ""}${index === 0 ? " iteration-rail__item--latest" : ""}"
               data-command="selectIteration"
-              data-iteration-key="${escapeHtmlAttribute(iteration.iterationKey)}">
+              data-iteration-key="${escapeHtmlAttribute(iteration.iterationKey)}"
+              data-is-latest-iteration="${index === 0 ? "true" : "false"}">
               <span class="iteration-rail__stem" aria-hidden="true"></span>
               <span class="iteration-rail__body">
                 <span class="iteration-rail__title">Iteration ${iteration.attempt} · ${escapeHtml(formatUtcTimestamp(iteration.timestampUtc))}</span>
@@ -4637,6 +4638,9 @@ export function buildWorkflowHtml(
     .iteration-rail--collapsed {
       gap: 0;
     }
+    .iteration-rail--collapsed .iteration-rail__item:not(.iteration-rail__item--latest) {
+      display: none;
+    }
     .iteration-rail__line {
       position: absolute;
       left: 18px;
@@ -6751,6 +6755,64 @@ export function buildWorkflowHtml(
         // Last-resort swallow to avoid breaking the webview script.
       }
     };
+    const syncIterationRailSection = (section, expanded) => {
+      if (!(section instanceof HTMLElement)) {
+        return;
+      }
+
+      const rail = section.querySelector(".iteration-rail");
+      const toggle = section.querySelector("[data-iteration-rail-toggle]");
+      const copy = section.querySelector("[data-iteration-rail-copy]");
+      const icon = toggle instanceof HTMLElement
+        ? toggle.querySelector(".iteration-rail-toggle__icon")
+        : null;
+
+      if (rail instanceof HTMLElement) {
+        rail.classList.toggle("iteration-rail--expanded", expanded);
+        rail.classList.toggle("iteration-rail--collapsed", !expanded);
+      }
+
+      if (toggle instanceof HTMLElement) {
+        toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+        toggle.setAttribute("aria-label", expanded ? "Collapse phase iterations" : "Expand phase iterations");
+        toggle.setAttribute("title", expanded ? "Collapse phase iterations" : "Expand phase iterations");
+      }
+
+      if (icon instanceof HTMLElement) {
+        icon.classList.toggle("iteration-rail-toggle__icon--expanded", expanded);
+      }
+
+      if (copy instanceof HTMLElement) {
+        copy.textContent = expanded
+          ? (copy.dataset.copyExpanded ?? copy.textContent ?? "")
+          : (copy.dataset.copyCollapsed ?? copy.textContent ?? "");
+      }
+    };
+    const toggleIterationRailLocally = (toggleElement) => {
+      if (!(toggleElement instanceof HTMLElement)) {
+        return;
+      }
+
+      const section = toggleElement.closest("[data-iteration-rail-section]");
+      if (!(section instanceof HTMLElement)) {
+        return;
+      }
+
+      const isExpanded = toggleElement.getAttribute("aria-expanded") === "true";
+      const nextExpanded = !isExpanded;
+      syncIterationRailSection(section, nextExpanded);
+
+      const phaseId = toggleElement.dataset.phaseId ?? "";
+      if (Array.isArray(viewState.expandedIterationPhaseIds)) {
+        const nextPhaseIds = new Set(viewState.expandedIterationPhaseIds);
+        if (nextExpanded) {
+          nextPhaseIds.add(phaseId);
+        } else {
+          nextPhaseIds.delete(phaseId);
+        }
+        viewState.expandedIterationPhaseIds = [...nextPhaseIds];
+      }
+    };
     const markSelectedPhaseNode = (element) => {
       if (!(element instanceof HTMLElement) || element.dataset.command !== "selectPhase") {
         return;
@@ -6778,6 +6840,9 @@ export function buildWorkflowHtml(
 
         event.preventDefault();
         event.stopPropagation();
+        if (command === "togglePhaseIterations") {
+          toggleIterationRailLocally(element);
+        }
         postCommand(element);
       });
     };

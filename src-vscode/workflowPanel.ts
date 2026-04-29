@@ -271,18 +271,30 @@ class WorkflowPanelController {
         return;
       case "togglePhaseIterations":
         if (message.phaseId) {
+          let requiresFullRender = false;
           if (this.expandedIterationPhaseIds.has(message.phaseId)) {
             this.expandedIterationPhaseIds.delete(message.phaseId);
             if (this.lastWorkflow && this.selectedPhaseId === message.phaseId) {
-              const latestIteration = (this.lastWorkflow.phaseIterations ?? [])
+              const phaseIterations = (this.lastWorkflow.phaseIterations ?? [])
                 .filter((iteration) => iteration.phaseId === message.phaseId)
-                .sort((left, right) => right.attempt - left.attempt)[0];
+                .sort((left, right) => right.attempt - left.attempt);
+              const latestIteration = phaseIterations[0];
+              const selectedIteration = this.selectedIterationKey
+                ? phaseIterations.find((iteration) => iteration.iterationKey === this.selectedIterationKey) ?? null
+                : latestIteration ?? null;
+              requiresFullRender = Boolean(
+                selectedIteration
+                && latestIteration
+                && selectedIteration.iterationKey !== latestIteration.iterationKey
+              );
               this.selectedIterationKey = latestIteration?.iterationKey ?? null;
             }
           } else {
             this.expandedIterationPhaseIds.add(message.phaseId);
           }
-          await this.renderCachedWorkflowAsync("command:togglePhaseIterations");
+          if (requiresFullRender) {
+            await this.renderCachedWorkflowAsync("command:togglePhaseIterations");
+          }
         }
         return;
       case "openArtifact":
