@@ -6,6 +6,7 @@ import {
   type SpecForgeModelProfile,
   type SpecForgePhaseModelAssignments
 } from "./extensionSettings";
+import { automationPhaseIcon, workflowPhaseIcon } from "./workflow-view/icons";
 import { buildWebviewTypographyRootCss, getEditorTypographyCssVars } from "./webviewTypography";
 
 type ExecutionSettingsMessage =
@@ -163,17 +164,31 @@ type ExecutionSettingsViewModel = {
   readonly typographyCssVars?: string;
 };
 
-const executionPhases: ReadonlyArray<{ key: keyof SpecForgePhaseModelAssignments; label: string; }> = [
-  { key: "defaultProfile", label: "Default / fallback" },
-  { key: "captureProfile", label: "Capture" },
-  { key: "refinementProfile", label: "Refinement" },
-  { key: "specProfile", label: "Spec" },
-  { key: "technicalDesignProfile", label: "Technical Design" },
-  { key: "implementationProfile", label: "Implementation" },
-  { key: "reviewProfile", label: "Review" },
-  { key: "releaseApprovalProfile", label: "Release Approval" },
-  { key: "prPreparationProfile", label: "PR Preparation" }
+const executionPhases: ReadonlyArray<{
+  key: keyof SpecForgePhaseModelAssignments;
+  label: string;
+  phaseId: string | null;
+  kind: "default" | "phase";
+}> = [
+  { key: "defaultProfile", label: "Default / fallback", phaseId: null, kind: "default" },
+  { key: "captureProfile", label: "Capture", phaseId: "capture", kind: "phase" },
+  { key: "refinementProfile", label: "Refinement", phaseId: "refinement", kind: "phase" },
+  { key: "specProfile", label: "Spec", phaseId: "spec", kind: "phase" },
+  { key: "technicalDesignProfile", label: "Technical Design", phaseId: "technical-design", kind: "phase" },
+  { key: "implementationProfile", label: "Implementation", phaseId: "implementation", kind: "phase" },
+  { key: "reviewProfile", label: "Review", phaseId: "review", kind: "phase" },
+  { key: "releaseApprovalProfile", label: "Release Approval", phaseId: "release-approval", kind: "phase" },
+  { key: "prPreparationProfile", label: "PR Preparation", phaseId: "pr-preparation", kind: "phase" }
 ];
+
+function renderExecutionSettingsPhaseIcon(phase: typeof executionPhases[number]): string {
+  const icon = phase.phaseId ? workflowPhaseIcon(phase.phaseId) : automationPhaseIcon();
+  const toneClass = phase.kind === "default"
+    ? " phase-field__icon-shell--default"
+    : "";
+
+  return `<span class="phase-field__icon-shell${toneClass}" aria-hidden="true">${icon}</span>`;
+}
 
 export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): string {
   const permissionIssues = validatePhasePermissionAssignments(model.modelProfiles, model.phaseModelAssignments);
@@ -280,6 +295,9 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     .profiles, .phase-grid {
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     }
+    .phase-grid {
+      align-items: start;
+    }
     .feature-grid {
       display: grid;
       gap: 12px;
@@ -378,6 +396,70 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(255, 255, 255, 0.06);
     }
+    .phase-grid .phase-field {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      min-height: 100%;
+    }
+    .phase-field__heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .phase-field__icon-shell {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 34px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 12px;
+      border: 1px solid rgba(114, 241, 184, 0.18);
+      background:
+        radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.08), transparent 38%),
+        linear-gradient(180deg, rgba(18, 34, 31, 0.94), rgba(11, 21, 20, 0.98));
+      color: rgba(177, 255, 224, 0.92);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 8px 22px rgba(4, 10, 18, 0.18);
+    }
+    .phase-field__icon-shell svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+    .phase-field__icon-shell--default {
+      border-color: rgba(190, 198, 214, 0.16);
+      background:
+        radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.06), transparent 38%),
+        linear-gradient(180deg, rgba(34, 38, 45, 0.94), rgba(19, 23, 29, 0.98));
+      color: rgba(193, 201, 214, 0.82);
+    }
+    .phase-field__title-stack {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .phase-field__title {
+      font-size: 0.82rem;
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 700;
+    }
+    .phase-field__inline-hint {
+      font-size: 0.74rem;
+      color: rgba(255, 255, 255, 0.52);
+      line-height: 1.35;
+    }
+    .phase-field--default-route {
+      grid-column: 1 / -1;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+      align-items: center;
+      gap: 16px;
+    }
+    .phase-field--default-route .phase-field__hint {
+      grid-column: 1 / -1;
+    }
     .phase-field--invalid {
       border-color: rgba(255, 139, 139, 0.42);
       background: rgba(88, 28, 28, 0.22);
@@ -426,6 +508,9 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     @media (max-width: 720px) {
       body { padding: 16px; }
       .hero, .panel { padding: 16px; }
+      .phase-field--default-route {
+        grid-template-columns: minmax(0, 1fr);
+      }
     }
   </style>
 </head>
@@ -460,8 +545,16 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       </div>
       <div class="phase-grid" data-phase-grid>
         ${executionPhases.map((phase) => `
-          <label class="phase-field" data-phase-wrapper="${escapeHtmlAttr(String(phase.key))}">
-            <span>${escapeHtml(phase.label)}</span>
+          <label class="phase-field${phase.kind === "default" ? " phase-field--default-route" : ""}" data-phase-wrapper="${escapeHtmlAttr(String(phase.key))}">
+            <span class="phase-field__heading">
+              ${renderExecutionSettingsPhaseIcon(phase)}
+              <span class="phase-field__title-stack">
+                <span class="phase-field__title">${escapeHtml(phase.label)}</span>
+                ${phase.key === "defaultProfile"
+                  ? '<span class="phase-field__inline-hint">Required when you have multiple profiles and no single implicit fallback.</span>'
+                  : ""}
+              </span>
+            </span>
             <select data-phase-field="${escapeHtmlAttr(String(phase.key))}"></select>
             ${phase.key === "defaultProfile"
               ? '<span class="phase-field__hint">Required when you have multiple profiles and no single implicit fallback.</span>'
