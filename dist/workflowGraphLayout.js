@@ -53,50 +53,50 @@ const workflowGraphPhaseIds = [
 // Keep this comment aligned with workflowView.ts card constants.
 // Card dimensions used by the renderer: desktop 240x118, mobile 206x118.
 exports.defaultHorizontalWorkflowGraphPositions = {
-    capture: { x: 72, y: 56 },
-    refinement: { x: 430, y: 56 },
-    spec: { x: 788, y: 56 },
-    "technical-design": { x: 788, y: 398 },
-    implementation: { x: 430, y: 398 },
-    review: { x: 72, y: 398 },
-    "release-approval": { x: 72, y: 740 },
-    "pr-preparation": { x: 430, y: 740 },
-    completed: { x: 788, y: 740 }
+    capture: { x: 80, y: 60 },
+    refinement: { x: 380, y: 100 },
+    spec: { x: 580, y: 280 },
+    "technical-design": { x: 880, y: 320 },
+    implementation: { x: 1080, y: 500 },
+    review: { x: 1080, y: 680 },
+    "release-approval": { x: 1280, y: 860 },
+    "pr-preparation": { x: 1580, y: 900 },
+    completed: { x: 1880, y: 1080 }
 };
 exports.defaultVerticalWorkflowGraphPositions = {
-    capture: { x: 298, y: 36 },
-    refinement: { x: 632, y: 198 },
-    spec: { x: 360, y: 418 },
-    "technical-design": { x: 72, y: 590 },
-    implementation: { x: 470, y: 612 },
-    review: { x: 420, y: 846 },
-    "release-approval": { x: 738, y: 1018 },
-    "pr-preparation": { x: 356, y: 1188 },
-    completed: { x: 440, y: 1378 }
+    capture: { x: 80, y: 60 },
+    refinement: { x: 380, y: 100 },
+    spec: { x: 430, y: 280 },
+    "technical-design": { x: 430, y: 460 },
+    implementation: { x: 80, y: 640 },
+    review: { x: 80, y: 820 },
+    "release-approval": { x: 230, y: 1000 },
+    "pr-preparation": { x: 380, y: 1180 },
+    completed: { x: 230, y: 1360 }
 };
 exports.defaultWorkflowGraphLegendPositions = {
-    horizontal: { x: 28, y: 748 },
-    vertical: { x: 28, y: 1402 }
+    horizontal: { x: 20, y: 300 },
+    vertical: { x: 20, y: 300 }
 };
 exports.defaultHorizontalWorkflowGraphConnections = {
     "capture->refinement": { from: "R3", to: "L3" },
-    "refinement->spec": { from: "R3", to: "L3" },
-    "spec->technical-design": { from: "B3", to: "T3" },
-    "technical-design->implementation": { from: "L3", to: "R3" },
-    "implementation->review": { from: "L3", to: "R3" },
-    "review->release-approval": { from: "B3", to: "T3" },
+    "refinement->spec": { from: "B3", to: "L3" },
+    "spec->technical-design": { from: "R3", to: "L3" },
+    "technical-design->implementation": { from: "B3", to: "L3" },
+    "implementation->review": { from: "B3", to: "T3" },
+    "review->release-approval": { from: "B3", to: "L3" },
     "release-approval->pr-preparation": { from: "R3", to: "L3" },
-    "pr-preparation->completed": { from: "R3", to: "L3" }
+    "pr-preparation->completed": { from: "B3", to: "L3" }
 };
 exports.defaultVerticalWorkflowGraphConnections = {
-    "capture->refinement": { from: "R4", to: "T2" },
-    "refinement->spec": { from: "B2", to: "T4" },
-    "spec->technical-design": { from: "L4", to: "T3" },
-    "technical-design->implementation": { from: "R4", to: "L3" },
+    "capture->refinement": { from: "R3", to: "L3" },
+    "refinement->spec": { from: "B3", to: "T3" },
+    "spec->technical-design": { from: "B3", to: "T3" },
+    "technical-design->implementation": { from: "B3", to: "R3" },
     "implementation->review": { from: "B3", to: "T3" },
-    "review->release-approval": { from: "R3", to: "T2" },
-    "release-approval->pr-preparation": { from: "B2", to: "R3" },
-    "pr-preparation->completed": { from: "R3", to: "L3" }
+    "review->release-approval": { from: "B3", to: "L3" },
+    "release-approval->pr-preparation": { from: "B3", to: "L3" },
+    "pr-preparation->completed": { from: "B3", to: "R3" }
 };
 exports.defaultHorizontalWorkflowGraphLoops = {
     "implementation-review": { fromPhaseId: "implementation", toPhaseId: "review", side: "right" }
