@@ -19,7 +19,7 @@ export class WorkflowAuditViewProvider implements vscode.WebviewViewProvider {
   public resolveWebviewView(webviewView: vscode.WebviewView): void | Thenable<void> {
     this.webviewView = webviewView;
     webviewView.webview.options = {
-      enableScripts: false,
+      enableScripts: true,
       localResourceRoots: [this.extensionUri]
     };
 
@@ -50,7 +50,11 @@ export class WorkflowAuditViewProvider implements vscode.WebviewViewProvider {
     }
 
     this.webviewView.webview.html = this.snapshot
-      ? buildWorkflowAuditHtml(this.snapshot.workflow, this.snapshot.state, getEditorTypographyCssVars())
+      ? buildWorkflowAuditHtml(
+        this.snapshot.workflow,
+        this.snapshot.state,
+        getEditorTypographyCssVars(),
+        this.webviewView.webview.cspSource)
       : buildEmptyWorkflowAuditHtml(getEditorTypographyCssVars());
   }
 }

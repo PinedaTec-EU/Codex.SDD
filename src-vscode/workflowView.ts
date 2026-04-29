@@ -1497,14 +1497,20 @@ function createWebviewNonce(): string {
 export function buildWorkflowAuditHtml(
   workflow: UserStoryWorkflowDetails,
   state: WorkflowViewState,
-  typographyCssVars = ""
+  typographyCssVars = "",
+  cspSource = ""
 ): string {
+  const scriptNonce = createWebviewNonce();
+  const cspMeta = cspSource.trim().length > 0
+    ? `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${escapeHtmlAttribute(cspSource)} 'unsafe-inline'; script-src 'nonce-${scriptNonce}';">`
+    : "";
   const auditRows = buildWorkflowAuditRowsHtml(workflow, state);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  ${cspMeta}
   <style>
     :root {
       ${buildWebviewTypographyRootCss(typographyCssVars)}
@@ -1591,7 +1597,20 @@ export function buildWorkflowAuditHtml(
   </style>
 </head>
 <body>
-  <div class="audit-stream">${auditRows}</div>
+  <div class="audit-stream" data-audit-stream>${auditRows}</div>
+  <script nonce="${scriptNonce}">
+    const auditStream = document.querySelector("[data-audit-stream]");
+    const scrollAuditStreamToLatest = () => {
+      if (!(auditStream instanceof HTMLElement)) {
+        return;
+      }
+
+      auditStream.scrollTop = auditStream.scrollHeight;
+    };
+
+    window.requestAnimationFrame(() => scrollAuditStreamToLatest());
+    window.setTimeout(() => scrollAuditStreamToLatest(), 60);
+  </script>
 </body>
 </html>`;
 }

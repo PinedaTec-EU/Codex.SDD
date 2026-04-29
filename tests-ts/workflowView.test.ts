@@ -275,11 +275,12 @@ test("buildWorkflowAuditHtml renders workflow audit content in a standalone pane
     ]
   });
 
-  assert.match(html, /<div class="audit-stream">/);
+  assert.match(html, /<div class="audit-stream" data-audit-stream>/);
   assert.match(html, /Generated spec artifact\./);
   assert.match(html, /phase_completed[^]*badge\">system</);
   assert.match(html, /phase_completed[^]*badge\">spec</);
   assert.match(html, /model light \/ gpt-4\.1-mini/);
+  assert.match(html, /auditStream\.scrollTop = auditStream\.scrollHeight/);
   assert.doesNotMatch(html, /Audit Stream<\/h2>/);
 });
 
