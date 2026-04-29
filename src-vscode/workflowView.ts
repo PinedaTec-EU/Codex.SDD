@@ -1790,16 +1790,8 @@ export function buildWorkflowHtml(
       </div>
     `
     : "";
-  const rewindBlockOverlay = rewindDecision.reasonMessage && !pendingRewindPhaseId
-    ? `
-      <div class="settings-warning settings-warning--attention rewind-warning" role="status">
-        <div class="settings-warning__icon">!</div>
-        <div>
-          <p class="eyebrow warning">Rewind blocked</p>
-          <p class="warning-copy">${escapeHtml(rewindDecision.reasonMessage)}</p>
-        </div>
-      </div>
-    `
+  const rewindBlockedToken = rewindDecision.reasonMessage && !pendingRewindPhaseId
+    ? `<span class="token token--attention" title="${escapeHtmlAttribute(rewindDecision.reasonMessage)}">rewind blocked</span>`
     : "";
   const phaseSpecificSections = buildPhaseSpecificSections(
     workflow,
@@ -2683,9 +2675,6 @@ export function buildWorkflowHtml(
       align-content: flex-start;
       justify-content: flex-end;
       max-width: 540px;
-    }
-    .rewind-warning {
-      margin-top: 12px;
     }
     .workflow-files-overlay {
       position: fixed;
@@ -5876,6 +5865,7 @@ export function buildWorkflowHtml(
             ${pendingRewindPhaseId ? `<span class="token token--attention">rewind:${escapeHtml(pendingRewindPhaseId)}</span>` : ""}
             <span class="token">${escapeHtml(workflow.workBranch ?? "branch:not-created")}</span>
             <span class="token${heroTokenClass(`runner:${playbackState}`)}">runner:${escapeHtml(playbackState)}</span>
+            ${rewindBlockedToken}
           </div>
         </div>
         <div class="control-strip">
@@ -5889,7 +5879,6 @@ export function buildWorkflowHtml(
           </button>
         </div>
       </div>
-      ${rewindBlockOverlay}
       ${implementationReviewLimitBanner}
     </section>
     <div class="shell-body">

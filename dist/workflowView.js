@@ -1341,16 +1341,8 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       </div>
     `
         : "";
-    const rewindBlockOverlay = rewindDecision.reasonMessage && !pendingRewindPhaseId
-        ? `
-      <div class="settings-warning settings-warning--attention rewind-warning" role="status">
-        <div class="settings-warning__icon">!</div>
-        <div>
-          <p class="eyebrow warning">Rewind blocked</p>
-          <p class="warning-copy">${(0, htmlEscape_1.escapeHtml)(rewindDecision.reasonMessage)}</p>
-        </div>
-      </div>
-    `
+    const rewindBlockedToken = rewindDecision.reasonMessage && !pendingRewindPhaseId
+        ? `<span class="token token--attention" title="${(0, htmlEscape_1.escapeHtmlAttr)(rewindDecision.reasonMessage)}">rewind blocked</span>`
         : "";
     const phaseSpecificSections = buildPhaseSpecificSections(workflow, selectedPhase, state, artifactPreviewHtml, artifactQuestionBlock, specApprovalQuestions, unresolvedApprovalQuestionCount);
     const rejectPlan = selectedPhaseIsCurrent && selectedPhase.requiresApproval
@@ -2205,9 +2197,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       align-content: flex-start;
       justify-content: flex-end;
       max-width: 540px;
-    }
-    .rewind-warning {
-      margin-top: 12px;
     }
     .workflow-files-overlay {
       position: fixed;
@@ -5398,6 +5387,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
             ${pendingRewindPhaseId ? `<span class="token token--attention">rewind:${(0, htmlEscape_1.escapeHtml)(pendingRewindPhaseId)}</span>` : ""}
             <span class="token">${(0, htmlEscape_1.escapeHtml)(workflow.workBranch ?? "branch:not-created")}</span>
             <span class="token${heroTokenClass(`runner:${playbackState}`)}">runner:${(0, htmlEscape_1.escapeHtml)(playbackState)}</span>
+            ${rewindBlockedToken}
           </div>
         </div>
         <div class="control-strip">
@@ -5411,7 +5401,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
           </button>
         </div>
       </div>
-      ${rewindBlockOverlay}
       ${implementationReviewLimitBanner}
     </section>
     <div class="shell-body">
