@@ -35,6 +35,7 @@ type SidebarMessage =
   | { readonly command: "openWorkflow"; readonly usId?: string }
   | { readonly command: "toggleStarredUserStory"; readonly usId?: string }
   | { readonly command: "deleteUserStory"; readonly usId?: string }
+  | { readonly command: "analyzeRepairUserStory"; readonly usId?: string }
   | { readonly command: "setCreateFileMode"; readonly kind?: string }
   | { readonly command: "addCreateFiles"; readonly kind?: string }
   | { readonly command: "addCreateFilePaths"; readonly kind?: string; readonly paths?: readonly string[] }
@@ -177,6 +178,13 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
         await this.deleteUserStoryAsync(message.usId);
         return;
+      case "analyzeRepairUserStory":
+        if (!message.usId) {
+          return;
+        }
+
+        await this.analyzeRepairUserStoryAsync(message.usId);
+        return;
       case "toggleStarredUserStory":
         if (!message.usId) {
           return;
@@ -283,6 +291,31 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       await setStarredUserStory(workspaceRoot, null);
     }
     await this.onDidCreateUserStory();
+  }
+
+  private async analyzeRepairUserStoryAsync(usId: string): Promise<void> {
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+      return;
+    }
+
+    await this.runBusyActionAsync("Analyzing user story lineage...", async () => {
+      const analysis = await getOrCreateBackendClient(workspaceRoot).analyzeUserStoryLineage(usId);
+      appendSpecForgeLog(
+        `Lineage analysis for '${usId}': status=${analysis.status}, findings=${analysis.findings.length}, deprecatedCandidates=${analysis.deprecatedCandidatePaths.length}.`
+      );
+      const firstFinding = analysis.findings[0];
+      const message = analysis.status === "clean"
+        ? `${usId} lineage is clean.`
+        : `${usId} lineage is ${analysis.status}: ${firstFinding?.summary ?? "Review the SpecForge output for details."}`;
+      if (analysis.status === "clean") {
+        void vscode.window.showInformationMessage(message);
+      } else {
+        void vscode.window.showWarningMessage(
+          `${message} Candidate artifacts: ${analysis.deprecatedCandidatePaths.length}.`
+        );
+      }
+    });
   }
 
   private async toggleStarredUserStoryAsync(usId: string): Promise<void> {

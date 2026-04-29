@@ -547,6 +547,58 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task AnalyzeUserStoryLineageAsync_DetectsCompletedReopenSkippedLandingPhase()
+    {
+        var runner = new WorkflowRunner();
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        Directory.CreateDirectory(paths.PhasesDirectoryPath);
+        await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign), "# TD v1");
+        await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Implementation, 2), "# Impl v2");
+        await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Review, 2), "# Review v2");
+        await File.WriteAllTextAsync(paths.TimelineFilePath, $$"""
+# Timeline · US-0001 · Test story
+
+## Events
+
+### 2026-04-29T16:07:06.5897180+00:00 · `workflow_reopened`
+
+- Actor: `user`
+- Phase: `technical-design`
+- Summary: Reopened completed workflow due to `technical-issue`.
+
+### 2026-04-29T16:56:11.6215830+00:00 · `phase_completed`
+
+- Actor: `user`
+- Phase: `implementation`
+- Summary: Generated artifact for phase `implementation`.
+- Artifacts:
+  - `{{paths.GetPhaseArtifactPath(PhaseId.Implementation, 2)}}`
+
+### 2026-04-29T16:56:46.3000860+00:00 · `phase_completed`
+
+- Actor: `user`
+- Phase: `review`
+- Summary: Generated artifact for phase `review`.
+- Artifacts:
+  - `{{paths.GetPhaseArtifactPath(PhaseId.Review, 2)}}`
+""");
+        var applicationService = new SpecForgeApplicationService(
+            new UserStoryFileStore(),
+            runner,
+            runtimeVersion: "test");
+
+        var analysis = await applicationService.AnalyzeUserStoryLineageAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal("inconsistent", analysis.Status);
+        var finding = Assert.Single(analysis.Findings, item => item.Code == "completed_reopen_skipped_landing_phase");
+        Assert.Equal("certain", finding.Confidence);
+        Assert.Equal("technical-design", analysis.RecommendedTargetPhase);
+        Assert.Contains(paths.GetPhaseArtifactPath(PhaseId.Implementation, 2), analysis.DeprecatedCandidatePaths);
+        Assert.Contains(paths.GetPhaseArtifactPath(PhaseId.Review, 2), analysis.DeprecatedCandidatePaths);
+    }
+
+    [Fact]
     public async Task ContinuePhaseAsync_FromPrPreparation_PublishesDraftPullRequestAndCompletesWorkflow()
     {
         var publisher = new RecordingPullRequestPublisher();
@@ -908,8 +960,16 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Contains("model: `stub-model`", timeline);
         Assert.Contains("profile: `test-profile`", timeline);
         Assert.Contains("runtime-version: `0.1.3.224`", timeline);
-        Assert.Contains("<!-- specforge-execution-hashes input-sha256=\"input-hash\" output-sha256=\"output-hash\" structured-output-sha256=\"structured-hash\" -->", timeline);
+        Assert.Contains("input-sha256=\"input-hash\"", timeline);
+        Assert.Contains("output-sha256=\"output-hash\"", timeline);
+        Assert.Contains("structured-output-sha256=\"structured-hash\"", timeline);
+        Assert.Contains("receipt=\"", timeline);
         Assert.Contains("- Duration:", timeline);
+        var receiptsDirectoryPath = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001").ExecutionReceiptsDirectoryPath;
+        var receiptPath = Assert.Single(Directory.GetFiles(receiptsDirectoryPath, "*.json"));
+        var receiptJson = await File.ReadAllTextAsync(receiptPath);
+        Assert.Contains("\"manifestSha256\"", receiptJson);
+        Assert.Contains("\"outputManifest\"", receiptJson);
     }
 
     [Fact]

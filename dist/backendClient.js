@@ -110,6 +110,12 @@ class StdioMcpBackendClient {
             usId
         });
     }
+    async analyzeUserStoryLineage(usId) {
+        return this.callTool("analyze_user_story_lineage", {
+            workspaceRoot: this.workspaceRoot,
+            usId
+        });
+    }
     async createUserStory(usId, title, kind, category, sourceText, actor) {
         return this.callTool("create_us_from_chat", {
             workspaceRoot: this.workspaceRoot,

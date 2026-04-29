@@ -155,6 +155,12 @@ class SidebarViewProvider {
                 }
                 await this.deleteUserStoryAsync(message.usId);
                 return;
+            case "analyzeRepairUserStory":
+                if (!message.usId) {
+                    return;
+                }
+                await this.analyzeRepairUserStoryAsync(message.usId);
+                return;
             case "toggleStarredUserStory":
                 if (!message.usId) {
                     return;
@@ -248,6 +254,26 @@ class SidebarViewProvider {
             await (0, userWorkspacePreferences_1.setStarredUserStory)(workspaceRoot, null);
         }
         await this.onDidCreateUserStory();
+    }
+    async analyzeRepairUserStoryAsync(usId) {
+        const workspaceRoot = getWorkspaceRoot();
+        if (!workspaceRoot) {
+            return;
+        }
+        await this.runBusyActionAsync("Analyzing user story lineage...", async () => {
+            const analysis = await (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot).analyzeUserStoryLineage(usId);
+            (0, outputChannel_1.appendSpecForgeLog)(`Lineage analysis for '${usId}': status=${analysis.status}, findings=${analysis.findings.length}, deprecatedCandidates=${analysis.deprecatedCandidatePaths.length}.`);
+            const firstFinding = analysis.findings[0];
+            const message = analysis.status === "clean"
+                ? `${usId} lineage is clean.`
+                : `${usId} lineage is ${analysis.status}: ${firstFinding?.summary ?? "Review the SpecForge output for details."}`;
+            if (analysis.status === "clean") {
+                void vscode.window.showInformationMessage(message);
+            }
+            else {
+                void vscode.window.showWarningMessage(`${message} Candidate artifacts: ${analysis.deprecatedCandidatePaths.length}.`);
+            }
+        });
     }
     async toggleStarredUserStoryAsync(usId) {
         const workspaceRoot = getWorkspaceRoot();

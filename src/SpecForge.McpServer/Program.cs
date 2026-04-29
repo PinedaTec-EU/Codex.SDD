@@ -139,6 +139,9 @@ static async Task<JsonNode> HandleToolCallAsync(
             "get_user_story_runtime_status" => await applicationService.GetUserStoryRuntimeStatusAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
                 usId: GetRequired(arguments, "usId")),
+            "analyze_user_story_lineage" => await applicationService.AnalyzeUserStoryLineageAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId")),
             "generate_next_phase" => await applicationService.GenerateNextPhaseAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
                 usId: GetRequired(arguments, "usId"),
@@ -303,6 +306,13 @@ static JsonObject BuildToolsList()
                         ("usId",          Prop("string", "User story identifier."))))),
 
             Tool("get_user_story_runtime_status", "Get the persisted runtime status, including whether a phase generation is still running.",
+                Schema(
+                    required: ["workspaceRoot", "usId"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier."))))),
+
+            Tool("analyze_user_story_lineage", "Analyze a user story timeline and artifacts for workflow lineage inconsistencies.",
                 Schema(
                     required: ["workspaceRoot", "usId"],
                     Props(

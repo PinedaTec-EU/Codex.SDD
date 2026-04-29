@@ -1163,6 +1163,10 @@ public sealed class WorkflowRunner
             BuildContextFilePaths(paths, workflowRun.CurrentPhase),
             currentArtifactPath,
             operationPrompt);
+        EnsureExecutionInputFilesExist(executionContext);
+        var executionId = BuildExecutionId(workflowRun.CurrentPhase);
+        var executionStartedAtUtc = DateTimeOffset.UtcNow;
+        var inputManifest = PhaseExecutionReceiptStore.BuildInputManifest(workspaceRoot, executionContext);
         var previousArtifactList = executionContext.PreviousArtifactPaths
             .OrderBy(static item => item.Key)
             .Select(static item => $"{WorkflowPresentation.ToPhaseSlug(item.Key)}='{item.Value}'")
@@ -1174,7 +1178,7 @@ public sealed class WorkflowRunner
         SpecForgeDiagnostics.Log(
             $"[runner.materialize] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} artifactPath='{artifactPath}' contextFiles={executionContext.ContextFilePaths.Count} previousArtifacts={executionContext.PreviousArtifactPaths.Count} currentArtifactPath='{currentArtifactPath ?? "(none)"}' operationPrompt={(string.IsNullOrWhiteSpace(operationPrompt) ? "no" : "yes")}");
         SpecForgeDiagnostics.Log(
-            $"[runner.materialize.in] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} userStory='{executionContext.UserStoryPath}' previousArtifacts=[{string.Join(", ", previousArtifactList)}] contextFiles=[{string.Join(", ", contextFileList)}] currentArtifact='{currentArtifactPath ?? "(none)"}'");
+            $"[runner.materialize.in] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} executionId={executionId} inputManifestHash={inputManifest.ManifestSha256} userStory='{executionContext.UserStoryPath}' previousArtifacts=[{string.Join(", ", previousArtifactList)}] contextFiles=[{string.Join(", ", contextFileList)}] currentArtifact='{currentArtifactPath ?? "(none)"}'");
         var implementationEvidenceBaseline = workflowRun.CurrentPhase == PhaseId.Implementation
             ? await ImplementationPhaseEvidence.CaptureWorkspaceSnapshotAsync(workspaceRoot, paths.RootDirectory, cancellationToken)
             : null;
@@ -1298,8 +1302,68 @@ public sealed class WorkflowRunner
         SpecForgeDiagnostics.Log(
             $"[runner.materialize.out] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} generatedFiles=[{string.Join(", ", generatedFiles.Select(static path => $"'{path}'"))}]");
 
-        diagnostics.MarkCompleted($"artifactPath='{artifactPath}'");
-        return new ArtifactGenerationResult(artifactPath, result.Usage, stopwatch.ElapsedMilliseconds, executionMetadata);
+        var receipt = new PhaseExecutionReceipt(
+            executionId,
+            workflowRun.UsId,
+            WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
+            executionStartedAtUtc.ToString("O"),
+            DateTimeOffset.UtcNow.ToString("O"),
+            inputManifest,
+            new PhaseExecutionOutputManifest(
+                PhaseExecutionReceiptStore.NormalizePath(artifactPath),
+                PhaseExecutionReceiptStore.TryComputeFileSha256(artifactPath),
+                generatedFiles
+                    .Select(path => new PhaseExecutionArtifactInput(
+                        PhaseExecutionReceiptStore.NormalizePath(path),
+                        PhaseExecutionReceiptStore.TryComputeFileSha256(path)))
+                    .ToArray()),
+            result.Usage,
+            executionMetadata);
+        var receiptPath = await PhaseExecutionReceiptStore.PersistAsync(paths.ExecutionReceiptsDirectoryPath, receipt, cancellationToken);
+        if (!File.Exists(artifactPath))
+        {
+            throw new WorkflowDomainException($"Phase '{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}' did not produce expected artifact '{artifactPath}'.");
+        }
+
+        var returnedExecutionMetadata = executionMetadata is null
+            ? null
+            : executionMetadata with { ReceiptPath = receiptPath };
+        SpecForgeDiagnostics.Log(
+            $"[runner.materialize.receipt] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} executionId={executionId} receipt='{receiptPath}' outputHash={receipt.OutputManifest.ResultArtifactSha256 ?? "(none)"}");
+        diagnostics.MarkCompleted($"artifactPath='{artifactPath}' receiptPath='{receiptPath}'");
+        return new ArtifactGenerationResult(artifactPath, result.Usage, stopwatch.ElapsedMilliseconds, returnedExecutionMetadata, receiptPath);
+    }
+
+    private static string BuildExecutionId(PhaseId phaseId) =>
+        $"{DateTimeOffset.UtcNow.UtcDateTime:yyyyMMdd'T'HHmmssfff'Z'}-{WorkflowPresentation.ToPhaseSlug(phaseId)}";
+
+    private static void EnsureExecutionInputFilesExist(PhaseExecutionContext context)
+    {
+        if (!File.Exists(context.UserStoryPath))
+        {
+            throw new WorkflowDomainException($"Phase '{WorkflowPresentation.ToPhaseSlug(context.PhaseId)}' cannot run because user story path '{context.UserStoryPath}' is missing.");
+        }
+
+        foreach (var previousArtifact in context.PreviousArtifactPaths)
+        {
+            if (!File.Exists(previousArtifact.Value))
+            {
+                throw new WorkflowDomainException($"Phase '{WorkflowPresentation.ToPhaseSlug(context.PhaseId)}' cannot run because previous artifact '{previousArtifact.Value}' is missing.");
+            }
+        }
+
+        foreach (var contextFilePath in context.ContextFilePaths)
+        {
+            if (!File.Exists(contextFilePath))
+            {
+                throw new WorkflowDomainException($"Phase '{WorkflowPresentation.ToPhaseSlug(context.PhaseId)}' cannot run because context file '{contextFilePath}' is missing.");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(context.CurrentArtifactPath) && !File.Exists(context.CurrentArtifactPath))
+        {
+            throw new WorkflowDomainException($"Phase '{WorkflowPresentation.ToPhaseSlug(context.PhaseId)}' cannot run because current artifact '{context.CurrentArtifactPath}' is missing.");
+        }
     }
 
     private static async Task<TimelineEventDetails?> TryReadPendingCompletedWorkflowReopenAsync(
@@ -2035,10 +2099,11 @@ public sealed class WorkflowRunner
 
             if (!string.IsNullOrWhiteSpace(execution.InputSha256) ||
                 !string.IsNullOrWhiteSpace(execution.OutputSha256) ||
-                !string.IsNullOrWhiteSpace(execution.StructuredOutputSha256))
+                !string.IsNullOrWhiteSpace(execution.StructuredOutputSha256) ||
+                !string.IsNullOrWhiteSpace(execution.ReceiptPath))
             {
                 builder.AppendLine(
-                    $"<!-- specforge-execution-hashes input-sha256=\"{execution.InputSha256 ?? string.Empty}\" output-sha256=\"{execution.OutputSha256 ?? string.Empty}\" structured-output-sha256=\"{execution.StructuredOutputSha256 ?? string.Empty}\" -->");
+                    $"<!-- specforge-execution-hashes input-sha256=\"{execution.InputSha256 ?? string.Empty}\" output-sha256=\"{execution.OutputSha256 ?? string.Empty}\" structured-output-sha256=\"{execution.StructuredOutputSha256 ?? string.Empty}\" receipt=\"{(execution.ReceiptPath ?? string.Empty).Replace('\\', '/')}\" -->");
             }
         }
 
@@ -2341,7 +2406,7 @@ public sealed class WorkflowRunner
         }
     }
 
-    private sealed record ArtifactGenerationResult(string ArtifactPath, TokenUsage? Usage, long DurationMs, PhaseExecutionMetadata? Execution);
+    private sealed record ArtifactGenerationResult(string ArtifactPath, TokenUsage? Usage, long DurationMs, PhaseExecutionMetadata? Execution, string? ReceiptPath = null);
     private sealed record RefinementAssessment(bool IsReady, string Reason, IReadOnlyCollection<string> Questions, string Summary);
     private sealed record CaptureTransitionResult(string ArtifactPath, TokenUsage? Usage, long DurationMs, PhaseExecutionMetadata? Execution);
 

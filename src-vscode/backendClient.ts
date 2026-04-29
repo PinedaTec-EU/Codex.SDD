@@ -60,6 +60,28 @@ export interface PhaseExecutionMetadata {
   readonly profileName: string | null;
   readonly baseUrl: string | null;
   readonly warnings?: readonly string[] | null;
+  readonly inputSha256?: string | null;
+  readonly outputSha256?: string | null;
+  readonly structuredOutputSha256?: string | null;
+  readonly receiptPath?: string | null;
+}
+
+export interface WorkflowLineageFinding {
+  readonly severity: string;
+  readonly confidence: string;
+  readonly code: string;
+  readonly summary: string;
+  readonly phaseId: string | null;
+  readonly eventTimestampUtc: string | null;
+  readonly affectedArtifacts: readonly string[];
+}
+
+export interface WorkflowLineageAnalysisResult {
+  readonly usId: string;
+  readonly status: string;
+  readonly findings: readonly WorkflowLineageFinding[];
+  readonly deprecatedCandidatePaths: readonly string[];
+  readonly recommendedTargetPhase: string | null;
 }
 
 export interface CreateOrImportUserStoryResult {
@@ -276,6 +298,7 @@ export interface SpecForgeBackendClient {
   getUserStorySummary(usId: string): Promise<UserStorySummary>;
   getUserStoryWorkflow(usId: string): Promise<UserStoryWorkflowDetails>;
   getUserStoryRuntimeStatus(usId: string): Promise<UserStoryRuntimeStatus>;
+  analyzeUserStoryLineage(usId: string): Promise<WorkflowLineageAnalysisResult>;
   createUserStory(usId: string, title: string, kind: string, category: string, sourceText: string, actor?: string): Promise<CreateOrImportUserStoryResult>;
   importUserStory(usId: string, sourcePath: string, title: string, kind: string, category: string, actor?: string): Promise<CreateOrImportUserStoryResult>;
   initializeRepoPrompts(overwrite?: boolean): Promise<InitializeRepoPromptsResult>;
@@ -384,6 +407,13 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
 
   public async getUserStoryRuntimeStatus(usId: string): Promise<UserStoryRuntimeStatus> {
     return this.callTool<UserStoryRuntimeStatus>("get_user_story_runtime_status", {
+      workspaceRoot: this.workspaceRoot,
+      usId
+    });
+  }
+
+  public async analyzeUserStoryLineage(usId: string): Promise<WorkflowLineageAnalysisResult> {
+    return this.callTool<WorkflowLineageAnalysisResult>("analyze_user_story_lineage", {
       workspaceRoot: this.workspaceRoot,
       usId
     });

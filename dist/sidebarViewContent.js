@@ -359,8 +359,8 @@ function buildPromptMenu(promptsInitialized) {
         <span aria-hidden="true">☰</span>
       </button>
       <div class="action-menu__panel" data-action-menu-panel role="menu" hidden>
-        <button class="action-menu__item" type="button" data-command="initializeRepoPrompts" role="menuitem">${(0, htmlEscape_1.escapeHtml)(bootstrapLabel)}</button>
-        <button class="action-menu__item" type="button" data-command="openPromptTemplates" role="menuitem"${promptsInitialized ? "" : " disabled"}>Open Prompt Templates</button>
+        <button class="action-menu__item" type="button" data-command="initializeRepoPrompts" role="menuitem"><span class="action-menu__item-icon" aria-hidden="true">↻</span><span>${(0, htmlEscape_1.escapeHtml)(bootstrapLabel)}</span></button>
+        <button class="action-menu__item" type="button" data-command="openPromptTemplates" role="menuitem"${promptsInitialized ? "" : " disabled"}><span class="action-menu__item-icon" aria-hidden="true">📄</span><span>Open Prompt Templates</span></button>
       </div>
     </div>
   `;
@@ -637,10 +637,28 @@ function wrapHtml(content, busy, createFormResetToken, typographyCssVars) {
       background: rgba(255, 255, 255, 0.03);
       color: inherit;
       cursor: pointer;
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
     }
     .action-menu__item:hover {
       background: rgba(114, 241, 184, 0.12);
       border-color: rgba(114, 241, 184, 0.24);
+    }
+    .action-menu__item:disabled {
+      opacity: 0.46;
+      cursor: not-allowed;
+    }
+    .action-menu__item-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      color: #72f1b8;
+    }
+    .action-menu__item--danger .action-menu__item-icon {
+      color: #ff9b9b;
     }
     .form-card, .action-card {
       padding: 16px;
@@ -1028,7 +1046,8 @@ function wrapHtml(content, busy, createFormResetToken, typographyCssVars) {
     }
     .story-row--shell > .story-card,
     .story-row--shell > .story-actions,
-    .story-row--shell > .story-actions > .icon-action {
+    .story-row--shell > .story-actions > .icon-action,
+    .story-row--shell > .story-actions > .action-menu > .icon-action {
       border: 0;
       box-shadow: none;
     }
@@ -1136,19 +1155,22 @@ function wrapHtml(content, busy, createFormResetToken, typographyCssVars) {
       gap: 0;
       align-self: stretch;
     }
-    .story-delete,
-    .story-star {
+    .story-star,
+    .story-menu {
       align-self: stretch;
       height: 100%;
     }
-    .story-row--shell > .story-actions > .icon-action {
+    .story-row--shell > .story-actions > .icon-action,
+    .story-row--shell > .story-actions > .action-menu > .icon-action {
       width: 40px;
       min-width: 40px;
+      height: 100%;
       border-radius: 0;
       background: transparent;
       position: relative;
     }
-    .story-row--shell > .story-actions > .icon-action::before {
+    .story-row--shell > .story-actions > .icon-action::before,
+    .story-row--shell > .story-actions > .action-menu > .icon-action::before {
       content: "";
       position: absolute;
       left: -4px;
@@ -1160,10 +1182,10 @@ function wrapHtml(content, busy, createFormResetToken, typographyCssVars) {
     .story-row--shell > .story-actions > .icon-action:first-child {
       border-top-right-radius: 14px;
     }
-    .story-row--shell > .story-actions > .icon-action:last-child {
+    .story-row--shell > .story-actions > .action-menu:last-child > .icon-action {
       border-bottom-right-radius: 14px;
     }
-    .story-row--shell > .story-actions > .icon-action + .icon-action::after {
+    .story-row--shell > .story-actions > .action-menu > .icon-action::after {
       content: "";
       position: absolute;
       left: 8px;
@@ -1172,11 +1194,14 @@ function wrapHtml(content, busy, createFormResetToken, typographyCssVars) {
       height: 1px;
       background: rgba(255, 255, 255, 0.08);
     }
-    .story-row--shell > .story-actions > .icon-action:hover {
+    .story-row--shell > .story-actions > .icon-action:hover,
+    .story-row--shell > .story-actions > .action-menu > .icon-action:hover {
       background: rgba(255, 255, 255, 0.04);
     }
-    .story-row--shell > .story-actions > .icon-action.icon-action--danger:hover {
-      background: rgba(255, 139, 139, 0.08);
+    .story-actions .action-menu__panel {
+      min-width: 220px;
+      top: 8px;
+      right: 46px;
     }
     .story-star--active {
       color: #ffd75a;
@@ -1423,51 +1448,47 @@ function wrapHtml(content, busy, createFormResetToken, typographyCssVars) {
         });
       });
     }
-    const actionMenu = document.querySelector("[data-action-menu]");
-    const actionMenuToggle = document.querySelector("[data-action-menu-toggle]");
-    const actionMenuPanel = document.querySelector("[data-action-menu-panel]");
-    const closeActionMenu = () => {
+    const closeActionMenus = () => {
+      for (const menu of document.querySelectorAll("[data-action-menu]")) {
+        const toggle = menu.querySelector("[data-action-menu-toggle]");
+        const panel = menu.querySelector("[data-action-menu-panel]");
+        if (toggle instanceof HTMLButtonElement && panel instanceof HTMLElement) {
+          panel.hidden = true;
+          toggle.setAttribute("aria-expanded", "false");
+        }
+      }
+    };
+    for (const actionMenu of document.querySelectorAll("[data-action-menu]")) {
+      const actionMenuToggle = actionMenu.querySelector("[data-action-menu-toggle]");
+      const actionMenuPanel = actionMenu.querySelector("[data-action-menu-panel]");
       if (!(actionMenuToggle instanceof HTMLButtonElement) || !(actionMenuPanel instanceof HTMLElement)) {
-        return;
+        continue;
       }
-      actionMenuPanel.hidden = true;
-      actionMenuToggle.setAttribute("aria-expanded", "false");
-    };
-    const openActionMenu = () => {
-      if (!(actionMenuToggle instanceof HTMLButtonElement) || !(actionMenuPanel instanceof HTMLElement) || busy) {
-        return;
-      }
-      actionMenuPanel.hidden = false;
-      actionMenuToggle.setAttribute("aria-expanded", "true");
-    };
-    if (actionMenuToggle instanceof HTMLButtonElement && actionMenuPanel instanceof HTMLElement) {
       if (busy) {
         actionMenuToggle.disabled = true;
       }
       actionMenuToggle.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        if (actionMenuPanel.hidden) {
-          openActionMenu();
-        } else {
-          closeActionMenu();
+        const shouldOpen = actionMenuPanel.hidden;
+        closeActionMenus();
+        if (shouldOpen && !busy) {
+          actionMenuPanel.hidden = false;
+          actionMenuToggle.setAttribute("aria-expanded", "true");
         }
       });
       actionMenuPanel.addEventListener("click", () => {
-        closeActionMenu();
-      });
-      document.addEventListener("click", (event) => {
-        if (!(actionMenu instanceof HTMLElement) || actionMenu.contains(event.target)) {
-          return;
-        }
-        closeActionMenu();
-      });
-      document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") {
-          closeActionMenu();
-        }
+        closeActionMenus();
       });
     }
+    document.addEventListener("click", () => {
+      closeActionMenus();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeActionMenus();
+      }
+    });
     const form = document.getElementById("create-user-story-form");
     if (form) {
       window.addEventListener("message", (event) => {
@@ -1691,14 +1712,32 @@ function buildStoryRowMarkup(summary, starredUserStoryId, activeWorkflowUsId) {
           aria-label="${(0, htmlEscape_1.escapeHtmlAttr)(starredUserStoryId === summary.usId ? `Unstar ${summary.usId}` : `Star ${summary.usId}`)}">
           <span aria-hidden="true">${starredUserStoryId === summary.usId ? "★" : "☆"}</span>
         </button>
-        <button
-          class="icon-action icon-action--danger story-delete"
-          data-command="deleteUserStory"
-          data-us-id="${(0, htmlEscape_1.escapeHtmlAttr)(summary.usId)}"
-          title="Delete ${(0, htmlEscape_1.escapeHtmlAttr)(summary.usId)}"
-          aria-label="Delete ${(0, htmlEscape_1.escapeHtmlAttr)(summary.usId)}">
-          <span aria-hidden="true">🗑</span>
-        </button>
+        <div class="action-menu story-menu" data-action-menu>
+          <button
+            class="icon-action"
+            type="button"
+            data-action-menu-toggle
+            title="User story actions"
+            aria-label="User story actions for ${(0, htmlEscape_1.escapeHtmlAttr)(summary.usId)}"
+            aria-haspopup="menu"
+            aria-expanded="false">
+            <span aria-hidden="true">☰</span>
+          </button>
+          <div class="action-menu__panel" data-action-menu-panel role="menu" hidden>
+            <button class="action-menu__item" type="button" role="menuitem" disabled>
+              <span class="action-menu__item-icon" aria-hidden="true">✎</span>
+              <span>Edit US info</span>
+            </button>
+            <button class="action-menu__item" type="button" data-command="analyzeRepairUserStory" data-us-id="${(0, htmlEscape_1.escapeHtmlAttr)(summary.usId)}" role="menuitem">
+              <span class="action-menu__item-icon" aria-hidden="true">⌕</span>
+              <span>Analyze / Repair</span>
+            </button>
+            <button class="action-menu__item action-menu__item--danger" type="button" data-command="deleteUserStory" data-us-id="${(0, htmlEscape_1.escapeHtmlAttr)(summary.usId)}" role="menuitem">
+              <span class="action-menu__item-icon" aria-hidden="true">🗑</span>
+              <span>Delete</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   `;

@@ -87,7 +87,8 @@ public static partial class TimelineMarkdownParser
                 {
                     InputSha256 = EmptyToNull(executionHashesMatch.Groups["input"].Value),
                     OutputSha256 = EmptyToNull(executionHashesMatch.Groups["output"].Value),
-                    StructuredOutputSha256 = EmptyToNull(executionHashesMatch.Groups["structured"].Value)
+                    StructuredOutputSha256 = EmptyToNull(executionHashesMatch.Groups["structured"].Value),
+                    ReceiptPath = EmptyToNull(executionHashesMatch.Groups["receipt"].Value)
                 };
                 continue;
             }
@@ -304,6 +305,6 @@ public static partial class TimelineMarkdownParser
     [GeneratedRegex(@"`(?<value>[^`]+)`", RegexOptions.Compiled)]
     private static partial Regex InlineCode();
 
-    [GeneratedRegex("^<!--\\s*specforge-execution-hashes\\s+input-sha256=\"(?<input>[^\"]*)\"\\s+output-sha256=\"(?<output>[^\"]*)\"\\s+structured-output-sha256=\"(?<structured>[^\"]*)\"\\s*-->$", RegexOptions.Compiled)]
+    [GeneratedRegex("^<!--\\s*specforge-execution-hashes\\s+input-sha256=\"(?<input>[^\"]*)\"\\s+output-sha256=\"(?<output>[^\"]*)\"\\s+structured-output-sha256=\"(?<structured>[^\"]*)\"(?:\\s+receipt=\"(?<receipt>[^\"]*)\")?\\s*-->$", RegexOptions.Compiled)]
     private static partial Regex ExecutionHashes();
 }

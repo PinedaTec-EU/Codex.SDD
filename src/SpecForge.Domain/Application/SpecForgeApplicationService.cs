@@ -175,6 +175,18 @@ public sealed class SpecForgeApplicationService
             BuildFileDetails(paths.AttachmentsDirectoryPath));
     }
 
+    public async Task<WorkflowLineageAnalysisResult> AnalyzeUserStoryLineageAsync(
+        string workspaceRoot,
+        string usId,
+        CancellationToken cancellationToken = default)
+    {
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
+        var rawTimeline = File.Exists(paths.TimelineFilePath)
+            ? await File.ReadAllTextAsync(paths.TimelineFilePath, cancellationToken)
+            : string.Empty;
+        return WorkflowLineageAnalyzer.Analyze(usId, paths, TimelineMarkdownParser.ParseEvents(rawTimeline));
+    }
+
     private async Task<UserStorySummary> GetUserStorySummaryFromDirectoryAsync(
         string directory,
         CancellationToken cancellationToken)
