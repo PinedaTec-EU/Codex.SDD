@@ -960,25 +960,22 @@ function buildWorkflowAuditRowsHtml(workflow, state) {
                 actor: event.actor,
                 configuredModel: findConfiguredModelForProfile(state, event.execution?.profileName)
             });
+            const badges = [
+                event.actor ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(event.actor)}</span>` : "",
+                event.phase ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(event.phase)}</span>` : "",
+                executionLabel ? `<span class="badge">model ${(0, htmlEscape_1.escapeHtml)(executionLabel)}</span>` : "",
+                event.usage ? `<span class="badge">in/out ${(0, htmlEscape_1.escapeHtml)(`${formatMetricNumber(event.usage.inputTokens)}/${formatMetricNumber(event.usage.outputTokens)}`)}</span>` : "",
+                event.usage ? `<span class="badge">total ${(0, htmlEscape_1.escapeHtml)(formatMetricNumber(event.usage.totalTokens))}</span>` : "",
+                event.durationMs !== null ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(formatDuration(event.durationMs))}</span>` : "",
+                event.usage && event.durationMs !== null ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(formatTokensPerSecond(event.usage.outputTokens, event.durationMs))}</span>` : ""
+            ].filter((badge) => badge.length > 0).join("");
             return `
       <div class="audit-row">
         <div class="audit-head">
-          <span>${(0, htmlEscape_1.escapeHtml)(event.timestampUtc)} · ${(0, htmlEscape_1.escapeHtml)(event.code)}</span>
-          <div class="audit-head__meta">
-            ${event.actor ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(event.actor)}</span>` : ""}
-            ${event.phase ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(event.phase)}</span>` : ""}
-          </div>
+          <span class="audit-head__title">${(0, htmlEscape_1.escapeHtml)(event.timestampUtc)} · ${(0, htmlEscape_1.escapeHtml)(event.code)}</span>
+          ${badges.length > 0 ? `<div class="audit-head__meta">${badges}</div>` : ""}
         </div>
         <div class="audit-body">${(0, htmlEscape_1.escapeHtml)(event.summary ?? "")}</div>
-        ${event.usage || event.durationMs !== null || event.execution
-                ? `<div class="audit-metrics">
-              ${executionLabel ? `<span class="badge">model ${(0, htmlEscape_1.escapeHtml)(executionLabel)}</span>` : ""}
-              ${event.usage ? `<span class="badge">in/out ${(0, htmlEscape_1.escapeHtml)(`${formatMetricNumber(event.usage.inputTokens)}/${formatMetricNumber(event.usage.outputTokens)}`)}</span>` : ""}
-              ${event.usage ? `<span class="badge">total ${(0, htmlEscape_1.escapeHtml)(formatMetricNumber(event.usage.totalTokens))}</span>` : ""}
-              ${event.durationMs !== null ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(formatDuration(event.durationMs))}</span>` : ""}
-              ${event.usage && event.durationMs !== null ? `<span class="badge">${(0, htmlEscape_1.escapeHtml)(formatTokensPerSecond(event.usage.outputTokens, event.durationMs))}</span>` : ""}
-            </div>`
-                : ""}
       </div>
     `;
         }).join("")
@@ -1145,25 +1142,24 @@ function buildWorkflowAuditHtml(workflow, state, typographyCssVars = "", cspSour
       display: flex;
       justify-content: space-between;
       gap: 12px;
-      align-items: center;
+      align-items: flex-start;
       flex-wrap: wrap;
       font-size: 0.82rem;
       color: rgba(255, 255, 255, 0.74);
+    }
+    .audit-head__title {
+      padding-top: 6px;
     }
     .audit-head__meta {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+      justify-content: flex-end;
     }
     .audit-body {
       font-size: 0.92rem;
       line-height: 1.5;
       white-space: pre-wrap;
-    }
-    .audit-metrics {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
     }
     .audit-log {
       margin: 0;

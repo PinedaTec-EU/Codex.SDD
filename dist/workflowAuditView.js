@@ -13,7 +13,7 @@ class WorkflowAuditViewProvider {
     resolveWebviewView(webviewView) {
         this.webviewView = webviewView;
         webviewView.webview.options = {
-            enableScripts: false,
+            enableScripts: true,
             localResourceRoots: [this.extensionUri]
         };
         this.render();
@@ -37,7 +37,7 @@ class WorkflowAuditViewProvider {
             return;
         }
         this.webviewView.webview.html = this.snapshot
-            ? (0, workflowView_1.buildWorkflowAuditHtml)(this.snapshot.workflow, this.snapshot.state, (0, webviewTypography_1.getEditorTypographyCssVars)())
+            ? (0, workflowView_1.buildWorkflowAuditHtml)(this.snapshot.workflow, this.snapshot.state, (0, webviewTypography_1.getEditorTypographyCssVars)(), this.webviewView.webview.cspSource)
             : buildEmptyWorkflowAuditHtml((0, webviewTypography_1.getEditorTypographyCssVars)());
     }
 }
