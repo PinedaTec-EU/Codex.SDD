@@ -5699,11 +5699,20 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     const graphZoomMax = 2.2;
     const graphZoomStep = 0.12;
     const configuredGraphInitialZoomMode = ${JSON.stringify(state.graphInitialZoomMode === "fit-width" ? "fit-width" : "actual-size")};
+    const restoredGraphZoomMode = viewState.graphInitialZoomMode === configuredGraphInitialZoomMode
+      ? viewState.graphZoomMode
+      : null;
     const graphZoomState = {
-      mode: configuredGraphInitialZoomMode === "fit-width" ? "fit-width" : "fit",
-      scale: 1
+      mode: restoredGraphZoomMode === "manual" || restoredGraphZoomMode === "fit-width" || restoredGraphZoomMode === "fit"
+        ? restoredGraphZoomMode
+        : configuredGraphInitialZoomMode === "fit-width"
+          ? "fit-width"
+          : "fit",
+      scale: restoredGraphZoomMode && typeof viewState.graphZoomScale === "number" && Number.isFinite(viewState.graphZoomScale)
+        ? Math.max(graphZoomMin, Math.min(graphZoomMax, viewState.graphZoomScale))
+        : 1
     };
-    let shouldCenterGraphOnInitialZoom = configuredGraphInitialZoomMode === "actual-size";
+    let shouldCenterGraphOnInitialZoom = !restoredGraphZoomMode && configuredGraphInitialZoomMode === "actual-size";
     const graphPointerState = {
       clientX: null,
       clientY: null
@@ -6606,14 +6615,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       if (typeof element.dataset.phaseId === "string" && element.dataset.phaseId.length > 0) {
         viewState.selectedPhaseId = element.dataset.phaseId;
         viewState.selectedIterationKey = null;
-        try {
-          vscode.postMessage({
-            command: "rememberSelectedPhase",
-            phaseId: element.dataset.phaseId
-          });
-        } catch {
-          // Local graph navigation should still work if host state persistence fails.
-        }
       }
       persistWorkflowScrollState();
     };
@@ -6653,6 +6654,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         event.preventDefault();
         event.stopPropagation();
         focusPhaseNodeLocally(element);
+        postCommand(element);
       });
       element.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") {
@@ -6662,6 +6664,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         event.preventDefault();
         event.stopPropagation();
         focusPhaseNodeLocally(element);
+        postCommand(element);
       });
     };
     document.querySelectorAll('[data-command="selectPhase"]').forEach((element) => {
@@ -6683,6 +6686,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
 
       event.preventDefault();
       focusPhaseNodeLocally(commandElement);
+      postCommand(commandElement);
     });
     try {
       vscode.postMessage({
