@@ -248,9 +248,9 @@ function buildPhaseIterations(workflow, phaseId) {
         }));
     }
     const seen = new Set();
-    const iterations = [];
-    for (const event of [...workflow.events].reverse()) {
-        if (event.phase !== phaseId) {
+    const chronologicalIterations = [];
+    for (const event of eventsAfterLatestLineageRepair(workflow.events)) {
+        if (event.phase !== phaseId || !isPhaseIterationEvent(event.code)) {
             continue;
         }
         const artifactPath = [...event.artifacts].reverse().find((candidate) => candidate.toLowerCase().endsWith(".md"));
@@ -258,9 +258,10 @@ function buildPhaseIterations(workflow, phaseId) {
             continue;
         }
         seen.add(artifactPath);
-        iterations.push({
-            iterationKey: `${phaseId}:${iterations.length + 1}:${event.timestampUtc}:${event.code}`,
-            attempt: iterations.length + 1,
+        const attempt = chronologicalIterations.length + 1;
+        chronologicalIterations.push({
+            iterationKey: `${phaseId}:${attempt}:${event.timestampUtc}:${event.code}`,
+            attempt,
             phaseId,
             timestampUtc: event.timestampUtc,
             code: event.code,
@@ -276,7 +277,10 @@ function buildPhaseIterations(workflow, phaseId) {
             execution: event.execution
         });
     }
-    return iterations;
+    return chronologicalIterations.reverse();
+}
+function isPhaseIterationEvent(code) {
+    return code === "phase_completed" || code === "artifact_operated";
 }
 function summarizePhaseTouches(workflow, phaseId) {
     return workflow.events.reduce((summary, event) => {

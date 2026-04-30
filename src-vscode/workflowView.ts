@@ -401,9 +401,9 @@ function buildPhaseIterations(workflow: UserStoryWorkflowDetails, phaseId: strin
   }
 
   const seen = new Set<string>();
-  const iterations: PhaseIterationItem[] = [];
-  for (const event of [...workflow.events].reverse()) {
-    if (event.phase !== phaseId) {
+  const chronologicalIterations: PhaseIterationItem[] = [];
+  for (const event of eventsAfterLatestLineageRepair(workflow.events)) {
+    if (event.phase !== phaseId || !isPhaseIterationEvent(event.code)) {
       continue;
     }
 
@@ -413,9 +413,10 @@ function buildPhaseIterations(workflow: UserStoryWorkflowDetails, phaseId: strin
     }
 
     seen.add(artifactPath);
-    iterations.push({
-      iterationKey: `${phaseId}:${iterations.length + 1}:${event.timestampUtc}:${event.code}`,
-      attempt: iterations.length + 1,
+    const attempt = chronologicalIterations.length + 1;
+    chronologicalIterations.push({
+      iterationKey: `${phaseId}:${attempt}:${event.timestampUtc}:${event.code}`,
+      attempt,
       phaseId,
       timestampUtc: event.timestampUtc,
       code: event.code,
@@ -432,7 +433,11 @@ function buildPhaseIterations(workflow: UserStoryWorkflowDetails, phaseId: strin
     });
   }
 
-  return iterations;
+  return chronologicalIterations.reverse();
+}
+
+function isPhaseIterationEvent(code: string): boolean {
+  return code === "phase_completed" || code === "artifact_operated";
 }
 
 function summarizePhaseTouches(
