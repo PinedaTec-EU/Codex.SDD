@@ -6363,14 +6363,21 @@ export function buildWorkflowHtml(
     };
     const centerFocusedPhaseInGraph = () => {
       if (!(graphPanel instanceof HTMLElement) || !(focusedPhaseNode instanceof HTMLElement) || !focusedPhaseId) {
-        return;
+        return false;
       }
 
       const zoomScale = getGraphZoomScale();
-      const targetTop = (focusedPhaseNode.offsetTop * zoomScale) - ((graphPanel.clientHeight - (focusedPhaseNode.offsetHeight * zoomScale)) / 2);
-      const targetLeft = (focusedPhaseNode.offsetLeft * zoomScale) - ((graphPanel.clientWidth - (focusedPhaseNode.offsetWidth * zoomScale)) / 2);
+      const targetTop = (focusedPhaseNode.offsetTop * zoomScale) + graphStageOffsetState.y - ((graphPanel.clientHeight - (focusedPhaseNode.offsetHeight * zoomScale)) / 2);
+      const targetLeft = (focusedPhaseNode.offsetLeft * zoomScale) + graphStageOffsetState.x - ((graphPanel.clientWidth - (focusedPhaseNode.offsetWidth * zoomScale)) / 2);
       graphPanel.scrollTop = Math.max(0, targetTop);
       graphPanel.scrollLeft = Math.max(0, targetLeft);
+      return true;
+    };
+    const centerFitWidthGraphFocus = () => {
+      centerGraphInViewport();
+      if (!centerFocusedPhaseInGraph()) {
+        centerGraphInViewport();
+      }
     };
     const getPhaseNodeById = (phaseId) => {
       if (!(phaseGraph instanceof HTMLElement) || !phaseId) {
@@ -6853,7 +6860,8 @@ export function buildWorkflowHtml(
         window.requestAnimationFrame(() => centerGraphInViewport());
         window.setTimeout(() => centerGraphInViewport(), 80);
       } else if (graphZoomState.mode === "fit-width") {
-        window.requestAnimationFrame(() => centerGraphInViewport());
+        window.requestAnimationFrame(() => centerFitWidthGraphFocus());
+        window.setTimeout(() => centerFitWidthGraphFocus(), 80);
       }
     });
     if (focusedPhaseNode instanceof HTMLElement && focusedPhaseId && autoScrollStateKey) {
@@ -7133,7 +7141,7 @@ export function buildWorkflowHtml(
       graphFitWidthButton.addEventListener("click", () => {
         fitGraphWidth();
         window.requestAnimationFrame(() => {
-          centerGraphInViewport();
+          centerFitWidthGraphFocus();
           persistWorkflowScrollState();
         });
       });
@@ -7158,6 +7166,7 @@ export function buildWorkflowHtml(
         autoFitGraph();
       } else if (graphZoomState.mode === "fit-width") {
         fitGraphWidth();
+        window.requestAnimationFrame(() => centerFitWidthGraphFocus());
       } else {
         applyGraphZoom(graphZoomState.scale, "manual");
       }
