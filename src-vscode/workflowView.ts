@@ -6143,7 +6143,7 @@ export function buildWorkflowHtml(
     const graphZoomStep = 0.12;
     const configuredGraphInitialZoomMode = ${JSON.stringify(state.graphInitialZoomMode === "fit-width" ? "fit-width" : "actual-size")};
     const graphZoomState = {
-      mode: configuredGraphInitialZoomMode === "fit-width" ? "fit-width" : "manual",
+      mode: configuredGraphInitialZoomMode === "fit-width" ? "fit-width" : "fit",
       scale: 1
     };
     let shouldCenterGraphOnInitialZoom = configuredGraphInitialZoomMode === "actual-size";
@@ -6324,9 +6324,6 @@ export function buildWorkflowHtml(
     };
     const setManualGraphZoom = (scale) => {
       applyGraphZoom(scale, "manual");
-    };
-    const setActualSizeGraphZoom = () => {
-      applyGraphZoom(1, "manual");
     };
     const centerGraphInViewport = () => {
       if (!(graphPanel instanceof HTMLElement)) {
@@ -7101,7 +7098,7 @@ export function buildWorkflowHtml(
     }
     if (graphAutoFitButton instanceof HTMLButtonElement) {
       graphAutoFitButton.addEventListener("click", () => {
-        setActualSizeGraphZoom();
+        autoFitGraph();
         window.requestAnimationFrame(() => {
           centerGraphInViewport();
           persistWorkflowScrollState();
