@@ -2795,7 +2795,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       width: max-content;
       height: max-content;
       transform-origin: top left;
-      transform: scale(var(--graph-stage-zoom, 1));
+      transform: translate(var(--graph-stage-offset-x, 0px), var(--graph-stage-offset-y, 0px)) scale(var(--graph-stage-zoom, 1));
       transition: transform 160ms ease;
     }
     .graph-stage.graph-stage--overlay-active .phase-graph {
@@ -5708,7 +5708,19 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       clientX: null,
       clientY: null
     };
+    const graphStageOffsetState = {
+      x: 0,
+      y: 0
+    };
     const getGraphZoomScale = () => graphZoomState.scale;
+    const setGraphStageOffset = (x, y) => {
+      graphStageOffsetState.x = Number.isFinite(x) ? Math.max(0, x) : 0;
+      graphStageOffsetState.y = Number.isFinite(y) ? Math.max(0, y) : 0;
+      if (graphStage instanceof HTMLElement) {
+        graphStage.style.setProperty("--graph-stage-offset-x", graphStageOffsetState.x + "px");
+        graphStage.style.setProperty("--graph-stage-offset-y", graphStageOffsetState.y + "px");
+      }
+    };
     const measureGraphContentBounds = () => {
       if (!(phaseGraph instanceof HTMLElement)) {
         return { left: 0, top: 0, right: 1, bottom: 1, width: 1, height: 1 };
@@ -5854,11 +5866,12 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       const previousScale = Math.max(graphZoomMin, Math.min(graphZoomMax, getGraphZoomScale()));
       const nextScale = Math.max(graphZoomMin, Math.min(graphZoomMax, scale));
       const { viewportX, viewportY } = resolveGraphZoomViewportAnchor(anchor.clientX, anchor.clientY);
-      const contentX = (graphPanel.scrollLeft + viewportX) / previousScale;
-      const contentY = (graphPanel.scrollTop + viewportY) / previousScale;
+      const contentX = (graphPanel.scrollLeft + viewportX - graphStageOffsetState.x) / previousScale;
+      const contentY = (graphPanel.scrollTop + viewportY - graphStageOffsetState.y) / previousScale;
       const canvasBounds = measureGraphStageCanvasBounds();
       graphZoomState.mode = mode;
       graphZoomState.scale = nextScale;
+      setGraphStageOffset(0, 0);
       graphStage.style.setProperty("--graph-stage-zoom", String(nextScale));
       graphStage.style.width = Math.max(1, Math.ceil(canvasBounds.width * nextScale)) + "px";
       graphStage.style.height = Math.max(1, Math.ceil(canvasBounds.height * nextScale)) + "px";
@@ -5869,8 +5882,8 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         graphZoomInButton.disabled = nextScale >= graphZoomMax - 0.001;
       }
       window.requestAnimationFrame(() => {
-        graphPanel.scrollLeft = Math.max(0, (contentX * nextScale) - viewportX);
-        graphPanel.scrollTop = Math.max(0, (contentY * nextScale) - viewportY);
+        graphPanel.scrollLeft = Math.max(0, (contentX * nextScale) + graphStageOffsetState.x - viewportX);
+        graphPanel.scrollTop = Math.max(0, (contentY * nextScale) + graphStageOffsetState.y - viewportY);
       });
     };
     const autoFitGraph = () => {
@@ -5889,8 +5902,19 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
 
       const zoomScale = getGraphZoomScale();
       const contentBounds = measureGraphContentBounds();
-      const contentCenterX = (contentBounds.left + (contentBounds.width / 2)) * zoomScale;
-      const contentCenterY = (contentBounds.top + (contentBounds.height / 2)) * zoomScale;
+      const scaledLeft = contentBounds.left * zoomScale;
+      const scaledTop = contentBounds.top * zoomScale;
+      const scaledWidth = contentBounds.width * zoomScale;
+      const scaledHeight = contentBounds.height * zoomScale;
+      const offsetX = scaledWidth < graphPanel.clientWidth
+        ? ((graphPanel.clientWidth - scaledWidth) / 2) - scaledLeft
+        : 0;
+      const offsetY = scaledHeight < graphPanel.clientHeight
+        ? ((graphPanel.clientHeight - scaledHeight) / 2) - scaledTop
+        : 0;
+      setGraphStageOffset(offsetX, offsetY);
+      const contentCenterX = (contentBounds.left + (contentBounds.width / 2)) * zoomScale + graphStageOffsetState.x;
+      const contentCenterY = (contentBounds.top + (contentBounds.height / 2)) * zoomScale + graphStageOffsetState.y;
       graphPanel.scrollLeft = Math.max(0, contentCenterX - (graphPanel.clientWidth / 2));
       graphPanel.scrollTop = Math.max(0, contentCenterY - (graphPanel.clientHeight / 2));
     };
