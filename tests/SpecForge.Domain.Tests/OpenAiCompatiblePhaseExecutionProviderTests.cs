@@ -16,10 +16,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     private readonly string workspaceRoot = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
 
     [Fact]
-    public async Task ExecuteAsync_SendsOpenAiCompatibleRequestAndParsesSpecJson()
+    public async Task ExecuteAsync_SendsOpenAiCompatibleRequestAndReturnsSpecMarkdown()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecMarkdown());
         var httpClient = new HttpClient(handler);
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             httpClient,
@@ -37,7 +37,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var result = await provider.ExecuteAsync(context);
 
         Assert.Equal("openai-compatible", result.ExecutionKind);
-        Assert.Contains("\"title\": \"Generated spec\"", result.Content);
+        Assert.Contains("# Spec · US-0001 · v01", result.Content);
+        Assert.Contains("## Spec Summary", result.Content);
         Assert.NotNull(result.Usage);
         Assert.Equal(120, result.Usage!.InputTokens);
         Assert.Equal(48, result.Usage.OutputTokens);
@@ -47,8 +48,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("llama3.1", result.Execution.Model);
         Assert.Equal("default", result.Execution.ProfileName);
         Assert.Equal(ComputeSha256(handler.LastBody), result.Execution.InputSha256);
-        Assert.Equal(ComputeSha256(BuildMinimalSpecJson()), result.Execution.OutputSha256);
-        Assert.Equal(ComputeSha256(result.StructuredJsonContent!), result.Execution.StructuredOutputSha256);
+        Assert.Equal(ComputeSha256(BuildMinimalSpecMarkdown()), result.Execution.OutputSha256);
+        Assert.Null(result.StructuredJsonContent);
+        Assert.Null(result.Execution.StructuredOutputSha256);
         Assert.NotNull(handler.LastRequest);
         Assert.Equal(HttpMethod.Post, handler.LastRequest!.Method);
         Assert.Equal("http://localhost:11434/v1/chat/completions", handler.LastRequest.RequestUri!.ToString());
@@ -56,8 +58,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("ollama-local", handler.LastRequest.Headers.Authorization?.Parameter);
         Assert.Contains("\"model\":\"llama3.1\"", handler.LastBody);
         Assert.Equal(0.2d, OpenAiCompatibleRequestJson.ReadTemperature(handler.LastBody));
-        Assert.Equal("json_schema", OpenAiCompatibleRequestJson.ReadResponseFormatType(handler.LastBody));
-        Assert.Equal("spec_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(handler.LastBody));
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(handler.LastBody));
         Assert.Contains("Role: spec analyst.", handler.LastBody);
         Assert.Contains("Initial text", handler.LastBody);
         Assert.Contains("This is the system prompt for the spec execute template.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
@@ -67,7 +68,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_SendsReasoningEffortForHttpProfiles()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(
@@ -253,7 +254,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             This spec system prompt was modified outside the engine.
             """
         );
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(
@@ -316,7 +317,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Directory.CreateDirectory(attachmentDirectory);
         var attachmentPath = Path.Combine(attachmentDirectory, "notes.md");
         await File.WriteAllTextAsync(attachmentPath, "# Notes\nUseful attachment");
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(
@@ -341,7 +342,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_LocalEndpointWithoutApiKey_OmitsAuthorizationHeader()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(model: "llama3.1"));
@@ -364,8 +365,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     {
         await PrepareInitializedWorkspaceAsync();
         var implementationHandler = new PhaseAwareFakeHttpMessageHandler(
-            ("technical_design_artifact", BuildMinimalTechnicalDesignJson()),
-            ("implementation_artifact", BuildMinimalImplementationJson()));
+            ("TechnicalDesign", BuildMinimalTechnicalDesignMarkdown()),
+            ("Implementation", BuildMinimalImplementationMarkdown()));
         var implementationProvider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(implementationHandler),
             new OpenAiCompatibleProviderOptions(
@@ -404,6 +405,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         Assert.Equal("http://localhost:22434/v1/chat/completions", implementationHandler.LastRequest!.RequestUri!.ToString());
         Assert.Contains("\"model\":\"llama-top\"", implementationHandler.LastBody);
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(implementationHandler.LastBody));
 
         var implementationContext = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
@@ -417,7 +419,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         Assert.Equal("http://localhost:22434/v1/chat/completions", implementationHandler.LastRequest!.RequestUri!.ToString());
         Assert.Contains("\"model\":\"llama-top\"", implementationHandler.LastBody);
-        Assert.Equal("implementation_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(implementationHandler.LastBody));
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(implementationHandler.LastBody));
 
         var reviewHandler = new CapturingFakeHttpMessageHandler(BuildMinimalReviewJson());
         var reviewProvider = new OpenAiCompatiblePhaseExecutionProvider(
@@ -599,7 +601,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_EmptyProfileProvider_DefaultsToOpenAiCompatible()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             new OpenAiCompatibleProviderOptions(
@@ -634,7 +636,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_SupportedBridgeProvider_PreservesConfiguredProviderKind(string providerKind)
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             new OpenAiCompatibleProviderOptions(
@@ -674,7 +676,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         string expectedPromptMarker)
     {
         await PrepareInitializedWorkspaceAsync();
-        var fakeRunner = new FakeNativeCliRunner(providerKind, isAvailable: true, responseJson: BuildMinimalSpecJson());
+        var fakeRunner = new FakeNativeCliRunner(providerKind, isAvailable: true, responseJson: BuildMinimalSpecMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(new ThrowingHttpMessageHandler()),
             CreateOptions(model: "native-model", providerKind: providerKind, baseUrl: string.Empty, apiKey: string.Empty),
@@ -696,8 +698,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.NotNull(fakeRunner.LastInvocation);
         Assert.Equal("read-only", fakeRunner.LastInvocation!.SandboxMode);
         Assert.Contains(expectedPromptMarker, fakeRunner.LastInvocation.Prompt);
-        Assert.Contains("## Response JSON Schema", fakeRunner.LastInvocation.Prompt);
-        Assert.Contains("\"specSummary\"", fakeRunner.LastInvocation.Prompt);
+        Assert.Contains("## Response Markdown Contract", fakeRunner.LastInvocation.Prompt);
+        Assert.Null(fakeRunner.LastInvocation.OutputSchemaJson);
     }
 
     [Fact]
@@ -708,7 +710,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var fakeRunner = new FakeNativeCliRunner(
             "codex",
             isAvailable: true,
-            responseJson: BuildMinimalImplementationJson(),
+            responseJson: BuildMinimalImplementationMarkdown(),
             onExecute: invocation =>
             {
                 File.WriteAllText(Path.Combine(invocation.WorkspaceRoot, "README.md"), "# changed by codex");
@@ -751,7 +753,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var fakeRunner = new FakeNativeCliRunner(
             "codex",
             isAvailable: true,
-            responseJson: BuildMinimalSpecJson());
+            responseJson: BuildMinimalSpecMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(new ThrowingHttpMessageHandler()),
             CreateOptions(
@@ -830,7 +832,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     {
         await PrepareInitializedWorkspaceAsync();
         await InitializeGitWorkspaceAsync();
-        var fakeRunner = new FakeNativeCliRunner("codex", isAvailable: true, responseJson: BuildMinimalImplementationJson());
+        var fakeRunner = new FakeNativeCliRunner("codex", isAvailable: true, responseJson: BuildMinimalImplementationMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(new ThrowingHttpMessageHandler()),
             CreateOptions(
@@ -869,7 +871,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var fakeRunner = new FakeNativeCliRunner(
             "codex",
             isAvailable: true,
-            responseJson: BuildMinimalImplementationJson(),
+            responseJson: BuildMinimalImplementationMarkdown(),
             onExecute: _ =>
             {
                 File.AppendAllText(dirtyFilePath, "public const int After = 2;\n");
@@ -1019,7 +1021,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteAsync_SpecMarkdownPayload_ThrowsInsteadOfBackfillingPlaceholderSpec()
+    public async Task ExecuteAsync_SpecMarkdownPayload_ReturnsMarkdownWithoutJsonParsing()
     {
         await PrepareInitializedWorkspaceAsync();
         var handler = new CapturingFakeHttpMessageHandler("# generated markdown");
@@ -1034,7 +1036,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
 
-        await Assert.ThrowsAsync<JsonException>(() => provider.ExecuteAsync(context));
+        var result = await provider.ExecuteAsync(context);
+
+        Assert.Equal("# generated markdown" + Environment.NewLine, result.Content);
+        Assert.Null(result.StructuredJsonContent);
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(handler.LastBody));
     }
 
     [Fact]
@@ -1169,7 +1175,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         public CapturingFakeHttpMessageHandler(string responseContent = "")
         {
-            this.responseContent = string.IsNullOrWhiteSpace(responseContent) ? BuildMinimalSpecJson() : responseContent;
+            this.responseContent = string.IsNullOrWhiteSpace(responseContent) ? BuildMinimalSpecMarkdown() : responseContent;
         }
 
         public HttpRequestMessage? LastRequest { get; private set; }
@@ -1228,8 +1234,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             LastRequest = request;
             LastBody = await request.Content!.ReadAsStringAsync(cancellationToken);
 
-            var schemaName = OpenAiCompatibleRequestJson.ReadResponseSchemaName(LastBody);
-            var responseContent = responsesBySchema.TryGetValue(schemaName, out var response)
+            var responseKey = OpenAiCompatibleRequestJson.ReadResponseSchemaName(LastBody);
+            if (string.IsNullOrWhiteSpace(responseKey))
+            {
+                var userPrompt = OpenAiCompatibleRequestJson.ReadUserPrompt(LastBody);
+                responseKey = responsesBySchema.Keys.FirstOrDefault(key => userPrompt.Contains($"- Phase: `{key}`", StringComparison.Ordinal))
+                    ?? string.Empty;
+            }
+
+            var responseContent = responsesBySchema.TryGetValue(responseKey, out var response)
                 ? response
                 : responsesBySchema.Values.Last();
 
@@ -1328,6 +1341,54 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         }
         """;
 
+    private static string BuildMinimalSpecMarkdown() =>
+        """
+        # Spec · US-0001 · v01
+
+        ## History Log
+        - `2026-04-22T13:25:00Z` · Initial spec baseline generated.
+
+        ## State
+        - State: `pending_approval`
+        - Based on: `us.md`
+
+        ## Spec Summary
+        A valid spec baseline.
+
+        ## Inputs
+        - A concrete source objective.
+
+        ## Outputs
+        - A concrete spec artifact.
+
+        ## Business Rules
+        - The workflow must preserve the approved scope.
+
+        ## Edge Cases
+        - Missing context should be surfaced explicitly.
+
+        ## Errors and Failure Modes
+        - Invalid repository state should stop spec.
+
+        ## Constraints
+        - Stay within the current repository.
+
+        ## Detected Ambiguities
+        - Non-functional targets remain explicit only when provided.
+
+        ## Red Team
+        - Implicit assumptions may still exist if the source is weak.
+
+        ## Blue Team
+        - Keep the spec executable and bounded.
+
+        ## Acceptance Criteria
+        - The spec is concrete enough for technical design.
+
+        ## Human Approval Questions
+        - [ ] Is the scope bounded enough for design?
+        """;
+
     private static string ComputeSha256(string content) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
 
@@ -1391,6 +1452,27 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         }
         """;
 
+    private static string BuildMinimalImplementationMarkdown() =>
+        """
+        # Implementation · US-0001 · v01
+
+        ## State
+        - State: `generated`
+        - Based on: `02-technical-design.md`
+
+        ## Implemented Objective
+        Persist the implementation plan derived from the technical design.
+
+        ## Planned or Executed Changes
+        - Update workflow orchestration logic.
+        - Persist resulting state and derived artifacts.
+        - Expose the action through the selected backend boundary.
+
+        ## Planned Verification
+        - Domain tests must cover the transition and persistence path.
+        - Extension feedback must reflect the generated artifact and new phase.
+        """;
+
     private static string BuildMinimalTechnicalDesignJson() =>
         """
         {
@@ -1431,5 +1513,55 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
           ],
           "openDecisions": []
         }
+        """;
+
+    private static string BuildMinimalTechnicalDesignMarkdown() =>
+        """
+        # Technical Design · US-0001 · v01
+
+        ## State
+        - State: `generated`
+        - Based on: `01-spec.md`
+
+        ## Technical Summary
+        A valid technical design baseline.
+
+        ## Technical Objective
+        Translate the approved spec into an executable design.
+
+        ## Affected Components
+        - Workflow runner
+        - Sidebar extension
+
+        ## Proposed Design
+        ### Architecture
+        - Keep the current workflow boundaries intact.
+
+        ### Primary Flow
+        1. Resolve configured phase profile.
+        2. Generate design artifact.
+        3. Persist result.
+
+        ### Constraints and Guardrails
+        - Do not skip repository capability checks.
+
+        ## Alternatives Considered
+        - Keep phase routing hardcoded in settings only.
+
+        ## Technical Risks
+        - Configuration drift between UI and backend.
+
+        ## Expected Impact
+        - Developers can route technical design explicitly.
+
+        ## Implementation Strategy
+        1. Persist routing in shared settings.
+        2. Read those settings in the provider.
+
+        ## Validation Strategy
+        - Cover assignment resolution in tests.
+
+        ## Open Decisions
+        - No open decisions.
         """;
 }

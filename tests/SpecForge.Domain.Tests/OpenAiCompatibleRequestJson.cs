@@ -15,14 +15,31 @@ internal static class OpenAiCompatibleRequestJson
     {
         using var document = JsonDocument.Parse(requestBody);
 
-        return document.RootElement.GetProperty("response_format").GetProperty("type").GetString() ?? string.Empty;
+        if (!document.RootElement.TryGetProperty("response_format", out var responseFormat))
+        {
+            return string.Empty;
+        }
+
+        return responseFormat.GetProperty("type").GetString() ?? string.Empty;
     }
 
     public static string ReadResponseSchemaName(string requestBody)
     {
         using var document = JsonDocument.Parse(requestBody);
 
-        return document.RootElement.GetProperty("response_format").GetProperty("json_schema").GetProperty("name").GetString() ?? string.Empty;
+        if (!document.RootElement.TryGetProperty("response_format", out var responseFormat))
+        {
+            return string.Empty;
+        }
+
+        return responseFormat.GetProperty("json_schema").GetProperty("name").GetString() ?? string.Empty;
+    }
+
+    public static bool HasResponseFormat(string requestBody)
+    {
+        using var document = JsonDocument.Parse(requestBody);
+
+        return document.RootElement.TryGetProperty("response_format", out _);
     }
 
     public static string ReadUserPrompt(string requestBody) =>

@@ -150,8 +150,9 @@ public sealed class RepositoryPromptInitializer
         You are SpecForge's phase execution engine for this repository.
 
         Act strictly within the requested phase contract.
-        Return structured JSON that conforms to the response schema supplied by the caller.
-        Human-facing markdown is rendered later from the validated JSON.
+        Return the response format declared by the caller for the current phase.
+        JSON phases must conform to the supplied response schema.
+        Markdown phases must return the complete artifact markdown directly.
         Do not invent missing repository facts.
         """;
 
@@ -253,11 +254,11 @@ public sealed class RepositoryPromptInitializer
 
     private static string BuildSharedOutputRulesPrompt() =>
         """
-        Return only JSON that conforms to the response schema supplied by the caller.
+        Return only the response format declared by the caller for the current phase.
         Do not wrap the response in code fences.
-        Do not return prose outside the structured payload.
+        Do not return prose outside the declared response payload.
         Preserve the expected semantic fields of the target artifact.
-        If required context is missing or contradictory, state it explicitly inside the structured payload instead of hiding the issue.
+        If required context is missing or contradictory, state it explicitly inside the declared response payload instead of hiding the issue.
         """;
 
     private static string BuildRefinementExecutePrompt() =>

@@ -36,7 +36,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal(UserStoryStatus.WaitingUser, result.Status);
         Assert.NotNull(result.GeneratedArtifactPath);
         Assert.True(File.Exists(result.GeneratedArtifactPath!));
-        Assert.True(File.Exists(Path.ChangeExtension(result.GeneratedArtifactPath!, ".json")));
+        Assert.False(File.Exists(Path.ChangeExtension(result.GeneratedArtifactPath!, ".json")));
         var specContent = await File.ReadAllTextAsync(result.GeneratedArtifactPath!);
         Assert.Contains("# Spec · US-0001 · v01", specContent);
         Assert.Contains("Initial source text", specContent);

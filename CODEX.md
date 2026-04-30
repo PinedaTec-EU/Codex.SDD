@@ -13,6 +13,8 @@
 
 ## Model Output Conventions
 
-- Every model call must request structured JSON output governed by an explicit JSON schema.
-- Human-facing markdown artifacts are rendered from the structured JSON after the model response is parsed and validated.
-- Do not ask a model to produce markdown as the primary response format unless the call is explicitly outside the SpecForge workflow contract and the deviation is documented locally.
+- Every workflow phase must declare its expected model response format in the phase artifact contract.
+- JSON phases must request structured JSON output governed by an explicit JSON schema.
+- Markdown phases must request the complete Markdown artifact directly and must not also persist a generated JSON artifact.
+- Current JSON phases: refinement, review, PR preparation, and internal auto-refinement answers.
+- Current Markdown phases: spec, technical design, implementation, and release approval.

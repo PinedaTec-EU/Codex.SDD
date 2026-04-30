@@ -148,6 +148,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
             var currentArtifact = await File.ReadAllTextAsync(context.CurrentArtifactPath, cancellationToken);
             return ApplyDeterministicArtifactOperation(
                 SpecMarkdownImporter.Import(currentArtifact),
+                context.UsId,
                 context.OperationPrompt);
         }
 
@@ -160,7 +161,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
             ? "The source does not yet distinguish clearly between in-scope behavior and deliberate exclusions."
             : "The source identifies baseline scope, but edge cases and non-functional expectations still need explicit validation.";
 
-        return SpecJson.Serialize(
+        return SpecJson.RenderMarkdown(
             new SpecDocument(
                 Title: title,
                 HistoryLog: [$"`{DateTimeOffset.UtcNow:O}` · Initial spec generated from `us.md`."],
@@ -225,7 +226,9 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                 [
                     new("Is the scope precise enough to avoid a second interpretation pass during technical design?", "pending", null, null, null),
                     new("Are any hidden business rules, exclusions, or edge cases still missing from the baseline?", "pending", null, null, null)
-                ]));
+                ]),
+            context.UsId,
+            version: 1);
     }
 
     private static async Task<string> ComposeTechnicalDesignAsync(
@@ -365,7 +368,7 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         var review = await File.ReadAllTextAsync(GetRequiredPath(context, PhaseId.Review), cancellationToken);
         var reviewResult = MarkdownHelper.ReadSection(review, "## Verdict");
 
-        return ReleaseApprovalArtifactJson.Serialize(
+        return ReleaseApprovalArtifactJson.RenderMarkdown(
             new ReleaseApprovalArtifactDocument(
                 State: "pending_approval",
                 BasedOn: ["04-review.md", "03-implementation.md", "02-technical-design.md", "01-spec.md"],
@@ -391,7 +394,9 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
                     "Validation evidence is credible enough for handoff",
                     "Known risks are acceptable or explicitly tracked"
                 ],
-                Recommendation: "Approve only if the review artifact and implementation evidence tell a consistent story with no missing release blockers."));
+                Recommendation: "Approve only if the review artifact and implementation evidence tell a consistent story with no missing release blockers."),
+            context.UsId,
+            version: 1);
     }
 
     private static Task<string> ComposePrPreparationAsync(
@@ -428,12 +433,12 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
         return UserStoryRefinementMarkdown.Parse(userStoryMarkdown);
     }
 
-    private static string ApplyDeterministicArtifactOperation(SpecDocument currentArtifact, string operationPrompt)
+    private static string ApplyDeterministicArtifactOperation(SpecDocument currentArtifact, string usId, string operationPrompt)
     {
         var summary = NormalizeOperationSummary(operationPrompt);
         var history = currentArtifact.HistoryLog.ToList();
         history.Insert(0, $"`{DateTimeOffset.UtcNow:O}` · Applied artifact operation: {summary}");
-        return SpecJson.Serialize(currentArtifact with { HistoryLog = history });
+        return SpecJson.RenderMarkdown(currentArtifact with { HistoryLog = history }, usId, version: 1);
     }
 
     private static string NormalizeOperationSummary(string operationPrompt)

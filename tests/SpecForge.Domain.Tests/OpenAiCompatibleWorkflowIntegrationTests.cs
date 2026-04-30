@@ -42,53 +42,52 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             }
             """,
             """
-            {
-              "title": "Persist LinkedIn bilingual article rendering",
-              "historyLog": [
-                "`2026-04-22T12:09:02Z` · Initial spec baseline generated."
-              ],
-              "state": "pending_approval",
-              "basedOn": "refinement.md",
-              "specSummary": "Persist LinkedIn article content in `articles.json` and render both Spanish and English variants.",
-              "inputs": [
-                "Marketing editors publish bilingual article content."
-              ],
-              "outputs": [
-                "Landing page renders the article in the requested locale."
-              ],
-              "businessRules": [
-                "Locale selects the Spanish or English article variant."
-              ],
-              "edgeCases": [
-                "Missing locale falls back to the default supported language."
-              ],
-              "errorsAndFailureModes": [
-                "Unknown article slug returns a not-found response."
-              ],
-              "constraints": [
-                "Keep the first pass bounded to the current repository."
-              ],
-              "detectedAmbiguities": [
-                "Analytics tracking remains out of scope unless explicitly approved."
-              ],
-              "redTeam": [
-                "The request could overreach into content authoring workflows."
-              ],
-              "blueTeam": [
-                "Keep scope bounded to persisted article rendering."
-              ],
-              "acceptanceCriteria": [
-                "Articles can be loaded from `articles.json`.",
-                "The page renders Spanish and English versions of the article content.",
-                "The article can be selected by slug and locale."
-              ],
-              "humanApprovalQuestions": [
-                {
-                  "question": "Is the bilingual scope bounded enough for technical design?",
-                  "status": "pending"
-                }
-              ]
-            }
+            # Spec · US-0001 · v01
+
+            ## History Log
+            - `2026-04-22T12:09:02Z` · Initial spec baseline generated.
+
+            ## State
+            - State: `pending_approval`
+            - Based on: `refinement.md`
+
+            ## Spec Summary
+            Persist LinkedIn article content in `articles.json` and render both Spanish and English variants.
+
+            ## Inputs
+            - Marketing editors publish bilingual article content.
+
+            ## Outputs
+            - Landing page renders the article in the requested locale.
+
+            ## Business Rules
+            - Locale selects the Spanish or English article variant.
+
+            ## Edge Cases
+            - Missing locale falls back to the default supported language.
+
+            ## Errors and Failure Modes
+            - Unknown article slug returns a not-found response.
+
+            ## Constraints
+            - Keep the first pass bounded to the current repository.
+
+            ## Detected Ambiguities
+            - Analytics tracking remains out of scope unless explicitly approved.
+
+            ## Red Team
+            - The request could overreach into content authoring workflows.
+
+            ## Blue Team
+            - Keep scope bounded to persisted article rendering.
+
+            ## Acceptance Criteria
+            - Articles can be loaded from `articles.json`.
+            - The page renders Spanish and English versions of the article content.
+            - The article can be selected by slug and locale.
+
+            ## Human Approval Questions
+            - [ ] Is the bilingual scope bounded enough for technical design?
             """
         ]);
 
@@ -173,7 +172,7 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Equal(0.2d, OpenAiCompatibleRequestJson.ReadTemperature(modelStub.Requests[2].Body));
         Assert.Equal("json_schema", OpenAiCompatibleRequestJson.ReadResponseFormatType(modelStub.Requests[0].Body));
         Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[0].Body));
-        Assert.Equal("spec_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[2].Body));
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(modelStub.Requests[2].Body));
         Assert.Contains("Role: refinement analyst.", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[0].Body));
         Assert.Contains("- Phase: `Refinement`", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[0].Body));
         Assert.Contains("Active tolerance: `inferential`", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[0].Body));
@@ -220,53 +219,52 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             }
             """,
             """
-            {
-              "title": "Persist LinkedIn bilingual article rendering",
-              "historyLog": [
-                "`2026-04-22T12:09:02Z` · Initial spec baseline generated."
-              ],
-              "state": "pending_approval",
-              "basedOn": "refinement.md",
-              "specSummary": "Persist LinkedIn article content in `articles.json` and render both Spanish and English variants.",
-              "inputs": [
-                "Marketing editors publish bilingual article content."
-              ],
-              "outputs": [
-                "Landing page renders the article in the requested locale."
-              ],
-              "businessRules": [
-                "Locale selects the Spanish or English article variant."
-              ],
-              "edgeCases": [
-                "Missing locale falls back to the default supported language."
-              ],
-              "errorsAndFailureModes": [
-                "Unknown article slug returns a not-found response."
-              ],
-              "constraints": [
-                "Keep the first pass bounded to the current repository."
-              ],
-              "detectedAmbiguities": [
-                "Analytics tracking remains out of scope unless explicitly approved."
-              ],
-              "redTeam": [
-                "The request could overreach into content authoring workflows."
-              ],
-              "blueTeam": [
-                "Keep scope bounded to persisted article rendering."
-              ],
-              "acceptanceCriteria": [
-                "Articles can be loaded from `articles.json`.",
-                "The page renders Spanish and English versions of the article content.",
-                "The article can be selected by slug and locale."
-              ],
-              "humanApprovalQuestions": [
-                {
-                  "question": "Is the bilingual scope bounded enough for technical design?",
-                  "status": "pending"
-                }
-              ]
-            }
+            # Spec · US-0001 · v01
+
+            ## History Log
+            - `2026-04-22T12:09:02Z` · Initial spec baseline generated.
+
+            ## State
+            - State: `pending_approval`
+            - Based on: `refinement.md`
+
+            ## Spec Summary
+            Persist LinkedIn article content in `articles.json` and render both Spanish and English variants.
+
+            ## Inputs
+            - Marketing editors publish bilingual article content.
+
+            ## Outputs
+            - Landing page renders the article in the requested locale.
+
+            ## Business Rules
+            - Locale selects the Spanish or English article variant.
+
+            ## Edge Cases
+            - Missing locale falls back to the default supported language.
+
+            ## Errors and Failure Modes
+            - Unknown article slug returns a not-found response.
+
+            ## Constraints
+            - Keep the first pass bounded to the current repository.
+
+            ## Detected Ambiguities
+            - Analytics tracking remains out of scope unless explicitly approved.
+
+            ## Red Team
+            - The request could overreach into content authoring workflows.
+
+            ## Blue Team
+            - Keep scope bounded to persisted article rendering.
+
+            ## Acceptance Criteria
+            - Articles can be loaded from `articles.json`.
+            - The page renders Spanish and English versions of the article content.
+            - The article can be selected by slug and locale.
+
+            ## Human Approval Questions
+            - [ ] Is the bilingual scope bounded enough for technical design?
             """
         ]);
 
@@ -329,7 +327,7 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[0].Body));
         Assert.Equal("auto_refinement_answers", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[1].Body));
         Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[2].Body));
-        Assert.Equal("spec_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[3].Body));
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(modelStub.Requests[3].Body));
         Assert.Contains("\"model\":\"stub-resolver\"", modelStub.Requests[1].Body);
     }
 
@@ -368,112 +366,122 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             }
             """,
             """
-            {
-              "title": "Control suite agent sampling",
-              "historyLog": [
-                "`2026-04-23T12:00:00Z` · Initial spec baseline generated."
-              ],
-              "state": "pending_approval",
-              "basedOn": "refinement.md",
-              "specSummary": "Allow a suite administrator to configure bounded agent sampling defaults and validation rules.",
-              "inputs": [
-                "Suite administrator updates sampling settings."
-              ],
-              "outputs": [
-                "Persisted sampling defaults become available to downstream execution flows."
-              ],
-              "businessRules": [
-                "Sampling values must remain inside approved bounds."
-              ],
-              "edgeCases": [
-                "Out-of-range values are rejected before persistence."
-              ],
-              "errorsAndFailureModes": [
-                "Invalid settings never become the active configuration."
-              ],
-              "constraints": [
-                "Keep the first pass inside the current repository."
-              ],
-              "detectedAmbiguities": [
-                "Historical migration of legacy values remains out of scope."
-              ],
-              "redTeam": [
-                "A lax validation rule could allow invalid runtime states."
-              ],
-              "blueTeam": [
-                "Keep the scope bounded to validation, persistence, and runtime propagation."
-              ],
-              "acceptanceCriteria": [
-                "Sampling settings can be updated through the supported API boundary.",
-                "Persisted values are validated before saving.",
-                "Runtime consumers receive the validated sampling defaults."
-              ],
-              "humanApprovalQuestions": [
-                {
-                  "question": "Is the implementation scope bounded enough for technical design?",
-                  "status": "pending"
-                }
-              ]
-            }
+            # Spec · US-0001 · v01
+
+            ## History Log
+            - `2026-04-23T12:00:00Z` · Initial spec baseline generated.
+
+            ## State
+            - State: `pending_approval`
+            - Based on: `refinement.md`
+
+            ## Spec Summary
+            Allow a suite administrator to configure bounded agent sampling defaults and validation rules.
+
+            ## Inputs
+            - Suite administrator updates sampling settings.
+
+            ## Outputs
+            - Persisted sampling defaults become available to downstream execution flows.
+
+            ## Business Rules
+            - Sampling values must remain inside approved bounds.
+
+            ## Edge Cases
+            - Out-of-range values are rejected before persistence.
+
+            ## Errors and Failure Modes
+            - Invalid settings never become the active configuration.
+
+            ## Constraints
+            - Keep the first pass inside the current repository.
+
+            ## Detected Ambiguities
+            - Historical migration of legacy values remains out of scope.
+
+            ## Red Team
+            - A lax validation rule could allow invalid runtime states.
+
+            ## Blue Team
+            - Keep the scope bounded to validation, persistence, and runtime propagation.
+
+            ## Acceptance Criteria
+            - Sampling settings can be updated through the supported API boundary.
+            - Persisted values are validated before saving.
+            - Runtime consumers receive the validated sampling defaults.
+
+            ## Human Approval Questions
+            - [ ] Is the implementation scope bounded enough for technical design?
             """,
             """
-            {
-              "state": "generated",
-              "basedOn": "01-spec.md",
-              "technicalSummary": "Translate the approved sampling-control spec into repository changes.",
-              "technicalObjective": "Enforce validated sampling settings through API, persistence, and runtime layers.",
-              "affectedComponents": [
-                "Sampling settings API",
-                "Configuration persistence",
-                "Runtime settings resolver"
-              ],
-              "architecture": [
-                "Keep validation rules centralized so persistence and runtime share the same contract."
-              ],
-              "primaryFlow": [
-                "Receive sampling settings update.",
-                "Validate bounded values.",
-                "Persist normalized settings.",
-                "Expose the persisted values to runtime consumers."
-              ],
-              "constraintsAndGuardrails": [
-                "Do not expand scope into unrelated orchestration behavior."
-              ],
-              "alternativesConsidered": [
-                "Validate only at the UI layer."
-              ],
-              "technicalRisks": [
-                "Divergent validation paths could allow inconsistent saved state."
-              ],
-              "expectedImpact": [
-                "Sampling defaults become safely configurable."
-              ],
-              "implementationStrategy": [
-                "Add request validation at the API boundary.",
-                "Persist normalized settings in the existing configuration store.",
-                "Update runtime settings resolution to read the persisted defaults."
-              ],
-              "validationStrategy": [
-                "Cover valid and invalid values in domain and API tests."
-              ],
-              "openDecisions": []
-            }
+            # Technical Design · US-0001 · v01
+
+            ## State
+            - State: `generated`
+            - Based on: `01-spec.md`
+
+            ## Technical Summary
+            Translate the approved sampling-control spec into repository changes.
+
+            ## Technical Objective
+            Enforce validated sampling settings through API, persistence, and runtime layers.
+
+            ## Affected Components
+            - Sampling settings API
+            - Configuration persistence
+            - Runtime settings resolver
+
+            ## Proposed Design
+            ### Architecture
+            - Keep validation rules centralized so persistence and runtime share the same contract.
+
+            ### Primary Flow
+            1. Receive sampling settings update.
+            2. Validate bounded values.
+            3. Persist normalized settings.
+            4. Expose the persisted values to runtime consumers.
+
+            ### Constraints and Guardrails
+            - Do not expand scope into unrelated orchestration behavior.
+
+            ## Alternatives Considered
+            - Validate only at the UI layer.
+
+            ## Technical Risks
+            - Divergent validation paths could allow inconsistent saved state.
+
+            ## Expected Impact
+            - Sampling defaults become safely configurable.
+
+            ## Implementation Strategy
+            1. Add request validation at the API boundary.
+            2. Persist normalized settings in the existing configuration store.
+            3. Update runtime settings resolution to read the persisted defaults.
+
+            ## Validation Strategy
+            - Cover valid and invalid values in domain and API tests.
+
+            ## Open Decisions
+            - No open decisions.
             """,
             """
-            {
-              "state": "generated",
-              "basedOn": "02-technical-design.md",
-              "implementedObjective": "Apply the planned sampling-control changes to the repository.",
-              "plannedOrExecutedChanges": [
-                "Update the API validation path for sampling settings.",
-                "Persist normalized sampling values.",
-                "Propagate persisted settings into runtime resolution."
-              ],
-              "plannedVerification": [
-                "Run focused tests that cover valid and invalid sampling settings.",
-                "Verify runtime consumers read the persisted values."
-              ]
-            }
+            # Implementation · US-0001 · v01
+
+            ## State
+            - State: `generated`
+            - Based on: `02-technical-design.md`
+
+            ## Implemented Objective
+            Apply the planned sampling-control changes to the repository.
+
+            ## Planned or Executed Changes
+            - Update the API validation path for sampling settings.
+            - Persist normalized sampling values.
+            - Propagate persisted settings into runtime resolution.
+
+            ## Planned Verification
+            - Run focused tests that cover valid and invalid sampling settings.
+            - Verify runtime consumers read the persisted values.
             """,
             """
             {
@@ -495,31 +503,36 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             }
             """,
             """
-            {
-              "state": "pending_approval",
-              "basedOn": [
-                "04-review.md",
-                "03-implementation.md",
-                "02-technical-design.md",
-                "01-spec.md"
-              ],
-              "releaseSummary": "Sampling-control scope is ready for the final human checkpoint before PR preparation.",
-              "implementedScope": [
-                "Validation, persistence, and runtime propagation are covered by the workflow artifacts."
-              ],
-              "validationEvidence": [
-                "Review passed with the expected validation checklist."
-              ],
-              "residualRisks": [
-                "Human review should still confirm rollout expectations and residual operational concerns."
-              ],
-              "approvalChecklist": [
-                "Approved scope matches the intended PR handoff",
-                "Validation evidence is sufficient",
-                "Residual risks are understood"
-              ],
-              "recommendation": "Approve if the final release checkpoint agrees with the review evidence."
-            }
+            # Release Approval · US-0001 · v01
+
+            ## State
+            - State: `pending_approval`
+
+            ## Based On
+            - 04-review.md
+            - 03-implementation.md
+            - 02-technical-design.md
+            - 01-spec.md
+
+            ## Release Summary
+            Sampling-control scope is ready for the final human checkpoint before PR preparation.
+
+            ## Implemented Scope
+            - Validation, persistence, and runtime propagation are covered by the workflow artifacts.
+
+            ## Validation Evidence
+            - Review passed with the expected validation checklist.
+
+            ## Residual Risks
+            - Human review should still confirm rollout expectations and residual operational concerns.
+
+            ## Approval Checklist
+            - [ ] Approved scope matches the intended PR handoff
+            - [ ] Validation evidence is sufficient
+            - [ ] Residual risks are understood
+
+            ## Recommendation
+            Approve if the final release checkpoint agrees with the review evidence.
             """
         ]);
 
@@ -597,8 +610,8 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Contains(workflow.Events, eventItem => eventItem.Code == "phase_completed" && eventItem.Phase == "implementation");
         Assert.Contains(workflow.Events, eventItem => eventItem.Code == "phase_completed" && eventItem.Phase == "review");
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
-        Assert.True(File.Exists(paths.GetPhaseArtifactJsonPath(PhaseId.TechnicalDesign)));
-        Assert.True(File.Exists(paths.GetPhaseArtifactJsonPath(PhaseId.Implementation)));
+        Assert.False(File.Exists(paths.GetPhaseArtifactJsonPath(PhaseId.TechnicalDesign)));
+        Assert.False(File.Exists(paths.GetPhaseArtifactJsonPath(PhaseId.Implementation)));
         Assert.True(File.Exists(paths.GetPhaseArtifactJsonPath(PhaseId.Review)));
         var reviewJson = await File.ReadAllTextAsync(paths.GetPhaseArtifactJsonPath(PhaseId.Review));
         Assert.Contains("\"validationChecklist\"", reviewJson);
@@ -610,11 +623,11 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
                 "refinement_artifact",
                 "auto_refinement_answers",
                 "refinement_artifact",
-                "spec_artifact",
-                "technical_design_artifact",
-                "implementation_artifact",
+                string.Empty,
+                string.Empty,
+                string.Empty,
                 "review_artifact",
-                "release_approval_artifact"
+                string.Empty
             ],
             modelStub.Requests.Select(request => OpenAiCompatibleRequestJson.ReadResponseSchemaName(request.Body)).ToArray());
         Assert.Equal("stub-resolver", OpenAiCompatibleRequestJson.ReadModel(modelStub.Requests[1].Body));

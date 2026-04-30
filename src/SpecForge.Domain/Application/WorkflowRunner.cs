@@ -1377,12 +1377,8 @@ public sealed class WorkflowRunner
 
         if (workflowRun.CurrentPhase == PhaseId.Spec)
         {
-            var version = ExtractArtifactVersion(artifactPath);
-            var document = SpecJson.ParseCanonicalJson(result.Content);
-            var renderedMarkdown = SpecJson.RenderMarkdown(document, workflowRun.UsId, version);
-            EnsureMaterializedSpecIsUsable(renderedMarkdown);
-            await File.WriteAllTextAsync(paths.GetPhaseArtifactJsonPath(PhaseId.Spec, version), SpecJson.Serialize(document), cancellationToken);
-            await File.WriteAllTextAsync(artifactPath, renderedMarkdown, cancellationToken);
+            EnsureMaterializedSpecIsUsable(result.Content);
+            await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
         }
         else if (workflowRun.CurrentPhase == PhaseId.Implementation)
         {

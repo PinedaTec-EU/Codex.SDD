@@ -216,17 +216,20 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var contract = StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var phaseContract)
             ? phaseContract
             : throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract.");
+        var responseFormat = contract.ResponseFormat == PhaseArtifactResponseFormat.Json
+            ? new StructuredOutputResponseFormat(
+                Type: "json_schema",
+                JsonSchema: new StructuredOutputJsonSchema(
+                    Name: contract.SchemaName,
+                    Schema: contract.JsonSchema,
+                    Strict: true))
+            : null;
         var (content, usage, inputSha256, outputSha256) = await ExecuteStructuredHttpAsync(
             modelSelection,
             prompt.SystemPrompt,
             prompt.UserPrompt,
             ResolveTemperature(context.PhaseId),
-            new StructuredOutputResponseFormat(
-                Type: "json_schema",
-                JsonSchema: new StructuredOutputJsonSchema(
-                    Name: contract.SchemaName,
-                    Schema: contract.JsonSchema,
-                    Strict: true)),
+            responseFormat,
             cancellationToken);
 
         if (string.IsNullOrWhiteSpace(content))
@@ -234,7 +237,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             throw new InvalidOperationException("OpenAI-compatible provider returned an empty content payload.");
         }
 
-        var canonicalJsonContent = NormalizePhaseJsonContent(context, content.Trim());
+        var canonicalJsonContent = contract.ResponseFormat == PhaseArtifactResponseFormat.Json
+            ? NormalizePhaseJsonContent(context, content.Trim())
+            : null;
         if (context.PhaseId == PhaseId.PrPreparation && !string.IsNullOrWhiteSpace(canonicalJsonContent))
         {
             var repaired = PrPreparationArtifactFactory.RepairIncomplete(
@@ -303,14 +308,20 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             content = userPrompt
         });
 
-        return JsonSerializer.Serialize(new
+        var requestBody = new Dictionary<string, object?>
         {
-            model = modelSelection.Model,
-            messages,
-            temperature,
-            reasoning_effort = modelSelection.ReasoningEffort,
-            response_format = responseFormat
-        });
+            ["model"] = modelSelection.Model,
+            ["messages"] = messages,
+            ["temperature"] = temperature,
+            ["reasoning_effort"] = modelSelection.ReasoningEffort
+        };
+
+        if (responseFormat is not null)
+        {
+            requestBody["response_format"] = responseFormat;
+        }
+
+        return JsonSerializer.Serialize(requestBody);
     }
 
     private async Task<(string Content, TokenUsage? Usage, string? InputSha256, string? OutputSha256)> ExecuteStructuredHttpAsync(
@@ -371,6 +382,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             paths.SharedSystemPromptPath,
             phaseSystemPromptPath);
         var refinementLogPath = Path.Combine(Path.GetDirectoryName(context.UserStoryPath)!, "refinement.md");
+        var contract = StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var phaseContract)
+            ? phaseContract
+            : throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract.");
+        var effectiveOutputRulesPrompt = contract.ResponseFormat == PhaseArtifactResponseFormat.Json
+            ? sharedOutputRulesPrompt.Trim()
+            : BuildMarkdownOutputRulesPrompt();
         var systemPrompt = string.Join(
             $"{Environment.NewLine}{Environment.NewLine}",
             new[]
@@ -379,7 +396,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 sharedSystemPrompt.Trim(),
                 phaseSystemPrompt.Trim(),
                 sharedStylePrompt.Trim(),
-                sharedOutputRulesPrompt.Trim()
+                effectiveOutputRulesPrompt
             }.Where(static part => !string.IsNullOrWhiteSpace(part)));
 
         var builder = new StringBuilder()
@@ -485,16 +502,29 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine("## Execution Rules")
             .AppendLine()
             .AppendLine("- Use the repository artifacts as the source of truth.")
-            .AppendLine("- Stay strictly inside the requested phase contract.")
-            .AppendLine("- Return only structured JSON that conforms to the response schema.");
+            .AppendLine("- Stay strictly inside the requested phase contract.");
+
+        if (contract.ResponseFormat == PhaseArtifactResponseFormat.Json)
+        {
+            builder.AppendLine("- Return only structured JSON that conforms to the response schema.");
+        }
+        else
+        {
+            builder
+                .AppendLine("- Return only the complete Markdown artifact for this phase.")
+                .AppendLine("- Do not wrap the Markdown artifact in code fences.")
+                .AppendLine("- Do not return JSON or prose outside the Markdown artifact.");
+        }
 
         if (!string.IsNullOrWhiteSpace(context.OperationPrompt))
         {
             builder
                 .AppendLine("- Treat the current phase artifact as the document under edit, not as a discarded draft.")
                 .AppendLine("- Preserve valid content unless the requested operation requires a change.")
-                .AppendLine("- Update the structured fields so the requested correction becomes explicit in the rendered artifact.")
-                .AppendLine("- Add a concise new history entry describing the operation when the phase schema supports history.");
+                .AppendLine(contract.ResponseFormat == PhaseArtifactResponseFormat.Json
+                    ? "- Update the structured fields so the requested correction becomes explicit in the rendered artifact."
+                    : "- Update the Markdown sections so the requested correction becomes explicit in the artifact.")
+                .AppendLine("- Add a concise new history entry describing the operation when the phase artifact supports history.");
         }
 
         if (context.PhaseId == PhaseId.Refinement)
@@ -517,12 +547,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         {
             builder
                 .AppendLine()
-                .AppendLine("## Spec JSON Contract")
+                .AppendLine("## Spec Markdown Contract")
                 .AppendLine()
-                .AppendLine("Return only structured data that conforms to the response schema.")
-                .AppendLine("`historyLog` must be an array of concise audit strings.")
-                .AppendLine()
-                .AppendLine("Do not wrap the JSON in markdown fences. Do not return prose outside the structured payload.");
+                .AppendLine("Return the full `01-spec.md` artifact as Markdown.")
+                .AppendLine("Use the required headings exactly once.")
+                .AppendLine("Do not return JSON.");
         }
 
         if (context.PhaseId == PhaseId.Review)
@@ -564,9 +593,22 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         {
             builder
                 .AppendLine()
-                .AppendLine("## Structured Output")
+                .AppendLine("## Markdown Output")
                 .AppendLine()
-                .AppendLine("Return only structured data that conforms to the response schema.");
+                .AppendLine("Return the complete phase artifact as Markdown.")
+                .AppendLine("Use the required headings from the phase prompt exactly once.")
+                .AppendLine("Do not return JSON.");
+        }
+
+        if (context.PhaseId == PhaseId.ReleaseApproval)
+        {
+            builder
+                .AppendLine()
+                .AppendLine("## Release Approval Markdown Contract")
+                .AppendLine()
+                .AppendLine("Return the full release approval artifact as Markdown.")
+                .AppendLine("Use the required headings exactly once.")
+                .AppendLine("Do not return JSON.");
         }
 
         if (context.PhaseId == PhaseId.PrPreparation)
@@ -715,6 +757,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return new EffectivePrompt(systemPrompt, builder.ToString().Trim(), warnings);
     }
 
+    private static string BuildMarkdownOutputRulesPrompt() =>
+        """
+        Return only the complete Markdown artifact for the requested phase.
+        Do not wrap the response in code fences.
+        Do not return JSON.
+        Preserve the expected headings and semantic sections of the target artifact.
+        If required context is missing or contradictory, state it explicitly inside the Markdown artifact instead of hiding the issue.
+        """;
+
     private static async Task<IReadOnlyCollection<string>?> BuildPromptWarningsAsync(
         string workspaceRoot,
         CancellationToken cancellationToken,
@@ -805,23 +856,22 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract for native provider execution.");
         }
 
-        var outputSchemaJson = contract.JsonSchema.GetRawText();
         var nativePrompt = NativeCliPromptBuilder.BuildPhasePrompt(
             context,
             prompt,
             modelSelection.ProviderKind,
-            outputSchemaJson);
+            contract);
         var sandboxMode = context.PhaseId is PhaseId.Implementation or PhaseId.Review
             ? "workspace-write"
             : "read-only";
         var baselineWorkspaceChanges = context.PhaseId == PhaseId.Implementation
             ? await TryCaptureGitStatusSnapshotAsync(context.WorkspaceRoot, cancellationToken)
             : null;
-        var responseJson = await ExecuteStructuredNativeAsync(
+        var response = await ExecuteStructuredNativeAsync(
             context.WorkspaceRoot,
             nativePrompt,
             modelSelection,
-            outputSchemaJson,
+            contract.ResponseFormat == PhaseArtifactResponseFormat.Json ? contract.JsonSchema.GetRawText() : null,
             sandboxMode,
             cancellationToken);
 
@@ -834,8 +884,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 cancellationToken);
         }
 
-        var canonicalJsonContent = NormalizePhaseJsonContent(context, responseJson.Trim());
-        var normalizedContent = NormalizePhaseContent(context, canonicalJsonContent ?? responseJson.Trim());
+        var canonicalJsonContent = contract.ResponseFormat == PhaseArtifactResponseFormat.Json
+            ? NormalizePhaseJsonContent(context, response.Trim())
+            : null;
+        var normalizedContent = NormalizePhaseContent(context, canonicalJsonContent ?? response.Trim());
 
         return new PhaseExecutionResult(
             normalizedContent,
@@ -847,7 +899,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 ProfileName: modelSelection.ProfileName,
                 Warnings: prompt.Warnings,
                 InputSha256: ComputeSha256(nativePrompt),
-                OutputSha256: ComputeSha256(responseJson),
+                OutputSha256: ComputeSha256(response),
                 StructuredOutputSha256: ComputeSha256(canonicalJsonContent)),
             canonicalJsonContent);
     }
@@ -866,7 +918,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         string workspaceRoot,
         string prompt,
         ResolvedModelSelection modelSelection,
-        string outputSchemaJson,
+        string? outputSchemaJson,
         string sandboxMode,
         CancellationToken cancellationToken)
     {
@@ -1565,7 +1617,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         string Prompt,
         string? Model,
         string? ReasoningEffort,
-        string OutputSchemaJson,
+        string? OutputSchemaJson,
         string SandboxMode);
 
     internal sealed record NativeCliCheckResult(
@@ -1909,9 +1961,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         public override async Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
         {
-            var schemaPath = Path.Combine(Path.GetTempPath(), $"specforge-codex-schema-{Guid.NewGuid():N}.json");
-            var outputPath = Path.Combine(Path.GetTempPath(), $"specforge-codex-output-{Guid.NewGuid():N}.json");
-            await File.WriteAllTextAsync(schemaPath, invocation.OutputSchemaJson, cancellationToken);
+            var schemaPath = string.IsNullOrWhiteSpace(invocation.OutputSchemaJson)
+                ? null
+                : Path.Combine(Path.GetTempPath(), $"specforge-codex-schema-{Guid.NewGuid():N}.json");
+            var outputPath = Path.Combine(Path.GetTempPath(), $"specforge-codex-output-{Guid.NewGuid():N}.txt");
+            if (schemaPath is not null)
+            {
+                await File.WriteAllTextAsync(schemaPath, invocation.OutputSchemaJson!, cancellationToken);
+            }
 
             try
             {
@@ -1946,8 +2003,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
                 arguments.Add("--color");
                 arguments.Add("never");
-                arguments.Add("--output-schema");
-                arguments.Add(schemaPath);
+                if (schemaPath is not null)
+                {
+                    arguments.Add("--output-schema");
+                    arguments.Add(schemaPath);
+                }
+
                 arguments.Add("-o");
                 arguments.Add(outputPath);
                 arguments.Add("-");
@@ -1968,7 +2029,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             }
             finally
             {
-                TryDelete(schemaPath);
+                if (schemaPath is not null)
+                {
+                    TryDelete(schemaPath);
+                }
+
                 TryDelete(outputPath);
             }
         }
@@ -2003,16 +2068,23 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         {
             var arguments = new List<string>
             {
-                "-p",
-                "--output-format",
-                "json",
-                "--json-schema",
-                invocation.OutputSchemaJson,
+                "-p"
+            };
+
+            if (!string.IsNullOrWhiteSpace(invocation.OutputSchemaJson))
+            {
+                arguments.Add("--output-format");
+                arguments.Add("json");
+                arguments.Add("--json-schema");
+                arguments.Add(invocation.OutputSchemaJson);
+            }
+
+            arguments.AddRange([
                 "--permission-mode",
                 "bypassPermissions",
                 "--add-dir",
                 invocation.WorkspaceRoot
-            };
+            ]);
 
             if (!string.IsNullOrWhiteSpace(invocation.Model))
             {
