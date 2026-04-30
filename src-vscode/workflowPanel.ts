@@ -45,7 +45,6 @@ type WorkflowPanelCommand =
   | { readonly command: "continue" }
   | { readonly command: "approve"; readonly baseBranch?: string; readonly workBranch?: string }
   | { readonly command: "restart" }
-  | { readonly command: "resetToCapture" }
   | { readonly command: "debugResetToCapture" }
   | { readonly command: "reject"; readonly reason?: string }
   | { readonly command: "regress"; readonly phaseId?: string }
@@ -340,7 +339,6 @@ class WorkflowPanelController {
       case "restart":
         await this.restartCurrentWorkflowAsync();
         return;
-      case "resetToCapture":
       case "debugResetToCapture":
         await this.resetToCaptureAsync();
         return;

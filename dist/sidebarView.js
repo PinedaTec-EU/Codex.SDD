@@ -155,6 +155,12 @@ class SidebarViewProvider {
                 }
                 await this.deleteUserStoryAsync(message.usId);
                 return;
+            case "resetUserStoryToCapture":
+                if (!message.usId) {
+                    return;
+                }
+                await this.resetUserStoryToCaptureAsync(message.usId);
+                return;
             case "analyzeRepairUserStory":
                 if (!message.usId) {
                     return;
@@ -254,6 +260,26 @@ class SidebarViewProvider {
             await (0, userWorkspacePreferences_1.setStarredUserStory)(workspaceRoot, null);
         }
         await this.onDidCreateUserStory();
+    }
+    async resetUserStoryToCaptureAsync(usId) {
+        const workspaceRoot = getWorkspaceRoot();
+        if (!workspaceRoot) {
+            return;
+        }
+        const confirmation = await vscode.window.showWarningMessage(`Reset ${usId} to capture and delete all generated artifacts after the source?`, { modal: true }, "Reset Workflow");
+        if (confirmation !== "Reset Workflow") {
+            (0, outputChannel_1.appendSpecForgeLog)(`Sidebar reset to capture for '${usId}' was cancelled by the user.`);
+            return;
+        }
+        await this.runBusyActionAsync(`Resetting ${usId} to capture...`, async () => {
+            (0, outputChannel_1.appendSpecForgeLog)(`Sidebar reset to capture for '${usId}' confirmed by the user.`);
+            const result = await (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot).resetUserStoryToCapture(usId);
+            (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${usId}' was reset to '${result.currentPhase}' with status '${result.status}' from sidebar.`);
+            (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${usId}' reset deleted paths: ${result.deletedPaths.length > 0 ? result.deletedPaths.join(", ") : "(none)"}.`);
+            (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${usId}' reset preserved paths: ${result.preservedPaths.length > 0 ? result.preservedPaths.join(", ") : "(none)"}.`);
+            await this.onDidCreateUserStory();
+            void vscode.window.showInformationMessage(`${usId} reset to capture.`);
+        });
     }
     async analyzeRepairUserStoryAsync(usId) {
         const workspaceRoot = getWorkspaceRoot();

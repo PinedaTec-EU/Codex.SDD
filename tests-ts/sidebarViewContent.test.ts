@@ -125,6 +125,8 @@ test("buildSidebarHtml uses compact actions instead of a separate create card wh
   assert.match(html, /aria-label="User story actions for US-0001"/);
   assert.match(html, /Edit US info/);
   assert.match(html, /Analyze \/ Repair/);
+  assert.match(html, /data-command="resetUserStoryToCapture"/);
+  assert.match(html, /Reset workflow/);
   assert.match(html, /data-command="deleteUserStory"/);
   assert.match(html, /story-card--active story-card--phase-spec/);
   assert.match(html, /story-card__phase-label">SPEC</);

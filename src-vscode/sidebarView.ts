@@ -34,6 +34,7 @@ type SidebarMessage =
   | { readonly command: "openPromptTemplates" }
   | { readonly command: "openWorkflow"; readonly usId?: string }
   | { readonly command: "toggleStarredUserStory"; readonly usId?: string }
+  | { readonly command: "resetUserStoryToCapture"; readonly usId?: string }
   | { readonly command: "deleteUserStory"; readonly usId?: string }
   | { readonly command: "analyzeRepairUserStory"; readonly usId?: string }
   | { readonly command: "setCreateFileMode"; readonly kind?: string }
@@ -178,6 +179,13 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
         await this.deleteUserStoryAsync(message.usId);
         return;
+      case "resetUserStoryToCapture":
+        if (!message.usId) {
+          return;
+        }
+
+        await this.resetUserStoryToCaptureAsync(message.usId);
+        return;
       case "analyzeRepairUserStory":
         if (!message.usId) {
           return;
@@ -291,6 +299,40 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       await setStarredUserStory(workspaceRoot, null);
     }
     await this.onDidCreateUserStory();
+  }
+
+  private async resetUserStoryToCaptureAsync(usId: string): Promise<void> {
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+      return;
+    }
+
+    const confirmation = await vscode.window.showWarningMessage(
+      `Reset ${usId} to capture and delete all generated artifacts after the source?`,
+      { modal: true },
+      "Reset Workflow"
+    );
+
+    if (confirmation !== "Reset Workflow") {
+      appendSpecForgeLog(`Sidebar reset to capture for '${usId}' was cancelled by the user.`);
+      return;
+    }
+
+    await this.runBusyActionAsync(`Resetting ${usId} to capture...`, async () => {
+      appendSpecForgeLog(`Sidebar reset to capture for '${usId}' confirmed by the user.`);
+      const result = await getOrCreateBackendClient(workspaceRoot).resetUserStoryToCapture(usId);
+      appendSpecForgeLog(
+        `Workflow '${usId}' was reset to '${result.currentPhase}' with status '${result.status}' from sidebar.`
+      );
+      appendSpecForgeLog(
+        `Workflow '${usId}' reset deleted paths: ${result.deletedPaths.length > 0 ? result.deletedPaths.join(", ") : "(none)"}.`
+      );
+      appendSpecForgeLog(
+        `Workflow '${usId}' reset preserved paths: ${result.preservedPaths.length > 0 ? result.preservedPaths.join(", ") : "(none)"}.`
+      );
+      await this.onDidCreateUserStory();
+      void vscode.window.showInformationMessage(`${usId} reset to capture.`);
+    });
   }
 
   private async analyzeRepairUserStoryAsync(usId: string): Promise<void> {

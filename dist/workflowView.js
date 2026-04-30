@@ -1847,9 +1847,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     </div>
   `;
     const playbackButtons = `
-    <button class="icon-button icon-button--danger" data-command="resetToCapture" aria-label="Reset workflow to capture"${playbackState === "playing" || playbackState === "stopping" ? " disabled" : ""}>
-      ${(0, icons_1.firstPhaseRewindIcon)()}
-    </button>
     <button class="icon-button icon-button--document" data-command="rewind" data-hero-rewind-button aria-label="${heroRewindTargetPhaseId ? `Rewind workflow pointer to ${heroRewindTargetPhaseId}` : "Rewind workflow pointer"}"${heroRewindDisabled ? " disabled" : ""}>
       ${(0, icons_1.rewindIcon)()}
     </button>

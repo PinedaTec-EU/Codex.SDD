@@ -1735,6 +1735,10 @@ function buildStoryRowMarkup(summary, starredUserStoryId, activeWorkflowUsId) {
               <span class="action-menu__item-icon" aria-hidden="true">⌕</span>
               <span>Analyze / Repair</span>
             </button>
+            <button class="action-menu__item action-menu__item--danger" type="button" data-command="resetUserStoryToCapture" data-us-id="${(0, htmlEscape_1.escapeHtmlAttr)(summary.usId)}" role="menuitem">
+              <span class="action-menu__item-icon" aria-hidden="true">↤</span>
+              <span>Reset workflow</span>
+            </button>
             <button class="action-menu__item action-menu__item--danger" type="button" data-command="deleteUserStory" data-us-id="${(0, htmlEscape_1.escapeHtmlAttr)(summary.usId)}" role="menuitem">
               <span class="action-menu__item-icon" aria-hidden="true">🗑</span>
               <span>Delete</span>

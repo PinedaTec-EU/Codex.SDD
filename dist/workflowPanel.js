@@ -283,7 +283,6 @@ class WorkflowPanelController {
             case "restart":
                 await this.restartCurrentWorkflowAsync();
                 return;
-            case "resetToCapture":
             case "debugResetToCapture":
                 await this.resetToCaptureAsync();
                 return;

@@ -4,7 +4,7 @@ import { buildCapturePhaseSections } from "./workflow-view/capturePhaseView";
 import { buildRefinementPhaseSections } from "./workflow-view/refinementPhaseView";
 import { buildCompletedPhaseSections } from "./workflow-view/completedPhaseView";
 import { buildImplementationPhaseSections } from "./workflow-view/implementationPhaseView";
-import { automationPhaseIcon, cameraIcon, externalLinkIcon, fileIcon, firstPhaseRewindIcon, lockClosedIcon, lockOpenIcon, pauseIcon, playIcon, rewindIcon, stopIcon, userPhaseIcon, workflowPhaseIcon } from "./workflow-view/icons";
+import { automationPhaseIcon, cameraIcon, externalLinkIcon, fileIcon, lockClosedIcon, lockOpenIcon, pauseIcon, playIcon, rewindIcon, stopIcon, userPhaseIcon, workflowPhaseIcon } from "./workflow-view/icons";
 import { renderMarkdownToHtml } from "./workflow-view/markdownRenderer";
 import type { ApprovalQuestionItem, PhaseIterationItem, PhaseSectionFragments, WorkflowViewState } from "./workflow-view/models";
 import { buildPrPreparationPhaseSections } from "./workflow-view/prPreparationPhaseView";
@@ -2331,9 +2331,6 @@ export function buildWorkflowHtml(
     </div>
   `;
   const playbackButtons = `
-    <button class="icon-button icon-button--danger" data-command="resetToCapture" aria-label="Reset workflow to capture"${playbackState === "playing" || playbackState === "stopping" ? " disabled" : ""}>
-      ${firstPhaseRewindIcon()}
-    </button>
     <button class="icon-button icon-button--document" data-command="rewind" data-hero-rewind-button aria-label="${heroRewindTargetPhaseId ? `Rewind workflow pointer to ${heroRewindTargetPhaseId}` : "Rewind workflow pointer"}"${heroRewindDisabled ? " disabled" : ""}>
       ${rewindIcon()}
     </button>
