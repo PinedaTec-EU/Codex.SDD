@@ -93,6 +93,81 @@ public sealed class WorkflowIterationDetailsBuilderTests : IDisposable
         Assert.Equal("Apply the failed review corrections.", implementationIterations[1].OperationPrompt);
     }
 
+    [Fact]
+    public async Task Build_ResetsAttemptsAfterLatestWorkflowRepair()
+    {
+        Directory.CreateDirectory(rootDirectory);
+        var paths = new UserStoryFilePaths(rootDirectory);
+        Directory.CreateDirectory(paths.PhasesDirectoryPath);
+        await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Implementation), "# Impl v1");
+        await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Review), "# Review v1");
+        await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign, 2), "# TD v2");
+        await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Implementation, 2), "# Impl v2");
+
+        var events = new[]
+        {
+            new TimelineEventDetails(
+                "2026-04-25T10:01:00.0000000+00:00",
+                "phase_completed",
+                "system",
+                "implementation",
+                "Generated implementation artifact.",
+                [paths.GetPhaseArtifactPath(PhaseId.Implementation)],
+                null,
+                1000,
+                null),
+            new TimelineEventDetails(
+                "2026-04-25T10:02:00.0000000+00:00",
+                "phase_completed",
+                "system",
+                "review",
+                "Generated review artifact.",
+                [paths.GetPhaseArtifactPath(PhaseId.Review)],
+                null,
+                1000,
+                null),
+            new TimelineEventDetails(
+                "2026-04-25T10:03:00.0000000+00:00",
+                "workflow_repaired",
+                "system",
+                "technical-design",
+                "Deprecated inconsistent artifacts.",
+                [],
+                null,
+                null,
+                null),
+            new TimelineEventDetails(
+                "2026-04-25T10:04:00.0000000+00:00",
+                "phase_completed",
+                "system",
+                "technical-design",
+                "Generated technical design artifact.",
+                [paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign, 2)],
+                null,
+                1000,
+                null),
+            new TimelineEventDetails(
+                "2026-04-25T10:05:00.0000000+00:00",
+                "phase_completed",
+                "system",
+                "implementation",
+                "Generated implementation artifact.",
+                [paths.GetPhaseArtifactPath(PhaseId.Implementation, 2)],
+                null,
+                1000,
+                null)
+        };
+
+        var iterations = WorkflowIterationDetailsBuilder.Build(paths, events).ToArray();
+
+        Assert.DoesNotContain(iterations, iteration => iteration.OutputArtifactPath == paths.GetPhaseArtifactPath(PhaseId.Review));
+        var technicalDesignIteration = Assert.Single(iterations, iteration => iteration.PhaseId == "technical-design");
+        Assert.Equal(1, technicalDesignIteration.Attempt);
+        var implementationIteration = Assert.Single(iterations, iteration => iteration.PhaseId == "implementation");
+        Assert.Equal(1, implementationIteration.Attempt);
+        Assert.Equal(paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign, 2), implementationIteration.InputArtifactPath);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(rootDirectory))

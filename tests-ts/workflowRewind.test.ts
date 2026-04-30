@@ -223,3 +223,41 @@ test("buildTimelineRewindPoints carries iteration identity for repeated temporal
   assert.equal(secondReleasePoint?.isCurrent, true);
   assert.equal(secondReleasePoint?.label, "Release Approval #2");
 });
+
+test("buildTimelineRewindPhaseHistory starts at the latest lineage repair", () => {
+  const workflow = {
+    usId: "US-0105",
+    title: "Workflow",
+    category: "workflow",
+    status: "active",
+    currentPhase: "technical-design",
+    directoryPath: "/tmp/us",
+    workBranch: "feature/us-0105",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "",
+    phases: [],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: true,
+      regressionTargets: [],
+      rewindTargets: []
+    },
+    refinement: null,
+    events: [
+      { timestampUtc: "2026-04-27T08:00:00Z", code: "phase_completed", actor: "system", phase: "implementation", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
+      { timestampUtc: "2026-04-27T08:10:00Z", code: "phase_completed", actor: "system", phase: "review", summary: null, artifacts: [], usage: null, durationMs: null, execution: null },
+      { timestampUtc: "2026-04-27T08:20:00Z", code: "workflow_repaired", actor: "alice", phase: "technical-design", summary: null, artifacts: [], usage: null, durationMs: null, execution: null }
+    ],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  };
+
+  assert.deepEqual(buildTimelineRewindPhaseHistory(workflow), [
+    "capture",
+    "technical-design"
+  ]);
+});

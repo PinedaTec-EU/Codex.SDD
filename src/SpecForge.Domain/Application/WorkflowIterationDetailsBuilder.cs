@@ -13,8 +13,9 @@ public static class WorkflowIterationDetailsBuilder
         var attemptsByPhase = new Dictionary<string, int>(StringComparer.Ordinal);
         var latestArtifactsByPhase = new Dictionary<string, string>(StringComparer.Ordinal);
         var operationEntriesByResult = BuildOperationEntriesByResult(paths);
+        var liveEvents = EventsAfterLatestLineageRepair(events);
 
-        foreach (var timelineEvent in events)
+        foreach (var timelineEvent in liveEvents)
         {
             if (string.IsNullOrWhiteSpace(timelineEvent.Phase))
             {
@@ -66,6 +67,15 @@ public static class WorkflowIterationDetailsBuilder
         }
 
         return iterations;
+    }
+
+    private static IReadOnlyCollection<TimelineEventDetails> EventsAfterLatestLineageRepair(IReadOnlyCollection<TimelineEventDetails> events)
+    {
+        var orderedEvents = events.ToArray();
+        var latestRepairIndex = Array.FindLastIndex(orderedEvents, static timelineEvent => timelineEvent.Code == "workflow_repaired");
+        return latestRepairIndex < 0
+            ? orderedEvents
+            : orderedEvents.Skip(latestRepairIndex + 1).ToArray();
     }
 
     private static string BuildIterationKey(string phaseId, int attempt, TimelineEventDetails timelineEvent) =>

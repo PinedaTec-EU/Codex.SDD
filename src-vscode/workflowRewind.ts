@@ -122,6 +122,7 @@ export function resolveTimelineRewindDecision(
 function buildTimelineRewindEntries(workflow: UserStoryWorkflowDetails): readonly TimelinePhaseEntry[] {
   const history: TimelinePhaseEntry[] = [];
   const iterations = workflow.phaseIterations ?? [];
+  const liveEvents = eventsFromLatestLineageRepair(workflow.events);
 
   const pushPhase = (phaseId: string | null | undefined, event?: TimelineEventDetails): void => {
     const normalizedPhaseId = normalizePhaseId(phaseId);
@@ -150,7 +151,7 @@ function buildTimelineRewindEntries(workflow: UserStoryWorkflowDetails): readonl
     pushPhase("capture");
   }
 
-  for (const event of workflow.events) {
+  for (const event of liveEvents) {
     if (ignoredTimelineRewindCodes.has(event.code)) {
       continue;
     }
@@ -201,8 +202,18 @@ function findLatestEntryIndex(entries: readonly TimelinePhaseEntry[], phaseId: s
 }
 
 function isLatestReopenLandingPhase(workflow: UserStoryWorkflowDetails, currentPhaseId: string): boolean {
-  const latestReopen = [...workflow.events].reverse().find((event) => event.code === "workflow_reopened");
+  const latestReopen = [...eventsFromLatestLineageRepair(workflow.events)].reverse().find((event) => event.code === "workflow_reopened");
   return normalizePhaseId(latestReopen?.phase) === currentPhaseId;
+}
+
+function eventsFromLatestLineageRepair(events: readonly TimelineEventDetails[]): readonly TimelineEventDetails[] {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    if (events[index]?.code === "workflow_repaired") {
+      return events.slice(index);
+    }
+  }
+
+  return events;
 }
 
 function hasMultipleImplementationReviewIterations(workflow: UserStoryWorkflowDetails): boolean {

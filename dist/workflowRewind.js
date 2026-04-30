@@ -63,6 +63,7 @@ function resolveTimelineRewindDecision(workflow, displayedCurrentPhaseId, reques
 function buildTimelineRewindEntries(workflow) {
     const history = [];
     const iterations = workflow.phaseIterations ?? [];
+    const liveEvents = eventsFromLatestLineageRepair(workflow.events);
     const pushPhase = (phaseId, event) => {
         const normalizedPhaseId = normalizePhaseId(phaseId);
         if (!normalizedPhaseId || normalizedPhaseId === "completed") {
@@ -85,7 +86,7 @@ function buildTimelineRewindEntries(workflow) {
     if (workflow.currentPhase !== "capture" && workflow.controls.canRestartFromSource) {
         pushPhase("capture");
     }
-    for (const event of workflow.events) {
+    for (const event of liveEvents) {
         if (ignoredTimelineRewindCodes.has(event.code)) {
             continue;
         }
@@ -121,8 +122,16 @@ function findLatestEntryIndex(entries, phaseId) {
     return -1;
 }
 function isLatestReopenLandingPhase(workflow, currentPhaseId) {
-    const latestReopen = [...workflow.events].reverse().find((event) => event.code === "workflow_reopened");
+    const latestReopen = [...eventsFromLatestLineageRepair(workflow.events)].reverse().find((event) => event.code === "workflow_reopened");
     return normalizePhaseId(latestReopen?.phase) === currentPhaseId;
+}
+function eventsFromLatestLineageRepair(events) {
+    for (let index = events.length - 1; index >= 0; index -= 1) {
+        if (events[index]?.code === "workflow_repaired") {
+            return events.slice(index);
+        }
+    }
+    return events;
 }
 function hasMultipleImplementationReviewIterations(workflow) {
     return (workflow.phaseIterations ?? []).some((iteration) => (iteration.phaseId === "implementation" || iteration.phaseId === "review") && iteration.attempt > 1);

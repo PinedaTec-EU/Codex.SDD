@@ -8460,10 +8460,23 @@ function countGraphLoopCycles(
     return countPairedImplementationReviewAttempts(relevantIterations, 0, 0);
   }
 
-  const completedEvents = workflow.events.filter((event) => event.code === "phase_completed");
+  const completedEvents = eventsAfterLatestLineageRepair(workflow.events)
+    .filter((event) => event.code === "phase_completed");
   const fromCount = completedEvents.filter((event) => event.phase === fromPhaseId).length;
   const toCount = completedEvents.filter((event) => event.phase === toPhaseId).length;
   return Math.min(fromCount, toCount);
+}
+
+function eventsAfterLatestLineageRepair<T extends { readonly code: string }>(events: readonly T[]): readonly T[] {
+  let latestRepairIndex = -1;
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    if (events[index]?.code === "workflow_repaired") {
+      latestRepairIndex = index;
+      break;
+    }
+  }
+
+  return latestRepairIndex < 0 ? events : events.slice(latestRepairIndex + 1);
 }
 
 function computeGraphLoopBox(
