@@ -663,6 +663,94 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RepairUserStoryLineageAsync_ClosesPublishedPullRequestWhenReturningBeforePrPreparation()
+    {
+        var invalidator = new RecordingPullRequestInvalidator();
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new PassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager(),
+            new RecordingPullRequestPublisher(),
+            invalidator);
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        Directory.CreateDirectory(paths.PhasesDirectoryPath);
+        var implementationPath = paths.GetPhaseArtifactPath(PhaseId.Implementation, 2);
+        var reviewPath = paths.GetPhaseArtifactPath(PhaseId.Review, 2);
+        await File.WriteAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.TechnicalDesign), "# TD v1");
+        await File.WriteAllTextAsync(implementationPath, "# Impl v2");
+        await File.WriteAllTextAsync(reviewPath, "# Review v2");
+        await File.WriteAllTextAsync(paths.TimelineFilePath, $$"""
+# Timeline · US-0001 · Test story
+
+## Events
+
+### 2026-04-29T16:07:06.5897180+00:00 · `workflow_reopened`
+
+- Actor: `user`
+- Phase: `technical-design`
+- Summary: Reopened completed workflow due to `technical-issue`.
+
+### 2026-04-29T16:56:11.6215830+00:00 · `phase_completed`
+
+- Actor: `user`
+- Phase: `implementation`
+- Summary: Generated artifact for phase `implementation`.
+- Artifacts:
+  - `{{implementationPath}}`
+
+### 2026-04-29T16:56:46.3000860+00:00 · `phase_completed`
+
+- Actor: `user`
+- Phase: `review`
+- Summary: Generated artifact for phase `review`.
+- Artifacts:
+  - `{{reviewPath}}`
+""");
+        var storedRun = await new UserStoryFileStore().LoadAsync(paths.RootDirectory);
+        var branch = new WorkBranch(
+            "main",
+            "feature/us-0001-test-story",
+            "feature",
+            "workflow",
+            "Test story",
+            paths.MainArtifactPath,
+            new DateTimeOffset(2026, 4, 27, 10, 0, 0, TimeSpan.Zero));
+        branch.RecordPublishedPullRequest(
+            new PullRequestRecord(
+                "draft",
+                "main",
+                "US-0001: deliver approved workflow scope",
+                paths.GetPhaseArtifactPath(PhaseId.PrPreparation),
+                true,
+                101,
+                "https://github.com/example/repo/pull/101",
+                branch.WorkBranchName,
+                "abc123",
+                new DateTimeOffset(2026, 4, 27, 10, 0, 0, TimeSpan.Zero)));
+        storedRun.RestoreBranch(branch);
+        storedRun.RestoreState(PhaseId.Review, UserStoryStatus.Active);
+        await new UserStoryFileStore().SaveAsync(storedRun, paths.RootDirectory);
+        var applicationService = new SpecForgeApplicationService(
+            new UserStoryFileStore(),
+            runner,
+            runtimeVersion: "test");
+
+        await applicationService.RepairUserStoryLineageAsync(workspaceRoot, "US-0001", "test");
+
+        Assert.Equal(101, invalidator.LastPullRequest?.Number);
+        var reloadedRun = await new UserStoryFileStore().LoadAsync(paths.RootDirectory);
+        Assert.Equal("superseded", reloadedRun.Branch?.PullRequest?.Status);
+        Assert.Equal("https://github.com/example/repo/pull/101", reloadedRun.Branch?.PullRequest?.Url);
+        var workflow = await applicationService.GetUserStoryWorkflowAsync(workspaceRoot, "US-0001");
+        Assert.Null(workflow.PullRequest);
+        var timeline = await File.ReadAllTextAsync(paths.TimelineFilePath);
+        Assert.Contains("`pull_request_closed`", timeline);
+        Assert.Contains("`workflow_repaired`", timeline);
+    }
+
+    [Fact]
     public async Task ContinuePhaseAsync_FromPrPreparation_PublishesDraftPullRequestAndCompletesWorkflow()
     {
         var publisher = new RecordingPullRequestPublisher();
@@ -1923,6 +2011,23 @@ public sealed class WorkflowRunnerTests : IDisposable
                 IsDraft: true,
                 Number: 101,
                 Url: "https://github.com/example/repo/pull/101"));
+        }
+    }
+
+    private sealed class RecordingPullRequestInvalidator : IPullRequestInvalidator
+    {
+        public PullRequestRecord? LastPullRequest { get; private set; }
+
+        public Task<PullRequestInvalidationResult> InvalidateAsync(
+            string workspaceRoot,
+            string usId,
+            WorkBranch branch,
+            PullRequestRecord pullRequest,
+            string reason,
+            CancellationToken cancellationToken = default)
+        {
+            LastPullRequest = pullRequest;
+            return Task.FromResult(new PullRequestInvalidationResult(true, "closed"));
         }
     }
 

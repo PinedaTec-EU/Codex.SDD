@@ -15,6 +15,17 @@ internal interface IPullRequestPublisher
         CancellationToken cancellationToken = default);
 }
 
+internal interface IPullRequestInvalidator
+{
+    Task<PullRequestInvalidationResult> InvalidateAsync(
+        string workspaceRoot,
+        string usId,
+        WorkBranch branch,
+        PullRequestRecord pullRequest,
+        string reason,
+        CancellationToken cancellationToken = default);
+}
+
 internal sealed record PullRequestPublicationResult(
     bool CommitCreated,
     string? CommitSha,
@@ -23,7 +34,23 @@ internal sealed record PullRequestPublicationResult(
     int? Number,
     string? Url);
 
-internal sealed class GitHubPullRequestPublisher : IPullRequestPublisher
+internal sealed record PullRequestInvalidationResult(
+    bool Closed,
+    string? Message);
+
+internal sealed class NoOpPullRequestInvalidator : IPullRequestInvalidator
+{
+    public Task<PullRequestInvalidationResult> InvalidateAsync(
+        string workspaceRoot,
+        string usId,
+        WorkBranch branch,
+        PullRequestRecord pullRequest,
+        string reason,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new PullRequestInvalidationResult(false, "Pull request invalidator is not configured."));
+}
+
+internal sealed class GitHubPullRequestPublisher : IPullRequestPublisher, IPullRequestInvalidator
 {
     public async Task<PullRequestPublicationResult> PublishAsync(
         string workspaceRoot,
@@ -97,6 +124,35 @@ internal sealed class GitHubPullRequestPublisher : IPullRequestPublisher
         {
             TryDelete(prBodyPath);
         }
+    }
+
+    public async Task<PullRequestInvalidationResult> InvalidateAsync(
+        string workspaceRoot,
+        string usId,
+        WorkBranch branch,
+        PullRequestRecord pullRequest,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(workspaceRoot);
+        ArgumentNullException.ThrowIfNull(branch);
+        ArgumentNullException.ThrowIfNull(pullRequest);
+
+        if (pullRequest.Number is null or <= 0)
+        {
+            return new PullRequestInvalidationResult(false, "Pull request number is not available.");
+        }
+
+        await EnsureCliAvailableAsync("gh", workspaceRoot, cancellationToken);
+        var comment = string.IsNullOrWhiteSpace(reason)
+            ? $"Superseded by SpecForge workflow rollback for {usId}."
+            : reason.Trim();
+        await RunCliAsync(
+            "gh",
+            workspaceRoot,
+            ["pr", "close", pullRequest.Number.Value.ToString(CultureInfo.InvariantCulture), "--comment", comment],
+            cancellationToken);
+        return new PullRequestInvalidationResult(true, $"Closed pull request #{pullRequest.Number.Value}.");
     }
 
     private static async Task EnsureCliAvailableAsync(

@@ -24,27 +24,28 @@ public sealed class WorkflowRunner
     private readonly RepositoryCategoryCatalog repositoryCategoryCatalog;
     private readonly IWorkBranchManager workBranchManager;
     private readonly IPullRequestPublisher pullRequestPublisher;
+    private readonly IPullRequestInvalidator pullRequestInvalidator;
     private readonly string refinementTolerance;
     private readonly string? runtimeVersion;
     private readonly bool completedUsLockOnCompleted;
 
     public WorkflowRunner()
-        : this(new UserStoryFileStore(), new DeterministicPhaseExecutionProvider(), new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), null)
+        : this(new UserStoryFileStore(), new DeterministicPhaseExecutionProvider(), new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), null, null)
     {
     }
 
     public WorkflowRunner(IPhaseExecutionProvider phaseExecutionProvider, string refinementTolerance = "balanced")
-        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), null, refinementTolerance)
+        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), null, null, refinementTolerance)
     {
     }
 
     public WorkflowRunner(IPhaseExecutionProvider phaseExecutionProvider, string? runtimeVersion, string refinementTolerance)
-        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), runtimeVersion, refinementTolerance)
+        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), null, runtimeVersion, refinementTolerance)
     {
     }
 
     public WorkflowRunner(IPhaseExecutionProvider phaseExecutionProvider, string? runtimeVersion, string refinementTolerance, bool completedUsLockOnCompleted)
-        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), runtimeVersion, refinementTolerance, completedUsLockOnCompleted)
+        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), null, runtimeVersion, refinementTolerance, completedUsLockOnCompleted)
     {
     }
 
@@ -54,6 +55,7 @@ public sealed class WorkflowRunner
         RepositoryCategoryCatalog? repositoryCategoryCatalog = null,
         IWorkBranchManager? workBranchManager = null,
         IPullRequestPublisher? pullRequestPublisher = null,
+        IPullRequestInvalidator? pullRequestInvalidator = null,
         string? runtimeVersion = null,
         string refinementTolerance = "balanced",
         bool completedUsLockOnCompleted = true)
@@ -63,6 +65,9 @@ public sealed class WorkflowRunner
         this.repositoryCategoryCatalog = repositoryCategoryCatalog ?? new RepositoryCategoryCatalog();
         this.workBranchManager = workBranchManager ?? new GitWorkBranchManager();
         this.pullRequestPublisher = pullRequestPublisher ?? new GitHubPullRequestPublisher();
+        this.pullRequestInvalidator = pullRequestInvalidator
+            ?? this.pullRequestPublisher as IPullRequestInvalidator
+            ?? new NoOpPullRequestInvalidator();
         this.runtimeVersion = string.IsNullOrWhiteSpace(runtimeVersion) ? null : runtimeVersion.Trim();
         this.refinementTolerance = refinementTolerance is "strict" or "balanced" or "inferential" ? refinementTolerance : "balanced";
         this.completedUsLockOnCompleted = completedUsLockOnCompleted;
@@ -458,6 +463,15 @@ public sealed class WorkflowRunner
         workflowRun.RewindToPhase(targetPhase);
         RestoreTargetApprovalIfApplicable(workflowRun, targetPhase, destructive, targetPhaseWasApproved);
 
+        var pullRequestInvalidationSummary = await InvalidatePublishedPullRequestIfNeededAsync(
+            workspaceRoot,
+            paths,
+            workflowRun,
+            targetPhase,
+            NormalizeActor(actor),
+            "workflow rewind",
+            cancellationToken);
+
         if (destructive && targetPhase <= PhaseId.Spec && workflowRun.Branch is not null)
         {
             workflowRun.RemoveBranch();
@@ -470,11 +484,13 @@ public sealed class WorkflowRunner
             "workflow_rewound",
             NormalizeActor(actor),
             workflowRun.CurrentPhase,
-            destructive
+            AppendPullRequestInvalidationSummary(
+                destructive
                 ? BuildFileDeletionSummary(
                     $"Rewound the workflow to phase `{WorkflowPresentation.ToPhaseSlug(targetPhase)}`.",
                     deletedPaths)
                 : $"Rewound the workflow to phase `{WorkflowPresentation.ToPhaseSlug(targetPhase)}` without deleting later artifacts.",
+                pullRequestInvalidationSummary),
             cancellationToken);
 
         return new RewindWorkflowResult(
@@ -507,6 +523,14 @@ public sealed class WorkflowRunner
 
         ValidateRewindTarget(workflowRun, targetPhase);
         workflowRun.RewindToPhase(targetPhase);
+        var pullRequestInvalidationSummary = await InvalidatePublishedPullRequestIfNeededAsync(
+            workspaceRoot,
+            paths,
+            workflowRun,
+            targetPhase,
+            NormalizeActor(actor),
+            "completed workflow reopen",
+            cancellationToken);
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
 
         await AppendTimelineEventAsync(
@@ -514,7 +538,9 @@ public sealed class WorkflowRunner
             "workflow_reopened",
             NormalizeActor(actor),
             workflowRun.CurrentPhase,
-            $"Reopened completed workflow due to `{reasonKind.Trim()}` and returned it to phase `{WorkflowPresentation.ToPhaseSlug(targetPhase)}`. Details: {description.Trim()}.",
+            AppendPullRequestInvalidationSummary(
+                $"Reopened completed workflow due to `{reasonKind.Trim()}` and returned it to phase `{WorkflowPresentation.ToPhaseSlug(targetPhase)}`. Details: {description.Trim()}.",
+                pullRequestInvalidationSummary),
             cancellationToken);
 
         return new RequestRegressionResult(
@@ -575,6 +601,14 @@ public sealed class WorkflowRunner
             "deprecated",
             DateTimeOffset.UtcNow.UtcDateTime.ToString("yyyyMMdd'T'HHmmss'Z'") + "-lineage-repair");
         var archivedPaths = ArchiveLineageCandidates(paths, archiveDirectoryPath, analysis.DeprecatedCandidatePaths);
+        var pullRequestInvalidationSummary = await InvalidatePublishedPullRequestIfNeededAsync(
+            workspaceRoot,
+            paths,
+            workflowRun,
+            targetPhase,
+            NormalizeActor(actor),
+            "lineage repair",
+            cancellationToken);
 
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
         await AppendTimelineEventAsync(
@@ -582,7 +616,9 @@ public sealed class WorkflowRunner
             "workflow_repaired",
             NormalizeActor(actor),
             workflowRun.CurrentPhase,
-            $"Deprecated {archivedPaths.Count} inconsistent artifact(s) and returned workflow to phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}`.",
+            AppendPullRequestInvalidationSummary(
+                $"Deprecated {archivedPaths.Count} inconsistent artifact(s) and returned workflow to phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}`.",
+                pullRequestInvalidationSummary),
             cancellationToken,
             archivedPaths);
 
@@ -817,6 +853,7 @@ public sealed class WorkflowRunner
         var branch = workflowRun.Branch
             ?? throw new WorkflowDomainException("PR preparation requires branch metadata before publication.");
         if (branch.PullRequest is { Number: > 0, Url: not null } existingPullRequest &&
+            IsReusablePullRequest(existingPullRequest) &&
             !string.IsNullOrWhiteSpace(existingPullRequest.Url))
         {
             workflowRun.CompleteCurrentWorkflow();
@@ -880,6 +917,68 @@ public sealed class WorkflowRunner
             throw new WorkflowDomainException("PR publication did not return a pull request URL.");
         }
     }
+
+    private static bool IsReusablePullRequest(PullRequestRecord pullRequest) =>
+        pullRequest.Status is not "superseded" and not "close_pending";
+
+    private async Task<string?> InvalidatePublishedPullRequestIfNeededAsync(
+        string workspaceRoot,
+        UserStoryFilePaths paths,
+        WorkflowRun workflowRun,
+        PhaseId targetPhase,
+        string actor,
+        string reasonKind,
+        CancellationToken cancellationToken)
+    {
+        if (targetPhase >= PhaseId.PrPreparation ||
+            workflowRun.Branch?.PullRequest is not { Number: > 0 } pullRequest ||
+            !IsReusablePullRequest(pullRequest))
+        {
+            return null;
+        }
+
+        var reason = $"SpecForge closed this pull request because {reasonKind} returned `{workflowRun.UsId}` to `{WorkflowPresentation.ToPhaseSlug(targetPhase)}`, invalidating the published PR snapshot.";
+        try
+        {
+            var invalidation = await pullRequestInvalidator.InvalidateAsync(
+                workspaceRoot,
+                workflowRun.UsId,
+                workflowRun.Branch,
+                pullRequest,
+                reason,
+                cancellationToken);
+            workflowRun.Branch.MarkPullRequestSuperseded(invalidation.Closed);
+            var summary = invalidation.Closed
+                ? $"Closed superseded pull request #{pullRequest.Number.Value} after {reasonKind}."
+                : $"Marked pull request #{pullRequest.Number.Value} as pending close after {reasonKind}: {invalidation.Message ?? "close did not complete"}.";
+            await AppendTimelineEventAsync(
+                paths.TimelineFilePath,
+                invalidation.Closed ? "pull_request_closed" : "pull_request_close_pending",
+                actor,
+                workflowRun.CurrentPhase,
+                summary,
+                cancellationToken);
+            return summary;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            workflowRun.Branch.MarkPullRequestSuperseded(closed: false);
+            var summary = $"Could not close superseded pull request #{pullRequest.Number.Value} after {reasonKind}: {exception.Message}";
+            await AppendTimelineEventAsync(
+                paths.TimelineFilePath,
+                "pull_request_close_pending",
+                actor,
+                workflowRun.CurrentPhase,
+                summary,
+                cancellationToken);
+            return summary;
+        }
+    }
+
+    private static string AppendPullRequestInvalidationSummary(string summary, string? pullRequestInvalidationSummary) =>
+        string.IsNullOrWhiteSpace(pullRequestInvalidationSummary)
+            ? summary
+            : $"{summary} {pullRequestInvalidationSummary}";
 
     private void EnsureNextPhaseExecutionIsReady(WorkflowRun workflowRun)
     {

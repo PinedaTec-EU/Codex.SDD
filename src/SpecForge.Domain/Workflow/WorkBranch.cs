@@ -101,6 +101,19 @@ public sealed class WorkBranch
     {
         PullRequest = pullRequest ?? throw new ArgumentNullException(nameof(pullRequest));
     }
+
+    public void MarkPullRequestSuperseded(bool closed)
+    {
+        if (PullRequest is null)
+        {
+            return;
+        }
+
+        PullRequest = PullRequest with
+        {
+            Status = closed ? "superseded" : "close_pending"
+        };
+    }
 }
 
 public sealed record PullRequestRecord(

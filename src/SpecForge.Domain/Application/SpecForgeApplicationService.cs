@@ -138,7 +138,7 @@ public sealed class SpecForgeApplicationService
             rawTimeline,
             workflowRun.CreatedWithRuntimeVersion,
             workflowRun.LastRuntimeVersion,
-            workflowRun.Branch?.PullRequest is null
+            workflowRun.Branch?.PullRequest is null || workflowRun.Branch.PullRequest.Status is "superseded" or "close_pending"
                 ? null
                 : new PullRequestDetails(
                     workflowRun.Branch.PullRequest.Status,
