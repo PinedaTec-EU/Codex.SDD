@@ -6584,7 +6584,17 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       document.querySelectorAll(".phase-node.selected").forEach((selectedElement) => {
         selectedElement.classList.remove("selected");
       });
+      document.querySelectorAll(".phase-viewing-rail").forEach((railElement) => {
+        railElement.remove();
+      });
       element.classList.add("selected");
+      const viewingRail = document.createElement("span");
+      viewingRail.className = "phase-viewing-rail";
+      const viewingRailLabel = document.createElement("span");
+      viewingRailLabel.className = "phase-viewing-rail__label";
+      viewingRailLabel.textContent = "Viewing";
+      viewingRail.appendChild(viewingRailLabel);
+      element.insertBefore(viewingRail, element.firstChild);
     };
     const focusPhaseNodeLocally = (element) => {
       if (!(element instanceof HTMLElement) || element.dataset.command !== "selectPhase") {
