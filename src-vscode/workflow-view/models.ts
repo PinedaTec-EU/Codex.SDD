@@ -40,6 +40,7 @@ export interface WorkflowViewState {
   readonly debugMode?: boolean;
   readonly graphScrollTop?: number;
   readonly graphScrollLeft?: number;
+  readonly graphNavigationPhaseId?: string | null;
   readonly detailScrollTop?: number;
   readonly approvalBaseBranchProposal?: string | null;
   readonly approvalWorkBranchProposal?: string | null;

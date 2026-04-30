@@ -6142,6 +6142,9 @@ export function buildWorkflowHtml(
     const graphZoomMax = 2.2;
     const graphZoomStep = 0.12;
     const configuredGraphInitialZoomMode = ${JSON.stringify(state.graphInitialZoomMode === "fit-width" ? "fit-width" : "actual-size")};
+    let graphNavigationPhaseId = typeof viewState.graphNavigationPhaseId === "string"
+      ? viewState.graphNavigationPhaseId
+      : "";
     const restoredGraphZoomMode = viewState.graphInitialZoomMode === configuredGraphInitialZoomMode
       ? viewState.graphZoomMode
       : null;
@@ -6156,6 +6159,7 @@ export function buildWorkflowHtml(
         : 1
     };
     let shouldCenterGraphOnInitialZoom = !restoredGraphZoomMode && configuredGraphInitialZoomMode === "actual-size";
+    const shouldRestoreExactGraphZoom = Boolean(graphNavigationPhaseId && restoredGraphZoomMode);
     const graphPointerState = {
       clientX: null,
       clientY: null
@@ -6865,14 +6869,25 @@ export function buildWorkflowHtml(
       });
     }
     window.requestAnimationFrame(() => {
-      if (graphZoomState.mode === "manual") {
-        applyGraphZoom(graphZoomState.scale, "manual");
+      if (shouldRestoreExactGraphZoom || graphZoomState.mode === "manual") {
+        applyGraphZoom(graphZoomState.scale, graphZoomState.mode);
       } else if (graphZoomState.mode === "fit-width") {
         fitGraphWidth();
       } else {
         autoFitGraph();
       }
-      if (shouldCenterGraphOnInitialZoom) {
+      if (graphNavigationPhaseId) {
+        window.requestAnimationFrame(() => {
+          centerFocusedPhaseInGraph();
+          graphNavigationPhaseId = "";
+          persistWorkflowScrollState();
+        });
+        window.setTimeout(() => {
+          centerFocusedPhaseInGraph();
+          graphNavigationPhaseId = "";
+          persistWorkflowScrollState();
+        }, 80);
+      } else if (shouldCenterGraphOnInitialZoom) {
         window.requestAnimationFrame(() => centerGraphInViewport());
         window.setTimeout(() => centerGraphInViewport(), 80);
       } else if (graphZoomState.mode === "fit-width") {
@@ -6880,7 +6895,7 @@ export function buildWorkflowHtml(
         window.setTimeout(() => centerFitWidthGraphFocus(), 80);
       }
     });
-    if (focusedPhaseNode instanceof HTMLElement && focusedPhaseId && autoScrollStateKey) {
+    if (!graphNavigationPhaseId && focusedPhaseNode instanceof HTMLElement && focusedPhaseId && autoScrollStateKey) {
       try {
         const previousPhaseId = window.sessionStorage.getItem(autoScrollStateKey) ?? "";
         const bounds = focusedPhaseNode.getBoundingClientRect();
@@ -6911,6 +6926,7 @@ export function buildWorkflowHtml(
           graphScrollLeft: graphPanel instanceof HTMLElement ? graphPanel.scrollLeft : 0,
           detailScrollTop: detailPanel instanceof HTMLElement ? detailPanel.scrollTop : 0,
           graphInitialZoomMode: configuredGraphInitialZoomMode,
+          graphNavigationPhaseId,
           graphZoomMode: graphZoomState.mode,
           graphZoomScale: graphZoomState.scale
         });
@@ -7053,11 +7069,10 @@ export function buildWorkflowHtml(
         return;
       }
 
-      markSelectedPhaseNode(element);
-      centerPhaseNodeInGraph(element);
       if (typeof element.dataset.phaseId === "string" && element.dataset.phaseId.length > 0) {
         viewState.selectedPhaseId = element.dataset.phaseId;
         viewState.selectedIterationKey = null;
+        graphNavigationPhaseId = element.dataset.phaseId;
       }
       persistWorkflowScrollState();
     };
