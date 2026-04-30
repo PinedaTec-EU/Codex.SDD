@@ -1084,7 +1084,9 @@ function wrapHtml(content, busy, createFormResetToken, typographyCssVars) {
         linear-gradient(180deg, rgba(18, 24, 31, 0.985), rgba(12, 17, 23, 0.99)),
         rgba(14, 20, 26, 0.99);
       border-radius: 0 18px 18px 0;
-      overflow: hidden;
+      overflow: visible;
+      position: relative;
+      z-index: 4;
     }
     .story-row--selected .story-actions {
       box-shadow:
@@ -1202,6 +1204,7 @@ function wrapHtml(content, busy, createFormResetToken, typographyCssVars) {
       min-width: 220px;
       top: 8px;
       right: 46px;
+      z-index: 80;
     }
     .story-star--active {
       color: #ffd75a;
