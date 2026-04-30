@@ -23,23 +23,35 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         using var modelStub = new OpenAiCompatibleModelStubServer(
         [
             """
-            {
-              "state": "pending_user_input",
-              "decision": "needs_refinement",
-              "reason": "The story does not identify who publishes the article or how bilingual content is selected.",
-              "questions": [
-                "Which role publishes the article?",
-                "How is the language selected for the rendered article?"
-              ]
-            }
+            # Refinement · US-0001 · v01
+
+            ## State
+            - State: `pending_user_input`
+
+            ## Decision
+            needs_refinement
+
+            ## Reason
+            The story does not identify who publishes the article or how bilingual content is selected.
+
+            ## Questions
+            1. Which role publishes the article?
+            2. How is the language selected for the rendered article?
             """,
             """
-            {
-              "state": "ready",
-              "decision": "ready_for_spec",
-              "reason": "The current user story and refinement answers are concrete enough to proceed to spec.",
-              "questions": []
-            }
+            # Refinement · US-0001 · v01
+
+            ## State
+            - State: `ready`
+
+            ## Decision
+            ready_for_spec
+
+            ## Reason
+            The current user story and refinement answers are concrete enough to proceed to spec.
+
+            ## Questions
+            1. No refinement questions remain.
             """,
             """
             # Spec · US-0001 · v01
@@ -170,8 +182,8 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Equal(0.4d, OpenAiCompatibleRequestJson.ReadTemperature(modelStub.Requests[0].Body));
         Assert.Equal(0.4d, OpenAiCompatibleRequestJson.ReadTemperature(modelStub.Requests[1].Body));
         Assert.Equal(0.2d, OpenAiCompatibleRequestJson.ReadTemperature(modelStub.Requests[2].Body));
-        Assert.Equal("json_schema", OpenAiCompatibleRequestJson.ReadResponseFormatType(modelStub.Requests[0].Body));
-        Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[0].Body));
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(modelStub.Requests[0].Body));
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(modelStub.Requests[1].Body));
         Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(modelStub.Requests[2].Body));
         Assert.Contains("Role: refinement analyst.", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[0].Body));
         Assert.Contains("- Phase: `Refinement`", OpenAiCompatibleRequestJson.ReadUserPrompt(modelStub.Requests[0].Body));
@@ -192,14 +204,19 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         using var modelStub = new OpenAiCompatibleModelStubServer(
         [
             """
-            {
-              "state": "pending_user_input",
-              "decision": "needs_refinement",
-              "reason": "The story does not identify who publishes the article.",
-              "questions": [
-                "Which role publishes the article?"
-              ]
-            }
+            # Refinement · US-0001 · v01
+
+            ## State
+            - State: `pending_user_input`
+
+            ## Decision
+            needs_refinement
+
+            ## Reason
+            The story does not identify who publishes the article.
+
+            ## Questions
+            1. Which role publishes the article?
             """,
             """
             {
@@ -211,12 +228,19 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             }
             """,
             """
-            {
-              "state": "ready",
-              "decision": "ready_for_spec",
-              "reason": "The current user story and refinement answers are concrete enough to proceed to spec.",
-              "questions": []
-            }
+            # Refinement · US-0001 · v01
+
+            ## State
+            - State: `ready`
+
+            ## Decision
+            ready_for_spec
+
+            ## Reason
+            The current user story and refinement answers are concrete enough to proceed to spec.
+
+            ## Questions
+            1. No refinement questions remain.
             """,
             """
             # Spec · US-0001 · v01
@@ -324,9 +348,9 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             && eventItem.Execution.Model == "stub-resolver");
 
         Assert.Equal(4, modelStub.Requests.Count);
-        Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[0].Body));
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(modelStub.Requests[0].Body));
         Assert.Equal("auto_refinement_answers", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[1].Body));
-        Assert.Equal("refinement_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[2].Body));
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(modelStub.Requests[2].Body));
         Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(modelStub.Requests[3].Body));
         Assert.Contains("\"model\":\"stub-resolver\"", modelStub.Requests[1].Body);
     }
@@ -339,14 +363,19 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         using var modelStub = new OpenAiCompatibleModelStubServer(
         [
             """
-            {
-              "state": "pending_user_input",
-              "decision": "needs_refinement",
-              "reason": "The story does not identify who configures suite agent sampling or where limits are enforced.",
-              "questions": [
-                "Which role configures the sampling controls?"
-              ]
-            }
+            # Refinement · US-0001 · v01
+
+            ## State
+            - State: `pending_user_input`
+
+            ## Decision
+            needs_refinement
+
+            ## Reason
+            The story does not identify who configures suite agent sampling or where limits are enforced.
+
+            ## Questions
+            1. Which role configures the sampling controls?
             """,
             """
             {
@@ -358,12 +387,19 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             }
             """,
             """
-            {
-              "state": "ready",
-              "decision": "ready_for_spec",
-              "reason": "The story and inferred refinement answer are concrete enough to proceed.",
-              "questions": []
-            }
+            # Refinement · US-0001 · v01
+
+            ## State
+            - State: `ready`
+
+            ## Decision
+            ready_for_spec
+
+            ## Reason
+            The story and inferred refinement answer are concrete enough to proceed.
+
+            ## Questions
+            1. No refinement questions remain.
             """,
             """
             # Spec · US-0001 · v01
@@ -620,9 +656,9 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Equal(8, modelStub.Requests.Count);
         Assert.Equal(
             [
-                "refinement_artifact",
+                string.Empty,
                 "auto_refinement_answers",
-                "refinement_artifact",
+                string.Empty,
                 string.Empty,
                 string.Empty,
                 string.Empty,

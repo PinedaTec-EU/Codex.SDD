@@ -159,7 +159,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         string expectedGuidance)
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildReadyRefinementJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildReadyRefinementMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(
@@ -967,7 +967,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task ExecuteAsync_RefinementOk_NormalizesToCanonicalReadyArtifact()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildReadyRefinementJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildReadyRefinementMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(model: "llama3.1"));
@@ -984,22 +984,29 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Contains("## Decision", result.Content);
         Assert.Contains("ready_for_spec", result.Content);
         Assert.Contains("No refinement questions remain.", result.Content);
+        Assert.Null(result.StructuredJsonContent);
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(handler.LastBody));
     }
 
     [Fact]
-    public async Task ExecuteAsync_RefinementNeedsRefinement_RendersMarkdownArtifactFromStructuredResponse()
+    public async Task ExecuteAsync_RefinementNeedsRefinement_ReturnsMarkdownArtifactWithoutJsonParsing()
     {
         await PrepareInitializedWorkspaceAsync();
         var handler = new CapturingFakeHttpMessageHandler(
             """
-            {
-              "state": "pending_user_input",
-              "decision": "needs_refinement",
-              "reason": "Missing actor and acceptance details.",
-              "questions": [
-                "Who performs the action?"
-              ]
-            }
+            # Refinement · US-0001 · v01
+
+            ## State
+            - State: `pending_user_input`
+
+            ## Decision
+            needs_refinement
+
+            ## Reason
+            Missing actor and acceptance details.
+
+            ## Questions
+            1. Who performs the action?
             """
         );
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
@@ -1018,6 +1025,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.StartsWith("# Refinement · US-0001 · v01", result.Content);
         Assert.Contains("needs_refinement", result.Content);
         Assert.Contains("## Questions", result.Content);
+        Assert.Null(result.StructuredJsonContent);
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(handler.LastBody));
     }
 
     [Fact]
@@ -1392,14 +1401,21 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     private static string ComputeSha256(string content) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
 
-    private static string BuildReadyRefinementJson() =>
+    private static string BuildReadyRefinementMarkdown() =>
         """
-        {
-          "state": "ready",
-          "decision": "ready_for_spec",
-          "reason": "The user story is concrete enough to proceed to spec.",
-          "questions": []
-        }
+        # Refinement · US-0001 · v01
+
+        ## State
+        - State: `ready`
+
+        ## Decision
+        ready_for_spec
+
+        ## Reason
+        The user story is concrete enough to proceed to spec.
+
+        ## Questions
+        1. No refinement questions remain.
         """;
 
     private static string BuildAutoRefinementAnswersJson() =>

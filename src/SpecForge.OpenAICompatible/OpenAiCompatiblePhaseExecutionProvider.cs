@@ -536,11 +536,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine($"- Active tolerance: `{options.RefinementTolerance}`")
                 .AppendLine($"- Guidance: {ResolveRefinementGuidance(options.RefinementTolerance)}")
                 .AppendLine()
-                .AppendLine("## Internal Refinement Contract")
+                .AppendLine("## Refinement Markdown Contract")
                 .AppendLine()
-                .AppendLine("Return only structured data that conforms to the response schema.")
-                .AppendLine("If the story is ready for spec, set `decision` to `ready_for_spec` and return an empty `questions` array.")
-                .AppendLine("If the story still needs refinement, set `decision` to `needs_refinement` and include the exact pending questions.");
+                .AppendLine("Return the full `00-refinement.md` artifact as Markdown.")
+                .AppendLine("Use the required headings exactly once: `## State`, `## Decision`, `## Reason`, and `## Questions`.")
+                .AppendLine("Do not return JSON.")
+                .AppendLine("If the story is ready for spec, write `ready_for_spec` in `## Decision` and include `1. No refinement questions remain.` in `## Questions`.")
+                .AppendLine("If the story still needs refinement, write `needs_refinement` in `## Decision` and include the exact pending questions as a numbered list.");
         }
 
         if (context.PhaseId == PhaseId.Spec)

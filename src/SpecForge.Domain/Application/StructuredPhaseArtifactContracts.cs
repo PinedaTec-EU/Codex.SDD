@@ -27,12 +27,9 @@ public static class StructuredPhaseArtifactContracts
             [PhaseId.Refinement] = new(
                 SchemaName: "refinement_artifact",
                 JsonSchema: BuildRefinementSchema(),
-                ResponseFormat: PhaseArtifactResponseFormat.Json,
+                ResponseFormat: PhaseArtifactResponseFormat.Markdown,
                 NormalizeJsonContent: static content => RefinementArtifactJson.Serialize(RefinementArtifactJson.ParseCanonicalJson(content)),
-                NormalizeContent: static (context, content) => RefinementArtifactJson.RenderMarkdown(
-                    RefinementArtifactJson.ParseCanonicalJson(content),
-                    context.UsId,
-                    version: 1)),
+                NormalizeContent: static (_, content) => NormalizeMarkdownContent(content)),
             [PhaseId.Spec] = new(
                 SchemaName: "spec_artifact",
                 JsonSchema: BuildSpecSchema(),
