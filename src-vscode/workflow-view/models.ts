@@ -39,6 +39,7 @@ export interface WorkflowViewState {
   readonly maxImplementationReviewCycles?: number | null;
   readonly debugMode?: boolean;
   readonly graphScrollTop?: number;
+  readonly graphScrollLeft?: number;
   readonly detailScrollTop?: number;
   readonly approvalBaseBranchProposal?: string | null;
   readonly approvalWorkBranchProposal?: string | null;
@@ -49,6 +50,7 @@ export interface WorkflowViewState {
   readonly visualTimelineEnabled?: boolean;
   readonly pendingRewindPhaseId?: string | null;
   readonly graphLayoutMode?: "horizontal" | "vertical";
+  readonly graphInitialZoomMode?: "actual-size" | "fit-width";
   readonly workflowGraphLayout?: WorkflowGraphLayoutConfig;
 }
 

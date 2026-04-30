@@ -20,6 +20,7 @@ type ExecutionSettingsMessage =
       readonly attentionNotificationsEnabled?: boolean;
       readonly contextSuggestionsEnabled?: boolean;
       readonly workflowGraphLayoutMode?: "horizontal" | "vertical";
+      readonly workflowGraphInitialZoomMode?: "actual-size" | "fit-width";
       readonly visualTimelineEnabled?: boolean;
       readonly requireExplicitApprovalBranchAcceptance?: boolean;
       readonly autoRefinementAnswersEnabled?: boolean;
@@ -91,6 +92,7 @@ class ExecutionSettingsPanelController {
               message.attentionNotificationsEnabled ?? true,
               message.contextSuggestionsEnabled ?? true,
               message.workflowGraphLayoutMode ?? "vertical",
+              message.workflowGraphInitialZoomMode ?? "actual-size",
               message.visualTimelineEnabled ?? false,
               message.requireExplicitApprovalBranchAcceptance ?? false,
               message.autoRefinementAnswersEnabled ?? false,
@@ -127,6 +129,7 @@ class ExecutionSettingsPanelController {
       attentionNotificationsEnabled: settings.attentionNotificationsEnabled,
       contextSuggestionsEnabled: settings.contextSuggestionsEnabled,
       workflowGraphLayoutMode: settings.workflowGraphLayoutMode,
+      workflowGraphInitialZoomMode: settings.workflowGraphInitialZoomMode,
       visualTimelineEnabled: settings.visualTimelineEnabled,
       requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance,
       autoRefinementAnswersEnabled: settings.autoRefinementAnswersEnabled,
@@ -151,6 +154,7 @@ type ExecutionSettingsViewModel = {
   readonly attentionNotificationsEnabled: boolean;
   readonly contextSuggestionsEnabled: boolean;
   readonly workflowGraphLayoutMode: "horizontal" | "vertical";
+  readonly workflowGraphInitialZoomMode: "actual-size" | "fit-width";
   readonly visualTimelineEnabled: boolean;
   readonly requireExplicitApprovalBranchAcceptance: boolean;
   readonly autoRefinementAnswersEnabled: boolean;
@@ -695,6 +699,14 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
           <span class="phase-field__hint">Default graph orientation for this user in this workspace.</span>
         </label>
         <label class="phase-field">
+          <span>Workflow graph initial zoom</span>
+          <select data-workflow-graph-initial-zoom-mode>
+            <option value="actual-size"${model.workflowGraphInitialZoomMode === "fit-width" ? "" : " selected"}>100%</option>
+            <option value="fit-width"${model.workflowGraphInitialZoomMode === "fit-width" ? " selected" : ""}>Fit to width</option>
+          </select>
+          <span class="phase-field__hint">Default zoom mode used when opening a workflow graph.</span>
+        </label>
+        <label class="phase-field">
           <span>Visual timeline</span>
           <select data-visual-timeline-enabled>
             <option value="false"${model.visualTimelineEnabled ? "" : " selected"}>Hidden</option>
@@ -744,6 +756,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       attentionNotificationsEnabled: ${JSON.stringify(model.attentionNotificationsEnabled)},
       contextSuggestionsEnabled: ${JSON.stringify(model.contextSuggestionsEnabled)},
       workflowGraphLayoutMode: ${JSON.stringify(model.workflowGraphLayoutMode)},
+      workflowGraphInitialZoomMode: ${JSON.stringify(model.workflowGraphInitialZoomMode)},
       visualTimelineEnabled: ${JSON.stringify(model.visualTimelineEnabled)},
       requireExplicitApprovalBranchAcceptance: ${JSON.stringify(model.requireExplicitApprovalBranchAcceptance)},
       autoRefinementAnswersEnabled: ${JSON.stringify(model.autoRefinementAnswersEnabled)},
@@ -880,6 +893,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       const attentionNotificationsEnabled = document.querySelector("[data-attention-notifications-enabled]");
       const contextSuggestionsEnabled = document.querySelector("[data-context-suggestions-enabled]");
       const workflowGraphLayoutMode = document.querySelector("[data-workflow-graph-layout-mode]");
+      const workflowGraphInitialZoomMode = document.querySelector("[data-workflow-graph-initial-zoom-mode]");
       const visualTimelineEnabled = document.querySelector("[data-visual-timeline-enabled]");
       const requireApprovalBranchAcceptance = document.querySelector("[data-require-approval-branch-acceptance]");
       const autoRefinementEnabled = document.querySelector("[data-auto-refinement-enabled]");
@@ -989,6 +1003,13 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         workflowGraphLayoutMode.value = state.workflowGraphLayoutMode === "horizontal" ? "horizontal" : "vertical";
         workflowGraphLayoutMode.addEventListener("change", () => {
           state.workflowGraphLayoutMode = workflowGraphLayoutMode.value === "horizontal" ? "horizontal" : "vertical";
+        });
+      }
+
+      if (workflowGraphInitialZoomMode instanceof HTMLSelectElement) {
+        workflowGraphInitialZoomMode.value = state.workflowGraphInitialZoomMode === "fit-width" ? "fit-width" : "actual-size";
+        workflowGraphInitialZoomMode.addEventListener("change", () => {
+          state.workflowGraphInitialZoomMode = workflowGraphInitialZoomMode.value === "fit-width" ? "fit-width" : "actual-size";
         });
       }
 
@@ -1301,6 +1322,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         attentionNotificationsEnabled: state.attentionNotificationsEnabled,
         contextSuggestionsEnabled: state.contextSuggestionsEnabled,
         workflowGraphLayoutMode: state.workflowGraphLayoutMode,
+        workflowGraphInitialZoomMode: state.workflowGraphInitialZoomMode,
         visualTimelineEnabled: state.visualTimelineEnabled,
         requireExplicitApprovalBranchAcceptance: state.requireExplicitApprovalBranchAcceptance,
         autoRefinementAnswersEnabled: state.autoRefinementAnswersEnabled,
@@ -1329,6 +1351,7 @@ async function saveExecutionSettingsAsync(
   attentionNotificationsEnabled = true,
   contextSuggestionsEnabled = true,
   workflowGraphLayoutMode: "horizontal" | "vertical" = "vertical",
+  workflowGraphInitialZoomMode: "actual-size" | "fit-width" = "actual-size",
   visualTimelineEnabled = false,
   requireExplicitApprovalBranchAcceptance = false,
   autoRefinementAnswersEnabled = false,
@@ -1387,6 +1410,7 @@ async function saveExecutionSettingsAsync(
   await configuration.update("execution.refinementTolerance", refinementTolerance, vscode.ConfigurationTarget.Workspace);
   await configuration.update("execution.reviewTolerance", reviewTolerance, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.workflowGraphLayoutMode", workflowGraphLayoutMode, vscode.ConfigurationTarget.Global);
+  await configuration.update("ui.workflowGraphInitialZoomMode", workflowGraphInitialZoomMode, vscode.ConfigurationTarget.Global);
   await configuration.update("ui.visualTimelineEnabled", visualTimelineEnabled, vscode.ConfigurationTarget.Global);
   await configuration.update("ui.enableWatcher", watcherEnabled, vscode.ConfigurationTarget.Global);
   await configuration.update("ui.notifyOnAttention", attentionNotificationsEnabled, vscode.ConfigurationTarget.Global);
@@ -1410,6 +1434,7 @@ async function saveExecutionSettingsAsync(
     completedUsLockOnCompleted,
     vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.workflowGraphLayoutMode", undefined, vscode.ConfigurationTarget.Workspace);
+  await configuration.update("ui.workflowGraphInitialZoomMode", undefined, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.visualTimelineEnabled", undefined, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.enableWatcher", undefined, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.notifyOnAttention", undefined, vscode.ConfigurationTarget.Workspace);

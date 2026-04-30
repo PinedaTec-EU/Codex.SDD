@@ -284,6 +284,19 @@
           ],
           "description": "Preferred workflow graph layout for this user."
         },
+        "specForge.ui.workflowGraphInitialZoomMode": {
+          "type": "string",
+          "default": "actual-size",
+          "enum": [
+            "actual-size",
+            "fit-width"
+          ],
+          "enumDescriptions": [
+            "Open the workflow graph at 100% and center it in the viewport.",
+            "Open the workflow graph scaled to the viewport width."
+          ],
+          "description": "Preferred initial workflow graph zoom for this user."
+        },
         "specForge.ui.enableWatcher": {
           "type": "boolean",
           "default": true,

@@ -6141,14 +6141,21 @@ export function buildWorkflowHtml(
     const graphZoomMin = 0.35;
     const graphZoomMax = 2.2;
     const graphZoomStep = 0.12;
+    const configuredGraphInitialZoomMode = ${JSON.stringify(state.graphInitialZoomMode === "fit-width" ? "fit-width" : "actual-size")};
+    const restoredGraphZoomMode = viewState.graphInitialZoomMode === configuredGraphInitialZoomMode
+      ? viewState.graphZoomMode
+      : null;
     const graphZoomState = {
-      mode: viewState.graphZoomMode === "manual" || viewState.graphZoomMode === "fit-width"
-        ? viewState.graphZoomMode
-        : "fit",
-      scale: typeof viewState.graphZoomScale === "number" && Number.isFinite(viewState.graphZoomScale)
+      mode: restoredGraphZoomMode === "manual" || restoredGraphZoomMode === "fit-width"
+        ? restoredGraphZoomMode
+        : configuredGraphInitialZoomMode === "fit-width"
+          ? "fit-width"
+          : "manual",
+      scale: restoredGraphZoomMode && typeof viewState.graphZoomScale === "number" && Number.isFinite(viewState.graphZoomScale)
         ? Math.max(graphZoomMin, Math.min(graphZoomMax, viewState.graphZoomScale))
         : 1
     };
+    let shouldCenterGraphOnInitialZoom = !restoredGraphZoomMode && configuredGraphInitialZoomMode === "actual-size";
     const graphPointerState = {
       clientX: null,
       clientY: null
@@ -6260,6 +6267,16 @@ export function buildWorkflowHtml(
     };
     const setManualGraphZoom = (scale) => {
       applyGraphZoom(scale, "manual");
+    };
+    const centerGraphInViewport = () => {
+      if (!(graphPanel instanceof HTMLElement)) {
+        return;
+      }
+
+      const zoomScale = getGraphZoomScale();
+      const canvasBounds = measureGraphStageCanvasBounds();
+      graphPanel.scrollLeft = Math.max(0, ((canvasBounds.width * zoomScale) - graphPanel.clientWidth) / 2);
+      graphPanel.scrollTop = Math.max(0, ((canvasBounds.height * zoomScale) - graphPanel.clientHeight) / 2);
     };
     const centerFocusedPhaseInGraph = () => {
       if (!(graphPanel instanceof HTMLElement) || !(focusedPhaseNode instanceof HTMLElement) || !focusedPhaseId) {
@@ -6749,6 +6766,10 @@ export function buildWorkflowHtml(
       } else {
         autoFitGraph();
       }
+      if (shouldCenterGraphOnInitialZoom) {
+        window.requestAnimationFrame(() => centerGraphInViewport());
+        window.setTimeout(() => centerGraphInViewport(), 80);
+      }
     });
     if (focusedPhaseNode instanceof HTMLElement && focusedPhaseId && autoScrollStateKey) {
       try {
@@ -6759,12 +6780,15 @@ export function buildWorkflowHtml(
           ? bounds.top < panelBounds.top + (panelBounds.height * 0.14) || bounds.bottom > panelBounds.bottom - (panelBounds.height * 0.18)
           : bounds.top < window.innerHeight * 0.14 || bounds.bottom > window.innerHeight * 0.82;
         if (previousPhaseId !== focusedPhaseId && outsideComfortZone) {
+          shouldCenterGraphOnInitialZoom = false;
           window.requestAnimationFrame(() => {
             centerFocusedPhaseInGraph();
           });
         }
-        window.requestAnimationFrame(() => centerFocusedPhaseInGraph());
-        window.setTimeout(() => centerFocusedPhaseInGraph(), 80);
+        if (!shouldCenterGraphOnInitialZoom) {
+          window.requestAnimationFrame(() => centerFocusedPhaseInGraph());
+          window.setTimeout(() => centerFocusedPhaseInGraph(), 80);
+        }
         window.sessionStorage.setItem(autoScrollStateKey, focusedPhaseId);
       } catch {
         // Best effort only. The workflow view still works without persisted scroll state.
@@ -6775,7 +6799,9 @@ export function buildWorkflowHtml(
         vscode.setState({
           ...viewState,
           graphScrollTop: graphPanel instanceof HTMLElement ? graphPanel.scrollTop : 0,
+          graphScrollLeft: graphPanel instanceof HTMLElement ? graphPanel.scrollLeft : 0,
           detailScrollTop: detailPanel instanceof HTMLElement ? detailPanel.scrollTop : 0,
+          graphInitialZoomMode: configuredGraphInitialZoomMode,
           graphZoomMode: graphZoomState.mode,
           graphZoomScale: graphZoomState.scale
         });
@@ -6982,9 +7008,11 @@ export function buildWorkflowHtml(
     }
     if (graphPanel instanceof HTMLElement) {
       const restoredGraphScrollTop = typeof viewState.graphScrollTop === "number" ? viewState.graphScrollTop : null;
-      if (restoredGraphScrollTop !== null && restoredGraphScrollTop > 0) {
+      const restoredGraphScrollLeft = typeof viewState.graphScrollLeft === "number" ? viewState.graphScrollLeft : null;
+      if (!shouldCenterGraphOnInitialZoom && ((restoredGraphScrollTop !== null && restoredGraphScrollTop > 0) || (restoredGraphScrollLeft !== null && restoredGraphScrollLeft > 0))) {
         window.requestAnimationFrame(() => {
-          graphPanel.scrollTop = restoredGraphScrollTop;
+          graphPanel.scrollTop = Math.max(0, restoredGraphScrollTop ?? 0);
+          graphPanel.scrollLeft = Math.max(0, restoredGraphScrollLeft ?? 0);
         });
       }
       graphPanel.addEventListener("scroll", () => {

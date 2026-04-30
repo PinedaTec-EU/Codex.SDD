@@ -1155,6 +1155,7 @@ class WorkflowPanelController {
             approvalWorkBranchProposal: this.buildSpecApprovalWorkBranchProposal(workflow),
             requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance,
             graphLayoutMode: settings.workflowGraphLayoutMode,
+            graphInitialZoomMode: settings.workflowGraphInitialZoomMode,
             workflowGraphLayout
         };
         this.panel.title = `${workflow.usId} workflow`;
