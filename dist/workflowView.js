@@ -2798,6 +2798,12 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       transform: translate(var(--graph-stage-offset-x, 0px), var(--graph-stage-offset-y, 0px)) scale(var(--graph-stage-zoom, 1));
       transition: transform 160ms ease;
     }
+    .graph-stage.graph-stage--restoring-viewport .graph-stage__canvas {
+      transition: none;
+    }
+    .graph-stage.graph-stage--restoring-viewport .phase-node {
+      animation: none !important;
+    }
     .graph-stage.graph-stage--overlay-active .phase-graph {
       filter: blur(2px) saturate(0.85) brightness(0.78);
       transform: scale(0.997);
@@ -5718,9 +5724,12 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       clientY: null
     };
     const graphStageOffsetState = {
-      x: 0,
-      y: 0
+      x: typeof viewState.graphStageOffsetX === "number" && Number.isFinite(viewState.graphStageOffsetX) ? viewState.graphStageOffsetX : 0,
+      y: typeof viewState.graphStageOffsetY === "number" && Number.isFinite(viewState.graphStageOffsetY) ? viewState.graphStageOffsetY : 0
     };
+    if (restoredGraphZoomMode && graphStage instanceof HTMLElement) {
+      graphStage.classList.add("graph-stage--restoring-viewport");
+    }
     const getGraphZoomScale = () => graphZoomState.scale;
     const setGraphStageOffset = (x, y) => {
       graphStageOffsetState.x = Number.isFinite(x) ? Math.max(0, x) : 0;
@@ -5902,7 +5911,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
 
       const canvasBounds = measureGraphStageCanvasBounds();
       const nextScale = Math.max(graphZoomMin, Math.min(graphZoomMax, getGraphZoomScale()));
-      setGraphStageOffset(0, 0);
+      setGraphStageOffset(graphStageOffsetState.x, graphStageOffsetState.y);
       graphStage.style.setProperty("--graph-stage-zoom", String(nextScale));
       graphStage.style.width = Math.max(1, Math.ceil(canvasBounds.width * nextScale)) + "px";
       graphStage.style.height = Math.max(1, Math.ceil(canvasBounds.height * nextScale)) + "px";
@@ -6439,6 +6448,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
         void exportWorkflowSnapshot();
       });
     }
+    if (restoredGraphZoomMode) {
+      restoreGraphZoomWithoutScroll();
+    }
     window.requestAnimationFrame(() => {
       if (restoredGraphZoomMode) {
         restoreGraphZoomWithoutScroll();
@@ -6486,6 +6498,8 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
           ...viewState,
           graphScrollTop: graphPanel instanceof HTMLElement ? graphPanel.scrollTop : 0,
           graphScrollLeft: graphPanel instanceof HTMLElement ? graphPanel.scrollLeft : 0,
+          graphStageOffsetX: graphStageOffsetState.x,
+          graphStageOffsetY: graphStageOffsetState.y,
           detailScrollTop: detailPanel instanceof HTMLElement ? detailPanel.scrollTop : 0,
           graphInitialZoomMode: configuredGraphInitialZoomMode,
           graphZoomMode: graphZoomState.mode,
@@ -6698,9 +6712,18 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       const restoredGraphScrollTop = typeof viewState.graphScrollTop === "number" ? viewState.graphScrollTop : null;
       const restoredGraphScrollLeft = typeof viewState.graphScrollLeft === "number" ? viewState.graphScrollLeft : null;
       if (!shouldCenterGraphOnInitialZoom && ((restoredGraphScrollTop !== null && restoredGraphScrollTop > 0) || (restoredGraphScrollLeft !== null && restoredGraphScrollLeft > 0))) {
+        graphPanel.scrollTop = Math.max(0, restoredGraphScrollTop ?? 0);
+        graphPanel.scrollLeft = Math.max(0, restoredGraphScrollLeft ?? 0);
         window.requestAnimationFrame(() => {
           graphPanel.scrollTop = Math.max(0, restoredGraphScrollTop ?? 0);
           graphPanel.scrollLeft = Math.max(0, restoredGraphScrollLeft ?? 0);
+          if (graphStage instanceof HTMLElement) {
+            graphStage.classList.remove("graph-stage--restoring-viewport");
+          }
+        });
+      } else if (graphStage instanceof HTMLElement) {
+        window.requestAnimationFrame(() => {
+          graphStage.classList.remove("graph-stage--restoring-viewport");
         });
       }
       graphPanel.addEventListener("scroll", () => {
