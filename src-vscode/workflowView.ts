@@ -6142,9 +6142,6 @@ export function buildWorkflowHtml(
     const graphZoomMax = 2.2;
     const graphZoomStep = 0.12;
     const configuredGraphInitialZoomMode = ${JSON.stringify(state.graphInitialZoomMode === "fit-width" ? "fit-width" : "actual-size")};
-    let graphNavigationPhaseId = typeof viewState.graphNavigationPhaseId === "string"
-      ? viewState.graphNavigationPhaseId
-      : "";
     const restoredGraphZoomMode = viewState.graphInitialZoomMode === configuredGraphInitialZoomMode
       ? viewState.graphZoomMode
       : null;
@@ -6159,7 +6156,6 @@ export function buildWorkflowHtml(
         : 1
     };
     let shouldCenterGraphOnInitialZoom = !restoredGraphZoomMode && configuredGraphInitialZoomMode === "actual-size";
-    const shouldRestoreExactGraphZoom = Boolean(graphNavigationPhaseId && restoredGraphZoomMode);
     const graphPointerState = {
       clientX: null,
       clientY: null
@@ -6887,7 +6883,7 @@ export function buildWorkflowHtml(
       });
     }
     window.requestAnimationFrame(() => {
-      if (shouldRestoreExactGraphZoom) {
+      if (restoredGraphZoomMode) {
         restoreGraphZoomWithoutScroll();
       } else if (graphZoomState.mode === "manual") {
         applyGraphZoom(graphZoomState.scale, graphZoomState.mode);
@@ -6896,26 +6892,15 @@ export function buildWorkflowHtml(
       } else {
         autoFitGraph();
       }
-      if (graphNavigationPhaseId) {
-        window.requestAnimationFrame(() => {
-          centerFocusedPhaseInGraph();
-          graphNavigationPhaseId = "";
-          persistWorkflowScrollState();
-        });
-        window.setTimeout(() => {
-          centerFocusedPhaseInGraph();
-          graphNavigationPhaseId = "";
-          persistWorkflowScrollState();
-        }, 80);
-      } else if (shouldCenterGraphOnInitialZoom) {
+      if (shouldCenterGraphOnInitialZoom) {
         window.requestAnimationFrame(() => centerGraphInViewport());
         window.setTimeout(() => centerGraphInViewport(), 80);
-      } else if (graphZoomState.mode === "fit-width") {
+      } else if (!restoredGraphZoomMode && graphZoomState.mode === "fit-width") {
         window.requestAnimationFrame(() => centerFitWidthGraphFocus());
         window.setTimeout(() => centerFitWidthGraphFocus(), 80);
       }
     });
-    if (!graphNavigationPhaseId && focusedPhaseNode instanceof HTMLElement && focusedPhaseId && autoScrollStateKey) {
+    if (!restoredGraphZoomMode && focusedPhaseNode instanceof HTMLElement && focusedPhaseId && autoScrollStateKey) {
       try {
         const previousPhaseId = window.sessionStorage.getItem(autoScrollStateKey) ?? "";
         const bounds = focusedPhaseNode.getBoundingClientRect();
@@ -6946,7 +6931,6 @@ export function buildWorkflowHtml(
           graphScrollLeft: graphPanel instanceof HTMLElement ? graphPanel.scrollLeft : 0,
           detailScrollTop: detailPanel instanceof HTMLElement ? detailPanel.scrollTop : 0,
           graphInitialZoomMode: configuredGraphInitialZoomMode,
-          graphNavigationPhaseId,
           graphZoomMode: graphZoomState.mode,
           graphZoomScale: graphZoomState.scale
         });
@@ -7064,26 +7048,6 @@ export function buildWorkflowHtml(
         viewState.expandedIterationPhaseIds = [...nextPhaseIds];
       }
     };
-    const markSelectedPhaseNode = (element) => {
-      if (!(element instanceof HTMLElement) || element.dataset.command !== "selectPhase") {
-        return;
-      }
-
-      document.querySelectorAll(".phase-node.selected").forEach((selectedElement) => {
-        selectedElement.classList.remove("selected");
-      });
-      document.querySelectorAll(".phase-viewing-rail").forEach((railElement) => {
-        railElement.remove();
-      });
-      element.classList.add("selected");
-      const viewingRail = document.createElement("span");
-      viewingRail.className = "phase-viewing-rail";
-      const viewingRailLabel = document.createElement("span");
-      viewingRailLabel.className = "phase-viewing-rail__label";
-      viewingRailLabel.textContent = "Viewing";
-      viewingRail.appendChild(viewingRailLabel);
-      element.insertBefore(viewingRail, element.firstChild);
-    };
     const focusPhaseNodeLocally = (element) => {
       if (!(element instanceof HTMLElement) || element.dataset.command !== "selectPhase") {
         return;
@@ -7092,7 +7056,6 @@ export function buildWorkflowHtml(
       if (typeof element.dataset.phaseId === "string" && element.dataset.phaseId.length > 0) {
         viewState.selectedPhaseId = element.dataset.phaseId;
         viewState.selectedIterationKey = null;
-        graphNavigationPhaseId = element.dataset.phaseId;
       }
       persistWorkflowScrollState();
     };
