@@ -84,6 +84,15 @@ export interface WorkflowLineageAnalysisResult {
   readonly recommendedTargetPhase: string | null;
 }
 
+export interface WorkflowLineageRepairResult {
+  readonly usId: string;
+  readonly status: string;
+  readonly currentPhase: string;
+  readonly archiveDirectoryPath: string;
+  readonly archivedPaths: readonly string[];
+  readonly analysis: WorkflowLineageAnalysisResult;
+}
+
 export interface CreateOrImportUserStoryResult {
   readonly usId: string;
   readonly rootDirectory: string;
@@ -299,6 +308,7 @@ export interface SpecForgeBackendClient {
   getUserStoryWorkflow(usId: string): Promise<UserStoryWorkflowDetails>;
   getUserStoryRuntimeStatus(usId: string): Promise<UserStoryRuntimeStatus>;
   analyzeUserStoryLineage(usId: string): Promise<WorkflowLineageAnalysisResult>;
+  repairUserStoryLineage(usId: string, actor?: string): Promise<WorkflowLineageRepairResult>;
   createUserStory(usId: string, title: string, kind: string, category: string, sourceText: string, actor?: string): Promise<CreateOrImportUserStoryResult>;
   importUserStory(usId: string, sourcePath: string, title: string, kind: string, category: string, actor?: string): Promise<CreateOrImportUserStoryResult>;
   initializeRepoPrompts(overwrite?: boolean): Promise<InitializeRepoPromptsResult>;
@@ -416,6 +426,14 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     return this.callTool<WorkflowLineageAnalysisResult>("analyze_user_story_lineage", {
       workspaceRoot: this.workspaceRoot,
       usId
+    });
+  }
+
+  public async repairUserStoryLineage(usId: string, actor?: string): Promise<WorkflowLineageRepairResult> {
+    return this.callTool<WorkflowLineageRepairResult>("repair_user_story_lineage", {
+      workspaceRoot: this.workspaceRoot,
+      usId,
+      ...(actor && actor.trim().length > 0 ? { actor } : {})
     });
   }
 

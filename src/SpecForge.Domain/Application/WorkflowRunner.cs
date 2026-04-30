@@ -523,6 +523,82 @@ public sealed class WorkflowRunner
             WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase));
     }
 
+    public async Task<WorkflowLineageRepairResult> RepairUserStoryLineageAsync(
+        string workspaceRoot,
+        string usId,
+        string actor = "user",
+        CancellationToken cancellationToken = default)
+    {
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, usId);
+        var rawTimeline = File.Exists(paths.TimelineFilePath)
+            ? await File.ReadAllTextAsync(paths.TimelineFilePath, cancellationToken)
+            : string.Empty;
+        var analysis = WorkflowLineageAnalyzer.Analyze(usId, paths, TimelineMarkdownParser.ParseEvents(rawTimeline));
+        if (analysis.Status != "inconsistent" ||
+            analysis.DeprecatedCandidatePaths.Count == 0 ||
+            string.IsNullOrWhiteSpace(analysis.RecommendedTargetPhase))
+        {
+            var currentRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+            return new WorkflowLineageRepairResult(
+                currentRun.UsId,
+                WorkflowPresentation.ToStatusSlug(currentRun.Status),
+                WorkflowPresentation.ToPhaseSlug(currentRun.CurrentPhase),
+                string.Empty,
+                [],
+                analysis);
+        }
+
+        var targetPhase = WorkflowPresentation.ParsePhaseSlug(analysis.RecommendedTargetPhase);
+        var workflowRun = await fileStore.LoadAsync(paths.RootDirectory, cancellationToken);
+        if (workflowRun.CurrentPhase != targetPhase)
+        {
+            if (targetPhase >= workflowRun.CurrentPhase)
+            {
+                workflowRun.RestoreState(targetPhase, workflowRun.Definition.RequiresApproval(targetPhase)
+                    ? UserStoryStatus.WaitingUser
+                    : UserStoryStatus.Active);
+            }
+            else
+            {
+                workflowRun.RewindToPhase(targetPhase);
+            }
+        }
+        else if (workflowRun.Status == UserStoryStatus.Completed)
+        {
+            workflowRun.RestoreState(targetPhase, workflowRun.Definition.RequiresApproval(targetPhase)
+                ? UserStoryStatus.WaitingUser
+                : UserStoryStatus.Active);
+        }
+
+        var archiveDirectoryPath = Path.Combine(
+            paths.RootDirectory,
+            "deprecated",
+            DateTimeOffset.UtcNow.UtcDateTime.ToString("yyyyMMdd'T'HHmmss'Z'") + "-lineage-repair");
+        var archivedPaths = ArchiveLineageCandidates(paths, archiveDirectoryPath, analysis.DeprecatedCandidatePaths);
+
+        await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "workflow_repaired",
+            NormalizeActor(actor),
+            workflowRun.CurrentPhase,
+            $"Deprecated {archivedPaths.Count} inconsistent artifact(s) and returned workflow to phase `{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}`.",
+            cancellationToken,
+            archivedPaths);
+
+        var repairedTimeline = File.Exists(paths.TimelineFilePath)
+            ? await File.ReadAllTextAsync(paths.TimelineFilePath, cancellationToken)
+            : string.Empty;
+        var repairedAnalysis = WorkflowLineageAnalyzer.Analyze(usId, paths, TimelineMarkdownParser.ParseEvents(repairedTimeline));
+        return new WorkflowLineageRepairResult(
+            workflowRun.UsId,
+            WorkflowPresentation.ToStatusSlug(workflowRun.Status),
+            WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase),
+            archiveDirectoryPath,
+            archivedPaths,
+            repairedAnalysis);
+    }
+
     public async Task<ContinuePhaseResult> ContinuePhaseAsync(
         string workspaceRoot,
         string usId,
@@ -1998,6 +2074,71 @@ public sealed class WorkflowRunner
 
         Directory.CreateDirectory(paths.PhasesDirectoryPath);
         return Task.FromResult<IReadOnlyCollection<string>>(deletedPaths);
+    }
+
+    private static IReadOnlyCollection<string> ArchiveLineageCandidates(
+        UserStoryFilePaths paths,
+        string archiveDirectoryPath,
+        IReadOnlyCollection<string> candidatePaths)
+    {
+        var archivedPaths = new List<string>();
+        foreach (var candidatePath in candidatePaths)
+        {
+            foreach (var sourcePath in EnumerateLineageCandidateFiles(candidatePath))
+            {
+                if (!File.Exists(sourcePath) || !IsUnderDirectory(paths.RootDirectory, sourcePath))
+                {
+                    continue;
+                }
+
+                var relativePath = Path.GetRelativePath(paths.RootDirectory, sourcePath);
+                var destinationPath = Path.Combine(archiveDirectoryPath, relativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? archiveDirectoryPath);
+                if (File.Exists(destinationPath))
+                {
+                    destinationPath = BuildUniqueArchivePath(destinationPath);
+                }
+
+                File.Move(sourcePath, destinationPath);
+                archivedPaths.Add(destinationPath);
+            }
+        }
+
+        return archivedPaths;
+    }
+
+    private static IEnumerable<string> EnumerateLineageCandidateFiles(string candidatePath)
+    {
+        yield return candidatePath;
+        var jsonPath = Path.ChangeExtension(candidatePath, ".json");
+        if (!string.Equals(jsonPath, candidatePath, StringComparison.Ordinal))
+        {
+            yield return jsonPath;
+        }
+    }
+
+    private static string BuildUniqueArchivePath(string path)
+    {
+        var directory = Path.GetDirectoryName(path) ?? string.Empty;
+        var fileName = Path.GetFileNameWithoutExtension(path);
+        var extension = Path.GetExtension(path);
+        for (var index = 2; index < 1000; index += 1)
+        {
+            var candidate = Path.Combine(directory, $"{fileName}.{index}{extension}");
+            if (!File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return Path.Combine(directory, $"{fileName}.{Guid.NewGuid():N}{extension}");
+    }
+
+    private static bool IsUnderDirectory(string rootDirectory, string path)
+    {
+        var normalizedRoot = Path.GetFullPath(rootDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var normalizedPath = Path.GetFullPath(path);
+        return normalizedPath.StartsWith(normalizedRoot, StringComparison.Ordinal);
     }
 
     private static async Task AppendTimelineEventAsync(

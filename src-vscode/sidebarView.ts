@@ -299,8 +299,14 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
+    let shouldOfferRepair = false;
+    let candidateCount = 0;
+    let targetPhase: string | null = null;
     await this.runBusyActionAsync("Analyzing user story lineage...", async () => {
       const analysis = await getOrCreateBackendClient(workspaceRoot).analyzeUserStoryLineage(usId);
+      candidateCount = analysis.deprecatedCandidatePaths.length;
+      targetPhase = analysis.recommendedTargetPhase;
+      shouldOfferRepair = analysis.status === "inconsistent" && candidateCount > 0 && targetPhase !== null;
       appendSpecForgeLog(
         `Lineage analysis for '${usId}': status=${analysis.status}, findings=${analysis.findings.length}, deprecatedCandidates=${analysis.deprecatedCandidatePaths.length}.`
       );
@@ -310,11 +316,37 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         : `${usId} lineage is ${analysis.status}: ${firstFinding?.summary ?? "Review the SpecForge output for details."}`;
       if (analysis.status === "clean") {
         void vscode.window.showInformationMessage(message);
-      } else {
+      } else if (!shouldOfferRepair) {
         void vscode.window.showWarningMessage(
           `${message} Candidate artifacts: ${analysis.deprecatedCandidatePaths.length}.`
         );
       }
+    });
+
+    if (!shouldOfferRepair || targetPhase === null) {
+      return;
+    }
+
+    const repairLabel = "Repair";
+    const selection = await vscode.window.showWarningMessage(
+      `${usId} lineage is inconsistent. Repair will move ${candidateCount} generated artifact(s) to deprecated/ and return the workflow to ${targetPhase}.`,
+      { modal: true },
+      repairLabel
+    );
+    if (selection !== repairLabel) {
+      appendSpecForgeLog(`Lineage repair for '${usId}' was cancelled by the user.`);
+      return;
+    }
+
+    await this.runBusyActionAsync("Repairing user story lineage...", async () => {
+      const repair = await getOrCreateBackendClient(workspaceRoot).repairUserStoryLineage(usId, getCurrentActor());
+      appendSpecForgeLog(
+        `Lineage repair for '${usId}': status=${repair.status}, currentPhase=${repair.currentPhase}, archived=${repair.archivedPaths.length}, archive='${repair.archiveDirectoryPath}'.`
+      );
+      await this.onDidCreateUserStory();
+      void vscode.window.showInformationMessage(
+        `${usId} repaired. Archived ${repair.archivedPaths.length} artifact(s) and returned to ${repair.currentPhase}.`
+      );
     });
   }
 

@@ -187,6 +187,15 @@ public sealed class SpecForgeApplicationService
         return WorkflowLineageAnalyzer.Analyze(usId, paths, TimelineMarkdownParser.ParseEvents(rawTimeline));
     }
 
+    public Task<WorkflowLineageRepairResult> RepairUserStoryLineageAsync(
+        string workspaceRoot,
+        string usId,
+        string actor = "user",
+        CancellationToken cancellationToken = default)
+    {
+        return workflowRunner.RepairUserStoryLineageAsync(workspaceRoot, usId, actor, cancellationToken);
+    }
+
     private async Task<UserStorySummary> GetUserStorySummaryFromDirectoryAsync(
         string directory,
         CancellationToken cancellationToken)

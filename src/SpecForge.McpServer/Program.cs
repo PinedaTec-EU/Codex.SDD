@@ -142,6 +142,10 @@ static async Task<JsonNode> HandleToolCallAsync(
             "analyze_user_story_lineage" => await applicationService.AnalyzeUserStoryLineageAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
                 usId: GetRequired(arguments, "usId")),
+            "repair_user_story_lineage" => await applicationService.RepairUserStoryLineageAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                usId: GetRequired(arguments, "usId"),
+                actor: GetOptional(arguments, "actor") ?? "user"),
             "generate_next_phase" => await applicationService.GenerateNextPhaseAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
                 usId: GetRequired(arguments, "usId"),
@@ -318,6 +322,14 @@ static JsonObject BuildToolsList()
                     Props(
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
                         ("usId",          Prop("string", "User story identifier."))))),
+
+            Tool("repair_user_story_lineage", "Repair lineage inconsistencies by archiving deprecated artifacts and returning the user story to the recommended phase.",
+                Schema(
+                    required: ["workspaceRoot", "usId"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("usId",          Prop("string", "User story identifier.")),
+                        ("actor",         Prop("string", "Actor requesting the repair. Defaults to 'user'."))))),
 
             Tool("generate_next_phase", "Advance to the next linear phase and generate its artifact via the configured AI provider.",
                 Schema(

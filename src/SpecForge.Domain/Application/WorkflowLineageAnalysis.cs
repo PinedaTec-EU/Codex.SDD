@@ -19,6 +19,14 @@ public sealed record WorkflowLineageFinding(
     string? EventTimestampUtc,
     IReadOnlyCollection<string> AffectedArtifacts);
 
+public sealed record WorkflowLineageRepairResult(
+    string UsId,
+    string Status,
+    string CurrentPhase,
+    string ArchiveDirectoryPath,
+    IReadOnlyCollection<string> ArchivedPaths,
+    WorkflowLineageAnalysisResult Analysis);
+
 internal static class WorkflowLineageAnalyzer
 {
     public static WorkflowLineageAnalysisResult Analyze(
@@ -29,8 +37,16 @@ internal static class WorkflowLineageAnalyzer
         var findings = new List<WorkflowLineageFinding>();
         var deprecatedCandidates = new List<string>();
 
-        foreach (var timelineEvent in events)
+        var orderedEvents = events.ToArray();
+        var latestRepairIndex = Array.FindLastIndex(orderedEvents, static timelineEvent => timelineEvent.Code == "workflow_repaired");
+        for (var eventIndex = 0; eventIndex < orderedEvents.Length; eventIndex += 1)
         {
+            if (eventIndex < latestRepairIndex)
+            {
+                continue;
+            }
+
+            var timelineEvent = orderedEvents[eventIndex];
             foreach (var artifact in timelineEvent.Artifacts)
             {
                 if (!File.Exists(artifact))
@@ -47,7 +63,6 @@ internal static class WorkflowLineageAnalyzer
             }
         }
 
-        var orderedEvents = events.ToArray();
         for (var index = 0; index < orderedEvents.Length; index += 1)
         {
             var timelineEvent = orderedEvents[index];
@@ -58,6 +73,13 @@ internal static class WorkflowLineageAnalyzer
 
             var reopenedPhase = timelineEvent.Phase;
             var laterEvents = orderedEvents.Skip(index + 1).ToArray();
+            if (laterEvents.Any(candidate =>
+                    candidate.Code == "workflow_repaired" &&
+                    string.Equals(candidate.Phase, reopenedPhase, StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
             var hasLandingArtifact = laterEvents.Any(candidate =>
                 string.Equals(candidate.Phase, reopenedPhase, StringComparison.Ordinal) &&
                 candidate.Code is "phase_completed" or "artifact_operated" &&

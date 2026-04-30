@@ -116,6 +116,13 @@ class StdioMcpBackendClient {
             usId
         });
     }
+    async repairUserStoryLineage(usId, actor) {
+        return this.callTool("repair_user_story_lineage", {
+            workspaceRoot: this.workspaceRoot,
+            usId,
+            ...(actor && actor.trim().length > 0 ? { actor } : {})
+        });
+    }
     async createUserStory(usId, title, kind, category, sourceText, actor) {
         return this.callTool("create_us_from_chat", {
             workspaceRoot: this.workspaceRoot,
