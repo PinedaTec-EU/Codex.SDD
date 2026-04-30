@@ -6342,6 +6342,24 @@ export function buildWorkflowHtml(
         graphPanel.scrollTop = Math.max(0, (contentY * nextScale) + graphStageOffsetState.y - viewportY);
       });
     };
+    const restoreGraphZoomWithoutScroll = () => {
+      if (!(graphStage instanceof HTMLElement)) {
+        return;
+      }
+
+      const canvasBounds = measureGraphStageCanvasBounds();
+      const nextScale = Math.max(graphZoomMin, Math.min(graphZoomMax, getGraphZoomScale()));
+      setGraphStageOffset(0, 0);
+      graphStage.style.setProperty("--graph-stage-zoom", String(nextScale));
+      graphStage.style.width = Math.max(1, Math.ceil(canvasBounds.width * nextScale)) + "px";
+      graphStage.style.height = Math.max(1, Math.ceil(canvasBounds.height * nextScale)) + "px";
+      if (graphZoomOutButton instanceof HTMLButtonElement) {
+        graphZoomOutButton.disabled = nextScale <= graphZoomMin + 0.001;
+      }
+      if (graphZoomInButton instanceof HTMLButtonElement) {
+        graphZoomInButton.disabled = nextScale >= graphZoomMax - 0.001;
+      }
+    };
     const autoFitGraph = () => {
       applyGraphZoom(computeAutoFitGraphZoom(), "fit");
     };
@@ -6869,7 +6887,9 @@ export function buildWorkflowHtml(
       });
     }
     window.requestAnimationFrame(() => {
-      if (shouldRestoreExactGraphZoom || graphZoomState.mode === "manual") {
+      if (shouldRestoreExactGraphZoom) {
+        restoreGraphZoomWithoutScroll();
+      } else if (graphZoomState.mode === "manual") {
         applyGraphZoom(graphZoomState.scale, graphZoomState.mode);
       } else if (graphZoomState.mode === "fit-width") {
         fitGraphWidth();
