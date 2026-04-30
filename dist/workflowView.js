@@ -1847,6 +1847,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     </div>
   `;
     const playbackButtons = `
+    <button class="icon-button icon-button--danger" data-command="resetToCapture" aria-label="Reset workflow to capture"${playbackState === "playing" || playbackState === "stopping" ? " disabled" : ""}>
+      ${(0, icons_1.firstPhaseRewindIcon)()}
+    </button>
     <button class="icon-button icon-button--document" data-command="rewind" data-hero-rewind-button aria-label="${heroRewindTargetPhaseId ? `Rewind workflow pointer to ${heroRewindTargetPhaseId}` : "Rewind workflow pointer"}"${heroRewindDisabled ? " disabled" : ""}>
       ${(0, icons_1.rewindIcon)()}
     </button>
@@ -1860,7 +1863,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       ${(0, icons_1.stopIcon)()}
     </button>
   `;
-    const debugResetButton = "";
     const selectedPhaseOverview = `
             <details class="detail-card detail-card--phase-overview detail-card--collapsible" open>
             <summary class="detail-card__summary detail-card__summary--phase-overview">
@@ -5565,7 +5567,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
           ${pullRequestUrl
         ? `<button class="workflow-action-button workflow-action-button--document workflow-action-button--icon" type="button" data-command="openExternalUrl" data-url="${(0, htmlEscape_1.escapeHtmlAttr)(pullRequestUrl)}">${(0, icons_1.externalLinkIcon)()}<span>${(0, htmlEscape_1.escapeHtml)(pullRequestLabel)}</span></button>`
         : ""}
-          ${debugResetButton}
           ${playbackButtons}
           <button class="icon-button icon-button--document" type="button" data-open-workflow-files aria-label="Open workflow files">
             ${(0, icons_1.fileIcon)()}

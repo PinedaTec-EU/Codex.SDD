@@ -159,7 +159,7 @@ test("buildWorkflowHtml renders phase detail for the selected phase", () => {
   assert.doesNotMatch(html, /action-btn--reject/);
   assert.match(html, /data-open-workflow-files/);
   assert.doesNotMatch(html, /aria-label="Rewind workflow to selected phase"/);
-  assert.doesNotMatch(html, />Reset</);
+  assert.match(html, /data-command="resetToCapture" aria-label="Reset workflow to capture"/);
   assert.doesNotMatch(html, /debugResetToCapture/);
   assert.match(html, /Workflow-level files are grouped here instead of repeating them in every phase detail\./);
   assert.match(html, /<h4>User Story<\/h4>/);
@@ -990,6 +990,7 @@ test("buildWorkflowHtml shows a single hero rewind control and keeps per-phase p
   assert.match(html, /data-phase-id="implementation"[\s\S]*data-phase-pause-button/);
   assert.doesNotMatch(html, /data-phase-rewind-button/);
   assert.doesNotMatch(html, /aria-label="Rewind workflow to selected phase"/);
+  assert.match(html, /data-command="resetToCapture" aria-label="Reset workflow to capture"/);
   assert.doesNotMatch(html, /debugResetToCapture/);
 });
 
@@ -1883,7 +1884,7 @@ test("buildWorkflowHtml does not render the legacy debug reset action", () => {
     debugMode: true
   }, "idle");
 
-  assert.doesNotMatch(html, /Reset to Capture/);
+  assert.match(html, /data-command="resetToCapture" aria-label="Reset workflow to capture"/);
   assert.doesNotMatch(html, /data-command="debugResetToCapture"/);
 });
 

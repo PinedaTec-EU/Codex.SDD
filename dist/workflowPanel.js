@@ -283,8 +283,9 @@ class WorkflowPanelController {
             case "restart":
                 await this.restartCurrentWorkflowAsync();
                 return;
+            case "resetToCapture":
             case "debugResetToCapture":
-                await this.debugResetToCaptureAsync();
+                await this.resetToCaptureAsync();
                 return;
             case "regress":
                 if (message.phaseId) {
@@ -877,15 +878,17 @@ class WorkflowPanelController {
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("reopenCompletedWorkflowAsync");
     }
-    async debugResetToCaptureAsync() {
+    async resetToCaptureAsync() {
         const previousPhase = this.summary.currentPhase;
-        const confirmation = await vscode.window.showWarningMessage(`Reset ${this.summary.usId} to capture and delete all generated artifacts after the source?`, { modal: true }, "Reset to Capture");
-        if (confirmation !== "Reset to Capture") {
+        const confirmation = await vscode.window.showWarningMessage(`Reset ${this.summary.usId} to capture and delete all generated artifacts after the source?`, { modal: true }, "Reset Workflow");
+        if (confirmation !== "Reset Workflow") {
+            (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' reset to capture was cancelled by the user.`);
             return;
         }
-        await this.focusPhaseForAction("capture", "debugResetToCaptureAsync:focus");
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' reset to capture confirmed by the user.`);
+        await this.focusPhaseForAction("capture", "resetToCaptureAsync:focus");
         const result = await this.getBackendClient().resetUserStoryToCapture(this.summary.usId);
-        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' was reset to '${result.currentPhase}' with status '${result.status}' from DEBUG UI.`);
+        (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' was reset to '${result.currentPhase}' with status '${result.status}'.`);
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' reset deleted paths: ${result.deletedPaths.length > 0 ? result.deletedPaths.join(", ") : "(none)"}.`);
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' reset preserved paths: ${result.preservedPaths.length > 0 ? result.preservedPaths.join(", ") : "(none)"}.`);
         this.summary = {
@@ -897,10 +900,12 @@ class WorkflowPanelController {
         this.playbackState = (0, workflowPlaybackState_1.normalizePlaybackStateAfterManualWorkflowChange)(this.playbackState);
         this.clearTransientExecutionPhase();
         this.selectedPhaseId = result.currentPhase;
+        this.selectedIterationKey = null;
+        this.pendingRewindPhaseId = null;
         this.applyDeferredExecutionSettingsAfterPhaseChange(previousPhase, result.currentPhase, "reset");
-        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' debugResetToCaptureAsync requested explorer refresh.`);
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' resetToCaptureAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
-        await this.refreshAsync("debugResetToCaptureAsync");
+        await this.refreshAsync("resetToCaptureAsync");
     }
     async runAutoplayAsync() {
         try {
