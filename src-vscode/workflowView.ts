@@ -6265,9 +6265,9 @@ export function buildWorkflowHtml(
       return Math.max(graphZoomMin, Math.min(graphZoomMax, Math.min(widthRatio, heightRatio)));
     };
     const computeFitWidthGraphZoom = () => {
-      const contentBounds = measureGraphContentBounds();
+      const canvasBounds = measureGraphStageCanvasBounds();
       const { availableWidth } = measureGraphPanelViewport();
-      return Math.max(graphZoomMin, Math.min(graphZoomMax, availableWidth / Math.max(1, contentBounds.width)));
+      return Math.max(graphZoomMin, Math.min(graphZoomMax, availableWidth / Math.max(1, canvasBounds.width)));
     };
     const resolveGraphZoomViewportAnchor = (clientX, clientY) => {
       if (!(graphPanel instanceof HTMLElement)) {
