@@ -30,6 +30,7 @@ type WorkflowPanelCommand =
   | { readonly command: "webviewClientError"; readonly detail?: string }
   | { readonly command: "webviewDispatch"; readonly detail?: string }
   | { readonly command: "workflowSnapshotCopied"; readonly detail?: string }
+  | { readonly command: "rememberSelectedPhase"; readonly phaseId?: string }
   | { readonly command: "selectPhase"; readonly phaseId?: string }
   | { readonly command: "selectIteration"; readonly iterationKey?: string }
   | { readonly command: "togglePhaseIterations"; readonly phaseId?: string }
@@ -257,6 +258,13 @@ class WorkflowPanelController {
           `Workflow '${this.summary.usId}' snapshot copied to clipboard.${message.detail ? ` ${message.detail}` : ""}`
         );
         void vscode.window.showInformationMessage(message.detail ?? "Workflow snapshot copied to clipboard.");
+        return;
+      case "rememberSelectedPhase":
+        if (message.phaseId) {
+          this.selectedPhaseId = message.phaseId;
+          this.selectedIterationKey = null;
+          appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' remembered graph phase focus '${message.phaseId}' without rerender.`);
+        }
         return;
       case "selectPhase":
         if (message.phaseId) {

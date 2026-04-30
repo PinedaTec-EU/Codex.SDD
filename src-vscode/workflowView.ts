@@ -6366,9 +6366,16 @@ export function buildWorkflowHtml(
         return false;
       }
 
+      return centerPhaseNodeInGraph(focusedPhaseNode);
+    };
+    const centerPhaseNodeInGraph = (phaseNode) => {
+      if (!(graphPanel instanceof HTMLElement) || !(phaseNode instanceof HTMLElement)) {
+        return false;
+      }
+
       const zoomScale = getGraphZoomScale();
-      const targetTop = (focusedPhaseNode.offsetTop * zoomScale) + graphStageOffsetState.y - ((graphPanel.clientHeight - (focusedPhaseNode.offsetHeight * zoomScale)) / 2);
-      const targetLeft = (focusedPhaseNode.offsetLeft * zoomScale) + graphStageOffsetState.x - ((graphPanel.clientWidth - (focusedPhaseNode.offsetWidth * zoomScale)) / 2);
+      const targetTop = (phaseNode.offsetTop * zoomScale) + graphStageOffsetState.y - ((graphPanel.clientHeight - (phaseNode.offsetHeight * zoomScale)) / 2);
+      const targetLeft = (phaseNode.offsetLeft * zoomScale) + graphStageOffsetState.x - ((graphPanel.clientWidth - (phaseNode.offsetWidth * zoomScale)) / 2);
       graphPanel.scrollTop = Math.max(0, targetTop);
       graphPanel.scrollLeft = Math.max(0, targetLeft);
       return true;
@@ -7022,6 +7029,27 @@ export function buildWorkflowHtml(
       });
       element.classList.add("selected");
     };
+    const focusPhaseNodeLocally = (element) => {
+      if (!(element instanceof HTMLElement) || element.dataset.command !== "selectPhase") {
+        return;
+      }
+
+      markSelectedPhaseNode(element);
+      centerPhaseNodeInGraph(element);
+      if (typeof element.dataset.phaseId === "string" && element.dataset.phaseId.length > 0) {
+        viewState.selectedPhaseId = element.dataset.phaseId;
+        viewState.selectedIterationKey = null;
+        try {
+          vscode.postMessage({
+            command: "rememberSelectedPhase",
+            phaseId: element.dataset.phaseId
+          });
+        } catch {
+          // Local graph navigation should still work if host state persistence fails.
+        }
+      }
+      persistWorkflowScrollState();
+    };
     const bindCommandElement = (element) => {
       if (!(element instanceof HTMLElement)) {
         return;
@@ -7057,8 +7085,7 @@ export function buildWorkflowHtml(
 
         event.preventDefault();
         event.stopPropagation();
-        markSelectedPhaseNode(element);
-        postCommand(element);
+        focusPhaseNodeLocally(element);
       });
       element.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") {
@@ -7067,8 +7094,7 @@ export function buildWorkflowHtml(
 
         event.preventDefault();
         event.stopPropagation();
-        markSelectedPhaseNode(element);
-        postCommand(element);
+        focusPhaseNodeLocally(element);
       });
     };
     document.querySelectorAll('[data-command="selectPhase"]').forEach((element) => {
@@ -7089,7 +7115,7 @@ export function buildWorkflowHtml(
       }
 
       event.preventDefault();
-      postCommand(commandElement);
+      focusPhaseNodeLocally(commandElement);
     });
     try {
       vscode.postMessage({

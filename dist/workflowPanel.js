@@ -203,6 +203,13 @@ class WorkflowPanelController {
                 (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' snapshot copied to clipboard.${message.detail ? ` ${message.detail}` : ""}`);
                 void vscode.window.showInformationMessage(message.detail ?? "Workflow snapshot copied to clipboard.");
                 return;
+            case "rememberSelectedPhase":
+                if (message.phaseId) {
+                    this.selectedPhaseId = message.phaseId;
+                    this.selectedIterationKey = null;
+                    (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' remembered graph phase focus '${message.phaseId}' without rerender.`);
+                }
+                return;
             case "selectPhase":
                 if (message.phaseId) {
                     this.selectedPhaseId = message.phaseId;
