@@ -50,6 +50,7 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.Contains("Model-driven workflow phases", sharedSystemPrompt);
         Assert.Contains("implementation evidence", implementationSystemPrompt);
         Assert.Contains("repository evidence, touched files, and validations", implementationPrompt);
+        Assert.Contains("Implementation Strategy` must be an operational implementation plan", await File.ReadAllTextAsync(paths.TechnicalDesignExecutePromptPath));
         Assert.Contains("implementation evidence is missing, empty", reviewSystemPrompt);
         Assert.Contains("if implementation evidence shows zero touched files, the review must fail", reviewPrompt);
         var hashContent = await File.ReadAllTextAsync(paths.PromptSystemHashesPath);

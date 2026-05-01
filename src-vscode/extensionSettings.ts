@@ -20,6 +20,7 @@ export interface SpecForgeSettings {
   readonly maxImplementationReviewCycles: number | null;
   readonly destructiveRewindEnabled: boolean;
   readonly pauseOnFailedReview: boolean;
+  readonly reviewLearningEnabled?: boolean;
   readonly completedUsLockOnCompleted: boolean;
 }
 
@@ -102,6 +103,7 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
       configuration.get<unknown>("features.maxImplementationReviewCycles", 5)),
     destructiveRewindEnabled: configuration.get<boolean>("features.destructiveRewindEnabled", false),
     pauseOnFailedReview: configuration.get<boolean>("features.pauseOnFailedReview", false),
+    reviewLearningEnabled: configuration.get<boolean>("features.reviewLearningEnabled", true),
     completedUsLockOnCompleted: configuration.get<boolean>("features.completedUsLockOnCompleted", false)
   };
 }
@@ -117,6 +119,7 @@ export function buildBackendEnvironment(settings: SpecForgeSettings): NodeJS.Pro
   env.SPECFORGE_REFINEMENT_TOLERANCE = settings.refinementTolerance;
   env.SPECFORGE_REVIEW_TOLERANCE = settings.reviewTolerance;
   env.SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED = settings.autoRefinementAnswersEnabled ? "true" : "false";
+  env.SPECFORGE_REVIEW_LEARNING_ENABLED = settings.reviewLearningEnabled === false ? "false" : "true";
   env.SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED = settings.completedUsLockOnCompleted ? "true" : "false";
 
   if (settings.autoRefinementAnswersProfile) {
@@ -325,6 +328,7 @@ function buildSettingsDiagnostics(settings: SpecForgeSettings): string {
     `autoReviewEnabled=${settings.autoReviewEnabled}`,
     `maxImplementationReviewCycles=${settings.maxImplementationReviewCycles ?? "<unset>"}`,
     `pauseOnFailedReview=${settings.pauseOnFailedReview}`,
+    `reviewLearningEnabled=${settings.reviewLearningEnabled === false ? false : true}`,
     `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
     `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,
     `effective.refinement=${settings.effectivePhaseModelAssignments.refinementProfileName ?? "<unset>"}`,

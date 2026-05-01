@@ -26,5 +26,6 @@ public sealed record OpenAiCompatibleProviderOptions(
     string ReviewTolerance = "balanced",
     bool AutoRefinementAnswersEnabled = false,
     string? AutoRefinementAnswersProfile = null,
+    bool ReviewLearningEnabled = true,
     IReadOnlyList<OpenAiCompatibleModelProfile>? ModelProfiles = null,
     OpenAiCompatiblePhaseModelAssignments? PhaseModelAssignments = null);

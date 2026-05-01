@@ -30,6 +30,7 @@ type ExecutionSettingsMessage =
       readonly maxImplementationReviewCycles?: number | null;
       readonly destructiveRewindEnabled?: boolean;
       readonly pauseOnFailedReview?: boolean;
+      readonly reviewLearningEnabled?: boolean;
       readonly completedUsLockOnCompleted?: boolean;
     }
   | { readonly command: "openRawSettings"; };
@@ -102,6 +103,7 @@ class ExecutionSettingsPanelController {
               message.maxImplementationReviewCycles ?? null,
               message.destructiveRewindEnabled ?? false,
               message.pauseOnFailedReview ?? false,
+              message.reviewLearningEnabled ?? true,
               message.completedUsLockOnCompleted ?? true);
             await this.onDidSave();
             await this.refreshAsync();
@@ -139,6 +141,7 @@ class ExecutionSettingsPanelController {
       maxImplementationReviewCycles: settings.maxImplementationReviewCycles,
       destructiveRewindEnabled: settings.destructiveRewindEnabled,
       pauseOnFailedReview: settings.pauseOnFailedReview,
+      reviewLearningEnabled: settings.reviewLearningEnabled !== false,
       completedUsLockOnCompleted: settings.completedUsLockOnCompleted,
       typographyCssVars: getEditorTypographyCssVars()
     });
@@ -164,6 +167,7 @@ type ExecutionSettingsViewModel = {
   readonly maxImplementationReviewCycles: number | null;
   readonly destructiveRewindEnabled: boolean;
   readonly pauseOnFailedReview: boolean;
+  readonly reviewLearningEnabled: boolean;
   readonly completedUsLockOnCompleted: boolean;
   readonly typographyCssVars?: string;
 };
@@ -656,6 +660,14 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
           </select>
           <span class="phase-field__hint">Pause playback automatically when review fails so the developer can inspect before continuing.</span>
         </label>
+        <label class="phase-field">
+          <span>Review learning</span>
+          <select data-review-learning-enabled>
+            <option value="true"${model.reviewLearningEnabled ? " selected" : ""}>Enabled</option>
+            <option value="false"${model.reviewLearningEnabled ? "" : " selected"}>Disabled</option>
+          </select>
+          <span class="phase-field__hint">Allow failed-review retries to persist generalized guardrails into local skills or phase prompts.</span>
+        </label>
       </div>
       <div class="section-header">
         <div>
@@ -766,6 +778,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       maxImplementationReviewCycles: ${JSON.stringify(model.maxImplementationReviewCycles ?? 5)},
       destructiveRewindEnabled: ${JSON.stringify(model.destructiveRewindEnabled)},
       pauseOnFailedReview: ${JSON.stringify(model.pauseOnFailedReview)},
+      reviewLearningEnabled: ${JSON.stringify(model.reviewLearningEnabled)},
       completedUsLockOnCompleted: ${JSON.stringify(model.completedUsLockOnCompleted)},
       initialPermissionIssues: ${JSON.stringify(permissionIssues)},
       expandedProfileIndexes: ${JSON.stringify(model.modelProfiles.map((_, index) => index === 0))},
@@ -902,6 +915,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       const maxImplementationReviewCycles = document.querySelector("[data-max-implementation-review-cycles]");
       const destructiveRewindEnabled = document.querySelector("[data-destructive-rewind-enabled]");
       const pauseOnFailedReview = document.querySelector("[data-pause-on-failed-review]");
+      const reviewLearningEnabled = document.querySelector("[data-review-learning-enabled]");
       const completedUsLockOnCompleted = document.querySelector("[data-completed-us-lock-on-completed]");
       const saveButton = document.querySelector('button[type="submit"]');
       const saveError = document.querySelector("[data-save-error]");
@@ -1071,6 +1085,13 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         pauseOnFailedReview.value = state.pauseOnFailedReview ? "true" : "false";
         pauseOnFailedReview.addEventListener("change", () => {
           state.pauseOnFailedReview = pauseOnFailedReview.value === "true";
+        });
+      }
+
+      if (reviewLearningEnabled instanceof HTMLSelectElement) {
+        reviewLearningEnabled.value = state.reviewLearningEnabled ? "true" : "false";
+        reviewLearningEnabled.addEventListener("change", () => {
+          state.reviewLearningEnabled = reviewLearningEnabled.value === "true";
         });
       }
 
@@ -1332,6 +1353,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         maxImplementationReviewCycles: state.maxImplementationReviewCycles,
         destructiveRewindEnabled: state.destructiveRewindEnabled,
         pauseOnFailedReview: state.pauseOnFailedReview,
+        reviewLearningEnabled: state.reviewLearningEnabled,
         completedUsLockOnCompleted: state.completedUsLockOnCompleted
       });
     });
@@ -1361,6 +1383,7 @@ async function saveExecutionSettingsAsync(
   maxImplementationReviewCycles?: number | null,
   destructiveRewindEnabled = false,
   pauseOnFailedReview = false,
+  reviewLearningEnabled = true,
   completedUsLockOnCompleted = false
 ): Promise<void> {
   const configuration = vscode.workspace.getConfiguration("specForge");
@@ -1429,6 +1452,7 @@ async function saveExecutionSettingsAsync(
     vscode.ConfigurationTarget.Workspace);
   await configuration.update("features.destructiveRewindEnabled", destructiveRewindEnabled, vscode.ConfigurationTarget.Workspace);
   await configuration.update("features.pauseOnFailedReview", pauseOnFailedReview, vscode.ConfigurationTarget.Workspace);
+  await configuration.update("features.reviewLearningEnabled", reviewLearningEnabled, vscode.ConfigurationTarget.Workspace);
   await configuration.update(
     "features.completedUsLockOnCompleted",
     completedUsLockOnCompleted,

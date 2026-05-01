@@ -37,6 +37,7 @@ function readSpecForgeSettings(configuration) {
         maxImplementationReviewCycles: normalizeOptionalPositiveInteger(configuration.get("features.maxImplementationReviewCycles", 5)),
         destructiveRewindEnabled: configuration.get("features.destructiveRewindEnabled", false),
         pauseOnFailedReview: configuration.get("features.pauseOnFailedReview", false),
+        reviewLearningEnabled: configuration.get("features.reviewLearningEnabled", true),
         completedUsLockOnCompleted: configuration.get("features.completedUsLockOnCompleted", false)
     };
 }
@@ -49,6 +50,7 @@ function buildBackendEnvironment(settings) {
     env.SPECFORGE_REFINEMENT_TOLERANCE = settings.refinementTolerance;
     env.SPECFORGE_REVIEW_TOLERANCE = settings.reviewTolerance;
     env.SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED = settings.autoRefinementAnswersEnabled ? "true" : "false";
+    env.SPECFORGE_REVIEW_LEARNING_ENABLED = settings.reviewLearningEnabled === false ? "false" : "true";
     env.SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED = settings.completedUsLockOnCompleted ? "true" : "false";
     if (settings.autoRefinementAnswersProfile) {
         env.SPECFORGE_AUTO_REFINEMENT_ANSWERS_PROFILE = settings.autoRefinementAnswersProfile;
@@ -220,6 +222,7 @@ function buildSettingsDiagnostics(settings) {
         `autoReviewEnabled=${settings.autoReviewEnabled}`,
         `maxImplementationReviewCycles=${settings.maxImplementationReviewCycles ?? "<unset>"}`,
         `pauseOnFailedReview=${settings.pauseOnFailedReview}`,
+        `reviewLearningEnabled=${settings.reviewLearningEnabled === false ? false : true}`,
         `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
         `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,
         `effective.refinement=${settings.effectivePhaseModelAssignments.refinementProfileName ?? "<unset>"}`,

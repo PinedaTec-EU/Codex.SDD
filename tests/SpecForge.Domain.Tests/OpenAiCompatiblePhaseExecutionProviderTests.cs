@@ -336,6 +336,51 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Contains(expectedGuidance, userPrompt);
     }
 
+    [Theory]
+    [InlineData(true, "Persist only generalized lessons")]
+    [InlineData(false, "do not modify skills, shared rules, or phase prompts")]
+    public async Task ExecuteAsync_ImplementationRetry_IncludesReviewLearningPolicy(
+        bool reviewLearningEnabled,
+        string expectedPolicy)
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var paths = UserStoryFilePaths.FromWorkspaceRoot(workspaceRoot, "workflow", "US-0001");
+        var reviewArtifactPath = paths.GetPhaseArtifactPath(PhaseId.Review);
+        Directory.CreateDirectory(Path.GetDirectoryName(reviewArtifactPath)!);
+        await File.WriteAllTextAsync(
+            reviewArtifactPath,
+            """
+            # Review · US-0001 · v01
+
+            ## Verdict
+            - Result: `fail`
+            - Primary reason: Implementation missed an edge case.
+            """);
+
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalImplementationMarkdown());
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            CreateOptions(
+                model: "llama3.1",
+                reviewLearningEnabled: reviewLearningEnabled));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Implementation,
+            UserStoryPath: paths.MainArtifactPath,
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>
+            {
+                [PhaseId.Review] = reviewArtifactPath
+            },
+            ContextFilePaths: []);
+
+        await provider.ExecuteAsync(context);
+
+        var userPrompt = OpenAiCompatibleRequestJson.ReadUserPrompt(handler.LastBody);
+        Assert.Contains($"Review learning enabled: `{reviewLearningEnabled.ToString().ToLowerInvariant()}`", userPrompt);
+        Assert.Contains(expectedPolicy, userPrompt);
+    }
+
     [Fact]
     public async Task ExecuteAsync_IncludesContextFileContentsInRuntimeContext()
     {
@@ -1182,13 +1227,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         string repositoryAccess = "read-write",
         string providerKind = "openai-compatible",
         bool autoRefinementAnswersEnabled = false,
-        string? autoRefinementAnswersProfile = null)
+        string? autoRefinementAnswersProfile = null,
+        bool reviewLearningEnabled = true)
     {
         return new OpenAiCompatibleProviderOptions(
             RefinementTolerance: refinementTolerance,
             ReviewTolerance: reviewTolerance,
             AutoRefinementAnswersEnabled: autoRefinementAnswersEnabled,
             AutoRefinementAnswersProfile: autoRefinementAnswersProfile,
+            ReviewLearningEnabled: reviewLearningEnabled,
             ModelProfiles:
             [
                 new OpenAiCompatibleModelProfile(

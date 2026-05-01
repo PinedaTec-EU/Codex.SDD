@@ -141,6 +141,7 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
     maxImplementationReviewCycles: 3,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: true,
+    reviewLearningEnabled: true,
     completedUsLockOnCompleted: false
   });
 });
@@ -256,6 +257,7 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
     SPECFORGE_REFINEMENT_TOLERANCE: "strict",
     SPECFORGE_REVIEW_TOLERANCE: "inferential",
     SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED: "false",
+    SPECFORGE_REVIEW_LEARNING_ENABLED: "true",
     SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED: "true"
   });
 });

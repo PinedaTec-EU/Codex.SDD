@@ -353,6 +353,11 @@
           "default": false,
           "description": "When enabled, automatically pause workflow playback on a failed review and show the review warning overlay for developer inspection."
         },
+        "specForge.features.reviewLearningEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When enabled, implementation retries after failed review may persist generalized lessons into local skills or prompt guardrails so future user stories avoid the same class of issue."
+        },
         "specForge.features.completedUsLockOnCompleted": {
           "type": "boolean",
           "default": false,

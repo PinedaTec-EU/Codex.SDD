@@ -508,6 +508,46 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine("Do not return JSON.");
         }
 
+        if (context.PhaseId == PhaseId.TechnicalDesign)
+        {
+            builder
+                .AppendLine()
+                .AppendLine("## Technical Design Planning Expectations")
+                .AppendLine()
+                .AppendLine("- Treat `Implementation Strategy` as the implementation planning output for this workflow.")
+                .AppendLine("- Name likely files, modules, contracts, tests, and integration surfaces when repository context supports it.")
+                .AppendLine("- Break implementation into ordered, reviewable steps rather than broad intent statements.")
+                .AppendLine("- Include edge cases, negative paths, and complexity risks that implementation must cover.")
+                .AppendLine("- Do not approve a god-class or central catch-all design; preserve local boundaries and existing responsibilities.")
+                .AppendLine("- Make `Validation Strategy` concrete enough that review can evaluate each item with code, artifact, or command evidence.");
+        }
+
+        if (context.PhaseId == PhaseId.Implementation && context.PreviousArtifactPaths.ContainsKey(PhaseId.Review))
+        {
+            builder
+                .AppendLine()
+                .AppendLine("## Failed Review Learning Policy")
+                .AppendLine()
+                .AppendLine($"- Review learning enabled: `{options.ReviewLearningEnabled.ToString().ToLowerInvariant()}`");
+
+            if (options.ReviewLearningEnabled)
+            {
+                builder
+                    .AppendLine("- When the previous review failed, first fix the implementation so the reviewed scope passes.")
+                    .AppendLine("- Then decide whether the failed finding reveals a generalized, repository-agnostic lesson that should prevent future user stories from repeating the same issue.")
+                    .AppendLine("- Persist only generalized lessons. Never add US IDs, story-specific facts, one-off filenames, or symptoms that only apply to the current change.")
+                    .AppendLine("- For local SDD workflow behavior, update `.codex/skills/sdd-phase-agents/SKILL.md` with a concise guardrail.")
+                    .AppendLine("- For phase behavior, prefer updating `.specs/prompts/phases/technical-design.execute.md`, `.specs/prompts/phases/implementation.execute.md`, or `.specs/prompts/phases/review.execute.md` with an agnostic instruction.")
+                    .AppendLine("- If the lesson belongs in `../ai-skills-shared`, do not edit it from this repository; record the promotion recommendation in the implementation artifact.")
+                    .AppendLine("- If no reusable lesson exists, do not change skills or prompts.");
+            }
+            else
+            {
+                builder
+                    .AppendLine("- Fix the implementation against the failed review, but do not modify skills, shared rules, or phase prompts as part of this retry.");
+            }
+        }
+
         if (context.PhaseId == PhaseId.Review)
         {
             var requiredValidationChecklist = await ReadReviewValidationChecklistAsync(context, cancellationToken);

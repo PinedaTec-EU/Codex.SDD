@@ -78,7 +78,7 @@ class ExecutionSettingsPanelController {
                     return;
                 case "saveExecutionSettings":
                     try {
-                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.refinementTolerance ?? "balanced", message.reviewTolerance ?? "balanced", message.watcherEnabled ?? true, message.attentionNotificationsEnabled ?? true, message.contextSuggestionsEnabled ?? true, message.workflowGraphLayoutMode ?? "vertical", message.workflowGraphInitialZoomMode ?? "actual-size", message.visualTimelineEnabled ?? false, message.requireExplicitApprovalBranchAcceptance ?? false, message.autoRefinementAnswersEnabled ?? false, message.autoRefinementAnswersProfile, message.autoPlayEnabled ?? false, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.destructiveRewindEnabled ?? false, message.pauseOnFailedReview ?? false, message.completedUsLockOnCompleted ?? true);
+                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.refinementTolerance ?? "balanced", message.reviewTolerance ?? "balanced", message.watcherEnabled ?? true, message.attentionNotificationsEnabled ?? true, message.contextSuggestionsEnabled ?? true, message.workflowGraphLayoutMode ?? "vertical", message.workflowGraphInitialZoomMode ?? "actual-size", message.visualTimelineEnabled ?? false, message.requireExplicitApprovalBranchAcceptance ?? false, message.autoRefinementAnswersEnabled ?? false, message.autoRefinementAnswersProfile, message.autoPlayEnabled ?? false, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.destructiveRewindEnabled ?? false, message.pauseOnFailedReview ?? false, message.reviewLearningEnabled ?? true, message.completedUsLockOnCompleted ?? true);
                         await this.onDidSave();
                         await this.refreshAsync();
                     }
@@ -114,6 +114,7 @@ class ExecutionSettingsPanelController {
             maxImplementationReviewCycles: settings.maxImplementationReviewCycles,
             destructiveRewindEnabled: settings.destructiveRewindEnabled,
             pauseOnFailedReview: settings.pauseOnFailedReview,
+            reviewLearningEnabled: settings.reviewLearningEnabled !== false,
             completedUsLockOnCompleted: settings.completedUsLockOnCompleted,
             typographyCssVars: (0, webviewTypography_1.getEditorTypographyCssVars)()
         });
@@ -599,6 +600,14 @@ function buildExecutionSettingsHtml(model) {
           </select>
           <span class="phase-field__hint">Pause playback automatically when review fails so the developer can inspect before continuing.</span>
         </label>
+        <label class="phase-field">
+          <span>Review learning</span>
+          <select data-review-learning-enabled>
+            <option value="true"${model.reviewLearningEnabled ? " selected" : ""}>Enabled</option>
+            <option value="false"${model.reviewLearningEnabled ? "" : " selected"}>Disabled</option>
+          </select>
+          <span class="phase-field__hint">Allow failed-review retries to persist generalized guardrails into local skills or phase prompts.</span>
+        </label>
       </div>
       <div class="section-header">
         <div>
@@ -709,6 +718,7 @@ function buildExecutionSettingsHtml(model) {
       maxImplementationReviewCycles: ${JSON.stringify(model.maxImplementationReviewCycles ?? 5)},
       destructiveRewindEnabled: ${JSON.stringify(model.destructiveRewindEnabled)},
       pauseOnFailedReview: ${JSON.stringify(model.pauseOnFailedReview)},
+      reviewLearningEnabled: ${JSON.stringify(model.reviewLearningEnabled)},
       completedUsLockOnCompleted: ${JSON.stringify(model.completedUsLockOnCompleted)},
       initialPermissionIssues: ${JSON.stringify(permissionIssues)},
       expandedProfileIndexes: ${JSON.stringify(model.modelProfiles.map((_, index) => index === 0))},
@@ -845,6 +855,7 @@ function buildExecutionSettingsHtml(model) {
       const maxImplementationReviewCycles = document.querySelector("[data-max-implementation-review-cycles]");
       const destructiveRewindEnabled = document.querySelector("[data-destructive-rewind-enabled]");
       const pauseOnFailedReview = document.querySelector("[data-pause-on-failed-review]");
+      const reviewLearningEnabled = document.querySelector("[data-review-learning-enabled]");
       const completedUsLockOnCompleted = document.querySelector("[data-completed-us-lock-on-completed]");
       const saveButton = document.querySelector('button[type="submit"]');
       const saveError = document.querySelector("[data-save-error]");
@@ -1014,6 +1025,13 @@ function buildExecutionSettingsHtml(model) {
         pauseOnFailedReview.value = state.pauseOnFailedReview ? "true" : "false";
         pauseOnFailedReview.addEventListener("change", () => {
           state.pauseOnFailedReview = pauseOnFailedReview.value === "true";
+        });
+      }
+
+      if (reviewLearningEnabled instanceof HTMLSelectElement) {
+        reviewLearningEnabled.value = state.reviewLearningEnabled ? "true" : "false";
+        reviewLearningEnabled.addEventListener("change", () => {
+          state.reviewLearningEnabled = reviewLearningEnabled.value === "true";
         });
       }
 
@@ -1275,6 +1293,7 @@ function buildExecutionSettingsHtml(model) {
         maxImplementationReviewCycles: state.maxImplementationReviewCycles,
         destructiveRewindEnabled: state.destructiveRewindEnabled,
         pauseOnFailedReview: state.pauseOnFailedReview,
+        reviewLearningEnabled: state.reviewLearningEnabled,
         completedUsLockOnCompleted: state.completedUsLockOnCompleted
       });
     });
@@ -1284,7 +1303,7 @@ function buildExecutionSettingsHtml(model) {
 </body>
 </html>`;
 }
-async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, refinementTolerance = "balanced", reviewTolerance = "balanced", watcherEnabled = true, attentionNotificationsEnabled = true, contextSuggestionsEnabled = true, workflowGraphLayoutMode = "vertical", workflowGraphInitialZoomMode = "actual-size", visualTimelineEnabled = false, requireExplicitApprovalBranchAcceptance = false, autoRefinementAnswersEnabled = false, autoRefinementAnswersProfile, autoPlayEnabled = false, autoReviewEnabled = false, maxImplementationReviewCycles, destructiveRewindEnabled = false, pauseOnFailedReview = false, completedUsLockOnCompleted = false) {
+async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, refinementTolerance = "balanced", reviewTolerance = "balanced", watcherEnabled = true, attentionNotificationsEnabled = true, contextSuggestionsEnabled = true, workflowGraphLayoutMode = "vertical", workflowGraphInitialZoomMode = "actual-size", visualTimelineEnabled = false, requireExplicitApprovalBranchAcceptance = false, autoRefinementAnswersEnabled = false, autoRefinementAnswersProfile, autoPlayEnabled = false, autoReviewEnabled = false, maxImplementationReviewCycles, destructiveRewindEnabled = false, pauseOnFailedReview = false, reviewLearningEnabled = true, completedUsLockOnCompleted = false) {
     const configuration = vscode.workspace.getConfiguration("specForge");
     const normalizedProfiles = modelProfiles
         .map((profile) => ({
@@ -1342,6 +1361,7 @@ async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, 
     await configuration.update("features.maxImplementationReviewCycles", normalizePositiveInteger(maxImplementationReviewCycles) ?? 5, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.destructiveRewindEnabled", destructiveRewindEnabled, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.pauseOnFailedReview", pauseOnFailedReview, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("features.reviewLearningEnabled", reviewLearningEnabled, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.completedUsLockOnCompleted", completedUsLockOnCompleted, vscode.ConfigurationTarget.Workspace);
     await configuration.update("ui.workflowGraphLayoutMode", undefined, vscode.ConfigurationTarget.Workspace);
     await configuration.update("ui.workflowGraphInitialZoomMode", undefined, vscode.ConfigurationTarget.Workspace);

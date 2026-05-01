@@ -350,6 +350,14 @@ public sealed class RepositoryPromptInitializer
         - Implementation Strategy
         - Validation Strategy
         - Open Decisions
+
+        Planning rules:
+        - `Implementation Strategy` must be an operational implementation plan, not generic design prose
+        - include likely files, modules, or contracts to touch when they can be inferred from repository context
+        - order the work into concrete implementation steps
+        - call out edge cases, negative paths, and complexity risks that implementation must cover
+        - reject designs that hide god-class growth, duplicated responsibilities, or missing validation behind vague wording
+        - `Validation Strategy` must map to concrete checks the review phase can verify later
         """;
 
     private static string BuildImplementationExecutePrompt() =>
