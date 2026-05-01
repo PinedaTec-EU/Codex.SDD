@@ -9,6 +9,9 @@ namespace SpecForge.Domain.Application;
 
 public sealed class WorkflowRunner
 {
+    private const string ReadyForSpecDecision = "ready_for_spec";
+    private const string NoRefinementQuestionsRemain = "No refinement questions remain.";
+
     private static readonly HashSet<string> RefinementQuestionStopWords =
     [
         "the", "and", "for", "with", "that", "this", "from", "into", "when", "where", "what", "which", "should", "does",
@@ -2709,6 +2712,7 @@ public sealed class WorkflowRunner
 
     private static RefinementAssessment ParseRefinementArtifact(string markdown)
     {
+        var state = MarkdownHelper.ReadSection(markdown, "## State").Trim();
         var decision = MarkdownHelper.ReadSection(markdown, "## Decision").Trim();
         var reason = MarkdownHelper.ReadSection(markdown, "## Reason").Trim();
         var questionsSection = MarkdownHelper.ReadSection(markdown, "## Questions").Trim();
@@ -2722,9 +2726,9 @@ public sealed class WorkflowRunner
                     var separator = line.IndexOf(". ", StringComparison.Ordinal);
                     return separator > 0 ? line[(separator + 2)..].Trim() : line;
                 })
-                .Where(static line => !string.Equals(line, "No refinement questions remain.", StringComparison.OrdinalIgnoreCase))
+                .Where(static line => !string.Equals(line, NoRefinementQuestionsRemain, StringComparison.OrdinalIgnoreCase))
                 .ToArray());
-        var isReady = string.Equals(decision, "ready_for_spec", StringComparison.OrdinalIgnoreCase);
+        var isReady = HasReadyForSpecSignal(state, decision, questionsSection, questions);
 
         return new RefinementAssessment(
             isReady,
@@ -2734,6 +2738,29 @@ public sealed class WorkflowRunner
                 ? "Refinement pre-flight passed. Advancing to spec."
                 : "Refinement questions were generated and recorded in `us.md`.");
     }
+
+    private static bool HasReadyForSpecSignal(
+        string state,
+        string decision,
+        string questionsSection,
+        IReadOnlyCollection<string> pendingQuestions)
+    {
+        if (ContainsReadyForSpecToken(decision) || ContainsReadyForSpecToken(state))
+        {
+            return true;
+        }
+
+        return pendingQuestions.Count == 0
+               && questionsSection.Contains(
+                   NoRefinementQuestionsRemain,
+                   StringComparison.OrdinalIgnoreCase)
+               && (decision.Contains("proceed", StringComparison.OrdinalIgnoreCase)
+                   || decision.Contains("sufficient", StringComparison.OrdinalIgnoreCase)
+                   || state.Contains("ready", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool ContainsReadyForSpecToken(string value) =>
+        value.Contains(ReadyForSpecDecision, StringComparison.OrdinalIgnoreCase);
 
     private static IReadOnlyCollection<string> DeduplicateRefinementQuestions(IReadOnlyCollection<string> questions)
     {

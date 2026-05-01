@@ -95,6 +95,42 @@ public sealed class SpecForgeApplicationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCurrentPhaseAsync_RefinementWithNoQuestions_CanAdvance()
+    {
+        var fileStore = new UserStoryFileStore();
+        var runner = new WorkflowRunner(
+            fileStore,
+            new DeterministicPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager());
+        var applicationService = new SpecForgeApplicationService(fileStore, runner);
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Story one", "feature", "workflow", "Initial source");
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        var workflowRun = await fileStore.LoadAsync(paths.RootDirectory);
+        workflowRun.RestoreState(PhaseId.Refinement, UserStoryStatus.WaitingUser);
+        await fileStore.SaveAsync(workflowRun, paths.RootDirectory);
+        await File.WriteAllTextAsync(
+            paths.RefinementFilePath,
+            """
+            ## Refinement Log
+
+            - Status: `needs_refinement`
+            - Tolerance: `balanced`
+            - Reason: No critical business facts are missing.
+
+            ### Questions
+
+            ### Answers
+            """);
+
+        var currentPhase = await applicationService.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.True(currentPhase.CanAdvance);
+        Assert.Null(currentPhase.BlockingReason);
+    }
+
+    [Fact]
     public async Task RewindWorkflowAsync_ToApprovedSpec_NonDestructivePreservesContinuationControls()
     {
         var runner = new WorkflowRunner();

@@ -47,6 +47,24 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ContinuePhaseAsync_FromCapture_TreatsReadyStateWithNoQuestionsAsReadyForSpec()
+    {
+        var runner = new WorkflowRunner(new ReadyStateRefinementPhaseExecutionProvider());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Test story", "feature", "workflow", "Initial source text");
+
+        var result = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Equal(PhaseId.Spec, result.CurrentPhase);
+        Assert.Equal(UserStoryStatus.WaitingUser, result.Status);
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        var refinement = await File.ReadAllTextAsync(paths.RefinementFilePath);
+        Assert.Contains("- Status: `ready_for_spec`", refinement);
+        Assert.Contains("### Questions", refinement);
+        Assert.DoesNotContain("- Status: `needs_refinement`", refinement);
+    }
+
+    [Fact]
     public async Task ContinuePhaseAsync_FromCapture_WithInsufficientSource_RequestsRefinement()
     {
         var runner = new WorkflowRunner();
@@ -1661,6 +1679,51 @@ public sealed class WorkflowRunnerTests : IDisposable
                         InputSha256: "input-hash",
                         OutputSha256: "output-hash",
                         StructuredOutputSha256: "structured-hash")));
+    }
+
+    private sealed class ReadyStateRefinementPhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        private readonly DeterministicPhaseExecutionProvider inner = new();
+
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+            inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
+            PhaseExecutionContext context,
+            RefinementSession session,
+            CancellationToken cancellationToken = default) =>
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
+
+        public Task<PhaseExecutionResult> ExecuteAsync(
+            PhaseExecutionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            if (context.PhaseId == PhaseId.Refinement)
+            {
+                return Task.FromResult(
+                    new PhaseExecutionResult(
+                        string.Join(
+                            Environment.NewLine,
+                            [
+                                $"# Refinement · {context.UsId} · v01",
+                                string.Empty,
+                                "## State",
+                                "`ready_for_spec`",
+                                string.Empty,
+                                "## Decision",
+                                "Proceed to technical specification. The user story provides sufficient functional detail.",
+                                string.Empty,
+                                "## Reason",
+                                "No critical business facts are missing.",
+                                string.Empty,
+                                "## Questions",
+                                "1. No refinement questions remain."
+                            ]) + Environment.NewLine,
+                        ExecutionKind: "test-double"));
+            }
+
+            return inner.ExecuteAsync(context, cancellationToken);
+        }
     }
 
     private sealed class CapabilityAwarePhaseExecutionProvider : IPhaseExecutionProvider
