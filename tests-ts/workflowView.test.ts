@@ -882,6 +882,9 @@ test("buildWorkflowHtml always shows duration touches and tokens for visual cons
   assert.match(html, /Duration/);
   assert.match(html, /Touches/);
   assert.match(html, /Tokens/);
+  assert.match(html, /\.detail-metrics \{[^}]*grid-template-columns: minmax\(190px, 220px\) minmax\(0, 1fr\);[^}]*align-items: start;/);
+  assert.match(html, /\.phase-duration-pill \{[^}]*display: grid;[^}]*grid-template-columns: 58px minmax\(0, 1fr\);/);
+  assert.match(html, /\.token-summary--touches \.token-summary__rows \{[^}]*grid-template-columns: repeat\(auto-fit, minmax\(132px, 1fr\)\);/);
   assert.match(html, />n\/a</);
   assert.match(html, /<span class="token-summary__value">0<\/span>/);
   assert.match(html, /Operated/);

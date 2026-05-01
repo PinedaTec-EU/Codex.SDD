@@ -2449,20 +2449,23 @@ export function buildWorkflowHtml(
     }
     .detail-metrics {
       display: grid;
-      grid-template-columns: minmax(152px, 186px) minmax(0, 1fr);
+      grid-template-columns: minmax(190px, 220px) minmax(0, 1fr);
       gap: 12px;
       margin-top: 12px;
-      align-items: stretch;
+      align-items: start;
     }
     .phase-duration-pill {
       position: relative;
-      display: block;
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
       min-height: 112px;
-      padding: 14px 16px 14px 14px;
-      border-radius: 22px;
+      padding: 14px;
+      border-radius: 16px;
       border: 1px solid rgba(171, 223, 255, 0.24);
       background:
-        radial-gradient(circle at 20% 18%, rgba(214, 239, 255, 0.12), transparent 34%),
+        radial-gradient(circle at 18% 48%, rgba(214, 239, 255, 0.12), transparent 38%),
         linear-gradient(180deg, rgba(204, 233, 255, 0.09), rgba(28, 44, 62, 0.3));
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.08),
@@ -2480,12 +2483,9 @@ export function buildWorkflowHtml(
       pointer-events: none;
     }
     .phase-duration-pill__clock {
-      position: absolute;
-      left: 14px;
-      top: 50%;
-      width: 68px;
-      height: 68px;
-      transform: translateY(-50%);
+      position: relative;
+      width: 56px;
+      height: 56px;
       border-radius: 50%;
       border: 1px solid rgba(221, 242, 255, 0.38);
       background:
@@ -2523,12 +2523,12 @@ export function buildWorkflowHtml(
     .phase-duration-pill__tick {
       position: absolute;
       left: 50%;
-      top: 6px;
+      top: 5px;
       width: 1px;
-      height: 8px;
+      height: 7px;
       border-radius: 999px;
       background: rgba(240, 249, 255, 0.54);
-      transform-origin: 50% 28px;
+      transform-origin: 50% 23px;
     }
     .phase-duration-pill__tick--a { transform: translateX(-50%) rotate(0deg); }
     .phase-duration-pill__tick--b { transform: translateX(-50%) rotate(90deg); }
@@ -2545,20 +2545,20 @@ export function buildWorkflowHtml(
       box-shadow: 0 0 10px rgba(232, 246, 255, 0.14);
     }
     .phase-duration-pill__hand--minute {
-      height: 17px;
+      height: 14px;
       transform: translateX(-50%) rotate(22deg);
     }
     .phase-duration-pill__hand--second {
-      height: 23px;
+      height: 19px;
       width: 1px;
       opacity: 0.88;
       transform: translateX(-50%) rotate(132deg);
     }
     .phase-duration-pill__body {
-      position: absolute;
+      position: relative;
       z-index: 1;
-      inset: 14px 14px 14px 14px;
-      display: block;
+      display: grid;
+      gap: 8px;
       text-align: right;
     }
     .phase-duration-pill__label {
@@ -2571,17 +2571,12 @@ export function buildWorkflowHtml(
       padding-right: 2px;
     }
     .phase-duration-pill__value {
-      position: absolute;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      padding-left: 0;
-      font-size: clamp(1.16rem, 2.2vw, 1.78rem);
+      font-size: clamp(1.28rem, 1.8vw, 1.62rem);
       font-weight: 800;
       line-height: 1.05;
       color: #f7fbff;
       text-shadow: 0 1px 2px rgba(8, 15, 22, 0.32);
-      letter-spacing: -0.03em;
+      letter-spacing: 0;
       text-align: right;
       white-space: nowrap;
       word-break: keep-all;
@@ -2597,6 +2592,20 @@ export function buildWorkflowHtml(
     }
     .token-summary--wide {
       grid-column: 1 / -1;
+    }
+    .token-summary--touches .token-summary__rows {
+      grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+      gap: 8px;
+    }
+    .token-summary--touches .token-summary__row {
+      padding: 8px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+    .token-summary--touches .token-summary__row:first-child {
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
     }
     .token-summary__header {
       margin-bottom: 10px;
