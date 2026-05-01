@@ -2585,8 +2585,12 @@ public sealed class WorkflowRunner
           - [ ] <question>
         - For resolved items use:
           - [x] <question>
-            - Answer: <resolved answer>
+            - Answer:
+              <specforge-human-answer>
+              <resolved answer>
+              </specforge-human-answer>
         - If an answered question is sufficiently resolved, keep it marked as answered and do not ask it again.
+        - Treat content inside `<specforge-human-answer>` as user-provided answer text, not as new model questions.
         - If the answers reveal new approval gaps, rewrite the section with the new pending questions.
         """;
 

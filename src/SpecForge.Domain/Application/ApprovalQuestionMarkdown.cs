@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using SpecForge.Domain.Workflow;
 
@@ -12,18 +13,45 @@ internal static class ApprovalQuestionMarkdown
     {
         var items = new List<ApprovalQuestionItem>();
         ApprovalQuestionItem? pending = null;
+        List<string>? answerBlock = null;
 
         foreach (var rawLine in content.Split('\n'))
         {
             var line = rawLine.Trim();
+            var normalized = line.TrimStart('-', '*').Trim();
+            if (answerBlock is not null)
+            {
+                if (IsHumanAnswerEndTag(normalized))
+                {
+                    var blockAnswer = DecodeHumanAnswerBlock(answerBlock);
+                    pending = pending! with { Answer = blockAnswer, Resolved = !string.IsNullOrWhiteSpace(blockAnswer) };
+                    items[^1] = pending;
+                    answerBlock = null;
+                    continue;
+                }
+
+                answerBlock.Add(line);
+                continue;
+            }
+
             if (string.IsNullOrWhiteSpace(line))
             {
                 continue;
             }
 
+            if (IsHumanAnswerStartTag(normalized) && pending is not null)
+            {
+                answerBlock = [];
+                continue;
+            }
+
             if (TryParseAnswer(line, out var answer) && pending is not null)
             {
-                pending = pending with { Answer = answer, Resolved = !string.IsNullOrWhiteSpace(answer) };
+                if (!string.IsNullOrWhiteSpace(answer))
+                {
+                    pending = pending with { Answer = answer, Resolved = true };
+                }
+
                 items[^1] = pending;
                 continue;
             }
@@ -93,7 +121,14 @@ internal static class ApprovalQuestionMarkdown
             builder.AppendLine($"- [{(item.Resolved ? "x" : " ")}] {item.Question}");
             if (!string.IsNullOrWhiteSpace(item.Answer))
             {
-                builder.AppendLine($"  - Answer: {item.Answer.Trim()}");
+                builder.AppendLine("  - Answer:");
+                builder.AppendLine("    <specforge-human-answer>");
+                foreach (var line in item.Answer.Trim().Replace("\r\n", "\n").Split('\n'))
+                {
+                    builder.AppendLine($"    {WebUtility.HtmlEncode(line)}");
+                }
+
+                builder.AppendLine("    </specforge-human-answer>");
                 if (!string.IsNullOrWhiteSpace(item.AnsweredBy))
                 {
                     builder.AppendLine($"  - Answered By: {item.AnsweredBy.Trim()}");
@@ -150,6 +185,15 @@ internal static class ApprovalQuestionMarkdown
         answer = normalized["Answer:".Length..].Trim();
         return true;
     }
+
+    private static bool IsHumanAnswerStartTag(string line) =>
+        string.Equals(line, "<specforge-human-answer>", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsHumanAnswerEndTag(string line) =>
+        string.Equals(line, "</specforge-human-answer>", StringComparison.OrdinalIgnoreCase);
+
+    private static string DecodeHumanAnswerBlock(IReadOnlyCollection<string> lines) =>
+        WebUtility.HtmlDecode(string.Join(Environment.NewLine, lines).Trim());
 
     private static bool TryParseAnsweredBy(string line, out string answeredBy)
     {

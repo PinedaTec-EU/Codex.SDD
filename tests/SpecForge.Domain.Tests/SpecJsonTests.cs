@@ -86,4 +86,83 @@ public sealed class SpecJsonTests
         Assert.Equal("resolved", question.Status);
         Assert.Empty(SpecJson.GetUnresolvedQuestions(document));
     }
+
+    [Fact]
+    public void RenderMarkdown_WrapsApprovalAnswersInHumanAnswerTags()
+    {
+        const string answer = "static\n- topK\nA < B & C";
+        var document = new SpecDocument(
+            Title: "Generated spec",
+            HistoryLog: [],
+            State: "pending_approval",
+            BasedOn: "refinement.md",
+            SpecSummary: "A valid spec baseline.",
+            Inputs: ["A concrete source objective."],
+            Outputs: ["A concrete spec artifact."],
+            BusinessRules: ["The workflow must preserve the approved scope."],
+            EdgeCases: ["Missing context should be surfaced explicitly."],
+            ErrorsAndFailureModes: ["Invalid repository state should stop spec."],
+            Constraints: ["Stay within the current repository."],
+            DetectedAmbiguities: ["Non-functional targets remain explicit only when provided."],
+            RedTeam: ["Implicit assumptions may still exist if the source is weak."],
+            BlueTeam: ["Keep the spec executable and bounded."],
+            AcceptanceCriteria: ["The spec is concrete enough for technical design."],
+            HumanApprovalQuestions:
+            [
+                new SpecApprovalQuestionDocument(
+                    "Should the validation error message be customizable or static?",
+                    "resolved",
+                    answer,
+                    "Spec Analyst",
+                    "2026-05-01T06:13:58.4821220+00:00")
+            ]);
+
+        var markdown = SpecJson.RenderMarkdown(document, "US-0001", version: 2);
+
+        Assert.Contains("  - Answer:", markdown);
+        Assert.Contains("    <specforge-human-answer>", markdown);
+        Assert.Contains("    static", markdown);
+        Assert.Contains("    - topK", markdown);
+        Assert.Contains("    A &lt; B &amp; C", markdown);
+        Assert.Contains("    </specforge-human-answer>", markdown);
+        var parsed = SpecJson.Parse(markdown);
+        var parsedQuestion = Assert.Single(parsed.HumanApprovalQuestions);
+        Assert.Equal(answer, parsedQuestion.Answer);
+        Assert.Equal("resolved", parsedQuestion.Status);
+    }
+
+    [Fact]
+    public void ApprovalQuestionMarkdown_ParsesTaggedHumanAnswers()
+    {
+        const string markdown =
+            """
+            ## Human Approval Questions
+            - [x] Should the validation error message be customizable or static?
+              - Answer:
+                <specforge-human-answer>
+                static
+                - topK
+                A &lt; B &amp; C
+                </specforge-human-answer>
+              - Answered By: Spec Analyst
+              - Answered At: 2026-05-01T06:13:58.4821220+00:00
+            - [ ] Should unresolved questions remain pending?
+            """;
+
+        var items = ApprovalQuestionMarkdown.ParseFromMarkdown(markdown);
+
+        Assert.Collection(
+            items,
+            item =>
+            {
+                Assert.True(item.Resolved);
+                Assert.Equal("static\n- topK\nA < B & C", item.Answer);
+                Assert.Equal("Spec Analyst", item.AnsweredBy);
+            },
+            item =>
+            {
+                Assert.False(item.Resolved);
+                Assert.Null(item.Answer);
+            });
+    }
 }
