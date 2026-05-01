@@ -873,6 +873,24 @@ function isCurrentPhaseFailureBlocked(workflow: UserStoryWorkflowDetails, phase:
   return blockingExecutionPhaseId === null || blockingExecutionPhaseId === phase.phaseId;
 }
 
+function isCurrentPhaseWaitingForUserAttention(
+  workflowStatus: string,
+  workflow: UserStoryWorkflowDetails,
+  phase: WorkflowPhaseDetails
+): boolean {
+  if (!phase.isCurrent) {
+    return false;
+  }
+
+  if (workflowStatus === "waiting-user" || workflowStatus === "needs-user-input") {
+    return true;
+  }
+
+  return workflow.controls.requiresApproval &&
+    workflow.controls.canApprove &&
+    !workflow.controls.canContinue;
+}
+
 function resolvePhaseVisualTone(
   workflowStatus: string,
   workflow: UserStoryWorkflowDetails,
@@ -889,6 +907,10 @@ function resolvePhaseVisualTone(
 
   if (completedPhaseIds.has(phase.phaseId)) {
     return "completed";
+  }
+
+  if ((playbackState === "idle" || playbackState === "playing") && isCurrentPhaseWaitingForUserAttention(workflowStatus, workflow, phase)) {
+    return "waiting-user";
   }
 
   if (playbackState === "playing" && executionPhaseId === phase.phaseId) {

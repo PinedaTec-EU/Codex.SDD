@@ -1194,6 +1194,73 @@ test("buildWorkflowHtml allows inspecting a selected phase while playback is pau
   assert.doesNotMatch(html, /Reject Release Approval/);
 });
 
+test("buildWorkflowHtml paints a playing approval stop as waiting-user", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0100",
+    title: "Release approval waiting during playback",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "release-approval",
+    directoryPath: "/tmp/us.US-0100",
+    workBranch: "feature/us-0100-release-approval",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "review",
+        title: "Review",
+        order: 5,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: "/tmp/04-review.md",
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "release-approval",
+        title: "Release Approval",
+        order: 6,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/05-release-approval.md",
+        executePromptPath: null,
+        approvePromptPath: "/tmp/release-approval.approve.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "release-approval_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: [],
+      rewindTargets: ["review"]
+    },
+    refinement: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "release-approval",
+    selectedArtifactContent: "# Release Approval",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    executionPhaseId: "release-approval"
+  }, "playing");
+
+  assert.match(html, /phase-node release-approval phase-tone-waiting-user selected phase-node--current/);
+  assert.match(html, /token token--attention">waiting-user</);
+  assert.doesNotMatch(html, /phase-node release-approval phase-tone-active/);
+});
+
 test("buildWorkflowHtml requires explicit base-branch acceptance before approve when the flag is enabled", () => {
   const html = buildWorkflowHtml({
     usId: "US-0042",
