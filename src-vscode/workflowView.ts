@@ -4434,9 +4434,10 @@ export function buildWorkflowHtml(
     }
     .detail-card__summary {
       display: block;
+      position: relative;
       list-style: none;
       cursor: pointer;
-      padding: 18px;
+      padding: 18px 64px 18px 18px;
     }
     .detail-card__summary::-webkit-details-marker {
       display: none;
@@ -4454,7 +4455,9 @@ export function buildWorkflowHtml(
     }
     .detail-card__summary-toggle {
       pointer-events: none;
-      align-self: center;
+      position: absolute;
+      top: 18px;
+      right: 18px;
     }
     .detail-card__summary-toggle-icon {
       transform: rotate(90deg);
