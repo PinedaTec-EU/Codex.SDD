@@ -1404,6 +1404,25 @@ test("buildWorkflowHtml shows readonly work branch in spec detail once the branc
     refinement: null,
     approvalQuestions: [],
     events: [],
+    phaseIterations: [
+      {
+        iterationKey: "spec:1:2026-04-25T10:00:00Z:phase_completed",
+        attempt: 1,
+        phaseId: "spec",
+        timestampUtc: "2026-04-25T10:00:00Z",
+        code: "phase_completed",
+        actor: "system",
+        summary: "Generated spec.",
+        outputArtifactPath: "/tmp/01-spec.md",
+        inputArtifactPath: "/tmp/us.md",
+        contextArtifactPaths: [],
+        operationLogPath: null,
+        operationPrompt: null,
+        usage: null,
+        durationMs: 1000,
+        execution: null
+      }
+    ],
     attachmentsDirectoryPath: "/tmp/attachments",
     attachments: [],
     contextFilesDirectoryPath: "/tmp/context",
@@ -1421,6 +1440,7 @@ test("buildWorkflowHtml shows readonly work branch in spec detail once the branc
   assert.match(html, /data-approval-work-branch-input[^>]*readonly/);
   assert.match(html, /already been created for this user story and is now shown here as read only\./);
   assert.doesNotMatch(html, /for="approval-base-branch">Base Branch<\/label>/);
+  assert.ok(html.indexOf("<h3>Approval Branch</h3>") < html.indexOf("<h3>Phase Iterations</h3>"));
 });
 
 test("buildWorkflowHtml keeps disabled approve visible for spec when approval is still pending", () => {
