@@ -564,7 +564,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 builder
                     .AppendLine("## Required Review Validation Checklist")
                     .AppendLine()
-                    .AppendLine("Every item below must be evaluated explicitly in `validationChecklist` with concrete evidence gathered during review.")
+                    .AppendLine("Every item below must be evaluated explicitly in the `## Validation Checklist` Markdown section with concrete evidence gathered during review.")
                     .AppendLine();
 
                 foreach (var item in requiredValidationChecklist)
@@ -586,12 +586,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine()
                 .AppendLine("- Inspect the repository files and implementation evidence directly, not only the artifact narrative.")
                 .AppendLine("- Run the most relevant validation commands required to verify the Technical Design validation strategy when direct inspection alone is insufficient.")
-                .AppendLine("- In each checklist evidence field, name the concrete files, commands, or artifacts you actually inspected.")
+                .AppendLine("- In each validation checklist evidence line, name the concrete files, commands, or artifacts you actually inspected.")
                 .AppendLine()
-                .AppendLine("Return only structured data that conforms to the response schema.");
+                .AppendLine("Return the full `04-review.md` artifact as Markdown with `## State`, `## Validation Checklist`, `## Findings`, `## Verdict`, and `## Recommendation`.")
+                .AppendLine("Do not return JSON.");
         }
 
-        if (context.PhaseId is PhaseId.TechnicalDesign or PhaseId.Implementation)
+        if (context.PhaseId is PhaseId.TechnicalDesign or PhaseId.Implementation or PhaseId.Review)
         {
             builder
                 .AppendLine()

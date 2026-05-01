@@ -205,7 +205,7 @@ public sealed class RepositoryPromptInitializer
         Surface material findings, missing validation, and release risks without inventing work that was not inspected.
         Never pass review when implementation evidence is missing, empty, or disconnected from the repository delta under review.
         Review must validate every item listed in the Technical Design `Validation Strategy`.
-        The review artifact must contain a `validationChecklist` entry for each Technical Design validation strategy item, marked `pass` only when there is concrete code, artifact, or validation evidence.
+        The review artifact must contain one `## Validation Checklist` Markdown bullet for each Technical Design validation strategy item, marked passing only when there is concrete code, artifact, or validation evidence.
         If the Technical Design validation strategy is missing, empty, or cannot be inspected, the review result must be `fail`.
         """;
 

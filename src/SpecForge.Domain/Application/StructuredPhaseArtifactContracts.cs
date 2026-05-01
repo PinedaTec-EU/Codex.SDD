@@ -51,12 +51,9 @@ public static class StructuredPhaseArtifactContracts
             [PhaseId.Review] = new(
                 SchemaName: "review_artifact",
                 JsonSchema: BuildReviewSchema(),
-                ResponseFormat: PhaseArtifactResponseFormat.Json,
+                ResponseFormat: PhaseArtifactResponseFormat.Markdown,
                 NormalizeJsonContent: static content => ReviewArtifactJson.Serialize(ReviewArtifactJson.ParseCanonicalJson(content)),
-                NormalizeContent: static (context, content) => ReviewArtifactJson.RenderMarkdown(
-                    ReviewArtifactJson.ParseCanonicalJson(content),
-                    context.UsId,
-                    version: 1)),
+                NormalizeContent: static (_, content) => NormalizeMarkdownContent(content)),
             [PhaseId.ReleaseApproval] = new(
                 SchemaName: "release_approval_artifact",
                 JsonSchema: BuildReleaseApprovalSchema(),

@@ -1409,8 +1409,7 @@ public sealed class WorkflowRunner
         {
             var version = ExtractArtifactVersion(artifactPath);
             var reviewArtifact = EnforceReviewValidationStrategyContract(result.Content, paths, workflowRun.UsId, version);
-            await File.WriteAllTextAsync(paths.GetPhaseArtifactJsonPath(PhaseId.Review, version), reviewArtifact.Json, cancellationToken);
-            await File.WriteAllTextAsync(artifactPath, reviewArtifact.Markdown, cancellationToken);
+            await File.WriteAllTextAsync(artifactPath, reviewArtifact, cancellationToken);
         }
         else if (workflowRun.CurrentPhase == PhaseId.TechnicalDesign)
         {
@@ -1669,9 +1668,7 @@ public sealed class WorkflowRunner
         }
     }
 
-    private sealed record ReviewMaterialization(string Markdown, string Json);
-
-    private static ReviewMaterialization EnforceReviewValidationStrategyContract(
+    private static string EnforceReviewValidationStrategyContract(
         string reviewMarkdown,
         UserStoryFilePaths paths,
         string usId,
@@ -1691,9 +1688,7 @@ public sealed class WorkflowRunner
                 ["Review cannot pass because there is no validation strategy to validate."],
                 "Review requires a non-empty Technical Design validation strategy before it can pass.",
                 ["Regenerate or operate the technical design phase with a concrete Validation Strategy."]);
-            return new ReviewMaterialization(
-                ReviewArtifactJson.RenderMarkdown(missingStrategyDocument, usId, version),
-                ReviewArtifactJson.Serialize(missingStrategyDocument));
+            return ReviewArtifactJson.RenderMarkdown(missingStrategyDocument, usId, version);
         }
 
         var reviewResult = WorkflowArtifactMarkdownReader.ParseReviewResult(reviewMarkdown);
@@ -1778,9 +1773,7 @@ public sealed class WorkflowRunner
                     ? "Review passed because every Technical Design validation strategy item has concrete passing evidence."
                     : primaryReason,
                 recommendations);
-        return new ReviewMaterialization(
-            ReviewArtifactJson.RenderMarkdown(document, usId, version),
-            ReviewArtifactJson.Serialize(document));
+        return ReviewArtifactJson.RenderMarkdown(document, usId, version);
     }
 
     private static IReadOnlyDictionary<PhaseId, string> BuildPreviousArtifactMap(

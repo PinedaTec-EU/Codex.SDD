@@ -16,5 +16,5 @@
 - Every workflow phase must declare its expected model response format in the phase artifact contract.
 - JSON phases must request structured JSON output governed by an explicit JSON schema.
 - Markdown phases must request the complete Markdown artifact directly and must not also persist a generated JSON artifact.
-- Current JSON phases: review, PR preparation, and internal auto-refinement answers.
-- Current Markdown phases: refinement, spec, technical design, implementation, and release approval.
+- Current JSON phases: PR preparation and internal auto-refinement answers.
+- Current Markdown phases: refinement, spec, technical design, implementation, review, and release approval.

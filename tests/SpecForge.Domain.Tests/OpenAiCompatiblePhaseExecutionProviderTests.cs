@@ -287,7 +287,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         string expectedGuidance)
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalReviewJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalReviewMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(
@@ -421,7 +421,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Contains("\"model\":\"llama-top\"", implementationHandler.LastBody);
         Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(implementationHandler.LastBody));
 
-        var reviewHandler = new CapturingFakeHttpMessageHandler(BuildMinimalReviewJson());
+        var reviewHandler = new CapturingFakeHttpMessageHandler(BuildMinimalReviewMarkdown());
         var reviewProvider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(reviewHandler),
             new OpenAiCompatibleProviderOptions(
@@ -453,7 +453,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         Assert.Equal("http://localhost:11434/v1/chat/completions", reviewHandler.LastRequest!.RequestUri!.ToString());
         Assert.Contains("\"model\":\"llama-light\"", reviewHandler.LastBody);
-        Assert.Equal("review_artifact", OpenAiCompatibleRequestJson.ReadResponseSchemaName(reviewHandler.LastBody));
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(reviewHandler.LastBody));
         Assert.NotNull(reviewResult.Execution);
         Assert.Equal("light", reviewResult.Execution!.ProfileName);
         Assert.Equal("llama-light", reviewResult.Execution.Model);
@@ -488,7 +488,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             - `src/Feature.cs` | kind=`content_changed`
             """);
 
-        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalReviewJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalReviewMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             CreateOptions(model: "gpt-4.1-mini"));
@@ -784,7 +784,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var fakeRunner = new FakeNativeCliRunner(
             "codex",
             isAvailable: true,
-            responseJson: BuildMinimalReviewJson());
+            responseJson: BuildMinimalReviewMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(new ThrowingHttpMessageHandler()),
             CreateOptions(
@@ -1429,25 +1429,25 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         }
         """;
 
-    private static string BuildMinimalReviewJson() =>
+    private static string BuildMinimalReviewMarkdown() =>
         """
-        {
-          "result": "pass",
-          "validationChecklist": [
-            {
-              "status": "pass",
-              "item": "Review must compare implementation back to the approved spec before final release approval.",
-              "evidence": "Spec, technical design, implementation artifact, and implementation evidence are present."
-            }
-          ],
-          "findings": [
-            "No material deviations were detected in the current artifact set."
-          ],
-          "primaryReason": "All required workflow artifacts are present and coherent.",
-          "recommendation": [
-            "Advance to `release_approval`."
-          ]
-        }
+        # Review · US-0001 · v01
+
+        ## State
+        - Result: `pass`
+
+        ## Validation Checklist
+        - ✅ Review must compare implementation back to the approved spec before final release approval. Evidence: Spec, technical design, implementation artifact, and implementation evidence are present.
+
+        ## Findings
+        - No material deviations were detected in the current artifact set.
+
+        ## Verdict
+        - Final result: `pass`
+        - Primary reason: All required workflow artifacts are present and coherent.
+
+        ## Recommendation
+        - Advance to `release_approval`.
         """;
 
     private static string BuildMinimalImplementationJson() =>
