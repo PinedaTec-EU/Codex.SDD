@@ -87,5 +87,18 @@ function extractLooseQuestionLines(section: string | null): string[] {
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .map((line) => line.replace(/^(?:[-*]\s+|\d+\.\s+)/, "").trim())
-    .filter((line) => line.length > 0);
+    .filter((line) => line.length > 0 && looksLikeUserQuestion(line));
+}
+
+function looksLikeUserQuestion(line: string): boolean {
+  const normalized = line.trim();
+  if (!normalized) {
+    return false;
+  }
+
+  if (/[?¿]\s*$/.test(normalized)) {
+    return true;
+  }
+
+  return /^(?:what|which|who|where|when|why|how|should|shall|can|could|would|will|must|is|are|do|does|did|confirm|clarify|decide|define|describe|provide|select|specify|que|qué|cual|cuál|quien|quién|donde|dónde|cuando|cuándo|por que|por qué|como|cómo|debe|deberia|debería|puede|podria|podría|sera|será|es|son|confirma|aclara|decide|define|describe|proporciona|selecciona|especifica)\b/i.test(normalized);
 }
