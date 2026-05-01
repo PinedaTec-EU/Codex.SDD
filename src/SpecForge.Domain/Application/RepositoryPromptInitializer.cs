@@ -393,6 +393,7 @@ public sealed class RepositoryPromptInitializer
         - if implementation evidence shows zero touched files, the review must fail and explain why the user story cannot be considered implemented
         - derive the Validation Checklist from the Technical Design `Validation Strategy`; use one checklist item per validation strategy bullet
         - never return `pass` if the Validation Checklist is missing, empty, incomplete, or contains any failed item
+        - the `## State` section must contain exactly one `- Result:` line with value `pass` or `fail`
         Behave as reviewer, not as author.
         """;
 

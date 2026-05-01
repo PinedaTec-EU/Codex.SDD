@@ -11,23 +11,30 @@ internal static class WorkflowArtifactMarkdownReader
             var trimmed = line.Trim();
 
             if (!trimmed.StartsWith("- Result:", StringComparison.OrdinalIgnoreCase) &&
-                !trimmed.StartsWith("- Final result:", StringComparison.OrdinalIgnoreCase))
+                !trimmed.StartsWith("- Final result:", StringComparison.OrdinalIgnoreCase) &&
+                !trimmed.StartsWith("- State:", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            var normalized = trimmed.ToLowerInvariant();
+            var normalized = trimmed.ToLowerInvariant().TrimEnd('.');
 
             if (normalized.Contains("`pass`", StringComparison.Ordinal) ||
+                normalized.Contains("`passed`", StringComparison.Ordinal) ||
                 normalized.EndsWith(" pass", StringComparison.Ordinal) ||
-                normalized.EndsWith(": pass", StringComparison.Ordinal))
+                normalized.EndsWith(": pass", StringComparison.Ordinal) ||
+                normalized.EndsWith(" passed", StringComparison.Ordinal) ||
+                normalized.EndsWith(": passed", StringComparison.Ordinal))
             {
                 return "pass";
             }
 
             if (normalized.Contains("`fail`", StringComparison.Ordinal) ||
+                normalized.Contains("`failed`", StringComparison.Ordinal) ||
                 normalized.EndsWith(" fail", StringComparison.Ordinal) ||
-                normalized.EndsWith(": fail", StringComparison.Ordinal))
+                normalized.EndsWith(": fail", StringComparison.Ordinal) ||
+                normalized.EndsWith(" failed", StringComparison.Ordinal) ||
+                normalized.EndsWith(": failed", StringComparison.Ordinal))
             {
                 return "fail";
             }

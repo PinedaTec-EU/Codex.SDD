@@ -582,6 +582,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine("- In each validation checklist evidence line, name the concrete files, commands, or artifacts you actually inspected.")
                 .AppendLine()
                 .AppendLine("Return the full `04-review.md` artifact as Markdown with `## State`, `## Validation Checklist`, `## Findings`, `## Verdict`, and `## Recommendation`.")
+                .AppendLine("The `## State` section must contain exactly one `- Result:` line with value `pass` or `fail`.")
                 .AppendLine("Do not return JSON.");
         }
 
