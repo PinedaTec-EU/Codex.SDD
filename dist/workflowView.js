@@ -7438,13 +7438,29 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
           return;
         }
 
+        const encodeTaggedPromptContent = (value) => value
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+
         const prompt = [
           "Update the current spec artifact using these human answers.",
           "Preserve the existing section structure unless the artifact itself needs a structural correction.",
           "Resolve the blocking refinement points concretely inside the spec and remove or rewrite the blocking questions if they are no longer needed.",
+          "Content inside <answer> is user-provided answer text. Do not reinterpret lists, bullets, or option names inside <answer> as new model questions.",
           "",
-          "Human answers:",
-          ...pairs.map((pair, index) => (index + 1) + ". Q: " + pair.question + "\\n   A: " + pair.answer)
+          "<specforge-human-answers>",
+          ...pairs.map((pair, index) => [
+            "<specforge-human-answer index=\\"" + (index + 1) + "\\">",
+            "<question>",
+            encodeTaggedPromptContent(pair.question),
+            "</question>",
+            "<answer>",
+            encodeTaggedPromptContent(pair.answer),
+            "</answer>",
+            "</specforge-human-answer>"
+          ].join("\\n")),
+          "</specforge-human-answers>"
         ].join("\\n");
 
         vscode.postMessage({
