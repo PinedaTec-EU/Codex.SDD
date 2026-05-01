@@ -19,9 +19,7 @@ internal static class NativeCliPromptBuilder
             .AppendLine($"You are {providerLabel} executing a SpecForge workflow phase inside the live repository.")
             .AppendLine("Use the workspace root as the repository root.")
             .AppendLine("Do not create commits or branches.")
-            .AppendLine(contract.ResponseFormat == PhaseArtifactResponseFormat.Json
-                ? "Return only JSON matching the provided schema in your final response."
-                : "Return only Markdown matching the phase artifact headings in your final response.")
+            .AppendLine("Return only Markdown matching the phase artifact headings in your final response.")
             .AppendLine();
 
         if (!string.IsNullOrWhiteSpace(prompt.SystemPrompt))
@@ -60,44 +58,28 @@ internal static class NativeCliPromptBuilder
             .AppendLine()
             .AppendLine(prompt.UserPrompt.Trim());
 
-        if (contract.ResponseFormat == PhaseArtifactResponseFormat.Json)
-        {
-            builder
-                .AppendLine()
-                .AppendLine("## Response JSON Schema")
-                .AppendLine()
-                .AppendLine("Return the final answer as one JSON object matching this schema exactly.")
-                .AppendLine("Do not wrap the final answer in markdown fences and do not add prose outside the JSON object.")
-                .AppendLine()
-                .AppendLine("```json")
-                .AppendLine(contract.JsonSchema.GetRawText().Trim())
-                .AppendLine("```");
-        }
-        else
-        {
-            builder
-                .AppendLine()
-                .AppendLine("## Response Markdown Contract")
-                .AppendLine()
-                .AppendLine("Return the final answer as the complete Markdown artifact for this phase.")
-                .AppendLine("Do not wrap the artifact in markdown fences and do not add prose outside the artifact.");
-        }
+        builder
+            .AppendLine()
+            .AppendLine("## Response Markdown Contract")
+            .AppendLine()
+            .AppendLine("Return the final answer as the complete Markdown artifact for this phase.")
+            .AppendLine("Do not wrap the artifact in markdown fences and do not add prose outside the artifact.");
 
         return builder.ToString().Trim();
     }
 
-    public static string BuildStandalonePrompt(
+    public static string BuildStandaloneMarkdownPrompt(
         string providerKind,
         string title,
-        EffectivePrompt prompt,
-        string outputSchemaJson)
+        EffectivePrompt prompt)
     {
         var providerLabel = ResolveProviderLabel(providerKind);
         var builder = new StringBuilder()
             .AppendLine($"# {title}")
             .AppendLine()
             .AppendLine($"You are {providerLabel} assisting the SpecForge workflow inside the live repository.")
-            .AppendLine("Return only JSON matching the provided schema in your final response.")
+            .AppendLine("Return only Markdown matching the requested sections in your final response.")
+            .AppendLine("Do not return JSON.")
             .AppendLine();
 
         if (!string.IsNullOrWhiteSpace(prompt.SystemPrompt))
@@ -112,16 +94,7 @@ internal static class NativeCliPromptBuilder
         builder
             .AppendLine("## Task")
             .AppendLine()
-            .AppendLine(prompt.UserPrompt.Trim())
-            .AppendLine()
-            .AppendLine("## Response JSON Schema")
-            .AppendLine()
-            .AppendLine("Return the final answer as one JSON object matching this schema exactly.")
-            .AppendLine("Do not wrap the final answer in markdown fences and do not add prose outside the JSON object.")
-            .AppendLine()
-            .AppendLine("```json")
-            .AppendLine(outputSchemaJson.Trim())
-            .AppendLine("```");
+            .AppendLine(prompt.UserPrompt.Trim());
 
         return builder.ToString().Trim();
     }

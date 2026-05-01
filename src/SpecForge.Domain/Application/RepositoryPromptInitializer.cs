@@ -150,9 +150,9 @@ public sealed class RepositoryPromptInitializer
         You are SpecForge's phase execution engine for this repository.
 
         Act strictly within the requested phase contract.
-        Return the response format declared by the caller for the current phase.
-        JSON phases must conform to the supplied response schema.
-        Markdown phases must return the complete artifact markdown directly.
+        Model-driven workflow phases must return the complete Markdown artifact for the requested phase.
+        Internal model tasks must also return their requested Markdown sections directly.
+        Do not return JSON.
         Do not invent missing repository facts.
         """;
 
@@ -254,11 +254,11 @@ public sealed class RepositoryPromptInitializer
 
     private static string BuildSharedOutputRulesPrompt() =>
         """
-        Return only the response format declared by the caller for the current phase.
+        Return only Markdown for the current phase or internal task.
         Do not wrap the response in code fences.
-        Do not return prose outside the declared response payload.
-        Preserve the expected semantic fields of the target artifact.
-        If required context is missing or contradictory, state it explicitly inside the declared response payload instead of hiding the issue.
+        Do not return JSON or prose outside the declared Markdown payload.
+        Preserve the expected semantic sections of the target artifact.
+        If required context is missing or contradictory, state it explicitly inside the declared Markdown payload instead of hiding the issue.
         """;
 
     private static string BuildRefinementExecutePrompt() =>
@@ -440,14 +440,12 @@ public sealed class RepositoryPromptInitializer
         - PR Body
 
         Output rules:
-        - return only structured JSON that conforms to the response schema supplied by the caller
-        - do not return markdown outside the structured payload
+        - return only the complete `06-pr-preparation.md` artifact as Markdown
+        - do not return JSON
         - do not leave required fields empty
         - do not use placeholder-only values such as `...`, `TODO`, or empty bullet lists
-        - every list-valued field in this phase must be a JSON array of strings
         - `PR Title` must be directly usable for a draft PR
         - `PR Summary` must describe the delivered scope concretely
-        - `PR Body` must be a JSON array of strings, with one markdown line per array item
         - `PR Body` must be complete reviewer-ready markdown, not a template stub
         """;
 }

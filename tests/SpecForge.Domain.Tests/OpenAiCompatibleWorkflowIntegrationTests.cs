@@ -219,13 +219,14 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             1. Which role publishes the article?
             """,
             """
-            {
-              "canResolve": true,
-              "reason": "The story mentions the marketing editor in the available context.",
-              "answers": [
-                "Marketing editor"
-              ]
-            }
+            ## Decision
+            - Can resolve: `true`
+
+            ## Reason
+            The story mentions the marketing editor in the available context.
+
+            ## Answers
+            1. Marketing editor
             """,
             """
             # Refinement · US-0001 · v01
@@ -349,7 +350,7 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
 
         Assert.Equal(4, modelStub.Requests.Count);
         Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(modelStub.Requests[0].Body));
-        Assert.Equal("auto_refinement_answers", OpenAiCompatibleRequestJson.ReadResponseSchemaName(modelStub.Requests[1].Body));
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(modelStub.Requests[1].Body));
         Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(modelStub.Requests[2].Body));
         Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(modelStub.Requests[3].Body));
         Assert.Contains("\"model\":\"stub-resolver\"", modelStub.Requests[1].Body);
@@ -378,13 +379,14 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
             1. Which role configures the sampling controls?
             """,
             """
-            {
-              "canResolve": true,
-              "reason": "The story context points to the suite administrator as the owner of these settings.",
-              "answers": [
-                "The suite administrator configures the sampling controls."
-              ]
-            }
+            ## Decision
+            - Can resolve: `true`
+
+            ## Reason
+            The story context points to the suite administrator as the owner of these settings.
+
+            ## Answers
+            1. The suite administrator configures the sampling controls.
             """,
             """
             # Refinement · US-0001 · v01
@@ -654,18 +656,7 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
         Assert.Contains("Cover valid and invalid values in domain and API tests.", reviewMarkdown);
 
         Assert.Equal(8, modelStub.Requests.Count);
-        Assert.Equal(
-            [
-                string.Empty,
-                "auto_refinement_answers",
-                string.Empty,
-                string.Empty,
-                string.Empty,
-                string.Empty,
-                string.Empty,
-                string.Empty
-            ],
-            modelStub.Requests.Select(request => OpenAiCompatibleRequestJson.ReadResponseSchemaName(request.Body)).ToArray());
+        Assert.All(modelStub.Requests, request => Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(request.Body)));
         Assert.Equal("stub-resolver", OpenAiCompatibleRequestJson.ReadModel(modelStub.Requests[1].Body));
         Assert.All(
             modelStub.Requests.Where((_, index) => index != 1),

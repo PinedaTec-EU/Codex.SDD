@@ -841,16 +841,9 @@ public sealed class WorkflowRunner
         string actor,
         CancellationToken cancellationToken)
     {
-        var artifactJsonPath = paths.GetLatestExistingPhaseArtifactJsonPath(PhaseId.PrPreparation)
-            ?? throw new WorkflowDomainException("PR preparation requires a generated JSON artifact before publication.");
-        if (!File.Exists(artifactJsonPath))
-        {
-            throw new WorkflowDomainException("PR preparation requires a generated JSON artifact before publication.");
-        }
-
         var artifactPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.PrPreparation)
             ?? throw new WorkflowDomainException("PR preparation requires a generated markdown artifact before publication.");
-        var document = PrPreparationArtifactJson.ParseCanonicalJson(await File.ReadAllTextAsync(artifactJsonPath, cancellationToken));
+        var document = PrPreparationArtifactJson.ParseMarkdown(await File.ReadAllTextAsync(artifactPath, cancellationToken));
         EnsurePrPreparationArtifactIsPublishable(document);
 
         var branch = workflowRun.Branch
@@ -1425,14 +1418,9 @@ public sealed class WorkflowRunner
             var version = ExtractArtifactVersion(artifactPath);
             if (workflowRun.CurrentPhase == PhaseId.PrPreparation)
             {
-                var canonicalJson = result.StructuredJsonContent ?? result.Content;
-                var document = PrPreparationArtifactJson.ParseCanonicalJson(canonicalJson);
+                var document = PrPreparationArtifactJson.ParseMarkdown(result.Content);
                 EnsurePrPreparationArtifactIsPublishable(document);
                 var renderedMarkdown = PrPreparationArtifactJson.RenderMarkdown(document, workflowRun.UsId, version);
-                await File.WriteAllTextAsync(
-                    paths.GetPhaseArtifactJsonPath(PhaseId.PrPreparation, version),
-                    PrPreparationArtifactJson.Serialize(document),
-                    cancellationToken);
                 await File.WriteAllTextAsync(artifactPath, renderedMarkdown, cancellationToken);
                 workflowRun.Branch?.RecordPreparedPullRequest(document.PrTitle, artifactPath);
             }

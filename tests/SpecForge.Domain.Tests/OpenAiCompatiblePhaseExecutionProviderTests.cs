@@ -90,24 +90,49 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteAsync_PrPreparation_RepairsIncompleteStructuredPayloadFromHttpProvider()
+    public async Task ExecuteAsync_PrPreparation_UsesMarkdownPayloadFromHttpProvider()
     {
         await PrepareInitializedWorkspaceAsync();
         var handler = new CapturingFakeHttpMessageHandler(
             """
-            {
-              "state": "",
-              "basedOn": [],
-              "prTitle": "",
-              "prSummary": "",
-              "branchSummary": [],
-              "participants": [],
-              "changeNarrative": [],
-              "validationSummary": [],
-              "reviewerChecklist": [],
-              "risksAndFollowUps": [],
-              "prBody": []
-            }
+            # PR Preparation · US-0001 · v01
+
+            ## State
+            - State: `ready_to_publish`
+
+            ## Based On
+            - 04-review.md
+
+            ## PR Title
+            US-0001 workflow handoff
+
+            ## PR Summary
+            Prepares the reviewed workflow scope for draft PR publication.
+
+            ## Branch Summary
+            - Branch metadata is available for publication.
+
+            ## Participants
+            - Codex — phases: pr-preparation
+
+            ## Change Narrative
+            - Summarizes the approved implementation and review artifacts.
+
+            ## Validation Summary
+            - Review evidence was inspected before PR handoff.
+
+            ## Reviewer Checklist
+            - [ ] Confirm review evidence still matches the branch delta.
+
+            ## Risks and Follow Ups
+            - No unresolved publication blockers were identified.
+
+            ## PR Body
+            ## Summary
+            - Prepared reviewed scope for PR publication.
+
+            ## Validation
+            - Review artifact inspected.
             """);
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
@@ -137,7 +162,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             ContextFilePaths: [timelinePath]);
 
         var result = await provider.ExecuteAsync(context);
-        var artifact = PrPreparationArtifactJson.ParseCanonicalJson(result.StructuredJsonContent!);
+        var artifact = PrPreparationArtifactJson.ParseMarkdown(result.Content);
 
         Assert.Equal("ready_to_publish", artifact.State);
         Assert.NotEmpty(artifact.BasedOn);
@@ -147,6 +172,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.NotEmpty(artifact.PrBody);
         Assert.Contains("US-0001", artifact.PrTitle);
         Assert.Contains("ready_to_publish", result.Content, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(result.StructuredJsonContent);
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(handler.LastBody));
     }
 
     [Theory]
@@ -185,7 +212,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     public async Task TryAutoAnswerRefinementAsync_UsesConfiguredProfileAndStructuredPrompt()
     {
         await PrepareInitializedWorkspaceAsync();
-        var handler = new CapturingFakeHttpMessageHandler(BuildAutoRefinementAnswersJson());
+        var handler = new CapturingFakeHttpMessageHandler(BuildAutoRefinementAnswersMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
             new HttpClient(handler),
             new OpenAiCompatibleProviderOptions(
@@ -235,7 +262,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("resolver", result.Execution!.ProfileName);
         Assert.Equal("llama-resolver", result.Execution.Model);
         Assert.Equal("http://localhost:22434/v1/chat/completions", handler.LastRequest!.RequestUri!.ToString());
-        Assert.Equal("auto_refinement_answers", OpenAiCompatibleRequestJson.ReadResponseSchemaName(handler.LastBody));
+        Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(handler.LastBody));
         Assert.Contains("\"model\":\"llama-resolver\"", handler.LastBody);
         Assert.Contains("This is the system prompt for the refinement execute template.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
         Assert.Contains("This is the system prompt for the internal auto refinement answer task.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
@@ -699,7 +726,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("read-only", fakeRunner.LastInvocation!.SandboxMode);
         Assert.Contains(expectedPromptMarker, fakeRunner.LastInvocation.Prompt);
         Assert.Contains("## Response Markdown Contract", fakeRunner.LastInvocation.Prompt);
-        Assert.Null(fakeRunner.LastInvocation.OutputSchemaJson);
     }
 
     [Fact]
@@ -1243,13 +1269,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             LastRequest = request;
             LastBody = await request.Content!.ReadAsStringAsync(cancellationToken);
 
-            var responseKey = OpenAiCompatibleRequestJson.ReadResponseSchemaName(LastBody);
-            if (string.IsNullOrWhiteSpace(responseKey))
-            {
-                var userPrompt = OpenAiCompatibleRequestJson.ReadUserPrompt(LastBody);
-                responseKey = responsesBySchema.Keys.FirstOrDefault(key => userPrompt.Contains($"- Phase: `{key}`", StringComparison.Ordinal))
-                    ?? string.Empty;
-            }
+            var userPrompt = OpenAiCompatibleRequestJson.ReadUserPrompt(LastBody);
+            var responseKey = responsesBySchema.Keys.FirstOrDefault(key => userPrompt.Contains($"- Phase: `{key}`", StringComparison.Ordinal))
+                ?? string.Empty;
 
             var responseContent = responsesBySchema.TryGetValue(responseKey, out var response)
                 ? response
@@ -1418,15 +1440,16 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         1. No refinement questions remain.
         """;
 
-    private static string BuildAutoRefinementAnswersJson() =>
+    private static string BuildAutoRefinementAnswersMarkdown() =>
         """
-        {
-          "canResolve": true,
-          "reason": "The available context is enough to answer the pending refinement.",
-          "answers": [
-            "Marketing editor"
-          ]
-        }
+        ## Decision
+        - Can resolve: `true`
+
+        ## Reason
+        The available context is enough to answer the pending refinement.
+
+        ## Answers
+        1. Marketing editor
         """;
 
     private static string BuildMinimalReviewMarkdown() =>

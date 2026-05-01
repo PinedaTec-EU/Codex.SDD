@@ -63,12 +63,9 @@ public static class StructuredPhaseArtifactContracts
             [PhaseId.PrPreparation] = new(
                 SchemaName: "pr_preparation_artifact",
                 JsonSchema: BuildPrPreparationSchema(),
-                ResponseFormat: PhaseArtifactResponseFormat.Json,
+                ResponseFormat: PhaseArtifactResponseFormat.Markdown,
                 NormalizeJsonContent: static content => PrPreparationArtifactJson.Serialize(PrPreparationArtifactJson.ParseCanonicalJson(content)),
-                NormalizeContent: static (context, content) => PrPreparationArtifactJson.RenderMarkdown(
-                    PrPreparationArtifactJson.ParseCanonicalJson(content),
-                    context.UsId,
-                    version: 1))
+                NormalizeContent: static (_, content) => NormalizeMarkdownContent(content))
         };
 
     public static bool TryGet(PhaseId phaseId, out StructuredPhaseArtifactContract contract) =>
@@ -743,6 +740,20 @@ public static class PrPreparationArtifactJson
         return string.Join(Environment.NewLine, lines) + Environment.NewLine;
     }
 
+    public static PrPreparationArtifactDocument ParseMarkdown(string markdown) =>
+        Normalize(new PrPreparationArtifactDocument(
+            State: ReadState(markdown),
+            BasedOn: WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(markdown, "## Based On"),
+            PrTitle: ReadScalarSection(markdown, "## PR Title"),
+            PrSummary: ReadScalarSection(markdown, "## PR Summary"),
+            BranchSummary: WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(markdown, "## Branch Summary"),
+            Participants: ParseParticipants(WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(markdown, "## Participants")),
+            ChangeNarrative: WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(markdown, "## Change Narrative"),
+            ValidationSummary: WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(markdown, "## Validation Summary"),
+            ReviewerChecklist: WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(markdown, "## Reviewer Checklist"),
+            RisksAndFollowUps: WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(markdown, "## Risks and Follow Ups"),
+            PrBody: ReadPrBody(markdown)));
+
     private static PrPreparationArtifactDocument Normalize(PrPreparationArtifactDocument document) =>
         new(
             State: StructuredPhaseArtifactJson.NormalizeScalar(document.State),
@@ -765,6 +776,68 @@ public static class PrPreparationArtifactJson
                 StructuredPhaseArtifactJson.NormalizeLines(participant.Phases)))
             .Where(static participant => !string.IsNullOrWhiteSpace(participant.Actor))
             .ToArray();
+
+    private static string ReadState(string markdown)
+    {
+        var stateSection = MarkdownHelper.TryReadSection(markdown, "## State") ?? string.Empty;
+        foreach (var line in stateSection.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            var trimmed = line.Trim();
+            const string prefix = "- State:";
+            if (!trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return trimmed[prefix.Length..].Trim().Trim('`');
+        }
+
+        return ReadScalarSection(markdown, "## State");
+    }
+
+    private static string ReadScalarSection(string markdown, string heading)
+    {
+        var section = MarkdownHelper.TryReadSection(markdown, heading) ?? string.Empty;
+        return section
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n')
+            .Select(static line => line.Trim())
+            .FirstOrDefault(static line => !string.IsNullOrWhiteSpace(line) && line != "...")
+            ?? string.Empty;
+    }
+
+    private static IReadOnlyList<PrPreparationParticipant> ParseParticipants(IReadOnlyList<string> lines) =>
+        lines
+            .Select(static line =>
+            {
+                var separatorIndex = line.IndexOf("phases:", StringComparison.OrdinalIgnoreCase);
+                if (separatorIndex < 0)
+                {
+                    return new PrPreparationParticipant(line.Trim(), []);
+                }
+
+                var actor = line[..separatorIndex].Trim(' ', '-', '\u2014', ':');
+                var phases = line[(separatorIndex + "phases:".Length)..]
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                return new PrPreparationParticipant(actor, phases);
+            })
+            .ToArray();
+
+    private static IReadOnlyList<string> ReadPrBody(string markdown)
+    {
+        var lines = markdown.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var headingIndex = Array.FindIndex(lines, static line => string.Equals(line, "## PR Body", StringComparison.Ordinal));
+        if (headingIndex < 0)
+        {
+            return [];
+        }
+
+        return lines
+            .Skip(headingIndex + 1)
+            .Select(static line => line.TrimEnd())
+            .Where(static line => !string.IsNullOrWhiteSpace(line) && line.Trim() != "...")
+            .ToArray();
+    }
 }
 
 internal static class StructuredPhaseArtifactJson

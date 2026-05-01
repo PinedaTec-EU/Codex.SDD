@@ -402,7 +402,10 @@ public sealed class DeterministicPhaseExecutionProvider : IPhaseExecutionProvide
     private static Task<string> ComposePrPreparationAsync(
         PhaseExecutionContext context,
         CancellationToken cancellationToken)
-        => Task.FromResult(PrPreparationArtifactJson.Serialize(PrPreparationArtifactFactory.Compose(context)));
+        => Task.FromResult(PrPreparationArtifactJson.RenderMarkdown(
+            PrPreparationArtifactFactory.Compose(context),
+            context.UsId,
+            version: 1));
 
     private static string GetRequiredPath(PhaseExecutionContext context, PhaseId phaseId)
     {

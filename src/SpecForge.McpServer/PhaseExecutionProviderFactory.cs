@@ -69,7 +69,7 @@ internal static class PhaseExecutionProviderFactory
         var autoRefinementAnswersProfile = Environment.GetEnvironmentVariable(AutoRefinementAnswersProfileEnvVar)
             ?? Environment.GetEnvironmentVariable(LegacyAutoRefinementAnswersProfileEnvVar);
         var systemPrompt = Environment.GetEnvironmentVariable(SystemPromptEnvVar) ??
-                           "You generate SpecForge workflow phase artifacts. Follow the phase-specific output contract exactly, returning Markdown for Markdown phases and JSON only when a response schema is supplied.";
+                           "You generate SpecForge workflow artifacts. Follow the phase-specific Markdown output contract exactly and do not return JSON.";
         var httpClient = new HttpClient
         {
             Timeout = ReadOpenAiTimeout()

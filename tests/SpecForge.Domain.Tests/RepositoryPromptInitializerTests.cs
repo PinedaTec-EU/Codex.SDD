@@ -45,9 +45,9 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.Contains("refinement.execute.system.md", manifestContent);
         Assert.Contains("release-approval.approve.system.md", manifestContent);
         Assert.Contains("internalCalls:", manifestContent);
-        Assert.Contains("Return the response format declared by the caller", sharedSystemPrompt);
-        Assert.Contains("Return only the response format declared by the caller", sharedOutputRulesPrompt);
-        Assert.Contains("Markdown phases", sharedSystemPrompt);
+        Assert.Contains("complete Markdown artifact", sharedSystemPrompt);
+        Assert.Contains("Return only Markdown", sharedOutputRulesPrompt);
+        Assert.Contains("Model-driven workflow phases", sharedSystemPrompt);
         Assert.Contains("implementation evidence", implementationSystemPrompt);
         Assert.Contains("repository evidence, touched files, and validations", implementationPrompt);
         Assert.Contains("implementation evidence is missing, empty", reviewSystemPrompt);
