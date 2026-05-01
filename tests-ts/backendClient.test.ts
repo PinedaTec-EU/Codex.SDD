@@ -45,6 +45,18 @@ test("model response diagnostics expose transport and decoded response text", ()
   });
 });
 
+test("native stdout diagnostics can feed model response preview deltas", () => {
+  const line =
+    "[2026-04-24T14:33:00.0000000+00:00] [provider.native.exec.stdout] provider=claude pid=123 chunk=\"Drafting answer...\"";
+
+  assert.deepEqual(parseModelResponseDiagnosticLine(line), {
+    providerKind: "claude",
+    transport: "cli",
+    mode: "delta",
+    text: "Drafting answer..."
+  });
+});
+
 test("summarizeMcpDiagnosticLine truncates oversized process diagnostics", () => {
   const longCommand = `${"x".repeat(400)}`;
   const line =

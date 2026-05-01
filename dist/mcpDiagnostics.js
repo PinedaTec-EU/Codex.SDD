@@ -60,10 +60,26 @@ function summarizeMcpDiagnosticLine(line) {
 function parseModelResponseDiagnosticLine(line) {
     const withoutTimestamp = line.replace(/^\[[^\]]+\]\s*/, "");
     const tagMatch = withoutTimestamp.match(/^\[(?<tag>[^\]]+)\]\s*(?<message>.*)$/);
-    if (!tagMatch?.groups || tagMatch.groups.tag !== "provider.model.response") {
+    if (!tagMatch?.groups) {
         return null;
     }
+    const tag = tagMatch.groups.tag;
     const message = tagMatch.groups.message ?? "";
+    if (tag === "provider.native.exec.stdout") {
+        const text = decodeLoggedChunk(extractDiagnosticValue(message, "chunk"));
+        if (!text) {
+            return null;
+        }
+        return {
+            providerKind: extractDiagnosticValue(message, "provider") ?? "native",
+            transport: "cli",
+            mode: "delta",
+            text
+        };
+    }
+    if (tag !== "provider.model.response") {
+        return null;
+    }
     const text = decodeLoggedChunk(extractDiagnosticValue(message, "chunk"));
     if (!text) {
         return null;
