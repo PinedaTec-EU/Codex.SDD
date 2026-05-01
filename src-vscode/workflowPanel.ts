@@ -661,7 +661,7 @@ class WorkflowPanelController {
     appendSpecForgeDebugLog(`Workflow '${this.summary.usId}' sendReviewToImplementationAsync requested explorer refresh.`);
     await this.callbacks.refreshExplorer();
     await this.refreshAsync("sendReviewToImplementationAsync");
-    await this.maybeAutoReviewAfterImplementationAsync("review correction");
+    await this.maybeAutoReviewAfterImplementationAsync("review correction", { requireAutoReviewSetting: false });
   }
 
   private async approveReviewAnywayAsync(reason: string): Promise<void> {
@@ -1360,13 +1360,22 @@ class WorkflowPanelController {
     await this.continueCurrentPhaseAsync();
   }
 
-  private async maybeAutoReviewAfterImplementationAsync(trigger: string): Promise<void> {
+  private async maybeAutoReviewAfterImplementationAsync(
+    trigger: string,
+    options: { readonly requireAutoReviewSetting?: boolean } = {}
+  ): Promise<void> {
+    const requireAutoReviewSetting = options.requireAutoReviewSetting ?? true;
     const settings = getSpecForgeSettings();
-    if (!settings.autoReviewEnabled) {
+    if (requireAutoReviewSetting && !settings.autoReviewEnabled) {
       appendSpecForgeDebugLog(
         `Workflow '${this.summary.usId}' did not auto-review after ${trigger} because 'specForge.features.autoReviewEnabled' is false.`
       );
       return;
+    }
+    if (!requireAutoReviewSetting && !settings.autoReviewEnabled) {
+      appendSpecForgeLog(
+        `Workflow '${this.summary.usId}' continuing into review after ${trigger} because the review correction loop was explicitly requested.`
+      );
     }
 
     const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);

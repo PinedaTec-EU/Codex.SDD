@@ -548,7 +548,7 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' sendReviewToImplementationAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("sendReviewToImplementationAsync");
-        await this.maybeAutoReviewAfterImplementationAsync("review correction");
+        await this.maybeAutoReviewAfterImplementationAsync("review correction", { requireAutoReviewSetting: false });
     }
     async approveReviewAnywayAsync(reason) {
         const normalizedReason = reason.trim();
@@ -1042,11 +1042,15 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' accepted one manual extra review pass after reaching the implementation/review loop limit (${settings.maxImplementationReviewCycles}).`);
         await this.continueCurrentPhaseAsync();
     }
-    async maybeAutoReviewAfterImplementationAsync(trigger) {
+    async maybeAutoReviewAfterImplementationAsync(trigger, options = {}) {
+        const requireAutoReviewSetting = options.requireAutoReviewSetting ?? true;
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
-        if (!settings.autoReviewEnabled) {
+        if (requireAutoReviewSetting && !settings.autoReviewEnabled) {
             (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' did not auto-review after ${trigger} because 'specForge.features.autoReviewEnabled' is false.`);
             return;
+        }
+        if (!requireAutoReviewSetting && !settings.autoReviewEnabled) {
+            (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' continuing into review after ${trigger} because the review correction loop was explicitly requested.`);
         }
         const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
         this.lastWorkflow = workflow;
