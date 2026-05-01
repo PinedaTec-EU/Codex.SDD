@@ -358,6 +358,11 @@
           "default": true,
           "description": "When enabled, implementation retries after failed review may persist generalized lessons into local skills or prompt guardrails so future user stories avoid the same class of issue."
         },
+        "specForge.features.reviewLearningSkillPath": {
+          "type": "string",
+          "default": ".codex/skills/sdd-phase-agents/SKILL.md",
+          "description": "Workspace-relative skill path used for local SDD review-learning guardrails when review learning is enabled."
+        },
         "specForge.features.completedUsLockOnCompleted": {
           "type": "boolean",
           "default": false,

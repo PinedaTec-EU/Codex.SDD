@@ -24,6 +24,7 @@ internal static class PhaseExecutionProviderFactory
     private const string AutoRefinementAnswersProfileEnvVar = "SPECFORGE_AUTO_REFINEMENT_ANSWERS_PROFILE";
     private const string LegacyAutoRefinementAnswersProfileEnvVar = "SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE";
     private const string ReviewLearningEnabledEnvVar = "SPECFORGE_REVIEW_LEARNING_ENABLED";
+    private const string ReviewLearningSkillPathEnvVar = "SPECFORGE_REVIEW_LEARNING_SKILL_PATH";
     private const string SystemPromptEnvVar = "SPECFORGE_OPENAI_SYSTEM_PROMPT";
     private const string TimeoutSecondsEnvVar = "SPECFORGE_OPENAI_TIMEOUT_SECONDS";
     private static readonly TimeSpan DefaultOpenAiTimeout = TimeSpan.FromMinutes(10);
@@ -73,6 +74,7 @@ internal static class PhaseExecutionProviderFactory
             Environment.GetEnvironmentVariable(ReviewLearningEnabledEnvVar),
             "false",
             StringComparison.OrdinalIgnoreCase);
+        var reviewLearningSkillPath = Environment.GetEnvironmentVariable(ReviewLearningSkillPathEnvVar);
         var systemPrompt = Environment.GetEnvironmentVariable(SystemPromptEnvVar) ??
                            "You generate SpecForge workflow artifacts. Follow the phase-specific Markdown output contract exactly and do not return JSON.";
         var httpClient = new HttpClient
@@ -86,6 +88,9 @@ internal static class PhaseExecutionProviderFactory
             AutoRefinementAnswersEnabled: autoRefinementAnswersEnabled,
             AutoRefinementAnswersProfile: string.IsNullOrWhiteSpace(autoRefinementAnswersProfile) ? null : autoRefinementAnswersProfile.Trim(),
             ReviewLearningEnabled: reviewLearningEnabled,
+            ReviewLearningSkillPath: string.IsNullOrWhiteSpace(reviewLearningSkillPath)
+                ? ".codex/skills/sdd-phase-agents/SKILL.md"
+                : reviewLearningSkillPath.Trim(),
             ModelProfiles: modelProfiles,
             PhaseModelAssignments: assignments);
         return new OpenAiCompatiblePhaseExecutionProvider(httpClient, options);

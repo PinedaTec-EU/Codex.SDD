@@ -27,5 +27,6 @@ public sealed record OpenAiCompatibleProviderOptions(
     bool AutoRefinementAnswersEnabled = false,
     string? AutoRefinementAnswersProfile = null,
     bool ReviewLearningEnabled = true,
+    string ReviewLearningSkillPath = ".codex/skills/sdd-phase-agents/SKILL.md",
     IReadOnlyList<OpenAiCompatibleModelProfile>? ModelProfiles = null,
     OpenAiCompatiblePhaseModelAssignments? PhaseModelAssignments = null);

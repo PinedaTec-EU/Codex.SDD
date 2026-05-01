@@ -21,6 +21,7 @@ export interface SpecForgeSettings {
   readonly destructiveRewindEnabled: boolean;
   readonly pauseOnFailedReview: boolean;
   readonly reviewLearningEnabled?: boolean;
+  readonly reviewLearningSkillPath?: string | null;
   readonly completedUsLockOnCompleted: boolean;
 }
 
@@ -104,6 +105,8 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
     destructiveRewindEnabled: configuration.get<boolean>("features.destructiveRewindEnabled", false),
     pauseOnFailedReview: configuration.get<boolean>("features.pauseOnFailedReview", false),
     reviewLearningEnabled: configuration.get<boolean>("features.reviewLearningEnabled", true),
+    reviewLearningSkillPath: normalizeUnknownOptional(
+      configuration.get<unknown>("features.reviewLearningSkillPath", ".codex/skills/sdd-phase-agents/SKILL.md")),
     completedUsLockOnCompleted: configuration.get<boolean>("features.completedUsLockOnCompleted", false)
   };
 }
@@ -120,6 +123,8 @@ export function buildBackendEnvironment(settings: SpecForgeSettings): NodeJS.Pro
   env.SPECFORGE_REVIEW_TOLERANCE = settings.reviewTolerance;
   env.SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED = settings.autoRefinementAnswersEnabled ? "true" : "false";
   env.SPECFORGE_REVIEW_LEARNING_ENABLED = settings.reviewLearningEnabled === false ? "false" : "true";
+  env.SPECFORGE_REVIEW_LEARNING_SKILL_PATH =
+    settings.reviewLearningSkillPath ?? ".codex/skills/sdd-phase-agents/SKILL.md";
   env.SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED = settings.completedUsLockOnCompleted ? "true" : "false";
 
   if (settings.autoRefinementAnswersProfile) {
@@ -329,6 +334,7 @@ function buildSettingsDiagnostics(settings: SpecForgeSettings): string {
     `maxImplementationReviewCycles=${settings.maxImplementationReviewCycles ?? "<unset>"}`,
     `pauseOnFailedReview=${settings.pauseOnFailedReview}`,
     `reviewLearningEnabled=${settings.reviewLearningEnabled === false ? false : true}`,
+    `reviewLearningSkillPath=${settings.reviewLearningSkillPath ?? "<unset>"}`,
     `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
     `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,
     `effective.refinement=${settings.effectivePhaseModelAssignments.refinementProfileName ?? "<unset>"}`,

@@ -536,7 +536,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                     .AppendLine("- When the previous review failed, first fix the implementation so the reviewed scope passes.")
                     .AppendLine("- Then decide whether the failed finding reveals a generalized, repository-agnostic lesson that should prevent future user stories from repeating the same issue.")
                     .AppendLine("- Persist only generalized lessons. Never add US IDs, story-specific facts, one-off filenames, or symptoms that only apply to the current change.")
-                    .AppendLine("- For local SDD workflow behavior, update `.codex/skills/sdd-phase-agents/SKILL.md` with a concise guardrail.")
+                    .AppendLine($"- For local SDD workflow behavior, update `{options.ReviewLearningSkillPath}` with a concise guardrail.")
                     .AppendLine("- For phase behavior, prefer updating `.specs/prompts/phases/technical-design.execute.md`, `.specs/prompts/phases/implementation.execute.md`, or `.specs/prompts/phases/review.execute.md` with an agnostic instruction.")
                     .AppendLine("- If the lesson belongs in `../ai-skills-shared`, do not edit it from this repository; record the promotion recommendation in the implementation artifact.")
                     .AppendLine("- If no reusable lesson exists, do not change skills or prompts.");

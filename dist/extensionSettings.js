@@ -38,6 +38,7 @@ function readSpecForgeSettings(configuration) {
         destructiveRewindEnabled: configuration.get("features.destructiveRewindEnabled", false),
         pauseOnFailedReview: configuration.get("features.pauseOnFailedReview", false),
         reviewLearningEnabled: configuration.get("features.reviewLearningEnabled", true),
+        reviewLearningSkillPath: normalizeUnknownOptional(configuration.get("features.reviewLearningSkillPath", ".codex/skills/sdd-phase-agents/SKILL.md")),
         completedUsLockOnCompleted: configuration.get("features.completedUsLockOnCompleted", false)
     };
 }
@@ -51,6 +52,8 @@ function buildBackendEnvironment(settings) {
     env.SPECFORGE_REVIEW_TOLERANCE = settings.reviewTolerance;
     env.SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED = settings.autoRefinementAnswersEnabled ? "true" : "false";
     env.SPECFORGE_REVIEW_LEARNING_ENABLED = settings.reviewLearningEnabled === false ? "false" : "true";
+    env.SPECFORGE_REVIEW_LEARNING_SKILL_PATH =
+        settings.reviewLearningSkillPath ?? ".codex/skills/sdd-phase-agents/SKILL.md";
     env.SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED = settings.completedUsLockOnCompleted ? "true" : "false";
     if (settings.autoRefinementAnswersProfile) {
         env.SPECFORGE_AUTO_REFINEMENT_ANSWERS_PROFILE = settings.autoRefinementAnswersProfile;
@@ -223,6 +226,7 @@ function buildSettingsDiagnostics(settings) {
         `maxImplementationReviewCycles=${settings.maxImplementationReviewCycles ?? "<unset>"}`,
         `pauseOnFailedReview=${settings.pauseOnFailedReview}`,
         `reviewLearningEnabled=${settings.reviewLearningEnabled === false ? false : true}`,
+        `reviewLearningSkillPath=${settings.reviewLearningSkillPath ?? "<unset>"}`,
         `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
         `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,
         `effective.refinement=${settings.effectivePhaseModelAssignments.refinementProfileName ?? "<unset>"}`,

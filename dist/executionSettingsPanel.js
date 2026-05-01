@@ -78,7 +78,7 @@ class ExecutionSettingsPanelController {
                     return;
                 case "saveExecutionSettings":
                     try {
-                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.refinementTolerance ?? "balanced", message.reviewTolerance ?? "balanced", message.watcherEnabled ?? true, message.attentionNotificationsEnabled ?? true, message.contextSuggestionsEnabled ?? true, message.workflowGraphLayoutMode ?? "vertical", message.workflowGraphInitialZoomMode ?? "actual-size", message.visualTimelineEnabled ?? false, message.requireExplicitApprovalBranchAcceptance ?? false, message.autoRefinementAnswersEnabled ?? false, message.autoRefinementAnswersProfile, message.autoPlayEnabled ?? false, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.destructiveRewindEnabled ?? false, message.pauseOnFailedReview ?? false, message.reviewLearningEnabled ?? true, message.completedUsLockOnCompleted ?? true);
+                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.refinementTolerance ?? "balanced", message.reviewTolerance ?? "balanced", message.watcherEnabled ?? true, message.attentionNotificationsEnabled ?? true, message.contextSuggestionsEnabled ?? true, message.workflowGraphLayoutMode ?? "vertical", message.workflowGraphInitialZoomMode ?? "actual-size", message.visualTimelineEnabled ?? false, message.requireExplicitApprovalBranchAcceptance ?? false, message.autoRefinementAnswersEnabled ?? false, message.autoRefinementAnswersProfile, message.autoPlayEnabled ?? false, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.destructiveRewindEnabled ?? false, message.pauseOnFailedReview ?? false, message.reviewLearningEnabled ?? true, message.reviewLearningSkillPath, message.completedUsLockOnCompleted ?? true);
                         await this.onDidSave();
                         await this.refreshAsync();
                     }
@@ -115,6 +115,7 @@ class ExecutionSettingsPanelController {
             destructiveRewindEnabled: settings.destructiveRewindEnabled,
             pauseOnFailedReview: settings.pauseOnFailedReview,
             reviewLearningEnabled: settings.reviewLearningEnabled !== false,
+            reviewLearningSkillPath: settings.reviewLearningSkillPath ?? ".codex/skills/sdd-phase-agents/SKILL.md",
             completedUsLockOnCompleted: settings.completedUsLockOnCompleted,
             typographyCssVars: (0, webviewTypography_1.getEditorTypographyCssVars)()
         });
@@ -608,6 +609,11 @@ function buildExecutionSettingsHtml(model) {
           </select>
           <span class="phase-field__hint">Allow failed-review retries to persist generalized guardrails into local skills or phase prompts.</span>
         </label>
+        <label class="phase-field">
+          <span>Review learning skill path</span>
+          <input type="text" data-review-learning-skill-path value="${(0, htmlEscape_1.escapeHtmlAttr)(model.reviewLearningSkillPath)}" placeholder=".codex/skills/sdd-phase-agents/SKILL.md" />
+          <span class="phase-field__hint">Workspace-relative skill path updated when a reusable local SDD guardrail is found.</span>
+        </label>
       </div>
       <div class="section-header">
         <div>
@@ -719,6 +725,7 @@ function buildExecutionSettingsHtml(model) {
       destructiveRewindEnabled: ${JSON.stringify(model.destructiveRewindEnabled)},
       pauseOnFailedReview: ${JSON.stringify(model.pauseOnFailedReview)},
       reviewLearningEnabled: ${JSON.stringify(model.reviewLearningEnabled)},
+      reviewLearningSkillPath: ${JSON.stringify(model.reviewLearningSkillPath)},
       completedUsLockOnCompleted: ${JSON.stringify(model.completedUsLockOnCompleted)},
       initialPermissionIssues: ${JSON.stringify(permissionIssues)},
       expandedProfileIndexes: ${JSON.stringify(model.modelProfiles.map((_, index) => index === 0))},
@@ -856,6 +863,7 @@ function buildExecutionSettingsHtml(model) {
       const destructiveRewindEnabled = document.querySelector("[data-destructive-rewind-enabled]");
       const pauseOnFailedReview = document.querySelector("[data-pause-on-failed-review]");
       const reviewLearningEnabled = document.querySelector("[data-review-learning-enabled]");
+      const reviewLearningSkillPath = document.querySelector("[data-review-learning-skill-path]");
       const completedUsLockOnCompleted = document.querySelector("[data-completed-us-lock-on-completed]");
       const saveButton = document.querySelector('button[type="submit"]');
       const saveError = document.querySelector("[data-save-error]");
@@ -1032,6 +1040,17 @@ function buildExecutionSettingsHtml(model) {
         reviewLearningEnabled.value = state.reviewLearningEnabled ? "true" : "false";
         reviewLearningEnabled.addEventListener("change", () => {
           state.reviewLearningEnabled = reviewLearningEnabled.value === "true";
+        });
+      }
+
+      if (reviewLearningSkillPath instanceof HTMLInputElement) {
+        reviewLearningSkillPath.value = state.reviewLearningSkillPath || ".codex/skills/sdd-phase-agents/SKILL.md";
+        reviewLearningSkillPath.addEventListener("input", () => {
+          state.reviewLearningSkillPath = reviewLearningSkillPath.value;
+        });
+        reviewLearningSkillPath.addEventListener("change", () => {
+          state.reviewLearningSkillPath = reviewLearningSkillPath.value.trim() || ".codex/skills/sdd-phase-agents/SKILL.md";
+          reviewLearningSkillPath.value = state.reviewLearningSkillPath;
         });
       }
 
@@ -1294,6 +1313,7 @@ function buildExecutionSettingsHtml(model) {
         destructiveRewindEnabled: state.destructiveRewindEnabled,
         pauseOnFailedReview: state.pauseOnFailedReview,
         reviewLearningEnabled: state.reviewLearningEnabled,
+        reviewLearningSkillPath: state.reviewLearningSkillPath,
         completedUsLockOnCompleted: state.completedUsLockOnCompleted
       });
     });
@@ -1303,7 +1323,7 @@ function buildExecutionSettingsHtml(model) {
 </body>
 </html>`;
 }
-async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, refinementTolerance = "balanced", reviewTolerance = "balanced", watcherEnabled = true, attentionNotificationsEnabled = true, contextSuggestionsEnabled = true, workflowGraphLayoutMode = "vertical", workflowGraphInitialZoomMode = "actual-size", visualTimelineEnabled = false, requireExplicitApprovalBranchAcceptance = false, autoRefinementAnswersEnabled = false, autoRefinementAnswersProfile, autoPlayEnabled = false, autoReviewEnabled = false, maxImplementationReviewCycles, destructiveRewindEnabled = false, pauseOnFailedReview = false, reviewLearningEnabled = true, completedUsLockOnCompleted = false) {
+async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, refinementTolerance = "balanced", reviewTolerance = "balanced", watcherEnabled = true, attentionNotificationsEnabled = true, contextSuggestionsEnabled = true, workflowGraphLayoutMode = "vertical", workflowGraphInitialZoomMode = "actual-size", visualTimelineEnabled = false, requireExplicitApprovalBranchAcceptance = false, autoRefinementAnswersEnabled = false, autoRefinementAnswersProfile, autoPlayEnabled = false, autoReviewEnabled = false, maxImplementationReviewCycles, destructiveRewindEnabled = false, pauseOnFailedReview = false, reviewLearningEnabled = true, reviewLearningSkillPath, completedUsLockOnCompleted = false) {
     const configuration = vscode.workspace.getConfiguration("specForge");
     const normalizedProfiles = modelProfiles
         .map((profile) => ({
@@ -1362,6 +1382,7 @@ async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, 
     await configuration.update("features.destructiveRewindEnabled", destructiveRewindEnabled, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.pauseOnFailedReview", pauseOnFailedReview, vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.reviewLearningEnabled", reviewLearningEnabled, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("features.reviewLearningSkillPath", normalizeOptionalAssignment(reviewLearningSkillPath) ?? ".codex/skills/sdd-phase-agents/SKILL.md", vscode.ConfigurationTarget.Workspace);
     await configuration.update("features.completedUsLockOnCompleted", completedUsLockOnCompleted, vscode.ConfigurationTarget.Workspace);
     await configuration.update("ui.workflowGraphLayoutMode", undefined, vscode.ConfigurationTarget.Workspace);
     await configuration.update("ui.workflowGraphInitialZoomMode", undefined, vscode.ConfigurationTarget.Workspace);

@@ -379,6 +379,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var userPrompt = OpenAiCompatibleRequestJson.ReadUserPrompt(handler.LastBody);
         Assert.Contains($"Review learning enabled: `{reviewLearningEnabled.ToString().ToLowerInvariant()}`", userPrompt);
         Assert.Contains(expectedPolicy, userPrompt);
+        if (reviewLearningEnabled)
+        {
+            Assert.Contains("`.codex/skills/sdd-phase-agents/SKILL.md`", userPrompt);
+        }
     }
 
     [Fact]
@@ -1228,7 +1232,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         string providerKind = "openai-compatible",
         bool autoRefinementAnswersEnabled = false,
         string? autoRefinementAnswersProfile = null,
-        bool reviewLearningEnabled = true)
+        bool reviewLearningEnabled = true,
+        string reviewLearningSkillPath = ".codex/skills/sdd-phase-agents/SKILL.md")
     {
         return new OpenAiCompatibleProviderOptions(
             RefinementTolerance: refinementTolerance,
@@ -1236,6 +1241,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             AutoRefinementAnswersEnabled: autoRefinementAnswersEnabled,
             AutoRefinementAnswersProfile: autoRefinementAnswersProfile,
             ReviewLearningEnabled: reviewLearningEnabled,
+            ReviewLearningSkillPath: reviewLearningSkillPath,
             ModelProfiles:
             [
                 new OpenAiCompatibleModelProfile(
