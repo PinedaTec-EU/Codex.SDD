@@ -94,6 +94,46 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_LogsBufferedStreamingPreviewDeltas()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        using var stderr = new StringWriter();
+        var originalStderr = Console.Error;
+        Console.SetError(stderr);
+
+        try
+        {
+            var handler = new StreamingFakeHttpMessageHandler([
+                "#",
+                " buffered ",
+                new string('x', 80)
+            ]);
+            var provider = new OpenAiCompatiblePhaseExecutionProvider(
+                new HttpClient(handler),
+                CreateOptions(
+                    model: "llama3.1",
+                    apiKey: "ollama-local"));
+            var context = new PhaseExecutionContext(
+                WorkspaceRoot: workspaceRoot,
+                UsId: "US-0001",
+                PhaseId: PhaseId.Spec,
+                UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+                PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+                ContextFilePaths: []);
+
+            await provider.ExecuteAsync(context);
+        }
+        finally
+        {
+            Console.SetError(originalStderr);
+        }
+
+        var diagnostics = stderr.ToString();
+        Assert.Contains("mode=delta chunk=\"#\"", diagnostics);
+        Assert.Contains($"mode=delta chunk=\" buffered {new string('x', 80)}\"", diagnostics);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_SendsReasoningEffortForHttpProfiles()
     {
         await PrepareInitializedWorkspaceAsync();

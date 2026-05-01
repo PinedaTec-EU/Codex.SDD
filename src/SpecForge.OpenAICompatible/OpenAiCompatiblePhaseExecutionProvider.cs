@@ -356,6 +356,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         TokenUsage? usage = null;
         var lastPreviewAtUtc = DateTimeOffset.MinValue;
         var previewCharsSinceLastLog = 0;
+        var previewBuffer = new StringBuilder();
 
         while (true)
         {
@@ -390,6 +391,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             }
 
             content.Append(delta);
+            previewBuffer.Append(delta);
             previewCharsSinceLastLog += delta.Length;
             var now = DateTimeOffset.UtcNow;
             if (previewCharsSinceLastLog >= 80 || now - lastPreviewAtUtc >= TimeSpan.FromSeconds(1))
@@ -400,7 +402,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                     modelSelection.Model,
                     "http",
                     "delta",
-                    delta);
+                    previewBuffer.ToString());
+                previewBuffer.Clear();
                 previewCharsSinceLastLog = 0;
                 lastPreviewAtUtc = now;
             }
@@ -1673,12 +1676,27 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private static string FormatProcessOutputForLog(string? value)
     {
+        return FormatProcessOutputForLog(value, trimWhitespace: true);
+    }
+
+    private static string FormatModelResponseForLog(string? value)
+    {
+        return FormatProcessOutputForLog(value, trimWhitespace: false);
+    }
+
+    private static string FormatProcessOutputForLog(string? value, bool trimWhitespace)
+    {
         if (string.IsNullOrWhiteSpace(value))
         {
             return "\"\"";
         }
 
-        var normalized = value.ReplaceLineEndings("\\n").Trim();
+        var normalized = value.ReplaceLineEndings("\\n");
+        if (trimWhitespace)
+        {
+            normalized = normalized.Trim();
+        }
+
         if (normalized.Length > 320)
         {
             normalized = $"{normalized[..320]}...";
@@ -1703,7 +1721,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
 
         SpecForgeDiagnostics.Log(
-            $"[provider.model.response] provider={providerKind} profile={profileName ?? "default"} model={model} transport={transport} mode={mode} chunk={FormatProcessOutputForLog(response)}");
+            $"[provider.model.response] provider={providerKind} profile={profileName ?? "default"} model={model} transport={transport} mode={mode} chunk={FormatModelResponseForLog(response)}");
     }
 
     private sealed record GitStatusSnapshotEntry(string StatusLine, string Fingerprint);
