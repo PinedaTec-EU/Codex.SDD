@@ -4008,7 +4008,9 @@ test("buildWorkflowHtml marks a phase blocked when its model security precheck f
   }, "idle");
 
   assert.match(html, /phase-node implementation phase-tone-blocked selected/);
-  assert.match(html, /<h3>Phase Security<\/h3>/);
+  assert.match(html, /<details class="detail-card detail-card--phase-security detail-card--collapsible">/);
+  assert.doesNotMatch(html, /<details class="detail-card detail-card--phase-security detail-card--collapsible" open>/);
+  assert.ok(html.indexOf("<h3>Phase Prompts</h3>") < html.indexOf("<h3>Phase Security</h3>"));
   assert.match(html, /required read-write/);
   assert.match(html, /assigned read/);
   assert.match(html, /Phase permission precheck failed because the assigned model only has repository access &#39;read&#39; but phase &#39;Implementation&#39; requires &#39;read-write&#39;/);

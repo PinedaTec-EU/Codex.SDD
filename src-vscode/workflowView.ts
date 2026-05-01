@@ -840,19 +840,28 @@ function buildPhaseSecuritySummary(readiness: PhaseExecutionReadiness | null | u
     : "Phase security precheck failed.";
 
   return `
-    <section class="detail-card detail-card--phase-security">
-      <h3>Phase Security</h3>
-      <div class="detail-meta">
-        <span class="token token--${escapeHtmlAttribute(tone)}">${escapeHtml(headline)}</span>
-        <span class="token">required ${escapeHtml(requiredAccess)}</span>
-        <span class="token">assigned ${escapeHtml(effectiveAccess)}</span>
-        <span class="token">${escapeHtml(provider)}</span>
-        <span class="token">${escapeHtml(profile)}</span>
-        <span class="token">${escapeHtml(model)}</span>
-        <span class="token">${escapeHtml(nativeCliState)}</span>
+    <details class="detail-card detail-card--phase-security detail-card--collapsible">
+      <summary class="detail-card__summary">
+        <div class="detail-card__header">
+          <h3>Phase Security</h3>
+          <span class="iteration-rail-toggle detail-card__summary-toggle" aria-hidden="true">
+            ${renderChevronIcon("iteration-rail-toggle__icon detail-card__summary-toggle-icon")}
+          </span>
+        </div>
+      </summary>
+      <div class="detail-card__body detail-card__body--phase-security">
+        <div class="detail-meta">
+          <span class="token token--${escapeHtmlAttribute(tone)}">${escapeHtml(headline)}</span>
+          <span class="token">required ${escapeHtml(requiredAccess)}</span>
+          <span class="token">assigned ${escapeHtml(effectiveAccess)}</span>
+          <span class="token">${escapeHtml(provider)}</span>
+          <span class="token">${escapeHtml(profile)}</span>
+          <span class="token">${escapeHtml(model)}</span>
+          <span class="token">${escapeHtml(nativeCliState)}</span>
+        </div>
+        ${readiness.validationMessage ? `<p class="panel-copy">${escapeHtml(readiness.validationMessage)}</p>` : ""}
       </div>
-      ${readiness.validationMessage ? `<p class="panel-copy">${escapeHtml(readiness.validationMessage)}</p>` : ""}
-    </section>
+    </details>
   `;
 }
 
@@ -4456,6 +4465,9 @@ export function buildWorkflowHtml(
     .detail-card__body--phase-overview {
       padding: 0 18px 18px;
     }
+    .detail-card__body--phase-security {
+      padding: 0 18px 18px;
+    }
     .detail-card--collapsible .review-regression {
       padding: 0 18px 18px;
     }
@@ -6071,7 +6083,6 @@ export function buildWorkflowHtml(
           ${workflowUsageDashboard}
           ${modelUsageTable}
           ${phaseUsageTable}
-          ${buildPhaseSecuritySummary(selectedPhase.executionReadiness)}
           ${regularBeforeArtifactSections}
           ${iterationRail}
           ${iterationDetailSection}
@@ -6084,6 +6095,7 @@ export function buildWorkflowHtml(
             <h3>Phase Prompts</h3>
             ${promptSection}
           </section>
+          ${buildPhaseSecuritySummary(selectedPhase.executionReadiness)}
         </main>
         </div>
       </section>
