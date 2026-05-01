@@ -190,7 +190,7 @@ class WorkflowPanelController {
     });
 
     this.modelResponseUnsubscribe = onModelResponseDiagnostic((diagnostic) => {
-      this.handleModelResponseDiagnostic(diagnostic.text, diagnostic.providerKind, diagnostic.transport);
+      this.handleModelResponseDiagnostic(diagnostic.text, diagnostic.providerKind, diagnostic.transport, diagnostic.mode);
     });
   }
 
@@ -209,21 +209,33 @@ class WorkflowPanelController {
     this.panel.dispose();
   }
 
-  private handleModelResponseDiagnostic(text: string, providerKind: string, transport: string): void {
+  private handleModelResponseDiagnostic(
+    text: string,
+    providerKind: string,
+    transport: string,
+    mode: "delta" | "complete"
+  ): void {
     if (this.playbackState !== "playing" && this.playbackState !== "stopping") {
       return;
     }
 
-    const normalizedText = text.replace(/\s+/g, " ").trim();
-    if (!normalizedText) {
+    const normalizedText = mode === "delta"
+      ? text.replace(/\s+/g, " ")
+      : text.replace(/\s+/g, " ").trim();
+    if (!normalizedText.trim()) {
       return;
     }
 
-    this.executionModelResponse = normalizedText.length > 900
-      ? `${normalizedText.slice(0, 900)}...`
-      : normalizedText;
+    const nextText = mode === "delta"
+      ? `${this.executionModelResponse ?? ""}${normalizedText}`
+      : this.executionModelResponse && normalizedText.endsWith("...") && normalizedText.length <= this.executionModelResponse.length
+        ? this.executionModelResponse
+        : normalizedText;
+    this.executionModelResponse = nextText.length > 900
+      ? `${nextText.slice(0, 900)}...`
+      : nextText;
     appendSpecForgeDebugLog(
-      `Workflow '${this.summary.usId}' received ${transport} model response preview from '${providerKind}' (${this.executionModelResponse.length} chars).`
+      `Workflow '${this.summary.usId}' received ${transport} model response ${mode} from '${providerKind}' (${this.executionModelResponse.length} chars).`
     );
     void this.panel.webview.postMessage({
       command: "modelResponsePreview",

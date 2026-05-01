@@ -152,7 +152,7 @@ class WorkflowPanelController {
             }
         });
         this.modelResponseUnsubscribe = (0, backendClient_1.onModelResponseDiagnostic)((diagnostic) => {
-            this.handleModelResponseDiagnostic(diagnostic.text, diagnostic.providerKind, diagnostic.transport);
+            this.handleModelResponseDiagnostic(diagnostic.text, diagnostic.providerKind, diagnostic.transport, diagnostic.mode);
         });
     }
     get key() {
@@ -167,18 +167,25 @@ class WorkflowPanelController {
     dispose() {
         this.panel.dispose();
     }
-    handleModelResponseDiagnostic(text, providerKind, transport) {
+    handleModelResponseDiagnostic(text, providerKind, transport, mode) {
         if (this.playbackState !== "playing" && this.playbackState !== "stopping") {
             return;
         }
-        const normalizedText = text.replace(/\s+/g, " ").trim();
-        if (!normalizedText) {
+        const normalizedText = mode === "delta"
+            ? text.replace(/\s+/g, " ")
+            : text.replace(/\s+/g, " ").trim();
+        if (!normalizedText.trim()) {
             return;
         }
-        this.executionModelResponse = normalizedText.length > 900
-            ? `${normalizedText.slice(0, 900)}...`
-            : normalizedText;
-        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' received ${transport} model response preview from '${providerKind}' (${this.executionModelResponse.length} chars).`);
+        const nextText = mode === "delta"
+            ? `${this.executionModelResponse ?? ""}${normalizedText}`
+            : this.executionModelResponse && normalizedText.endsWith("...") && normalizedText.length <= this.executionModelResponse.length
+                ? this.executionModelResponse
+                : normalizedText;
+        this.executionModelResponse = nextText.length > 900
+            ? `${nextText.slice(0, 900)}...`
+            : nextText;
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' received ${transport} model response ${mode} from '${providerKind}' (${this.executionModelResponse.length} chars).`);
         void this.panel.webview.postMessage({
             command: "modelResponsePreview",
             text: this.executionModelResponse,

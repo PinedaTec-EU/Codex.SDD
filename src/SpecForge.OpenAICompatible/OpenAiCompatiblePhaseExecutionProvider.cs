@@ -284,7 +284,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             ["model"] = modelSelection.Model,
             ["messages"] = messages,
             ["temperature"] = temperature,
-            ["reasoning_effort"] = modelSelection.ReasoningEffort
+            ["reasoning_effort"] = modelSelection.ReasoningEffort,
+            ["stream"] = true
         };
 
         return JsonSerializer.Serialize(requestBody);
@@ -305,28 +306,142 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var endpoint = $"{modelSelection.BaseUrl.TrimEnd('/')}/chat/completions";
         var requestBody = BuildRequestBody(modelSelection, systemPrompt, userPrompt, temperature);
         var request = BuildRequest(modelSelection, requestBody, endpoint);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
+        using var response = await httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
         SpecForgeDiagnostics.Log(
             $"[provider.http] response received status={(int)response.StatusCode} model={modelSelection.Model}");
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
+            var errorPayload = await response.Content.ReadAsStringAsync(cancellationToken);
             diagnostics.MarkFailed(new InvalidOperationException(
-                $"OpenAI-compatible provider call failed with status {(int)response.StatusCode}: {payload}"));
+                $"OpenAI-compatible provider call failed with status {(int)response.StatusCode}: {errorPayload}"));
             throw new InvalidOperationException(
-                $"OpenAI-compatible provider call failed with status {(int)response.StatusCode}: {payload}");
+                $"OpenAI-compatible provider call failed with status {(int)response.StatusCode}: {errorPayload}");
         }
 
+        var mediaType = response.Content.Headers.ContentType?.MediaType;
+        if (string.Equals(mediaType, "text/event-stream", StringComparison.OrdinalIgnoreCase))
+        {
+            var (streamedContent, streamedUsage) = await ReadStreamingChatCompletionAsync(
+                response,
+                modelSelection,
+                cancellationToken);
+            diagnostics.MarkCompleted($"contentChars={streamedContent.Length} streamed=true");
+            return (streamedContent, streamedUsage, ComputeSha256(requestBody), ComputeSha256(streamedContent));
+        }
+
+        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
         using var document = JsonDocument.Parse(payload);
         var content = document.RootElement
             .GetProperty("choices")[0]
             .GetProperty("message")
             .GetProperty("content")
             .GetString();
-        LogModelResponse(modelSelection.ProviderKind, modelSelection.ProfileName, modelSelection.Model, "http", content);
+        LogModelResponse(modelSelection.ProviderKind, modelSelection.ProfileName, modelSelection.Model, "http", "complete", content);
         diagnostics.MarkCompleted($"payloadChars={payload.Length} contentChars={(content ?? string.Empty).Length}");
         return (content ?? string.Empty, TryReadUsage(document.RootElement), ComputeSha256(requestBody), ComputeSha256(content));
+    }
+
+    private static async Task<(string Content, TokenUsage? Usage)> ReadStreamingChatCompletionAsync(
+        HttpResponseMessage response,
+        ResolvedModelSelection modelSelection,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+        var content = new StringBuilder();
+        TokenUsage? usage = null;
+        var lastPreviewAtUtc = DateTimeOffset.MinValue;
+        var previewCharsSinceLastLog = 0;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var line = await reader.ReadLineAsync(cancellationToken);
+            if (line is null)
+            {
+                break;
+            }
+
+            if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var data = line["data:".Length..].Trim();
+            if (string.Equals(data, "[DONE]", StringComparison.Ordinal))
+            {
+                break;
+            }
+
+            using var document = JsonDocument.Parse(data);
+            if (TryReadUsage(document.RootElement) is { } streamedUsage)
+            {
+                usage = streamedUsage;
+            }
+
+            var delta = TryReadStreamingContentDelta(document.RootElement);
+            if (string.IsNullOrEmpty(delta))
+            {
+                continue;
+            }
+
+            content.Append(delta);
+            previewCharsSinceLastLog += delta.Length;
+            var now = DateTimeOffset.UtcNow;
+            if (previewCharsSinceLastLog >= 80 || now - lastPreviewAtUtc >= TimeSpan.FromSeconds(1))
+            {
+                LogModelResponse(
+                    modelSelection.ProviderKind,
+                    modelSelection.ProfileName,
+                    modelSelection.Model,
+                    "http",
+                    "delta",
+                    delta);
+                previewCharsSinceLastLog = 0;
+                lastPreviewAtUtc = now;
+            }
+        }
+
+        var finalContent = content.ToString();
+        LogModelResponse(
+            modelSelection.ProviderKind,
+            modelSelection.ProfileName,
+            modelSelection.Model,
+            "http",
+            "complete",
+            finalContent);
+        return (finalContent, usage);
+    }
+
+    private static string? TryReadStreamingContentDelta(JsonElement root)
+    {
+        if (!root.TryGetProperty("choices", out var choices) ||
+            choices.ValueKind != JsonValueKind.Array ||
+            choices.GetArrayLength() == 0)
+        {
+            return null;
+        }
+
+        var choice = choices[0];
+        if (choice.TryGetProperty("delta", out var delta) &&
+            delta.TryGetProperty("content", out var deltaContent) &&
+            deltaContent.ValueKind == JsonValueKind.String)
+        {
+            return deltaContent.GetString();
+        }
+
+        if (choice.TryGetProperty("message", out var message) &&
+            message.TryGetProperty("content", out var messageContent) &&
+            messageContent.ValueKind == JsonValueKind.String)
+        {
+            return messageContent.GetString();
+        }
+
+        return null;
     }
 
     private async Task<EffectivePrompt> BuildEffectivePromptAsync(
@@ -936,6 +1051,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             modelSelection.ProfileName,
             string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
             "cli",
+            "complete",
             response);
         diagnostics.MarkCompleted($"responseChars={response.Length}");
         return response;
@@ -1576,17 +1692,18 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         string? profileName,
         string model,
         string transport,
+        string mode,
         string? response)
     {
         if (string.IsNullOrWhiteSpace(response))
         {
             SpecForgeDiagnostics.Log(
-                $"[provider.model.response] provider={providerKind} profile={profileName ?? "default"} model={model} transport={transport} chunk=\"\"");
+                $"[provider.model.response] provider={providerKind} profile={profileName ?? "default"} model={model} transport={transport} mode={mode} chunk=\"\"");
             return;
         }
 
         SpecForgeDiagnostics.Log(
-            $"[provider.model.response] provider={providerKind} profile={profileName ?? "default"} model={model} transport={transport} chunk={FormatProcessOutputForLog(response)}");
+            $"[provider.model.response] provider={providerKind} profile={profileName ?? "default"} model={model} transport={transport} mode={mode} chunk={FormatProcessOutputForLog(response)}");
     }
 
     private sealed record GitStatusSnapshotEntry(string StatusLine, string Fingerprint);

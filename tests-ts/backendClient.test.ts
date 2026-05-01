@@ -31,15 +31,16 @@ test("summarizeMcpDiagnosticLine ignores non-native diagnostics", () => {
 
 test("model response diagnostics expose transport and decoded response text", () => {
   const line =
-    "[2026-04-24T14:33:00.0000000+00:00] [provider.model.response] provider=codex profile=main model=gpt-5 transport=cli chunk=\"## Spec\\nGenerated response\"";
+    "[2026-04-24T14:33:00.0000000+00:00] [provider.model.response] provider=codex profile=main model=gpt-5 transport=cli mode=delta chunk=\"## Spec\\nGenerated response\"";
 
   assert.equal(
     summarizeMcpDiagnosticLine(line),
-    "codex cli response: ## Spec\nGenerated response"
+    "codex cli delta response: ## Spec\nGenerated response"
   );
   assert.deepEqual(parseModelResponseDiagnosticLine(line), {
     providerKind: "codex",
     transport: "cli",
+    mode: "delta",
     text: "## Spec\nGenerated response"
   });
 });

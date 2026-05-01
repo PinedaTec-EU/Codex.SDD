@@ -57,11 +57,40 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("Bearer", handler.LastRequest.Headers.Authorization?.Scheme);
         Assert.Equal("ollama-local", handler.LastRequest.Headers.Authorization?.Parameter);
         Assert.Contains("\"model\":\"llama3.1\"", handler.LastBody);
+        Assert.Contains("\"stream\":true", handler.LastBody);
         Assert.Equal(0.2d, OpenAiCompatibleRequestJson.ReadTemperature(handler.LastBody));
         Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(handler.LastBody));
         Assert.Contains("Role: spec analyst.", handler.LastBody);
         Assert.Contains("Initial text", handler.LastBody);
         Assert.Contains("This is the system prompt for the spec execute template.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ReadsStreamingOpenAiCompatibleDeltas()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var handler = new StreamingFakeHttpMessageHandler([
+            "# Spec · US-0001 · v01\n",
+            "\n## Spec Summary\nGenerated from streaming deltas."
+        ]);
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            CreateOptions(
+                model: "llama3.1",
+                apiKey: "ollama-local"));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Spec,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        var result = await provider.ExecuteAsync(context);
+
+        Assert.Contains("# Spec · US-0001 · v01", result.Content);
+        Assert.Contains("Generated from streaming deltas.", result.Content);
+        Assert.Contains("\"stream\":true", handler.LastBody);
     }
 
     [Fact]
@@ -1298,6 +1327,51 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            };
+        }
+    }
+
+    private sealed class StreamingFakeHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly IReadOnlyList<string> chunks;
+
+        public StreamingFakeHttpMessageHandler(IReadOnlyList<string> chunks)
+        {
+            this.chunks = chunks;
+        }
+
+        public string LastBody { get; private set; } = string.Empty;
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            LastBody = await request.Content!.ReadAsStringAsync(cancellationToken);
+            var builder = new StringBuilder();
+            foreach (var chunk in chunks)
+            {
+                builder
+                    .Append("data: ")
+                    .Append(JsonSerializer.Serialize(new
+                    {
+                        choices = new[]
+                        {
+                            new
+                            {
+                                delta = new
+                                {
+                                    content = chunk
+                                }
+                            }
+                        }
+                    }))
+                    .AppendLine()
+                    .AppendLine();
+            }
+
+            builder.AppendLine("data: [DONE]");
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(builder.ToString(), Encoding.UTF8, "text/event-stream")
             };
         }
     }

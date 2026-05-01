@@ -1,6 +1,7 @@
 export interface ModelResponseDiagnostic {
   readonly providerKind: string;
   readonly transport: string;
+  readonly mode: "delta" | "complete";
   readonly text: string;
 }
 
@@ -16,8 +17,9 @@ export function summarizeMcpDiagnosticLine(line: string): string | null {
   if (tag === "provider.model.response") {
     const provider = extractDiagnosticValue(message, "provider") ?? "model";
     const transport = extractDiagnosticValue(message, "transport") ?? "unknown";
+    const mode = extractDiagnosticValue(message, "mode") ?? "complete";
     const chunk = decodeLoggedChunk(extractDiagnosticValue(message, "chunk"));
-    return `${provider} ${transport} response: ${truncateDiagnosticMessage(chunk ?? "")}`;
+    return `${provider} ${transport} ${mode} response: ${truncateDiagnosticMessage(chunk ?? "")}`;
   }
 
   if (!tag.startsWith("provider.native")) {
@@ -84,8 +86,13 @@ export function parseModelResponseDiagnosticLine(line: string): ModelResponseDia
   return {
     providerKind: extractDiagnosticValue(message, "provider") ?? "model",
     transport: extractDiagnosticValue(message, "transport") ?? "unknown",
+    mode: extractModelResponseMode(extractDiagnosticValue(message, "mode")),
     text
   };
+}
+
+function extractModelResponseMode(value: string | null): "delta" | "complete" {
+  return value === "delta" ? "delta" : "complete";
 }
 
 function extractDiagnosticValue(message: string, key: string): string | null {
