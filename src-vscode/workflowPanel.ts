@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
-import type { SpecForgeBackendClient, UserStorySummary, UserStoryWorkflowDetails } from "./backendClient";
+import { onModelResponseDiagnostic, type SpecForgeBackendClient, type UserStorySummary, type UserStoryWorkflowDetails } from "./backendClient";
 import { suggestContextFiles } from "./contextSuggestions";
 import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSettings";
 import { appendSpecForgeDebugLog, appendSpecForgeLog, isSpecForgeDebugLoggingEnabled, showSpecForgeOutput } from "./outputChannel";
@@ -136,6 +136,8 @@ class WorkflowPanelController {
   private readonly pausedPhaseIds = new Set<string>();
   private readonly specApprovalBaseBranchProposal = "main";
   private lastRenderedViewState: WorkflowViewState | null = null;
+  private executionModelResponse: string | null = null;
+  private readonly modelResponseUnsubscribe: () => void;
 
   public constructor(
     private readonly workspaceRoot: string,
@@ -155,6 +157,7 @@ class WorkflowPanelController {
     );
 
     this.panel.onDidDispose(() => {
+      this.modelResponseUnsubscribe();
       this.callbacks.setActiveWorkflowUsId(null);
       this.callbacks.clearWorkflowAudit(this.summary.usId);
       panels.delete(this.key);
@@ -185,6 +188,10 @@ class WorkflowPanelController {
         void vscode.window.showErrorMessage(asErrorMessage(error));
       }
     });
+
+    this.modelResponseUnsubscribe = onModelResponseDiagnostic((diagnostic) => {
+      this.handleModelResponseDiagnostic(diagnostic.text, diagnostic.providerKind, diagnostic.transport);
+    });
   }
 
   private get key(): string {
@@ -200,6 +207,30 @@ class WorkflowPanelController {
 
   public dispose(): void {
     this.panel.dispose();
+  }
+
+  private handleModelResponseDiagnostic(text: string, providerKind: string, transport: string): void {
+    if (this.playbackState !== "playing" && this.playbackState !== "stopping") {
+      return;
+    }
+
+    const normalizedText = text.replace(/\s+/g, " ").trim();
+    if (!normalizedText) {
+      return;
+    }
+
+    this.executionModelResponse = normalizedText.length > 900
+      ? `${normalizedText.slice(0, 900)}...`
+      : normalizedText;
+    appendSpecForgeDebugLog(
+      `Workflow '${this.summary.usId}' received ${transport} model response preview from '${providerKind}' (${this.executionModelResponse.length} chars).`
+    );
+    void this.panel.webview.postMessage({
+      command: "modelResponsePreview",
+      text: this.executionModelResponse,
+      providerKind,
+      transport
+    });
   }
 
   public hasActivePlayback(): boolean {
@@ -438,6 +469,7 @@ class WorkflowPanelController {
       this.playbackStartedAtMs = Date.now();
     }
 
+    this.executionModelResponse = null;
     this.playbackState = "playing";
     this.setTransientExecutionPhase(phaseId);
     await this.refreshAsync(reason);
@@ -627,6 +659,7 @@ class WorkflowPanelController {
     if (this.playbackState !== "playing") {
       this.playbackStartedAtMs = Date.now();
     }
+    this.executionModelResponse = null;
     this.playbackState = "playing";
     this.setTransientExecutionPhase("implementation");
     await this.refreshAsync("sendReviewToImplementationAsync:running");
@@ -1087,6 +1120,7 @@ class WorkflowPanelController {
         this.playbackStartedAtMs = Date.now();
       }
 
+      this.executionModelResponse = null;
       this.playbackState = "playing";
       this.setTransientExecutionPhase(result.currentPhase);
       await this.refreshAsync("reopenCompletedWorkflowAsync:running");
@@ -1281,6 +1315,7 @@ class WorkflowPanelController {
     if (this.playbackState !== "paused" || this.playbackStartedAtMs === null) {
       this.playbackStartedAtMs = Date.now();
     }
+    this.executionModelResponse = null;
     this.playbackState = "playing";
     this.setTransientExecutionPhase(executionPhaseId ?? this.deriveInitialExecutionPhaseId());
     if (!this.autoplayPromise) {
@@ -1497,6 +1532,7 @@ class WorkflowPanelController {
       phaseModelAssignments: settings.effectivePhaseModelAssignments,
       runtimeVersion,
       executionPhaseId: this.transientExecutionPhaseId,
+      executionModelResponse: this.executionModelResponse,
       pausedPhaseIds: [...this.pausedPhaseIds],
       completedPhaseIds: this.transientCompletedPhaseIds,
       pendingRewindPhaseId: this.pendingRewindPhaseId,
@@ -1592,6 +1628,9 @@ class WorkflowPanelController {
   }
 
   private setTransientExecutionPhase(phaseId: string): void {
+    if (this.transientExecutionPhaseId !== phaseId) {
+      this.executionModelResponse = null;
+    }
     this.transientExecutionPhaseId = phaseId;
     this.transientCompletedPhaseIds = this.computeCompletedPhaseIds(phaseId);
   }

@@ -1,3 +1,9 @@
+export interface ModelResponseDiagnostic {
+  readonly providerKind: string;
+  readonly transport: string;
+  readonly text: string;
+}
+
 export function summarizeMcpDiagnosticLine(line: string): string | null {
   const withoutTimestamp = line.replace(/^\[[^\]]+\]\s*/, "");
   const tagMatch = withoutTimestamp.match(/^\[(?<tag>[^\]]+)\]\s*(?<message>.*)$/);
@@ -7,6 +13,13 @@ export function summarizeMcpDiagnosticLine(line: string): string | null {
 
   const tag = tagMatch.groups.tag;
   const message = tagMatch.groups.message ?? "";
+  if (tag === "provider.model.response") {
+    const provider = extractDiagnosticValue(message, "provider") ?? "model";
+    const transport = extractDiagnosticValue(message, "transport") ?? "unknown";
+    const chunk = decodeLoggedChunk(extractDiagnosticValue(message, "chunk"));
+    return `${provider} ${transport} response: ${truncateDiagnosticMessage(chunk ?? "")}`;
+  }
+
   if (!tag.startsWith("provider.native")) {
     return null;
   }
@@ -53,6 +66,26 @@ export function summarizeMcpDiagnosticLine(line: string): string | null {
     default:
       return null;
   }
+}
+
+export function parseModelResponseDiagnosticLine(line: string): ModelResponseDiagnostic | null {
+  const withoutTimestamp = line.replace(/^\[[^\]]+\]\s*/, "");
+  const tagMatch = withoutTimestamp.match(/^\[(?<tag>[^\]]+)\]\s*(?<message>.*)$/);
+  if (!tagMatch?.groups || tagMatch.groups.tag !== "provider.model.response") {
+    return null;
+  }
+
+  const message = tagMatch.groups.message ?? "";
+  const text = decodeLoggedChunk(extractDiagnosticValue(message, "chunk"));
+  if (!text) {
+    return null;
+  }
+
+  return {
+    providerKind: extractDiagnosticValue(message, "provider") ?? "model",
+    transport: extractDiagnosticValue(message, "transport") ?? "unknown",
+    text
+  };
 }
 
 function extractDiagnosticValue(message: string, key: string): string | null {

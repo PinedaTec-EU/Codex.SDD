@@ -33,6 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.onModelResponseDiagnostic = onModelResponseDiagnostic;
 exports.createMcpBackendClient = createMcpBackendClient;
 const node_child_process_1 = require("node:child_process");
 const path = __importStar(require("node:path"));
@@ -41,6 +42,18 @@ const extensionSettings_1 = require("./extensionSettings");
 const mcpDiagnostics_1 = require("./mcpDiagnostics");
 const outputChannel_1 = require("./outputChannel");
 const utils_1 = require("./utils");
+const modelResponseListeners = new Set();
+function onModelResponseDiagnostic(listener) {
+    modelResponseListeners.add(listener);
+    return () => {
+        modelResponseListeners.delete(listener);
+    };
+}
+function notifyModelResponseDiagnostic(diagnostic) {
+    for (const listener of modelResponseListeners) {
+        listener(diagnostic);
+    }
+}
 function createMcpBackendClient(workspaceRoot, hostRoot, settings) {
     return new StdioMcpBackendClient(workspaceRoot, hostRoot, settings);
 }
@@ -391,6 +404,10 @@ class StdioMcpBackendClient {
             return;
         }
         const summarized = (0, mcpDiagnostics_1.summarizeMcpDiagnosticLine)(message);
+        const modelResponse = (0, mcpDiagnostics_1.parseModelResponseDiagnosticLine)(message);
+        if (modelResponse) {
+            notifyModelResponseDiagnostic(modelResponse);
+        }
         if (summarized) {
             (0, outputChannel_1.appendSpecForgeLog)(summarized);
             (0, outputChannel_1.appendSpecForgeDebugLog)(`MCP stderr: ${message}`);

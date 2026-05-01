@@ -11,7 +11,7 @@ import {
 } from "./backendClientModel";
 import type { SpecForgeSettings } from "./extensionSettings";
 import { buildBackendEnvironment } from "./extensionSettings";
-import { summarizeMcpDiagnosticLine } from "./mcpDiagnostics";
+import { parseModelResponseDiagnosticLine, summarizeMcpDiagnosticLine, type ModelResponseDiagnostic } from "./mcpDiagnostics";
 import { appendSpecForgeDebugLog, appendSpecForgeLog } from "./outputChannel";
 import { asErrorMessage } from "./utils";
 
@@ -64,6 +64,23 @@ export interface PhaseExecutionMetadata {
   readonly outputSha256?: string | null;
   readonly structuredOutputSha256?: string | null;
   readonly receiptPath?: string | null;
+}
+
+type ModelResponseListener = (diagnostic: ModelResponseDiagnostic) => void;
+
+const modelResponseListeners = new Set<ModelResponseListener>();
+
+export function onModelResponseDiagnostic(listener: ModelResponseListener): () => void {
+  modelResponseListeners.add(listener);
+  return () => {
+    modelResponseListeners.delete(listener);
+  };
+}
+
+function notifyModelResponseDiagnostic(diagnostic: ModelResponseDiagnostic): void {
+  for (const listener of modelResponseListeners) {
+    listener(diagnostic);
+  }
 }
 
 export interface WorkflowLineageFinding {
@@ -784,6 +801,11 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     }
 
     const summarized = summarizeMcpDiagnosticLine(message);
+    const modelResponse = parseModelResponseDiagnosticLine(message);
+    if (modelResponse) {
+      notifyModelResponseDiagnostic(modelResponse);
+    }
+
     if (summarized) {
       appendSpecForgeLog(summarized);
       appendSpecForgeDebugLog(`MCP stderr: ${message}`);

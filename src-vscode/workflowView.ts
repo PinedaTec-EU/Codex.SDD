@@ -741,6 +741,8 @@ function buildExecutionOverlay(
   );
   const overlayPhaseModelLabel = overlayPhaseConfiguredLabel
     ?? overlayPhaseProfileLabel;
+  const modelResponseMessage = state.executionModelResponse?.trim() ?? "";
+  const initialOverlayMessage = modelResponseMessage || overlay.messages[0] || "Processing workflow phase.";
 
   return `
     <div
@@ -753,13 +755,14 @@ function buildExecutionOverlay(
       data-started-at-ms="${overlay.startedAtMs ?? ""}"
       data-dismissible="${overlay.tone === "playing" ? "false" : "true"}"
       data-show-elapsed="${overlay.showElapsed ? "true" : "false"}"
+      data-model-response="${escapeHtmlAttribute(modelResponseMessage)}"
       data-messages='${escapeHtmlAttribute(JSON.stringify(overlay.messages))}'>
       ${overlay.tone === "playing" ? "" : `<button type="button" class="execution-overlay__dismiss" data-execution-overlay-dismiss>Dismiss</button>`}
       <div class="execution-overlay__pulse" aria-hidden="true"></div>
       <div class="execution-overlay__body">
         <span class="execution-overlay__eyebrow">${escapeHtml(overlay.eyebrow ?? "SpecForge.AI Runner")}</span>
         <strong class="execution-overlay__title">${escapeHtml(overlay.title)}</strong>
-        <p class="execution-overlay__message" data-execution-message>${escapeHtml(overlay.messages[0] ?? "Processing workflow phase.")}</p>
+        <p class="execution-overlay__message${modelResponseMessage ? " execution-overlay__message--model-response" : ""}" data-execution-message>${escapeHtml(initialOverlayMessage)}</p>
         ${overlay.actionLabel && overlay.actionCommand
           ? `<div class="execution-overlay__actions"><button class="workflow-action-button workflow-action-button--document" type="button" data-command="${escapeHtmlAttribute(overlay.actionCommand)}">${escapeHtml(overlay.actionLabel)}</button></div>`
           : ""}
@@ -3378,6 +3381,11 @@ export function buildWorkflowHtml(
       overflow: hidden;
       color: rgba(255, 255, 255, 0.78);
       line-height: 1.4;
+    }
+    .execution-overlay__message--model-response {
+      color: rgba(242, 255, 249, 0.92);
+      font-family: var(--specforge-mono-font-family);
+      font-size: 0.82rem;
     }
     .execution-overlay__actions {
       margin-top: 8px;
@@ -8146,6 +8154,7 @@ export function buildWorkflowHtml(
       const providedStartedAt = Number.parseInt(executionOverlay.dataset.startedAtMs ?? "", 10);
       const showElapsed = executionOverlay.dataset.showElapsed === "true";
       const dismissible = executionOverlay.dataset.dismissible === "true";
+      let showingModelResponse = Boolean((executionOverlay.dataset.modelResponse ?? "").trim());
       const positionExecutionOverlay = () => {
         if (!(graphStage instanceof HTMLElement) || !(executionOverlay instanceof HTMLElement)) {
           return;
@@ -8217,6 +8226,10 @@ export function buildWorkflowHtml(
 
         if (messageElement && shuffledMessages.length > 1) {
           window.setInterval(() => {
+            if (showingModelResponse) {
+              return;
+            }
+
             messageIndex = (messageIndex + 1) % shuffledMessages.length;
             if (messageIndex === 0) {
               const reshuffled = shuffleMessages(messageCatalog);
@@ -8261,6 +8274,20 @@ export function buildWorkflowHtml(
             dismissOverlay();
           });
         }
+
+        window.addEventListener("message", (event) => {
+          const message = event.data || {};
+          if (message.command !== "modelResponsePreview" || typeof message.text !== "string" || !message.text.trim()) {
+            return;
+          }
+
+          showingModelResponse = true;
+          executionOverlay.dataset.modelResponse = message.text;
+          if (messageElement instanceof HTMLElement) {
+            messageElement.textContent = message.text;
+            messageElement.classList.add("execution-overlay__message--model-response");
+          }
+        });
 
       }
     }

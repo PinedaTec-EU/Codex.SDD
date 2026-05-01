@@ -31,6 +31,7 @@ export interface WorkflowViewState {
   };
   readonly runtimeVersion?: string | null;
   readonly executionPhaseId?: string | null;
+  readonly executionModelResponse?: string | null;
   readonly pausedPhaseIds?: readonly string[];
   readonly completedPhaseIds?: readonly string[];
   readonly playbackStartedAtMs?: number | null;

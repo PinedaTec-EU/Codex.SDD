@@ -2587,6 +2587,60 @@ test("buildWorkflowHtml embeds a broad rotating execution message catalog for lo
   );
 });
 
+test("buildWorkflowHtml shows model response preview in the execution overlay", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0009",
+    title: "Long execution",
+    category: "workflow",
+    status: "active",
+    currentPhase: "implementation",
+    directoryPath: "/tmp/us.US-0009",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "implementation",
+        title: "Implementation",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    refinement: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "implementation",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    executionModelResponse: "## Implementation\\nModel response preview"
+  }, "playing");
+
+  assert.match(html, /data-model-response="## Implementation\\nModel response preview"/);
+  assert.match(html, /execution-overlay__message execution-overlay__message--model-response/);
+  assert.match(html, /modelResponsePreview/);
+  assert.match(html, /showingModelResponse = true/);
+});
+
 test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
   const html = buildWorkflowHtml({
     usId: "US-0010",

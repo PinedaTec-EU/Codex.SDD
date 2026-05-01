@@ -41,6 +41,7 @@ exports.closeWorkflowView = closeWorkflowView;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const vscode = __importStar(require("vscode"));
+const backendClient_1 = require("./backendClient");
 const contextSuggestions_1 = require("./contextSuggestions");
 const extensionSettings_1 = require("./extensionSettings");
 const outputChannel_1 = require("./outputChannel");
@@ -108,6 +109,8 @@ class WorkflowPanelController {
     pausedPhaseIds = new Set();
     specApprovalBaseBranchProposal = "main";
     lastRenderedViewState = null;
+    executionModelResponse = null;
+    modelResponseUnsubscribe;
     constructor(workspaceRoot, summary, getBackendClient, callbacks) {
         this.workspaceRoot = workspaceRoot;
         this.summary = summary;
@@ -119,6 +122,7 @@ class WorkflowPanelController {
             retainContextWhenHidden: true
         });
         this.panel.onDidDispose(() => {
+            this.modelResponseUnsubscribe();
             this.callbacks.setActiveWorkflowUsId(null);
             this.callbacks.clearWorkflowAudit(this.summary.usId);
             panels.delete(this.key);
@@ -147,6 +151,9 @@ class WorkflowPanelController {
                 void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));
             }
         });
+        this.modelResponseUnsubscribe = (0, backendClient_1.onModelResponseDiagnostic)((diagnostic) => {
+            this.handleModelResponseDiagnostic(diagnostic.text, diagnostic.providerKind, diagnostic.transport);
+        });
     }
     get key() {
         return `${this.workspaceRoot}:${this.summary.usId}`;
@@ -159,6 +166,25 @@ class WorkflowPanelController {
     }
     dispose() {
         this.panel.dispose();
+    }
+    handleModelResponseDiagnostic(text, providerKind, transport) {
+        if (this.playbackState !== "playing" && this.playbackState !== "stopping") {
+            return;
+        }
+        const normalizedText = text.replace(/\s+/g, " ").trim();
+        if (!normalizedText) {
+            return;
+        }
+        this.executionModelResponse = normalizedText.length > 900
+            ? `${normalizedText.slice(0, 900)}...`
+            : normalizedText;
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' received ${transport} model response preview from '${providerKind}' (${this.executionModelResponse.length} chars).`);
+        void this.panel.webview.postMessage({
+            command: "modelResponsePreview",
+            text: this.executionModelResponse,
+            providerKind,
+            transport
+        });
     }
     hasActivePlayback() {
         return this.playbackState === "playing" || this.playbackState === "stopping";
@@ -377,6 +403,7 @@ class WorkflowPanelController {
         if (this.playbackState !== "playing") {
             this.playbackStartedAtMs = Date.now();
         }
+        this.executionModelResponse = null;
         this.playbackState = "playing";
         this.setTransientExecutionPhase(phaseId);
         await this.refreshAsync(reason);
@@ -521,6 +548,7 @@ class WorkflowPanelController {
         if (this.playbackState !== "playing") {
             this.playbackStartedAtMs = Date.now();
         }
+        this.executionModelResponse = null;
         this.playbackState = "playing";
         this.setTransientExecutionPhase("implementation");
         await this.refreshAsync("sendReviewToImplementationAsync:running");
@@ -849,6 +877,7 @@ class WorkflowPanelController {
             if (this.playbackState !== "playing") {
                 this.playbackStartedAtMs = Date.now();
             }
+            this.executionModelResponse = null;
             this.playbackState = "playing";
             this.setTransientExecutionPhase(result.currentPhase);
             await this.refreshAsync("reopenCompletedWorkflowAsync:running");
@@ -990,6 +1019,7 @@ class WorkflowPanelController {
         if (this.playbackState !== "paused" || this.playbackStartedAtMs === null) {
             this.playbackStartedAtMs = Date.now();
         }
+        this.executionModelResponse = null;
         this.playbackState = "playing";
         this.setTransientExecutionPhase(executionPhaseId ?? this.deriveInitialExecutionPhaseId());
         if (!this.autoplayPromise) {
@@ -1143,6 +1173,7 @@ class WorkflowPanelController {
             phaseModelAssignments: settings.effectivePhaseModelAssignments,
             runtimeVersion,
             executionPhaseId: this.transientExecutionPhaseId,
+            executionModelResponse: this.executionModelResponse,
             pausedPhaseIds: [...this.pausedPhaseIds],
             completedPhaseIds: this.transientCompletedPhaseIds,
             pendingRewindPhaseId: this.pendingRewindPhaseId,
@@ -1217,6 +1248,9 @@ class WorkflowPanelController {
         return null;
     }
     setTransientExecutionPhase(phaseId) {
+        if (this.transientExecutionPhaseId !== phaseId) {
+            this.executionModelResponse = null;
+        }
         this.transientExecutionPhaseId = phaseId;
         this.transientCompletedPhaseIds = this.computeCompletedPhaseIds(phaseId);
     }

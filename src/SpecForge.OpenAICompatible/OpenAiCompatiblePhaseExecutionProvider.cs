@@ -324,6 +324,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .GetProperty("message")
             .GetProperty("content")
             .GetString();
+        LogModelResponse(modelSelection.ProviderKind, modelSelection.ProfileName, modelSelection.Model, "http", content);
         diagnostics.MarkCompleted($"payloadChars={payload.Length} contentChars={(content ?? string.Empty).Length}");
         return (content ?? string.Empty, TryReadUsage(document.RootElement), ComputeSha256(requestBody), ComputeSha256(content));
     }
@@ -929,6 +930,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 modelSelection.ReasoningEffort,
                 sandboxMode),
             cancellationToken);
+        LogModelResponse(
+            modelSelection.ProviderKind,
+            modelSelection.ProfileName,
+            string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
+            "cli",
+            response);
         diagnostics.MarkCompleted($"responseChars={response.Length}");
         return response;
     }
@@ -1561,6 +1568,24 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         }
 
         return $"\"{normalized.Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
+    }
+
+    private static void LogModelResponse(
+        string providerKind,
+        string? profileName,
+        string model,
+        string transport,
+        string? response)
+    {
+        if (string.IsNullOrWhiteSpace(response))
+        {
+            SpecForgeDiagnostics.Log(
+                $"[provider.model.response] provider={providerKind} profile={profileName ?? "default"} model={model} transport={transport} chunk=\"\"");
+            return;
+        }
+
+        SpecForgeDiagnostics.Log(
+            $"[provider.model.response] provider={providerKind} profile={profileName ?? "default"} model={model} transport={transport} chunk={FormatProcessOutputForLog(response)}");
     }
 
     private sealed record GitStatusSnapshotEntry(string StatusLine, string Fingerprint);
