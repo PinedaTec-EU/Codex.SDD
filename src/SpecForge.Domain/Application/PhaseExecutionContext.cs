@@ -13,4 +13,7 @@ public sealed record PhaseExecutionContext(
     // the operation on top of the existing artifact instead of generating a new one from scratch.
     // Only supported for Spec today; other phases ignore both fields.
     string? CurrentArtifactPath = null,
-    string? OperationPrompt = null);
+    string? OperationPrompt = null,
+    // The artifact phase remains PhaseId. ModelRoutingPhaseId lets a transition use the model
+    // assigned to the source phase while still producing the destination phase artifact.
+    PhaseId? ModelRoutingPhaseId = null);

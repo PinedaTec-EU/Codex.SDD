@@ -25,6 +25,7 @@ public sealed record PhaseExecutionModelSecurity(
 
 public static class PhaseExecutionBlockingReasons
 {
+    public const string CaptureRequiresRepositoryReadAccess = "capture_requires_repository_read_access";
     public const string RefinementRequiresRepositoryReadAccess = "refinement_requires_repository_read_access";
     public const string SpecRequiresRepositoryReadAccess = "spec_requires_repository_read_access";
     public const string TechnicalDesignRequiresRepositoryReadAccess = "technical_design_requires_repository_read_access";
@@ -42,6 +43,7 @@ public static class PhaseExecutionPermissionCatalog
     public static PhaseExecutionRequirements Describe(PhaseId phaseId) =>
         phaseId switch
         {
+            PhaseId.Capture => new(ModelExecutionRequired: true, RepositoryAccess: "read", WorkspaceWriteAccess: false),
             PhaseId.Refinement => new(ModelExecutionRequired: true, RepositoryAccess: "read", WorkspaceWriteAccess: false),
             PhaseId.Spec => new(ModelExecutionRequired: true, RepositoryAccess: "read", WorkspaceWriteAccess: false),
             PhaseId.TechnicalDesign => new(ModelExecutionRequired: true, RepositoryAccess: "read", WorkspaceWriteAccess: false),
@@ -55,6 +57,7 @@ public static class PhaseExecutionPermissionCatalog
     public static string ResolveRepositoryAccessBlockingReason(PhaseId phaseId) =>
         phaseId switch
         {
+            PhaseId.Capture => PhaseExecutionBlockingReasons.CaptureRequiresRepositoryReadAccess,
             PhaseId.Refinement => PhaseExecutionBlockingReasons.RefinementRequiresRepositoryReadAccess,
             PhaseId.Spec => PhaseExecutionBlockingReasons.SpecRequiresRepositoryReadAccess,
             PhaseId.TechnicalDesign => PhaseExecutionBlockingReasons.TechnicalDesignRequiresRepositoryReadAccess,

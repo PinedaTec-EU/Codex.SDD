@@ -2126,7 +2126,7 @@ test("buildWorkflowHtml animates the current execution phase while autoplay is r
   assert.match(html, /executionOverlay\.style\.top = nextTop \+ "px"/);
 });
 
-test("buildWorkflowHtml shows refinement as the active execution step from capture", () => {
+test("buildWorkflowHtml shows capture as the active execution step from capture", () => {
   const html = buildWorkflowHtml({
     usId: "US-0004",
     title: "Capture autoplay",
@@ -2195,16 +2195,15 @@ test("buildWorkflowHtml shows refinement as the active execution step from captu
     selectedPhaseId: "capture",
     selectedArtifactContent: null,
     contextSuggestions: [],
-    executionPhaseId: "refinement",
-    completedPhaseIds: ["capture"],
+    executionPhaseId: "capture",
+    completedPhaseIds: [],
     settingsConfigured: true,
     settingsMessage: null
   }, "playing");
 
-  assert.match(html, /<path class="executing"/);
-  assert.match(html, /phase-node refinement phase-tone-active/);
-  assert.match(html, /Executing Refinement/);
-  assert.match(html, /phase-node capture phase-tone-completed/);
+  assert.match(html, /phase-node capture phase-tone-active/);
+  assert.match(html, /Executing Capture/);
+  assert.doesNotMatch(html, /phase-node capture phase-tone-completed/);
 });
 
 test("buildWorkflowHtml keeps refinement visible in the graph even before any refinement history exists", () => {
