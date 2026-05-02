@@ -258,7 +258,7 @@ static JsonObject BuildToolsList()
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root (folder containing .specs/).")),
                         ("usId",          Prop("string", "User story identifier, e.g. US-001.")),
                         ("title",         Prop("string", "Short descriptive title for the user story.")),
-                        ("kind",          Prop("string", "User story kind: feature, bug, task, spike, or chore.")),
+                        ("kind",          Prop("string", "User story kind: feature, bug, or hotfix.")),
                         ("category",      Prop("string", "Category that groups the user story, e.g. core, ux, api.")),
                         ("sourceText",    Prop("string", "Free-text description of the user story intent.")),
                         ("actor",         Prop("string", "Actor performing the action. Defaults to 'user'."))))),
@@ -271,7 +271,7 @@ static JsonObject BuildToolsList()
                         ("usId",          Prop("string", "User story identifier, e.g. US-001.")),
                         ("sourcePath",    Prop("string", "Absolute path to the source markdown file to import.")),
                         ("title",         Prop("string", "Short descriptive title for the user story.")),
-                        ("kind",          Prop("string", "User story kind: feature, bug, task, spike, or chore.")),
+                        ("kind",          Prop("string", "User story kind: feature, bug, or hotfix.")),
                         ("category",      Prop("string", "Category that groups the user story.")),
                         ("actor",         Prop("string", "Actor performing the action. Defaults to 'user'."))))),
 
