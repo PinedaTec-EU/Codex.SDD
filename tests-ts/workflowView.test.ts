@@ -216,6 +216,97 @@ test("buildWorkflowHtml renders phase detail for the selected phase", () => {
   assert.doesNotMatch(html, /Audit Stream/);
 });
 
+test("buildWorkflowHtml shows model usage tokens and speed on phase nodes and completed dashboards", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0211",
+    title: "Usage telemetry",
+    category: "workflow",
+    status: "completed",
+    currentPhase: "completed",
+    directoryPath: "/tmp/us.US-0211",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "spec",
+        title: "Spec",
+        order: 2,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: true,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: "/tmp/01-spec.md",
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "completed",
+        title: "Completed",
+        order: 8,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: true,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: "workflow_completed",
+      canRestartFromSource: false,
+      regressionTargets: [],
+      rewindTargets: []
+    },
+    refinement: null,
+    events: [
+      {
+        timestampUtc: "2026-04-27T06:19:00Z",
+        code: "phase_completed",
+        actor: "system",
+        phase: "spec",
+        summary: "Generated spec artifact.",
+        artifacts: ["/tmp/01-spec.md"],
+        usage: {
+          inputTokens: 1000,
+          outputTokens: 250,
+          totalTokens: 1250
+        },
+        durationMs: 5000,
+        execution: {
+          providerKind: "openai-compatible",
+          model: "gpt-4.1",
+          profileName: "release",
+          baseUrl: "https://api.example.test/v1"
+        }
+      }
+    ],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "completed",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    completedUsLockOnCompleted: true
+  }, "idle");
+
+  assert.match(html, /phase-node spec[^]*phase-node-metrics[^]*in\/out 1,000\/250[^]*total 1,250[^]*50\.0 tok\/s/);
+  assert.match(html, /<th>Speed<\/th>/);
+  assert.match(html, /release \/ gpt-4\.1<\/td><td>1<\/td><td>1,000<\/td><td>250<\/td><td>1,250<\/td><td>5\.00 s<\/td><td>50\.0 tok\/s<\/td>/);
+  assert.match(html, /spec<\/td><td>1<\/td><td>1,000<\/td><td>250<\/td><td>1,250<\/td><td>5\.00 s<\/td><td>50\.0 tok\/s<\/td>/);
+});
+
 test("buildWorkflowAuditHtml renders workflow audit content in a standalone panel view", () => {
   const html = buildWorkflowAuditHtml({
     usId: "US-0001",

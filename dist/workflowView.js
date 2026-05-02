@@ -42,6 +42,15 @@ const defaultPhaseSequence = [
     { phaseId: "pr-preparation", expectsHumanIntervention: false },
     { phaseId: "completed", expectsHumanIntervention: false }
 ];
+const modelBackedPhaseIds = new Set([
+    "refinement",
+    "spec",
+    "technical-design",
+    "implementation",
+    "review",
+    "release-approval",
+    "pr-preparation"
+]);
 const defaultDesktopHorizontalLayout = (0, graphLayout_1.buildHorizontalPhaseLayout)(defaultPhaseSequence, phaseNodeWidth, false, workflowGraphLayout_1.defaultHorizontalWorkflowGraphPositions);
 const defaultDesktopVerticalLayout = (0, graphLayout_1.buildVerticalPhaseLayout)(defaultPhaseSequence, phaseNodeWidth, false, workflowGraphLayout_1.defaultVerticalWorkflowGraphPositions);
 const defaultMobileHorizontalLayout = (0, graphLayout_1.buildHorizontalPhaseLayout)(defaultPhaseSequence, mobilePhaseNodeWidth, true, workflowGraphLayout_1.defaultHorizontalWorkflowGraphPositions);
@@ -94,8 +103,11 @@ function sumTokenUsage(usages) {
         totalTokens: aggregate.totalTokens + usage.totalTokens
     }), { inputTokens: 0, outputTokens: 0, totalTokens: 0 });
 }
+function createEmptyUsageAggregate() {
+    return { inputTokens: 0, outputTokens: 0, totalTokens: 0, durationMs: 0, events: 0 };
+}
 function aggregateWorkflowUsage(events, state) {
-    const overall = { inputTokens: 0, outputTokens: 0, totalTokens: 0, durationMs: 0, events: 0 };
+    const overall = createEmptyUsageAggregate();
     const byModel = new Map();
     const byPhase = new Map();
     for (const event of events) {
@@ -111,7 +123,7 @@ function aggregateWorkflowUsage(events, state) {
         overall.durationMs += durationMs;
         overall.events += 1;
         if (event.phase) {
-            const phaseAggregate = byPhase.get(event.phase) ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0, durationMs: 0, events: 0 };
+            const phaseAggregate = byPhase.get(event.phase) ?? createEmptyUsageAggregate();
             phaseAggregate.inputTokens += usage.inputTokens;
             phaseAggregate.outputTokens += usage.outputTokens;
             phaseAggregate.totalTokens += usage.totalTokens;
@@ -122,7 +134,7 @@ function aggregateWorkflowUsage(events, state) {
         const modelLabel = formatExecutionLabel(event.execution, {
             configuredModel: findConfiguredModelForProfile(state, event.execution?.profileName)
         }) ?? "unattributed";
-        const modelAggregate = byModel.get(modelLabel) ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0, durationMs: 0, events: 0 };
+        const modelAggregate = byModel.get(modelLabel) ?? createEmptyUsageAggregate();
         modelAggregate.inputTokens += usage.inputTokens;
         modelAggregate.outputTokens += usage.outputTokens;
         modelAggregate.totalTokens += usage.totalTokens;
@@ -139,6 +151,39 @@ function aggregateWorkflowUsage(events, state) {
             .map(([phaseId, aggregate]) => ({ phaseId, aggregate }))
             .sort((left, right) => right.aggregate.totalTokens - left.aggregate.totalTokens)
     };
+}
+function aggregatePhaseUsage(events) {
+    const byPhase = new Map();
+    for (const event of events) {
+        if (!event.phase || !modelBackedPhaseIds.has(event.phase)) {
+            continue;
+        }
+        const hasMetrics = Boolean(event.usage) || event.durationMs !== null;
+        if (!hasMetrics) {
+            continue;
+        }
+        const phaseAggregate = byPhase.get(event.phase) ?? createEmptyUsageAggregate();
+        const usage = event.usage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+        phaseAggregate.inputTokens += usage.inputTokens;
+        phaseAggregate.outputTokens += usage.outputTokens;
+        phaseAggregate.totalTokens += usage.totalTokens;
+        phaseAggregate.durationMs += event.durationMs ?? 0;
+        phaseAggregate.events += 1;
+        byPhase.set(event.phase, phaseAggregate);
+    }
+    return byPhase;
+}
+function renderGraphPhaseUsage(aggregate) {
+    if (!aggregate || aggregate.events === 0) {
+        return "";
+    }
+    return `
+    <div class="phase-node-metrics" aria-label="Phase model usage">
+      <span>in/out ${(0, htmlEscape_1.escapeHtml)(`${formatMetricNumber(aggregate.inputTokens)}/${formatMetricNumber(aggregate.outputTokens)}`)}</span>
+      <span>total ${(0, htmlEscape_1.escapeHtml)(formatMetricNumber(aggregate.totalTokens))}</span>
+      <span>${(0, htmlEscape_1.escapeHtml)(aggregate.durationMs > 0 ? formatTokensPerSecond(aggregate.outputTokens, aggregate.durationMs) : "speed n/a")}</span>
+    </div>
+  `;
 }
 function fileNameFromPath(filePath) {
     const normalized = filePath.replace(/\\/g, "/");
@@ -1584,28 +1629,30 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     </section>
   ` : "";
     const modelUsageTable = showCompletedOnlyUsagePanels
-        ? renderUsageDashboardTable("Usage by Model", ["Model", "Runs", "Input", "Output", "Total", "Duration"], workflowUsage.byModel.length > 0
+        ? renderUsageDashboardTable("Usage by Model", ["Model", "Runs", "Input", "Output", "Total", "Duration", "Speed"], workflowUsage.byModel.length > 0
             ? workflowUsage.byModel.map(({ label, aggregate }) => ([
                 label,
                 String(aggregate.events),
                 formatMetricNumber(aggregate.inputTokens),
                 formatMetricNumber(aggregate.outputTokens),
                 formatMetricNumber(aggregate.totalTokens),
-                aggregate.durationMs > 0 ? formatDuration(aggregate.durationMs) : "n/a"
+                aggregate.durationMs > 0 ? formatDuration(aggregate.durationMs) : "n/a",
+                aggregate.durationMs > 0 ? formatTokensPerSecond(aggregate.outputTokens, aggregate.durationMs) : "n/a"
             ]))
-            : [["No recorded model usage yet.", "-", "-", "-", "-", "-"]])
+            : [["No recorded model usage yet.", "-", "-", "-", "-", "-", "-"]])
         : "";
     const phaseUsageTable = showCompletedOnlyUsagePanels
-        ? renderUsageDashboardTable("Usage by Phase", ["Phase", "Runs", "Input", "Output", "Total", "Duration"], workflowUsage.byPhase.length > 0
+        ? renderUsageDashboardTable("Usage by Phase", ["Phase", "Runs", "Input", "Output", "Total", "Duration", "Speed"], workflowUsage.byPhase.length > 0
             ? workflowUsage.byPhase.map(({ phaseId, aggregate }) => ([
                 phaseId,
                 String(aggregate.events),
                 formatMetricNumber(aggregate.inputTokens),
                 formatMetricNumber(aggregate.outputTokens),
                 formatMetricNumber(aggregate.totalTokens),
-                aggregate.durationMs > 0 ? formatDuration(aggregate.durationMs) : "n/a"
+                aggregate.durationMs > 0 ? formatDuration(aggregate.durationMs) : "n/a",
+                aggregate.durationMs > 0 ? formatTokensPerSecond(aggregate.outputTokens, aggregate.durationMs) : "n/a"
             ]))
-            : [["No recorded phase usage yet.", "-", "-", "-", "-", "-"]])
+            : [["No recorded phase usage yet.", "-", "-", "-", "-", "-", "-"]])
         : "";
     const latestIteration = phaseIterations[0] ?? null;
     const iterationRail = phaseIterations.length > 0
@@ -3668,6 +3715,26 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       display: grid;
       gap: 4px;
       align-content: center;
+    }
+    .phase-node-metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 3px;
+      position: relative;
+      z-index: 1;
+    }
+    .phase-node-metrics span {
+      min-width: 0;
+      border: 1px solid rgba(195, 220, 245, 0.18);
+      border-radius: 6px;
+      padding: 2px 5px;
+      background: rgba(6, 16, 28, 0.34);
+      color: rgba(226, 236, 248, 0.9);
+      font-family: var(--specforge-editor-font-family);
+      font-size: 0.64rem;
+      line-height: 1.16;
+      white-space: nowrap;
     }
     .phase-node.capture .phase-node-visual {
       background:
@@ -7902,6 +7969,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
     const completedWorkflowLocked = workflow.status === "completed" && state.completedUsLockOnCompleted !== false;
     const refinementVisible = shouldShowRefinementPhase(workflow, executionPhaseId);
     const visiblePhases = workflow.phases.filter((phase) => shouldShowPhase(phase.phaseId, refinementVisible, currentPhase.phaseId, executionPhaseId));
+    const phaseUsage = aggregatePhaseUsage(workflow.events);
     const layoutPhases = visiblePhases.map((phase) => ({
         phaseId: phase.phaseId,
         expectsHumanIntervention: phase.expectsHumanIntervention
@@ -7960,6 +8028,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
         const phaseRoleLabel = phase.expectsHumanIntervention ? "User step" : "Automated step";
         const phaseVisualIcon = (0, icons_1.workflowPhaseIcon)(phase.phaseId);
         const phaseHeaderMeta = phase.requiresApproval ? `<span class="phase-tag approval">approval</span>` : "";
+        const phaseUsageMetrics = renderGraphPhaseUsage(phaseUsage.get(phase.phaseId));
         const pauseButtonLabel = pauseArmed
             ? `Remove pause before ${phase.title}`
             : `Pause before ${phase.title}`;
@@ -7996,6 +8065,7 @@ function buildPhaseGraph(workflow, state, selectedPhaseId, playbackState, effect
           <div class="phase-node-copy">
             <h3>${(0, htmlEscape_1.escapeHtml)(graphPhaseTitle(phase))}</h3>
             <div class="phase-slug">${(0, htmlEscape_1.escapeHtml)(graphPhaseSecondaryLabel(phase))}</div>
+            ${phaseUsageMetrics}
           </div>
         </div>
       </div>
