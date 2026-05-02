@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using SpecForge.Domain.Persistence;
 using SpecForge.Domain.Workflow;
@@ -713,6 +714,15 @@ public sealed class WorkflowRunner
                 reviewGeneration.Usage,
                 reviewGeneration.DurationMs,
                 reviewGeneration.Execution);
+            var reviewCommit = await CommitPhaseArtifactsAsync(
+                workspaceRoot,
+                paths,
+                workflowRun.UsId,
+                workflowRun.CurrentPhase,
+                ResolvePhaseCommitOutcome(workflowRun.CurrentPhase, reviewGeneration.ArtifactPath),
+                [.. (reviewGeneration.GeneratedFiles ?? []), paths.TimelineFilePath],
+                normalizedActor,
+                cancellationToken);
             await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
             diagnostics.MarkCompleted(
                 $"phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} status={WorkflowPresentation.ToStatusSlug(workflowRun.Status)} artifact={reviewGeneration.ArtifactPath}");
@@ -723,7 +733,8 @@ public sealed class WorkflowRunner
                 workflowRun.Status,
                 reviewGeneration.ArtifactPath,
                 reviewGeneration.Usage,
-                reviewGeneration.Execution);
+                reviewGeneration.Execution,
+                reviewCommit);
         }
 
         var pendingReopen = await TryReadPendingCompletedWorkflowReopenAsync(paths, workflowRun.CurrentPhase, cancellationToken);
@@ -795,6 +806,8 @@ public sealed class WorkflowRunner
 
         EnsureNextPhaseExecutionIsReady(workflowRun);
         var sourcePhase = workflowRun.CurrentPhase;
+        EnsureImplementationReworkCompletedBeforeReview(paths, sourcePhase);
+        EnsureApprovedReviewCommitIsCurrentBeforeReleaseApproval(workspaceRoot, paths, sourcePhase);
         workflowRun.GenerateNextPhase();
         SpecForgeDiagnostics.Log(
             $"[runner.continue_phase] usId={usId} advanced phase {WorkflowPresentation.ToPhaseSlug(sourcePhase)} -> {WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}");
@@ -806,6 +819,7 @@ public sealed class WorkflowRunner
         TokenUsage? usage = null;
         long? durationMs = null;
         PhaseExecutionMetadata? execution = null;
+        PhaseCommitResult? commit = null;
         if (HasArtifact(workflowRun.CurrentPhase))
         {
             var generation = await MaterializePhaseArtifactAsync(workspaceRoot, paths, workflowRun, currentArtifactPath: null, operationPrompt: null, includeReviewArtifactInContext: true, cancellationToken);
@@ -824,6 +838,15 @@ public sealed class WorkflowRunner
                 usage,
                 durationMs,
                 generation.Execution);
+            commit = await CommitPhaseArtifactsAsync(
+                workspaceRoot,
+                paths,
+                workflowRun.UsId,
+                workflowRun.CurrentPhase,
+                ResolvePhaseCommitOutcome(workflowRun.CurrentPhase, generation.ArtifactPath),
+                [.. (generation.GeneratedFiles ?? []), paths.TimelineFilePath, .. (generation.RepositoryEvidencePaths ?? [])],
+                normalizedActor,
+                cancellationToken);
         }
         else
         {
@@ -839,7 +862,7 @@ public sealed class WorkflowRunner
         await fileStore.SaveAsync(workflowRun, paths.RootDirectory, cancellationToken);
         diagnostics.MarkCompleted(
             $"phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} status={WorkflowPresentation.ToStatusSlug(workflowRun.Status)} artifact={(artifactPath ?? "(none)")}");
-        return new ContinuePhaseResult(workflowRun.UsId, workflowRun.CurrentPhase, workflowRun.Status, artifactPath, usage, execution);
+        return new ContinuePhaseResult(workflowRun.UsId, workflowRun.CurrentPhase, workflowRun.Status, artifactPath, usage, execution, commit);
     }
 
     private async Task<string> PublishPullRequestAsync(
@@ -1066,6 +1089,7 @@ public sealed class WorkflowRunner
         var normalizedActor = NormalizeActor(actor);
         var sourceArtifactPath = paths.GetLatestExistingPhaseArtifactPath(workflowRun.CurrentPhase)
             ?? throw new WorkflowDomainException($"Phase '{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}' does not yet have a current artifact to operate on.");
+        var operatedPhase = workflowRun.CurrentPhase;
         var generation = await MaterializePhaseArtifactAsync(
             workspaceRoot,
             paths,
@@ -1097,6 +1121,15 @@ public sealed class WorkflowRunner
             generation.Usage,
             generation.DurationMs,
             generation.Execution);
+        var commit = await CommitPhaseArtifactsAsync(
+            workspaceRoot,
+            paths,
+            workflowRun.UsId,
+            operatedPhase,
+            ResolvePhaseCommitOutcome(operatedPhase, generation.ArtifactPath),
+            [.. (generation.GeneratedFiles ?? []), operationLogPath, paths.TimelineFilePath, .. (generation.RepositoryEvidencePaths ?? [])],
+            normalizedActor,
+            cancellationToken);
 
         return new OperateCurrentPhaseArtifactResult(
             workflowRun.UsId,
@@ -1106,7 +1139,8 @@ public sealed class WorkflowRunner
             sourceArtifactPath,
             generation.ArtifactPath,
             generation.Usage,
-            generation.Execution);
+            generation.Execution,
+            commit);
     }
 
     private async Task<CaptureTransitionResult> ContinueFromCaptureOrRefinementAsync(
@@ -1413,6 +1447,8 @@ public sealed class WorkflowRunner
         else if (workflowRun.CurrentPhase == PhaseId.Review)
         {
             var version = ExtractArtifactVersion(artifactPath);
+            var rawArtifactPath = BuildRawReviewArtifactPath(artifactPath);
+            await File.WriteAllTextAsync(rawArtifactPath, result.Content, cancellationToken);
             var reviewArtifact = EnforceReviewValidationStrategyContract(result.Content, paths, workflowRun.UsId, version, reviewEvidencePolicy);
             await File.WriteAllTextAsync(artifactPath, reviewArtifact, cancellationToken);
         }
@@ -1442,6 +1478,15 @@ public sealed class WorkflowRunner
         }
 
         var generatedFiles = new List<string> { artifactPath };
+        if (workflowRun.CurrentPhase == PhaseId.Review)
+        {
+            var rawArtifactPath = BuildRawReviewArtifactPath(artifactPath);
+            if (File.Exists(rawArtifactPath))
+            {
+                generatedFiles.Add(rawArtifactPath);
+            }
+        }
+
         var generatedJsonPath = paths.GetLatestExistingPhaseArtifactJsonPath(workflowRun.CurrentPhase);
         if (!string.IsNullOrWhiteSpace(generatedJsonPath) && File.Exists(generatedJsonPath))
         {
@@ -1484,6 +1529,7 @@ public sealed class WorkflowRunner
             result.Usage,
             executionMetadata);
         var receiptPath = await PhaseExecutionReceiptStore.PersistAsync(paths.ExecutionReceiptsDirectoryPath, receipt, cancellationToken);
+        generatedFiles.Add(receiptPath);
         if (!File.Exists(artifactPath))
         {
             throw new WorkflowDomainException($"Phase '{WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}' did not produce expected artifact '{artifactPath}'.");
@@ -1495,11 +1541,64 @@ public sealed class WorkflowRunner
         SpecForgeDiagnostics.Log(
             $"[runner.materialize.receipt] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} executionId={executionId} receipt='{receiptPath}' outputHash={receipt.OutputManifest.ResultArtifactSha256 ?? "(none)"}");
         diagnostics.MarkCompleted($"artifactPath='{artifactPath}' receiptPath='{receiptPath}'");
-        return new ArtifactGenerationResult(artifactPath, result.Usage, stopwatch.ElapsedMilliseconds, returnedExecutionMetadata, receiptPath);
+        var repositoryEvidencePaths = workflowRun.CurrentPhase == PhaseId.Implementation
+            ? TryReadImplementationEvidenceTouchedPaths(workspaceRoot, paths)
+            : [];
+        return new ArtifactGenerationResult(
+            artifactPath,
+            result.Usage,
+            stopwatch.ElapsedMilliseconds,
+            returnedExecutionMetadata,
+            receiptPath,
+            generatedFiles.Distinct(StringComparer.Ordinal).ToArray(),
+            repositoryEvidencePaths);
     }
 
     private static string BuildExecutionId(PhaseId phaseId) =>
         $"{DateTimeOffset.UtcNow.UtcDateTime:yyyyMMdd'T'HHmmssfff'Z'}-{WorkflowPresentation.ToPhaseSlug(phaseId)}";
+
+    private static string BuildRawReviewArtifactPath(string artifactPath)
+    {
+        var directory = Path.GetDirectoryName(artifactPath) ?? string.Empty;
+        var fileName = Path.GetFileName(artifactPath);
+        var rawFileName = fileName.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+            ? fileName[..^3] + ".raw.md"
+            : fileName + ".raw";
+
+        return Path.Combine(directory, rawFileName);
+    }
+
+    private static IReadOnlyCollection<string> TryReadImplementationEvidenceTouchedPaths(
+        string workspaceRoot,
+        UserStoryFilePaths paths)
+    {
+        var evidenceJsonPath = paths.GetLatestExistingPhaseEvidenceJsonPath(PhaseId.Implementation);
+        if (string.IsNullOrWhiteSpace(evidenceJsonPath) || !File.Exists(evidenceJsonPath))
+        {
+            return [];
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(evidenceJsonPath));
+            if (!document.RootElement.TryGetProperty("touchedFiles", out var touchedFiles) ||
+                touchedFiles.ValueKind != JsonValueKind.Array)
+            {
+                return [];
+            }
+
+            return touchedFiles
+                .EnumerateArray()
+                .Select(static item => item.TryGetProperty("path", out var path) ? path.GetString() : null)
+                .Where(static path => !string.IsNullOrWhiteSpace(path))
+                .Select(path => Path.Combine(workspaceRoot, path!))
+                .ToArray();
+        }
+        catch
+        {
+            return [];
+        }
+    }
 
     private static void EnsureExecutionInputFilesExist(PhaseExecutionContext context)
     {
@@ -1723,7 +1822,8 @@ public sealed class WorkflowRunner
         {
             if (!hasChecklist)
             {
-                findings = [..findings, "Review cannot pass because it did not include the required checklist derived from Technical Design validation strategy."];
+                findings = [..findings, "Review output contract failed: the reviewer did not include the required checklist derived from Technical Design validation strategy."];
+                recommendations = [..recommendations, "Rerun review or fix the reviewer prompt/output contract before sending control back to implementation."];
             }
 
             var missingItems = enforcedChecklist
@@ -1735,14 +1835,20 @@ public sealed class WorkflowRunner
                 findings = [..findings, $"Review failed {missingItems.Length} validation strategy item(s)."];
             }
 
-            if (string.IsNullOrWhiteSpace(primaryReason) || reviewResult == "pass")
+            if (!hasChecklist)
+            {
+                primaryReason = "review_contract_failed: reviewer output did not include a parseable Validation Checklist.";
+            }
+            else if (string.IsNullOrWhiteSpace(primaryReason) || reviewResult == "pass")
             {
                 primaryReason = "Review failed because at least one Technical Design validation strategy item was not validated successfully.";
             }
 
             if (recommendations.Count == 0)
             {
-                recommendations = ["Fix the failed validation strategy items and rerun the review phase."];
+                recommendations = hasChecklist
+                    ? ["Fix the failed validation strategy items and rerun the review phase."]
+                    : ["Rerun review or fix the reviewer prompt/output contract before sending control back to implementation."];
             }
         }
 
@@ -1895,6 +2001,92 @@ public sealed class WorkflowRunner
         }
 
         return latestReviewRewindIndex > latestReviewCompletionIndex;
+    }
+
+    private static void EnsureImplementationReworkCompletedBeforeReview(UserStoryFilePaths paths, PhaseId sourcePhase)
+    {
+        if (sourcePhase != PhaseId.Implementation || !File.Exists(paths.TimelineFilePath))
+        {
+            return;
+        }
+
+        var events = TimelineMarkdownParser.ParseEvents(File.ReadAllText(paths.TimelineFilePath)).ToArray();
+        var implementationSlug = WorkflowPresentation.ToPhaseSlug(PhaseId.Implementation);
+        var latestImplementationRegressionIndex = Array.FindLastIndex(events, timelineEvent =>
+            timelineEvent.Code == "phase_regressed" &&
+            string.Equals(timelineEvent.Phase, implementationSlug, StringComparison.Ordinal));
+        if (latestImplementationRegressionIndex < 0)
+        {
+            return;
+        }
+
+        var hasLaterImplementationRework = events
+            .Skip(latestImplementationRegressionIndex + 1)
+            .Any(timelineEvent =>
+                string.Equals(timelineEvent.Phase, implementationSlug, StringComparison.Ordinal) &&
+                timelineEvent.Code is "phase_completed" or "artifact_operated");
+        if (!hasLaterImplementationRework)
+        {
+            throw new WorkflowDomainException(
+                "Review cannot run after regression to implementation until implementation rework is traceable. Operate the implementation artifact or rerun implementation before continuing to review.");
+        }
+    }
+
+    private static void EnsureApprovedReviewCommitIsCurrentBeforeReleaseApproval(
+        string workspaceRoot,
+        UserStoryFilePaths paths,
+        PhaseId sourcePhase)
+    {
+        if (sourcePhase != PhaseId.Review || !File.Exists(paths.TimelineFilePath))
+        {
+            return;
+        }
+
+        var reviewPath = paths.GetLatestExistingPhaseArtifactPath(PhaseId.Review);
+        if (string.IsNullOrWhiteSpace(reviewPath) ||
+            !File.Exists(reviewPath) ||
+            !string.Equals(TryReadReviewResult(File.ReadAllText(reviewPath)), "pass", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var currentHead = PhaseExecutionReceiptStore.BuildInputManifest(
+            workspaceRoot,
+            new PhaseExecutionContext(workspaceRoot, "git-head-probe", PhaseId.Review, paths.MainArtifactPath, new Dictionary<PhaseId, string>(), [], null, null))
+            .WorkspaceGitHeadSha;
+        if (string.IsNullOrWhiteSpace(currentHead))
+        {
+            return;
+        }
+
+        var reviewCommitSha = TryReadLatestReviewPhaseCommitSha(paths);
+        if (string.IsNullOrWhiteSpace(reviewCommitSha))
+        {
+            throw new WorkflowDomainException(
+                "Release approval cannot start because the approved review was not associated with a git phase commit.");
+        }
+
+        if (!string.Equals(currentHead, reviewCommitSha, StringComparison.Ordinal))
+        {
+            throw new WorkflowDomainException(
+                $"Release approval cannot start because HEAD `{currentHead}` differs from the approved review commit `{reviewCommitSha}`. Rerun review for the current repository state.");
+        }
+    }
+
+    private static string? TryReadLatestReviewPhaseCommitSha(UserStoryFilePaths paths)
+    {
+        var reviewSlug = WorkflowPresentation.ToPhaseSlug(PhaseId.Review);
+        var commitEvent = TimelineMarkdownParser.ParseEvents(File.ReadAllText(paths.TimelineFilePath))
+            .LastOrDefault(timelineEvent =>
+                timelineEvent.Code == "phase_committed" &&
+                string.Equals(timelineEvent.Phase, reviewSlug, StringComparison.Ordinal));
+        if (commitEvent?.Summary is null)
+        {
+            return null;
+        }
+
+        var match = Regex.Match(commitEvent.Summary, "commit `(?<sha>[0-9a-fA-F]{7,40})`", RegexOptions.CultureInvariant);
+        return match.Success ? match.Groups["sha"].Value : null;
     }
 
     private static async Task<bool> ShouldReplayCurrentReviewAsync(
@@ -2234,6 +2426,63 @@ public sealed class WorkflowRunner
         await File.AppendAllTextAsync(timelinePath, builder.ToString(), cancellationToken);
     }
 
+    private static async Task<PhaseCommitResult?> CommitPhaseArtifactsAsync(
+        string workspaceRoot,
+        UserStoryFilePaths paths,
+        string usId,
+        PhaseId phaseId,
+        string outcome,
+        IReadOnlyCollection<string> candidatePaths,
+        string actor,
+        CancellationToken cancellationToken)
+    {
+        if (phaseId is not (PhaseId.Implementation or PhaseId.Review))
+        {
+            return null;
+        }
+
+        var commit = await GitPhaseCommitter.CommitAsync(
+            workspaceRoot,
+            usId,
+            WorkflowPresentation.ToPhaseSlug(phaseId),
+            outcome,
+            candidatePaths,
+            cancellationToken);
+        if (!commit.CommitCreated)
+        {
+            return commit;
+        }
+
+        SpecForgeDiagnostics.Log(
+            $"[runner.phase_commit] usId={usId} phase={WorkflowPresentation.ToPhaseSlug(phaseId)} sha={commit.CommitSha} message='{commit.Message}' files={commit.StagedPaths.Count}");
+        await AppendTimelineEventAsync(
+            paths.TimelineFilePath,
+            "phase_committed",
+            actor,
+            phaseId,
+            $"Created git commit `{commit.CommitSha}` for phase `{WorkflowPresentation.ToPhaseSlug(phaseId)}` with message `{commit.Message}`.",
+            cancellationToken);
+        return commit;
+    }
+
+    private static string ResolvePhaseCommitOutcome(PhaseId phaseId, string artifactPath)
+    {
+        if (phaseId != PhaseId.Review || !File.Exists(artifactPath))
+        {
+            return "artifact_generated";
+        }
+
+        var reviewMarkdown = File.ReadAllText(artifactPath);
+        var result = TryReadReviewResult(reviewMarkdown) ?? "unknown";
+        var primaryReason = WorkflowArtifactMarkdownReader.ParseReviewPrimaryReason(reviewMarkdown);
+        if (primaryReason.Contains("review_contract_failed", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{result} review_contract_failed";
+        }
+
+        return result;
+    }
+
     private async Task TrackRuntimeVersionChangeAsync(
         UserStoryFilePaths paths,
         WorkflowRun workflowRun,
@@ -2525,7 +2774,14 @@ public sealed class WorkflowRunner
         }
     }
 
-    private sealed record ArtifactGenerationResult(string ArtifactPath, TokenUsage? Usage, long DurationMs, PhaseExecutionMetadata? Execution, string? ReceiptPath = null);
+    private sealed record ArtifactGenerationResult(
+        string ArtifactPath,
+        TokenUsage? Usage,
+        long DurationMs,
+        PhaseExecutionMetadata? Execution,
+        string? ReceiptPath = null,
+        IReadOnlyCollection<string>? GeneratedFiles = null,
+        IReadOnlyCollection<string>? RepositoryEvidencePaths = null);
     private sealed record RefinementAssessment(bool IsReady, string Reason, IReadOnlyCollection<string> Questions, string Summary);
     private sealed record CaptureTransitionResult(string ArtifactPath, TokenUsage? Usage, long DurationMs, PhaseExecutionMetadata? Execution);
 

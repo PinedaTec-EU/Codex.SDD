@@ -47,6 +47,15 @@ export interface ContinuePhaseResult {
   readonly generatedArtifactPath: string | null;
   readonly usage: TokenUsage | null;
   readonly execution?: PhaseExecutionMetadata | null;
+  readonly commit?: PhaseCommitResult | null;
+}
+
+export interface PhaseCommitResult {
+  readonly isGitWorkspace: boolean;
+  readonly commitCreated: boolean;
+  readonly commitSha: string | null;
+  readonly message: string | null;
+  readonly stagedPaths: readonly string[];
 }
 
 export interface TokenUsage {
@@ -126,6 +135,7 @@ export interface OperateCurrentPhaseArtifactResult {
   readonly generatedArtifactPath: string;
   readonly usage: TokenUsage | null;
   readonly execution?: PhaseExecutionMetadata | null;
+  readonly commit?: PhaseCommitResult | null;
 }
 
 export interface SubmitApprovalAnswerResult {

@@ -45,6 +45,7 @@ const backendClient_1 = require("./backendClient");
 const contextSuggestions_1 = require("./contextSuggestions");
 const extensionSettings_1 = require("./extensionSettings");
 const outputChannel_1 = require("./outputChannel");
+const phaseCommitNotification_1 = require("./phaseCommitNotification");
 const runtimeVersion_1 = require("./runtimeVersion");
 const userActor_1 = require("./userActor");
 const workflowAutomation_1 = require("./workflowAutomation");
@@ -381,6 +382,7 @@ class WorkflowPanelController {
             : "";
         const executionSummary = this.formatExecutionSummary(result.execution);
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' advanced from '${previousPhase}' to '${result.currentPhase}' with status '${result.status}'.${executionSummary}${usageSummary}`);
+        this.notifyPhaseCommit(result.commit);
         this.logExecutionWarnings(result.execution);
         this.summary = {
             ...this.summary,
@@ -488,6 +490,7 @@ class WorkflowPanelController {
         const previousPhase = this.summary.currentPhase;
         const result = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, normalizedPrompt, (0, userActor_1.getCurrentActor)());
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regenerated phase '${result.currentPhase}' after human input.${this.formatExecutionSummary(result.execution)}`);
+        this.notifyPhaseCommit(result.commit);
         this.logExecutionWarnings(result.execution);
         this.summary = {
             ...this.summary,
@@ -561,6 +564,7 @@ class WorkflowPanelController {
             }
         }
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' applied the approved review correction pass over implementation. reviewArtifactIncluded=${includeReviewArtifactInContext}.${this.formatExecutionSummary(operation.execution)}`);
+        this.notifyPhaseCommit(operation.commit);
         this.logExecutionWarnings(operation.execution);
         this.summary = {
             ...this.summary,
@@ -627,6 +631,14 @@ class WorkflowPanelController {
         for (const warning of execution.warnings) {
             (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' system prompt warning: ${warning}`);
         }
+    }
+    notifyPhaseCommit(commit) {
+        const notification = (0, phaseCommitNotification_1.buildPhaseCommitNotification)(this.summary.usId, commit);
+        if (!notification) {
+            return;
+        }
+        (0, outputChannel_1.appendSpecForgeLog)(notification.logMessage);
+        void vscode.window.showInformationMessage(notification.userMessage);
     }
     formatExecutionSummary(execution) {
         if (!execution) {
@@ -890,6 +902,7 @@ class WorkflowPanelController {
                 }
             }
             (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' applied the completed-workflow reopen note over '${operation.currentPhase}'.${this.formatExecutionSummary(operation.execution)}`);
+            this.notifyPhaseCommit(operation.commit);
             this.logExecutionWarnings(operation.execution);
             this.summary = {
                 ...this.summary,

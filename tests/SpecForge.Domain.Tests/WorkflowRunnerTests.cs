@@ -1382,19 +1382,73 @@ public sealed class WorkflowRunnerTests : IDisposable
         await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
         await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
-        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        var reviewResult = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
 
         var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
         var reviewArtifact = await File.ReadAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Review));
+        var rawReviewArtifactPath = Path.Combine(paths.PhasesDirectoryPath, "04-review.raw.md");
         var currentPhase = await service.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
 
         Assert.Contains("- Result: `fail`", reviewArtifact);
         Assert.Contains("## Validation Checklist", reviewArtifact);
         Assert.Contains("❌ Review must compare implementation back to the approved spec before final release approval.", reviewArtifact);
-        Assert.Contains("did not include the required Validation Checklist", reviewArtifact);
+        Assert.Contains("review_contract_failed", reviewArtifact);
+        Assert.Contains("Rerun review or fix the reviewer prompt/output contract", reviewArtifact);
+        Assert.True(File.Exists(rawReviewArtifactPath));
+        Assert.Contains("## Checks Performed", await File.ReadAllTextAsync(rawReviewArtifactPath));
+        var receiptPath = Directory
+            .GetFiles(paths.ExecutionReceiptsDirectoryPath, "*-review.json")
+            .OrderBy(static path => path, StringComparer.Ordinal)
+            .Last();
+        var receiptJson = await File.ReadAllTextAsync(receiptPath);
+        Assert.Contains("04-review.raw.md", receiptJson);
+        Assert.NotNull(reviewResult.Commit);
+        Assert.True(reviewResult.Commit!.CommitCreated);
+        Assert.Contains("US-0001 review: done fail review_contract_failed", reviewResult.Commit.Message);
         Assert.False(File.Exists(paths.GetPhaseArtifactJsonPath(PhaseId.Review)));
         Assert.False(currentPhase.CanAdvance);
         Assert.Equal("review_failed", currentPhase.BlockingReason);
+    }
+
+    [Fact]
+    public async Task ContinuePhaseAsync_ImplementationAndReview_CreateTraceablePhaseCommits()
+    {
+        await InitializeGitWorkspaceAsync(workspaceRoot);
+        await RunGitAsync(workspaceRoot, "checkout", "-b", "main");
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "README.md"), "seed");
+        await RunGitAsync(workspaceRoot, "add", "README.md");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "seed");
+
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new RetryPassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Phase commits", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var implementation = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        var review = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.NotNull(implementation.Commit);
+        Assert.True(implementation.Commit!.CommitCreated);
+        Assert.Contains("US-0001 implementation: done artifact_generated", implementation.Commit.Message);
+        Assert.NotNull(review.Commit);
+        Assert.True(review.Commit!.CommitCreated);
+        Assert.Contains("US-0001 review: done fail review_contract_failed", review.Commit.Message);
+
+        var log = await RunGitAsync(workspaceRoot, "log", "--oneline", "--format=%s", "-2");
+        Assert.Contains("US-0001 review: done fail review_contract_failed", log);
+        Assert.Contains("US-0001 implementation: done artifact_generated", log);
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        var timeline = await File.ReadAllTextAsync(paths.TimelineFilePath);
+        Assert.Contains("`phase_committed`", timeline);
+        Assert.Contains(implementation.Commit.CommitSha!, timeline);
+        Assert.Contains(review.Commit.CommitSha!, timeline);
     }
 
     [Fact]
@@ -1465,6 +1519,111 @@ public sealed class WorkflowRunnerTests : IDisposable
         Assert.Equal(PhaseId.Review, replay.CurrentPhase);
         Assert.NotNull(replay.GeneratedArtifactPath);
         Assert.EndsWith("04-review.v02.md", replay.GeneratedArtifactPath, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ContinuePhaseAsync_AfterReviewRegressionToImplementation_RequiresTraceableReworkBeforeNextReview()
+    {
+        await InitializeGitWorkspaceAsync(workspaceRoot);
+        await RunGitAsync(workspaceRoot, "checkout", "-b", "main");
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "README.md"), "seed");
+        await RunGitAsync(workspaceRoot, "add", "README.md");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "seed");
+
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new RetryPassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Review rework gate", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        await runner.RequestRegressionAsync(workspaceRoot, "US-0001", PhaseId.Implementation, "Review requires implementation rework.");
+
+        var act = () => runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        var error = await Assert.ThrowsAsync<WorkflowDomainException>(act);
+        Assert.Contains("implementation rework is traceable", error.Message);
+    }
+
+    [Fact]
+    public async Task ContinuePhaseAsync_AfterReviewRegressionToImplementation_AllowsNextReviewAfterArtifactOperation()
+    {
+        await InitializeGitWorkspaceAsync(workspaceRoot);
+        await RunGitAsync(workspaceRoot, "checkout", "-b", "main");
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "README.md"), "seed");
+        await RunGitAsync(workspaceRoot, "add", "README.md");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "seed");
+
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new RetryPassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Review rework gate", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        await runner.RequestRegressionAsync(workspaceRoot, "US-0001", PhaseId.Implementation, "Review requires implementation rework.");
+        var operation = await runner.OperateCurrentPhaseArtifactAsync(
+            workspaceRoot,
+            "US-0001",
+            "Record the corrective implementation evidence without changing approved scope.");
+        var review = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.NotNull(operation.Commit);
+        Assert.True(operation.Commit!.CommitCreated);
+        Assert.Equal(PhaseId.Review, review.CurrentPhase);
+        Assert.NotNull(review.GeneratedArtifactPath);
+        Assert.EndsWith("04-review.v02.md", review.GeneratedArtifactPath, StringComparison.Ordinal);
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        var timeline = await File.ReadAllTextAsync(paths.TimelineFilePath);
+        Assert.Contains("`phase_regressed`", timeline);
+        Assert.Contains("`artifact_operated`", timeline);
+        Assert.Contains("`phase_completed`", timeline);
+    }
+
+    [Fact]
+    public async Task ContinuePhaseAsync_ApprovedReview_BlocksReleaseApprovalWhenHeadChangedAfterReviewCommit()
+    {
+        await InitializeGitWorkspaceAsync(workspaceRoot);
+        await RunGitAsync(workspaceRoot, "checkout", "-b", "main");
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "README.md"), "seed");
+        await RunGitAsync(workspaceRoot, "add", "README.md");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "seed");
+
+        var runner = new WorkflowRunner(
+            new UserStoryFileStore(),
+            new RetryPassingReviewPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager());
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Review head gate", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        var reviewPass = await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        Assert.Equal(PhaseId.Review, reviewPass.CurrentPhase);
+        Assert.True(reviewPass.Commit?.CommitCreated);
+
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "after-review.txt"), "unreviewed");
+        await RunGitAsync(workspaceRoot, "add", "after-review.txt");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "unreviewed change");
+
+        var act = () => runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        var error = await Assert.ThrowsAsync<WorkflowDomainException>(act);
+        Assert.Contains("Rerun review for the current repository state", error.Message);
     }
 
     [Fact]

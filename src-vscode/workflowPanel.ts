@@ -1,10 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
-import { onModelResponseDiagnostic, type SpecForgeBackendClient, type UserStorySummary, type UserStoryWorkflowDetails } from "./backendClient";
+import { onModelResponseDiagnostic, type PhaseCommitResult, type SpecForgeBackendClient, type UserStorySummary, type UserStoryWorkflowDetails } from "./backendClient";
 import { suggestContextFiles } from "./contextSuggestions";
 import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSettings";
 import { appendSpecForgeDebugLog, appendSpecForgeLog, isSpecForgeDebugLoggingEnabled, showSpecForgeOutput } from "./outputChannel";
+import { buildPhaseCommitNotification } from "./phaseCommitNotification";
 import { readRuntimeVersionAsync } from "./runtimeVersion";
 import { getCurrentActor } from "./userActor";
 import { hasReachedImplementationReviewCycleLimit } from "./workflowAutomation";
@@ -451,6 +452,7 @@ class WorkflowPanelController {
     appendSpecForgeLog(
       `Workflow '${this.summary.usId}' advanced from '${previousPhase}' to '${result.currentPhase}' with status '${result.status}'.${executionSummary}${usageSummary}`
     );
+    this.notifyPhaseCommit(result.commit);
     this.logExecutionWarnings(result.execution);
     this.summary = {
       ...this.summary,
@@ -594,6 +596,7 @@ class WorkflowPanelController {
     appendSpecForgeLog(
       `Workflow '${this.summary.usId}' regenerated phase '${result.currentPhase}' after human input.${this.formatExecutionSummary(result.execution)}`
     );
+    this.notifyPhaseCommit(result.commit);
     this.logExecutionWarnings(result.execution);
     this.summary = {
       ...this.summary,
@@ -685,6 +688,7 @@ class WorkflowPanelController {
     appendSpecForgeLog(
       `Workflow '${this.summary.usId}' applied the approved review correction pass over implementation. reviewArtifactIncluded=${includeReviewArtifactInContext}.${this.formatExecutionSummary(operation.execution)}`
     );
+    this.notifyPhaseCommit(operation.commit);
     this.logExecutionWarnings(operation.execution);
     this.summary = {
       ...this.summary,
@@ -770,6 +774,16 @@ class WorkflowPanelController {
     for (const warning of execution.warnings) {
       appendSpecForgeLog(`Workflow '${this.summary.usId}' system prompt warning: ${warning}`);
     }
+  }
+
+  private notifyPhaseCommit(commit?: PhaseCommitResult | null): void {
+    const notification = buildPhaseCommitNotification(this.summary.usId, commit);
+    if (!notification) {
+      return;
+    }
+
+    appendSpecForgeLog(notification.logMessage);
+    void vscode.window.showInformationMessage(notification.userMessage);
   }
 
   private formatExecutionSummary(
@@ -1146,6 +1160,7 @@ class WorkflowPanelController {
       appendSpecForgeLog(
         `Workflow '${this.summary.usId}' applied the completed-workflow reopen note over '${operation.currentPhase}'.${this.formatExecutionSummary(operation.execution)}`
       );
+      this.notifyPhaseCommit(operation.commit);
       this.logExecutionWarnings(operation.execution);
       this.summary = {
         ...this.summary,

@@ -35,6 +35,11 @@ internal static class ImplementationPhaseEvidence
 
         if (evidence.TouchedFiles.Count == 0)
         {
+            if (LatestImplementationArtifactOperationIsTraceable(paths))
+            {
+                return;
+            }
+
             throw new WorkflowDomainException(
                 "Review requires implementation evidence with at least one touched repository file. The previous implementation phase did not record a repository delta for this user story.");
         }
@@ -209,6 +214,22 @@ internal static class ImplementationPhaseEvidence
         }
 
         return string.Join(Environment.NewLine, lines) + Environment.NewLine;
+    }
+
+    private static bool LatestImplementationArtifactOperationIsTraceable(UserStoryFilePaths paths)
+    {
+        if (!File.Exists(paths.TimelineFilePath))
+        {
+            return false;
+        }
+
+        var implementationSlug = WorkflowPresentation.ToPhaseSlug(PhaseId.Implementation);
+        var events = TimelineMarkdownParser.ParseEvents(File.ReadAllText(paths.TimelineFilePath)).ToArray();
+        var latestImplementationEvent = events
+            .LastOrDefault(timelineEvent =>
+                string.Equals(timelineEvent.Phase, implementationSlug, StringComparison.Ordinal) &&
+                timelineEvent.Code is "phase_completed" or "artifact_operated");
+        return latestImplementationEvent?.Code == "artifact_operated";
     }
 
     private static IReadOnlyDictionary<string, WorkspaceSnapshotEntry> FlattenSnapshotByPath(
