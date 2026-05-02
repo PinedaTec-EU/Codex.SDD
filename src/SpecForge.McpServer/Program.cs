@@ -275,7 +275,7 @@ static JsonObject BuildToolsList()
                         ("category",      Prop("string", "Category that groups the user story.")),
                         ("actor",         Prop("string", "Actor performing the action. Defaults to 'user'."))))),
 
-            Tool("initialize_repo_prompts", "Export the repo prompt templates into .specs/prompts/.",
+            Tool("initialize_repo_prompts", "Export the repo prompt templates into .specs/prompts/ and SpecForge agent instructions into .specs/.",
                 Schema(
                     required: ["workspaceRoot"],
                     Props(

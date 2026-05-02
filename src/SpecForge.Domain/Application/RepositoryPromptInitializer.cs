@@ -24,6 +24,7 @@ public sealed class RepositoryPromptInitializer
         var skippedFiles = new List<string>();
         var files = new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            [paths.AgentInstructionsPath] = BuildAgentInstructions(),
             [paths.ConfigFilePath] = BuildConfigYaml(),
             [paths.PromptManifestPath] = BuildPromptManifestYaml(),
             [paths.SharedSystemPromptPath] = BuildSharedSystemPrompt(),
@@ -96,6 +97,22 @@ public sealed class RepositoryPromptInitializer
           - review
           - integrations
           - infra
+        """;
+
+    private static string BuildAgentInstructions() =>
+        """
+        # SpecForge Agent Instructions
+
+        These instructions apply to SpecForge workflow artifacts stored under `.specs/`.
+
+        ## Workflow Access
+
+        - Use the SpecForge MCP as the operational source of truth for user story workflow state, current phase, pending questions, approvals, and workflow actions.
+        - Before answering or resolving blocked refinement, spec, approval, or workflow questions, inspect the user story through MCP tools such as `get_user_story_workflow`, `get_current_phase`, `get_user_story_summary`, and `list_user_story_files`.
+        - Submit workflow answers and decisions through MCP tools such as `submit_refinement_answers`, `submit_approval_answer`, or the closest available workflow operation.
+        - Do not modify `.specs/**` workflow artifacts directly when an MCP tool exposes the corresponding workflow action.
+        - Direct reads of `.specs/**` files are allowed for evidence, debugging, and technical inspection, but they must not replace MCP workflow state when both are available.
+        - If the MCP is unavailable or does not expose the required information or action, state that limitation explicitly before relying on direct file inspection or manual edits.
         """;
 
     private static string BuildPromptManifestYaml() =>

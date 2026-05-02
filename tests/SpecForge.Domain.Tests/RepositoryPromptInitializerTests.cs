@@ -18,7 +18,9 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.Equal(paths.ConfigFilePath, result.ConfigPath);
         Assert.Equal(paths.PromptManifestPath, result.PromptManifestPath);
         Assert.Equal(paths.PromptSystemHashesPath, result.PromptSystemHashesPath);
+        Assert.Contains(paths.AgentInstructionsPath, result.CreatedFiles);
         Assert.Contains(paths.SpecExecutePromptPath, result.CreatedFiles);
+        Assert.True(File.Exists(paths.AgentInstructionsPath));
         Assert.True(File.Exists(paths.ConfigFilePath));
         Assert.True(File.Exists(paths.PromptManifestPath));
         Assert.True(File.Exists(paths.PromptSystemHashesPath));
@@ -33,6 +35,7 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.True(File.Exists(paths.AutoRefinementAnswersSystemPromptPath));
         Assert.True(File.Exists(paths.ReviewExecutePromptPath));
         var configContent = await File.ReadAllTextAsync(paths.ConfigFilePath);
+        var agentInstructionsContent = await File.ReadAllTextAsync(paths.AgentInstructionsPath);
         var manifestContent = await File.ReadAllTextAsync(paths.PromptManifestPath);
         var sharedSystemPrompt = await File.ReadAllTextAsync(paths.SharedSystemPromptPath);
         var sharedOutputRulesPrompt = await File.ReadAllTextAsync(paths.SharedOutputRulesPromptPath);
@@ -42,6 +45,8 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         var reviewPrompt = await File.ReadAllTextAsync(paths.ReviewExecutePromptPath);
         Assert.Contains("categories:", configContent);
         Assert.Contains("- workflow", configContent);
+        Assert.Contains("Use the SpecForge MCP as the operational source of truth", agentInstructionsContent);
+        Assert.Contains("Direct reads of `.specs/**` files are allowed", agentInstructionsContent);
         Assert.Contains("refinement.execute.system.md", manifestContent);
         Assert.Contains("release-approval.approve.system.md", manifestContent);
         Assert.Contains("internalCalls:", manifestContent);
