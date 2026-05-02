@@ -275,7 +275,9 @@ function buildSidebarHtml(model) {
         </div>
         ${buildCompactActions(model)}
       </div>
+      ${buildStorySearchMarkup()}
       ${storiesMarkup || "<p class=\"copy story-list__empty\">Bootstrap the repo prompts to start creating user stories from the sidebar.</p>"}
+      <p class="copy story-list__empty" data-story-search-empty hidden>No user stories match this search.</p>
     </section>
   `, isBusy, model.createFormResetToken ?? 0, model.typographyCssVars ?? "");
 }
@@ -329,19 +331,15 @@ function buildCreateActionButton(enabled) {
     </button>
   `;
 }
-function buildViewModeActionButton(viewMode) {
-    const isCategory = viewMode === "category";
-    const title = isCategory
-        ? "Switch to phase-ordered view"
-        : "Switch to category view";
+function buildStorySearchMarkup() {
     return `
-    <button
-      class="icon-action"
-      data-command="toggleViewMode"
-      title="${(0, htmlEscape_1.escapeHtmlAttr)(title)}"
-      aria-label="${(0, htmlEscape_1.escapeHtmlAttr)(title)}">
-      <span aria-hidden="true">${isCategory ? "◫" : "≣"}</span>
-    </button>
+    <label class="story-search">
+      <span class="story-search__label">Search user stories</span>
+      <span class="story-search__control">
+        <input type="search" placeholder="Search by title, description, or category" data-story-search />
+        <span class="story-search__icon" aria-hidden="true">🔍</span>
+      </span>
+    </label>
   `;
 }
 function buildPromptMenu(promptsInitialized) {
@@ -381,7 +379,6 @@ function buildCompactActions(model) {
     <div class="compact-actions">
       ${buildCreateActionButton(model.promptsInitialized)}
       ${buildExecutionSettingsActionButton()}
-      ${buildViewModeActionButton(model.viewMode)}
       ${buildPromptMenu(model.promptsInitialized)}
     </div>
   `;
@@ -1006,6 +1003,57 @@ function wrapHtml(content, busy, createFormResetToken, typographyCssVars) {
       background: transparent;
       box-shadow: none;
     }
+    .story-search {
+      display: grid;
+      gap: 6px;
+      margin: 0 0 14px;
+    }
+    .story-search__label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .story-search__control {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 38px;
+      align-items: center;
+      min-height: 40px;
+      border-radius: 14px;
+      border: 1px solid rgba(114, 241, 184, 0.14);
+      background:
+        linear-gradient(180deg, rgba(20, 27, 35, 0.96), rgba(12, 18, 24, 0.98)),
+        rgba(255, 255, 255, 0.03);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+    .story-search__control:focus-within {
+      border-color: rgba(114, 241, 184, 0.34);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 0 0 3px rgba(114, 241, 184, 0.06);
+    }
+    .story-search input {
+      min-width: 0;
+      border: 0;
+      border-radius: 14px 0 0 14px;
+      background: transparent;
+      padding: 10px 0 10px 12px;
+      outline: none;
+    }
+    .story-search__icon {
+      display: inline-grid;
+      place-items: center;
+      width: 38px;
+      height: 100%;
+      color: rgba(114, 241, 184, 0.86);
+      border-left: 1px solid rgba(255, 255, 255, 0.08);
+      pointer-events: none;
+    }
     .story-list__empty {
       margin-top: 6px;
     }
@@ -1492,6 +1540,49 @@ function wrapHtml(content, busy, createFormResetToken, typographyCssVars) {
         closeActionMenus();
       }
     });
+    const storySearch = document.querySelector("[data-story-search]");
+    const storySearchEmpty = document.querySelector("[data-story-search-empty]");
+    function normalizeSearchText(value) {
+      return String(value ?? "").trim().toLowerCase();
+    }
+    function applyStorySearch() {
+      if (!(storySearch instanceof HTMLInputElement)) {
+        return;
+      }
+
+      const query = normalizeSearchText(storySearch.value);
+      let visibleCount = 0;
+      for (const row of document.querySelectorAll("[data-story-search-text]")) {
+        if (!(row instanceof HTMLElement)) {
+          continue;
+        }
+
+        const matches = query.length === 0 || normalizeSearchText(row.dataset.storySearchText).includes(query);
+        row.hidden = !matches;
+        if (matches) {
+          visibleCount += 1;
+        }
+      }
+
+      for (const group of document.querySelectorAll(".story-group")) {
+        if (!(group instanceof HTMLElement)) {
+          continue;
+        }
+
+        const hasVisibleRows = Array.from(group.querySelectorAll("[data-story-search-text]"))
+          .some((row) => row instanceof HTMLElement && !row.hidden);
+        group.hidden = query.length > 0 && !hasVisibleRows;
+      }
+
+      if (storySearchEmpty instanceof HTMLElement) {
+        storySearchEmpty.hidden = query.length === 0 || visibleCount > 0;
+      }
+    }
+    if (storySearch instanceof HTMLInputElement) {
+      storySearch.disabled = busy;
+      storySearch.addEventListener("input", applyStorySearch);
+      applyStorySearch();
+    }
     const form = document.getElementById("create-user-story-form");
     if (form) {
       window.addEventListener("message", (event) => {
@@ -1690,8 +1781,16 @@ function buildStoryRowMarkup(summary, starredUserStoryId, activeWorkflowUsId) {
     const isActiveWorkflow = activeWorkflowUsId === summary.usId;
     const statusTone = phaseRailStatus(summary.status);
     const displayTitle = buildStoryDisplayTitle(summary);
+    const searchText = [
+        summary.usId,
+        summary.title,
+        summary.description ?? "",
+        summary.category,
+        summary.currentPhase,
+        summary.status
+    ].join(" ");
     return `
-    <div class="story-row story-row--shell story-row--status-${(0, htmlEscape_1.escapeHtmlAttr)(statusTone)}${isActiveWorkflow ? " story-row--selected" : ""}">
+    <div class="story-row story-row--shell story-row--status-${(0, htmlEscape_1.escapeHtmlAttr)(statusTone)}${isActiveWorkflow ? " story-row--selected" : ""}" data-story-search-text="${(0, htmlEscape_1.escapeHtmlAttr)(searchText)}">
       <button class="story-card${shouldRenderPhaseRail(summary.status) ? ` story-card--active story-card--phase-${(0, htmlEscape_1.escapeHtmlAttr)(summary.currentPhase)} story-card--status-${(0, htmlEscape_1.escapeHtmlAttr)(phaseRailStatus(summary.status))}` : ""}" data-command="openWorkflow" data-us-id="${(0, htmlEscape_1.escapeHtmlAttr)(summary.usId)}">
         ${shouldRenderPhaseRail(summary.status)
         ? `

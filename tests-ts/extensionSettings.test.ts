@@ -130,6 +130,7 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
     reviewTolerance: "strict",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: false,
     attentionNotificationsEnabled: true,
@@ -184,6 +185,22 @@ test("readSpecForgeSettings normalizes workflow graph initial zoom preference", 
   assert.equal(unsupportedSettings.workflowGraphInitialZoomMode, "actual-size");
 });
 
+test("readSpecForgeSettings normalizes user story list view preference", () => {
+  const phaseSettings = readSpecForgeSettings({
+    get<T>(section: string, defaultValue?: T): T {
+      return (section === "ui.userStoryListViewMode" ? "phase" : defaultValue) as T;
+    }
+  });
+  const unsupportedSettings = readSpecForgeSettings({
+    get<T>(section: string, defaultValue?: T): T {
+      return (section === "ui.userStoryListViewMode" ? "unknown" : defaultValue) as T;
+    }
+  });
+
+  assert.equal(phaseSettings.userStoryListViewMode, "phase");
+  assert.equal(unsupportedSettings.userStoryListViewMode, "category");
+});
+
 test("buildBackendEnvironment only serializes model profiles and assignments", () => {
   assert.deepEqual(buildBackendEnvironment({
     modelProfiles: [
@@ -219,6 +236,7 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
     reviewTolerance: "inferential",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -274,6 +292,7 @@ test("getSpecForgeSettingsStatus requires at least one model profile", () => {
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -316,6 +335,7 @@ test("getSpecForgeSettingsStatus rejects a single fallback profile when phase pe
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -358,6 +378,7 @@ test("getSpecForgeSettingsStatus still requires an api key for remote profiles",
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -396,6 +417,7 @@ test("getSpecForgeSettingsStatus accepts profiles using the default provider", (
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -458,6 +480,7 @@ test("getSpecForgeSettingsStatus accepts codex, copilot, and claude providers", 
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -503,6 +526,7 @@ test("getSpecForgeSettingsStatus allows native CLI providers without baseUrl api
       reviewTolerance: "balanced",
       workflowGraphLayoutMode: "vertical",
       workflowGraphInitialZoomMode: "actual-size",
+      userStoryListViewMode: "category",
       visualTimelineEnabled: false,
       watcherEnabled: true,
       attentionNotificationsEnabled: true,
@@ -542,6 +566,7 @@ test("getSpecForgeSettingsStatus rejects unsupported providers", () => {
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -582,6 +607,7 @@ test("getSpecForgeSettingsStatus validates named profile assignments", () => {
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -648,6 +674,7 @@ test("getSpecForgeSettingsStatus allows multiple profiles without default when a
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -704,6 +731,7 @@ test("getSpecForgeSettingsStatus rejects review when its assigned profile lacks 
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -743,6 +771,7 @@ test("getSpecForgeSettingsStatus requires an explicit auto-refinement profile wh
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -784,6 +813,7 @@ test("buildBackendEnvironment serializes auto-refinement settings", () => {
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,

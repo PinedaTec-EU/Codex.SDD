@@ -28,7 +28,6 @@ type SidebarMessage =
   | { readonly command: "showCreateForm" }
   | { readonly command: "hideCreateForm" }
   | { readonly command: "openExecutionSettings" }
-  | { readonly command: "toggleViewMode" }
   | { readonly command: "initializeRepoPrompts" }
   | { readonly command: "openSettings" }
   | { readonly command: "openPromptTemplates" }
@@ -64,7 +63,6 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
   private webviewView: vscode.WebviewView | undefined;
   private showCreateForm = false;
   private busyMessage: string | null = null;
-  private viewMode: "category" | "phase" = "category";
   private activeWorkflowUsId: string | null = null;
   private createFileMode: "context" | "attachment" = "context";
   private createFiles: DraftCreateFile[] = [];
@@ -123,10 +121,6 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         return;
       case "openExecutionSettings":
         await vscode.commands.executeCommand("specForge.openExecutionSettings");
-        return;
-      case "toggleViewMode":
-        this.viewMode = this.viewMode === "category" ? "phase" : "category";
-        await this.safeRenderAsync();
         return;
       case "setCreateFileMode":
         this.createFileMode = message.kind === "attachment" ? "attachment" : "context";
@@ -549,6 +543,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     const workspaceRoot = getWorkspaceRoot();
     if (!workspaceRoot) {
       const settingsStatus = getSpecForgeSettingsStatus(getSpecForgeSettings());
+      const settings = getSpecForgeSettings();
       const runtimeVersion = await readRuntimeVersionAsync();
       this.webviewView.webview.html = buildSidebarHtml({
         hasWorkspace: false,
@@ -561,7 +556,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         starredUserStoryId: null,
         activeWorkflowUsId: this.activeWorkflowUsId,
         runtimeVersion,
-        viewMode: this.viewMode,
+        viewMode: settings.userStoryListViewMode ?? "category",
         createFileMode: this.createFileMode,
         createFiles: this.createFiles,
         createFormResetToken: this.createFormResetToken,
@@ -600,7 +595,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       starredUserStoryId: preferences.starredUserStoryId,
       activeWorkflowUsId: this.activeWorkflowUsId,
       runtimeVersion,
-      viewMode: this.viewMode,
+      viewMode: settings.userStoryListViewMode ?? "category",
       createFileMode: this.createFileMode,
       createFiles: this.createFiles,
       createFormResetToken: this.createFormResetToken,
@@ -629,7 +624,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         starredUserStoryId: null,
         activeWorkflowUsId: this.activeWorkflowUsId,
         runtimeVersion: await readRuntimeVersionAsync(),
-        viewMode: this.viewMode,
+        viewMode: getSpecForgeSettings().userStoryListViewMode ?? "category",
         createFileMode: this.createFileMode,
         createFiles: this.createFiles,
         createFormResetToken: this.createFormResetToken,

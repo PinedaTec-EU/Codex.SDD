@@ -56,7 +56,6 @@ class SidebarViewProvider {
     webviewView;
     showCreateForm = false;
     busyMessage = null;
-    viewMode = "category";
     activeWorkflowUsId = null;
     createFileMode = "context";
     createFiles = [];
@@ -106,10 +105,6 @@ class SidebarViewProvider {
                 return;
             case "openExecutionSettings":
                 await vscode.commands.executeCommand("specForge.openExecutionSettings");
-                return;
-            case "toggleViewMode":
-                this.viewMode = this.viewMode === "category" ? "phase" : "category";
-                await this.safeRenderAsync();
                 return;
             case "setCreateFileMode":
                 this.createFileMode = message.kind === "attachment" ? "attachment" : "context";
@@ -446,6 +441,7 @@ class SidebarViewProvider {
         const workspaceRoot = getWorkspaceRoot();
         if (!workspaceRoot) {
             const settingsStatus = (0, extensionSettings_1.getSpecForgeSettingsStatus)((0, extensionSettings_1.getSpecForgeSettings)());
+            const settings = (0, extensionSettings_1.getSpecForgeSettings)();
             const runtimeVersion = await (0, runtimeVersion_1.readRuntimeVersionAsync)();
             this.webviewView.webview.html = (0, sidebarViewContent_1.buildSidebarHtml)({
                 hasWorkspace: false,
@@ -458,7 +454,7 @@ class SidebarViewProvider {
                 starredUserStoryId: null,
                 activeWorkflowUsId: this.activeWorkflowUsId,
                 runtimeVersion,
-                viewMode: this.viewMode,
+                viewMode: settings.userStoryListViewMode ?? "category",
                 createFileMode: this.createFileMode,
                 createFiles: this.createFiles,
                 createFormResetToken: this.createFormResetToken,
@@ -496,7 +492,7 @@ class SidebarViewProvider {
             starredUserStoryId: preferences.starredUserStoryId,
             activeWorkflowUsId: this.activeWorkflowUsId,
             runtimeVersion,
-            viewMode: this.viewMode,
+            viewMode: settings.userStoryListViewMode ?? "category",
             createFileMode: this.createFileMode,
             createFiles: this.createFiles,
             createFormResetToken: this.createFormResetToken,
@@ -524,7 +520,7 @@ class SidebarViewProvider {
                 starredUserStoryId: null,
                 activeWorkflowUsId: this.activeWorkflowUsId,
                 runtimeVersion: await (0, runtimeVersion_1.readRuntimeVersionAsync)(),
-                viewMode: this.viewMode,
+                viewMode: (0, extensionSettings_1.getSpecForgeSettings)().userStoryListViewMode ?? "category",
                 createFileMode: this.createFileMode,
                 createFiles: this.createFiles,
                 createFormResetToken: this.createFormResetToken,

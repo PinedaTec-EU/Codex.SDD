@@ -78,7 +78,7 @@ class ExecutionSettingsPanelController {
                     return;
                 case "saveExecutionSettings":
                     try {
-                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.refinementTolerance ?? "balanced", message.reviewTolerance ?? "balanced", message.watcherEnabled ?? true, message.attentionNotificationsEnabled ?? true, message.contextSuggestionsEnabled ?? true, message.workflowGraphLayoutMode ?? "vertical", message.workflowGraphInitialZoomMode ?? "actual-size", message.visualTimelineEnabled ?? false, message.requireExplicitApprovalBranchAcceptance ?? false, message.autoRefinementAnswersEnabled ?? false, message.autoRefinementAnswersProfile, message.autoPlayEnabled ?? false, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.destructiveRewindEnabled ?? false, message.pauseOnFailedReview ?? false, message.reviewLearningEnabled ?? true, message.reviewLearningSkillPath, message.completedUsLockOnCompleted ?? true);
+                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.refinementTolerance ?? "balanced", message.reviewTolerance ?? "balanced", message.watcherEnabled ?? true, message.attentionNotificationsEnabled ?? true, message.contextSuggestionsEnabled ?? true, message.workflowGraphLayoutMode ?? "vertical", message.workflowGraphInitialZoomMode ?? "actual-size", message.userStoryListViewMode ?? "category", message.visualTimelineEnabled ?? false, message.requireExplicitApprovalBranchAcceptance ?? false, message.autoRefinementAnswersEnabled ?? false, message.autoRefinementAnswersProfile, message.autoPlayEnabled ?? false, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.destructiveRewindEnabled ?? false, message.pauseOnFailedReview ?? false, message.reviewLearningEnabled ?? true, message.reviewLearningSkillPath, message.completedUsLockOnCompleted ?? true);
                         await this.onDidSave();
                         await this.refreshAsync();
                     }
@@ -105,6 +105,7 @@ class ExecutionSettingsPanelController {
             contextSuggestionsEnabled: settings.contextSuggestionsEnabled,
             workflowGraphLayoutMode: settings.workflowGraphLayoutMode,
             workflowGraphInitialZoomMode: settings.workflowGraphInitialZoomMode,
+            userStoryListViewMode: settings.userStoryListViewMode ?? "category",
             visualTimelineEnabled: settings.visualTimelineEnabled,
             requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance,
             autoRefinementAnswersEnabled: settings.autoRefinementAnswersEnabled,
@@ -665,6 +666,14 @@ function buildExecutionSettingsHtml(model) {
           <span class="phase-field__hint">Default zoom mode used when opening a workflow graph.</span>
         </label>
         <label class="phase-field">
+          <span>User story list view</span>
+          <select data-user-story-list-view-mode>
+            <option value="category"${model.userStoryListViewMode === "phase" ? "" : " selected"}>By category</option>
+            <option value="phase"${model.userStoryListViewMode === "phase" ? " selected" : ""}>By phase</option>
+          </select>
+          <span class="phase-field__hint">Default grouping used by the user stories sidebar.</span>
+        </label>
+        <label class="phase-field">
           <span>Visual timeline</span>
           <select data-visual-timeline-enabled>
             <option value="false"${model.visualTimelineEnabled ? "" : " selected"}>Hidden</option>
@@ -715,6 +724,7 @@ function buildExecutionSettingsHtml(model) {
       contextSuggestionsEnabled: ${JSON.stringify(model.contextSuggestionsEnabled)},
       workflowGraphLayoutMode: ${JSON.stringify(model.workflowGraphLayoutMode)},
       workflowGraphInitialZoomMode: ${JSON.stringify(model.workflowGraphInitialZoomMode)},
+      userStoryListViewMode: ${JSON.stringify(model.userStoryListViewMode)},
       visualTimelineEnabled: ${JSON.stringify(model.visualTimelineEnabled)},
       requireExplicitApprovalBranchAcceptance: ${JSON.stringify(model.requireExplicitApprovalBranchAcceptance)},
       autoRefinementAnswersEnabled: ${JSON.stringify(model.autoRefinementAnswersEnabled)},
@@ -854,6 +864,7 @@ function buildExecutionSettingsHtml(model) {
       const contextSuggestionsEnabled = document.querySelector("[data-context-suggestions-enabled]");
       const workflowGraphLayoutMode = document.querySelector("[data-workflow-graph-layout-mode]");
       const workflowGraphInitialZoomMode = document.querySelector("[data-workflow-graph-initial-zoom-mode]");
+      const userStoryListViewMode = document.querySelector("[data-user-story-list-view-mode]");
       const visualTimelineEnabled = document.querySelector("[data-visual-timeline-enabled]");
       const requireApprovalBranchAcceptance = document.querySelector("[data-require-approval-branch-acceptance]");
       const autoRefinementEnabled = document.querySelector("[data-auto-refinement-enabled]");
@@ -972,6 +983,13 @@ function buildExecutionSettingsHtml(model) {
         workflowGraphInitialZoomMode.value = state.workflowGraphInitialZoomMode === "fit-width" ? "fit-width" : "actual-size";
         workflowGraphInitialZoomMode.addEventListener("change", () => {
           state.workflowGraphInitialZoomMode = workflowGraphInitialZoomMode.value === "fit-width" ? "fit-width" : "actual-size";
+        });
+      }
+
+      if (userStoryListViewMode instanceof HTMLSelectElement) {
+        userStoryListViewMode.value = state.userStoryListViewMode === "phase" ? "phase" : "category";
+        userStoryListViewMode.addEventListener("change", () => {
+          state.userStoryListViewMode = userStoryListViewMode.value === "phase" ? "phase" : "category";
         });
       }
 
@@ -1303,6 +1321,7 @@ function buildExecutionSettingsHtml(model) {
         contextSuggestionsEnabled: state.contextSuggestionsEnabled,
         workflowGraphLayoutMode: state.workflowGraphLayoutMode,
         workflowGraphInitialZoomMode: state.workflowGraphInitialZoomMode,
+        userStoryListViewMode: state.userStoryListViewMode,
         visualTimelineEnabled: state.visualTimelineEnabled,
         requireExplicitApprovalBranchAcceptance: state.requireExplicitApprovalBranchAcceptance,
         autoRefinementAnswersEnabled: state.autoRefinementAnswersEnabled,
@@ -1323,7 +1342,7 @@ function buildExecutionSettingsHtml(model) {
 </body>
 </html>`;
 }
-async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, refinementTolerance = "balanced", reviewTolerance = "balanced", watcherEnabled = true, attentionNotificationsEnabled = true, contextSuggestionsEnabled = true, workflowGraphLayoutMode = "vertical", workflowGraphInitialZoomMode = "actual-size", visualTimelineEnabled = false, requireExplicitApprovalBranchAcceptance = false, autoRefinementAnswersEnabled = false, autoRefinementAnswersProfile, autoPlayEnabled = false, autoReviewEnabled = false, maxImplementationReviewCycles, destructiveRewindEnabled = false, pauseOnFailedReview = false, reviewLearningEnabled = true, reviewLearningSkillPath, completedUsLockOnCompleted = false) {
+async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, refinementTolerance = "balanced", reviewTolerance = "balanced", watcherEnabled = true, attentionNotificationsEnabled = true, contextSuggestionsEnabled = true, workflowGraphLayoutMode = "vertical", workflowGraphInitialZoomMode = "actual-size", userStoryListViewMode = "category", visualTimelineEnabled = false, requireExplicitApprovalBranchAcceptance = false, autoRefinementAnswersEnabled = false, autoRefinementAnswersProfile, autoPlayEnabled = false, autoReviewEnabled = false, maxImplementationReviewCycles, destructiveRewindEnabled = false, pauseOnFailedReview = false, reviewLearningEnabled = true, reviewLearningSkillPath, completedUsLockOnCompleted = false) {
     const configuration = vscode.workspace.getConfiguration("specForge");
     const normalizedProfiles = modelProfiles
         .map((profile) => ({
@@ -1369,6 +1388,7 @@ async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, 
     await configuration.update("execution.reviewTolerance", reviewTolerance, vscode.ConfigurationTarget.Workspace);
     await configuration.update("ui.workflowGraphLayoutMode", workflowGraphLayoutMode, vscode.ConfigurationTarget.Global);
     await configuration.update("ui.workflowGraphInitialZoomMode", workflowGraphInitialZoomMode, vscode.ConfigurationTarget.Global);
+    await configuration.update("ui.userStoryListViewMode", userStoryListViewMode, vscode.ConfigurationTarget.Global);
     await configuration.update("ui.visualTimelineEnabled", visualTimelineEnabled, vscode.ConfigurationTarget.Global);
     await configuration.update("ui.enableWatcher", watcherEnabled, vscode.ConfigurationTarget.Global);
     await configuration.update("ui.notifyOnAttention", attentionNotificationsEnabled, vscode.ConfigurationTarget.Global);
@@ -1386,6 +1406,7 @@ async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, 
     await configuration.update("features.completedUsLockOnCompleted", completedUsLockOnCompleted, vscode.ConfigurationTarget.Workspace);
     await configuration.update("ui.workflowGraphLayoutMode", undefined, vscode.ConfigurationTarget.Workspace);
     await configuration.update("ui.workflowGraphInitialZoomMode", undefined, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("ui.userStoryListViewMode", undefined, vscode.ConfigurationTarget.Workspace);
     await configuration.update("ui.visualTimelineEnabled", undefined, vscode.ConfigurationTarget.Workspace);
     await configuration.update("ui.enableWatcher", undefined, vscode.ConfigurationTarget.Workspace);
     await configuration.update("ui.notifyOnAttention", undefined, vscode.ConfigurationTarget.Workspace);

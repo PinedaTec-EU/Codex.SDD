@@ -21,6 +21,7 @@ type ExecutionSettingsMessage =
       readonly contextSuggestionsEnabled?: boolean;
       readonly workflowGraphLayoutMode?: "horizontal" | "vertical";
       readonly workflowGraphInitialZoomMode?: "actual-size" | "fit-width";
+      readonly userStoryListViewMode?: "category" | "phase";
       readonly visualTimelineEnabled?: boolean;
       readonly requireExplicitApprovalBranchAcceptance?: boolean;
       readonly autoRefinementAnswersEnabled?: boolean;
@@ -95,6 +96,7 @@ class ExecutionSettingsPanelController {
               message.contextSuggestionsEnabled ?? true,
               message.workflowGraphLayoutMode ?? "vertical",
               message.workflowGraphInitialZoomMode ?? "actual-size",
+              message.userStoryListViewMode ?? "category",
               message.visualTimelineEnabled ?? false,
               message.requireExplicitApprovalBranchAcceptance ?? false,
               message.autoRefinementAnswersEnabled ?? false,
@@ -134,6 +136,7 @@ class ExecutionSettingsPanelController {
       contextSuggestionsEnabled: settings.contextSuggestionsEnabled,
       workflowGraphLayoutMode: settings.workflowGraphLayoutMode,
       workflowGraphInitialZoomMode: settings.workflowGraphInitialZoomMode,
+      userStoryListViewMode: settings.userStoryListViewMode ?? "category",
       visualTimelineEnabled: settings.visualTimelineEnabled,
       requireExplicitApprovalBranchAcceptance: settings.requireExplicitApprovalBranchAcceptance,
       autoRefinementAnswersEnabled: settings.autoRefinementAnswersEnabled,
@@ -161,6 +164,7 @@ type ExecutionSettingsViewModel = {
   readonly contextSuggestionsEnabled: boolean;
   readonly workflowGraphLayoutMode: "horizontal" | "vertical";
   readonly workflowGraphInitialZoomMode: "actual-size" | "fit-width";
+  readonly userStoryListViewMode: "category" | "phase";
   readonly visualTimelineEnabled: boolean;
   readonly requireExplicitApprovalBranchAcceptance: boolean;
   readonly autoRefinementAnswersEnabled: boolean;
@@ -728,6 +732,14 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
           <span class="phase-field__hint">Default zoom mode used when opening a workflow graph.</span>
         </label>
         <label class="phase-field">
+          <span>User story list view</span>
+          <select data-user-story-list-view-mode>
+            <option value="category"${model.userStoryListViewMode === "phase" ? "" : " selected"}>By category</option>
+            <option value="phase"${model.userStoryListViewMode === "phase" ? " selected" : ""}>By phase</option>
+          </select>
+          <span class="phase-field__hint">Default grouping used by the user stories sidebar.</span>
+        </label>
+        <label class="phase-field">
           <span>Visual timeline</span>
           <select data-visual-timeline-enabled>
             <option value="false"${model.visualTimelineEnabled ? "" : " selected"}>Hidden</option>
@@ -778,6 +790,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       contextSuggestionsEnabled: ${JSON.stringify(model.contextSuggestionsEnabled)},
       workflowGraphLayoutMode: ${JSON.stringify(model.workflowGraphLayoutMode)},
       workflowGraphInitialZoomMode: ${JSON.stringify(model.workflowGraphInitialZoomMode)},
+      userStoryListViewMode: ${JSON.stringify(model.userStoryListViewMode)},
       visualTimelineEnabled: ${JSON.stringify(model.visualTimelineEnabled)},
       requireExplicitApprovalBranchAcceptance: ${JSON.stringify(model.requireExplicitApprovalBranchAcceptance)},
       autoRefinementAnswersEnabled: ${JSON.stringify(model.autoRefinementAnswersEnabled)},
@@ -917,6 +930,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       const contextSuggestionsEnabled = document.querySelector("[data-context-suggestions-enabled]");
       const workflowGraphLayoutMode = document.querySelector("[data-workflow-graph-layout-mode]");
       const workflowGraphInitialZoomMode = document.querySelector("[data-workflow-graph-initial-zoom-mode]");
+      const userStoryListViewMode = document.querySelector("[data-user-story-list-view-mode]");
       const visualTimelineEnabled = document.querySelector("[data-visual-timeline-enabled]");
       const requireApprovalBranchAcceptance = document.querySelector("[data-require-approval-branch-acceptance]");
       const autoRefinementEnabled = document.querySelector("[data-auto-refinement-enabled]");
@@ -1035,6 +1049,13 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         workflowGraphInitialZoomMode.value = state.workflowGraphInitialZoomMode === "fit-width" ? "fit-width" : "actual-size";
         workflowGraphInitialZoomMode.addEventListener("change", () => {
           state.workflowGraphInitialZoomMode = workflowGraphInitialZoomMode.value === "fit-width" ? "fit-width" : "actual-size";
+        });
+      }
+
+      if (userStoryListViewMode instanceof HTMLSelectElement) {
+        userStoryListViewMode.value = state.userStoryListViewMode === "phase" ? "phase" : "category";
+        userStoryListViewMode.addEventListener("change", () => {
+          state.userStoryListViewMode = userStoryListViewMode.value === "phase" ? "phase" : "category";
         });
       }
 
@@ -1366,6 +1387,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         contextSuggestionsEnabled: state.contextSuggestionsEnabled,
         workflowGraphLayoutMode: state.workflowGraphLayoutMode,
         workflowGraphInitialZoomMode: state.workflowGraphInitialZoomMode,
+        userStoryListViewMode: state.userStoryListViewMode,
         visualTimelineEnabled: state.visualTimelineEnabled,
         requireExplicitApprovalBranchAcceptance: state.requireExplicitApprovalBranchAcceptance,
         autoRefinementAnswersEnabled: state.autoRefinementAnswersEnabled,
@@ -1397,6 +1419,7 @@ async function saveExecutionSettingsAsync(
   contextSuggestionsEnabled = true,
   workflowGraphLayoutMode: "horizontal" | "vertical" = "vertical",
   workflowGraphInitialZoomMode: "actual-size" | "fit-width" = "actual-size",
+  userStoryListViewMode: "category" | "phase" = "category",
   visualTimelineEnabled = false,
   requireExplicitApprovalBranchAcceptance = false,
   autoRefinementAnswersEnabled = false,
@@ -1458,6 +1481,7 @@ async function saveExecutionSettingsAsync(
   await configuration.update("execution.reviewTolerance", reviewTolerance, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.workflowGraphLayoutMode", workflowGraphLayoutMode, vscode.ConfigurationTarget.Global);
   await configuration.update("ui.workflowGraphInitialZoomMode", workflowGraphInitialZoomMode, vscode.ConfigurationTarget.Global);
+  await configuration.update("ui.userStoryListViewMode", userStoryListViewMode, vscode.ConfigurationTarget.Global);
   await configuration.update("ui.visualTimelineEnabled", visualTimelineEnabled, vscode.ConfigurationTarget.Global);
   await configuration.update("ui.enableWatcher", watcherEnabled, vscode.ConfigurationTarget.Global);
   await configuration.update("ui.notifyOnAttention", attentionNotificationsEnabled, vscode.ConfigurationTarget.Global);
@@ -1487,6 +1511,7 @@ async function saveExecutionSettingsAsync(
     vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.workflowGraphLayoutMode", undefined, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.workflowGraphInitialZoomMode", undefined, vscode.ConfigurationTarget.Workspace);
+  await configuration.update("ui.userStoryListViewMode", undefined, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.visualTimelineEnabled", undefined, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.enableWatcher", undefined, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.notifyOnAttention", undefined, vscode.ConfigurationTarget.Workspace);

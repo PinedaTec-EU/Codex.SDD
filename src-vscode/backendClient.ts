@@ -18,6 +18,7 @@ import { asErrorMessage } from "./utils";
 export interface UserStorySummary {
   readonly usId: string;
   readonly title: string;
+  readonly description?: string;
   readonly category: string;
   readonly directoryPath: string;
   readonly mainArtifactPath: string;

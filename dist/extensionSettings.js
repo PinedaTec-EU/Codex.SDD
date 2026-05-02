@@ -26,6 +26,9 @@ function readSpecForgeSettings(configuration) {
         workflowGraphInitialZoomMode: configuration.get("ui.workflowGraphInitialZoomMode", "actual-size") === "fit-width"
             ? "fit-width"
             : "actual-size",
+        userStoryListViewMode: configuration.get("ui.userStoryListViewMode", "category") === "phase"
+            ? "phase"
+            : "category",
         visualTimelineEnabled: configuration.get("ui.visualTimelineEnabled", false),
         watcherEnabled: configuration.get("ui.enableWatcher", true),
         attentionNotificationsEnabled: configuration.get("ui.notifyOnAttention", true),

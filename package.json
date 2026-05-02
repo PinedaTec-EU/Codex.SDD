@@ -297,6 +297,19 @@
           ],
           "description": "Preferred initial workflow graph zoom for this user."
         },
+        "specForge.ui.userStoryListViewMode": {
+          "type": "string",
+          "default": "category",
+          "enum": [
+            "category",
+            "phase"
+          ],
+          "enumDescriptions": [
+            "Group user stories by category in the sidebar.",
+            "Order user stories by current workflow phase in the sidebar."
+          ],
+          "description": "Preferred user story sidebar grouping for this user."
+        },
         "specForge.ui.enableWatcher": {
           "type": "boolean",
           "default": true,

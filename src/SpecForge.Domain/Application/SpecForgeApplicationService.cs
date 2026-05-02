@@ -202,12 +202,15 @@ public sealed class SpecForgeApplicationService
     {
         var mainArtifactPath = Path.Combine(directory, "us.md");
         var workflowRun = await fileStore.LoadAsync(directory, cancellationToken);
-        var title = await ReadTitleAsync(mainArtifactPath, cancellationToken);
+        var mainArtifact = await File.ReadAllTextAsync(mainArtifactPath, cancellationToken);
+        var title = ReadTitle(mainArtifact, Path.GetFileName(Path.GetDirectoryName(mainArtifactPath) ?? mainArtifactPath));
+        var description = ReadObjectiveSummary(mainArtifact);
         var metadata = await WorkflowRunner.ReadUserStoryMetadataAsync(mainArtifactPath, workflowRun.UsId, cancellationToken);
 
         return new UserStorySummary(
             workflowRun.UsId,
             title,
+            description,
             metadata.Category,
             directory,
             mainArtifactPath,
@@ -655,10 +658,53 @@ public sealed class SpecForgeApplicationService
 
     private static async Task<string> ReadTitleAsync(string filePath, CancellationToken cancellationToken)
     {
-        var lines = await File.ReadAllLinesAsync(filePath, cancellationToken);
-        var titleLine = lines.FirstOrDefault(static line => line.StartsWith("# ", StringComparison.Ordinal));
+        var content = await File.ReadAllTextAsync(filePath, cancellationToken);
+        return ReadTitle(content, Path.GetFileName(Path.GetDirectoryName(filePath) ?? filePath));
+    }
+
+    private static string ReadTitle(string content, string fallback)
+    {
+        var titleLine = content
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n')
+            .FirstOrDefault(static line => line.StartsWith("# ", StringComparison.Ordinal));
+
         return titleLine?.Replace("# ", string.Empty, StringComparison.Ordinal).Trim()
-            ?? Path.GetFileName(Path.GetDirectoryName(filePath) ?? filePath);
+            ?? fallback;
+    }
+
+    private static string ReadObjectiveSummary(string content)
+    {
+        var lines = content
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n');
+        var objectiveLines = new List<string>();
+        var insideObjective = false;
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.Trim();
+            if (line.Equals("## Objective", StringComparison.OrdinalIgnoreCase))
+            {
+                insideObjective = true;
+                continue;
+            }
+
+            if (insideObjective && line.StartsWith("## ", StringComparison.Ordinal))
+            {
+                break;
+            }
+
+            if (insideObjective && line.Length > 0)
+            {
+                objectiveLines.Add(line);
+            }
+        }
+
+        var summary = string.Join(" ", objectiveLines).Trim();
+        return summary.Length <= 280
+            ? summary
+            : string.Concat(summary.AsSpan(0, 277), "...");
     }
 
     private IReadOnlyCollection<WorkflowPhaseDetails> BuildPhaseDetails(

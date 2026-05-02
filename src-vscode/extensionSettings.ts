@@ -9,6 +9,7 @@ export interface SpecForgeSettings {
   readonly reviewTolerance: string;
   readonly workflowGraphLayoutMode: "horizontal" | "vertical";
   readonly workflowGraphInitialZoomMode: "actual-size" | "fit-width";
+  readonly userStoryListViewMode: "category" | "phase";
   readonly visualTimelineEnabled: boolean;
   readonly watcherEnabled: boolean;
   readonly attentionNotificationsEnabled: boolean;
@@ -92,6 +93,9 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
     workflowGraphInitialZoomMode: configuration.get<"actual-size" | "fit-width">("ui.workflowGraphInitialZoomMode", "actual-size") === "fit-width"
       ? "fit-width"
       : "actual-size",
+    userStoryListViewMode: configuration.get<"category" | "phase">("ui.userStoryListViewMode", "category") === "phase"
+      ? "phase"
+      : "category",
     visualTimelineEnabled: configuration.get<boolean>("ui.visualTimelineEnabled", false),
     watcherEnabled: configuration.get<boolean>("ui.enableWatcher", true),
     attentionNotificationsEnabled: configuration.get<boolean>("ui.notifyOnAttention", true),
