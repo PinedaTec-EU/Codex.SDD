@@ -152,24 +152,25 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 modelSelection.ProviderKind,
                 "SpecForge Native Refinement Auto Answers",
                 prompt);
-            var responseMarkdown = await ExecuteStructuredNativeAsync(
+            var nativeResult = await ExecuteStructuredNativeAsync(
                 context.WorkspaceRoot,
                 nativePrompt,
                 modelSelection,
                 sandboxMode: "read-only",
                 cancellationToken);
-            var document = ParseAutoRefinementAnswersMarkdown(responseMarkdown);
+            var document = ParseAutoRefinementAnswersMarkdown(nativeResult.Content);
             return new AutoRefinementAnswersResult(
                 document.CanResolve,
                 document.Answers,
                 document.Reason,
+                nativeResult.Usage,
                 Execution: new PhaseExecutionMetadata(
                     ProviderKind: modelSelection.ProviderKind,
                     Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
                     ProfileName: modelSelection.ProfileName,
                     Warnings: prompt.Warnings,
                     InputSha256: ComputeSha256(nativePrompt),
-                    OutputSha256: ComputeSha256(responseMarkdown),
+                    OutputSha256: ComputeSha256(nativeResult.Content),
                     StructuredOutputSha256: null));
         }
 
@@ -1005,19 +1006,19 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 cancellationToken);
         }
 
-        var normalizedContent = NormalizePhaseContent(context, response.Trim());
+        var normalizedContent = NormalizePhaseContent(context, response.Content.Trim());
 
         return new PhaseExecutionResult(
             normalizedContent,
             ExecutionKind: modelSelection.ProviderKind,
-            Usage: null,
+            response.Usage,
             Execution: new PhaseExecutionMetadata(
                 ProviderKind: modelSelection.ProviderKind,
                 Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
                 Warnings: prompt.Warnings,
                 InputSha256: ComputeSha256(nativePrompt),
-                OutputSha256: ComputeSha256(response),
+                OutputSha256: ComputeSha256(response.Content),
                 StructuredOutputSha256: null));
     }
 
@@ -1031,7 +1032,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
     }
 
-    private async Task<string> ExecuteStructuredNativeAsync(
+    private async Task<NativeCliExecutionResult> ExecuteStructuredNativeAsync(
         string workspaceRoot,
         string prompt,
         ResolvedModelSelection modelSelection,
@@ -1072,8 +1073,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
             "cli",
             "complete",
-            response);
-        diagnostics.MarkCompleted($"responseChars={response.Length}");
+            response.Content);
+        diagnostics.MarkCompleted($"responseChars={response.Content.Length}");
         return response;
     }
 
@@ -1656,11 +1657,26 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private static TokenUsage? TryReadUsage(JsonElement root)
     {
-        if (!root.TryGetProperty("usage", out var usageElement) || usageElement.ValueKind != JsonValueKind.Object)
+        if (root.TryGetProperty("usage", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
         {
-            return null;
+            return TryReadUsageElement(usageElement);
         }
 
+        if (root.TryGetProperty("response", out var responseElement) && responseElement.ValueKind == JsonValueKind.Object)
+        {
+            return TryReadUsage(responseElement);
+        }
+
+        if (root.TryGetProperty("event", out var eventElement) && eventElement.ValueKind == JsonValueKind.Object)
+        {
+            return TryReadUsage(eventElement);
+        }
+
+        return null;
+    }
+
+    private static TokenUsage? TryReadUsageElement(JsonElement usageElement)
+    {
         var inputTokens = TryGetInt32(usageElement, "prompt_tokens")
             ?? TryGetInt32(usageElement, "input_tokens");
         var outputTokens = TryGetInt32(usageElement, "completion_tokens")
@@ -1677,6 +1693,127 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var normalizedTotalTokens = totalTokens ?? normalizedInputTokens + normalizedOutputTokens;
 
         return new TokenUsage(normalizedInputTokens, normalizedOutputTokens, normalizedTotalTokens);
+    }
+
+    private static TokenUsage? TryReadClaudeUsage(JsonElement root)
+    {
+        if (!root.TryGetProperty("usage", out var usageElement) || usageElement.ValueKind != JsonValueKind.Object)
+        {
+            return TryReadUsage(root);
+        }
+
+        var baseInputTokens = TryGetInt32(usageElement, "input_tokens")
+            ?? TryGetInt32(usageElement, "prompt_tokens");
+        var cacheCreationTokens = TryGetInt32(usageElement, "cache_creation_input_tokens") ?? 0;
+        var cacheReadTokens = TryGetInt32(usageElement, "cache_read_input_tokens") ?? 0;
+        var outputTokens = TryGetInt32(usageElement, "output_tokens")
+            ?? TryGetInt32(usageElement, "completion_tokens");
+        var totalTokens = TryGetInt32(usageElement, "total_tokens");
+
+        if (baseInputTokens is null && outputTokens is null && totalTokens is null && cacheCreationTokens == 0 && cacheReadTokens == 0)
+        {
+            return null;
+        }
+
+        var normalizedInputTokens = (baseInputTokens ?? 0) + cacheCreationTokens + cacheReadTokens;
+        var normalizedOutputTokens = outputTokens ?? 0;
+        var normalizedTotalTokens = totalTokens ?? normalizedInputTokens + normalizedOutputTokens;
+
+        return new TokenUsage(normalizedInputTokens, normalizedOutputTokens, normalizedTotalTokens);
+    }
+
+    internal static NativeCliExecutionResult ParseClaudeJsonExecutionResult(string standardOutput)
+    {
+        var trimmedOutput = standardOutput.Trim();
+        if (string.IsNullOrWhiteSpace(trimmedOutput))
+        {
+            return new NativeCliExecutionResult(string.Empty, null);
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(trimmedOutput);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return new NativeCliExecutionResult(trimmedOutput, null);
+            }
+
+            var content = TryGetString(document.RootElement, "result")
+                ?? TryGetString(document.RootElement, "content")
+                ?? TryGetMessageContent(document.RootElement)
+                ?? trimmedOutput;
+            return new NativeCliExecutionResult(content.Trim(), TryReadClaudeUsage(document.RootElement));
+        }
+        catch (JsonException)
+        {
+            return new NativeCliExecutionResult(trimmedOutput, null);
+        }
+    }
+
+    internal static TokenUsage? TryReadCodexJsonlUsage(string standardOutput)
+    {
+        TokenUsage? usage = null;
+        foreach (var rawLine in standardOutput.ReplaceLineEndings("\n").Split('\n'))
+        {
+            var line = rawLine.Trim();
+            if (line.Length == 0 || line[0] != '{')
+            {
+                continue;
+            }
+
+            try
+            {
+                using var document = JsonDocument.Parse(line);
+                if (document.RootElement.ValueKind == JsonValueKind.Object && TryReadUsage(document.RootElement) is { } lineUsage)
+                {
+                    usage = lineUsage;
+                }
+            }
+            catch (JsonException)
+            {
+            }
+        }
+
+        return usage;
+    }
+
+    private static string? TryGetString(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var property) || property.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        return property.GetString();
+    }
+
+    private static string? TryGetMessageContent(JsonElement root)
+    {
+        if (!root.TryGetProperty("message", out var messageElement) || messageElement.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        if (TryGetString(messageElement, "content") is { } stringContent)
+        {
+            return stringContent;
+        }
+
+        if (!messageElement.TryGetProperty("content", out var contentElement) || contentElement.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var content = new StringBuilder();
+        foreach (var item in contentElement.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.Object && TryGetString(item, "text") is { } text)
+            {
+                content.Append(text);
+            }
+        }
+
+        return content.Length == 0 ? null : content.ToString();
     }
 
     private static int? TryGetInt32(JsonElement element, string propertyName)
@@ -1789,7 +1926,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         Task<NativeCliCheckResult> CheckAvailabilityAsync(CancellationToken cancellationToken);
 
-        Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken);
+        Task<NativeCliExecutionResult> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken);
     }
 
     internal abstract class NativeCliRunnerBase : INativeCliRunner
@@ -1827,7 +1964,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             return new NativeCliCheckResult(result.Command, result.ExitCode, result.StandardOutput, result.StandardError);
         }
 
-        public abstract Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken);
+        public abstract Task<NativeCliExecutionResult> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken);
 
         protected async Task<ProcessExecutionResult> RunProcessAsync(
             IReadOnlyList<string> arguments,
@@ -2108,7 +2245,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         protected override IReadOnlyList<string> GetVersionArguments() => ["--version"];
 
-        public override async Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
+        public override async Task<NativeCliExecutionResult> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
         {
             var outputPath = Path.Combine(Path.GetTempPath(), $"specforge-codex-output-{Guid.NewGuid():N}.txt");
 
@@ -2145,6 +2282,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
                 arguments.Add("--color");
                 arguments.Add("never");
+                arguments.Add("--json");
 
                 arguments.Add("-o");
                 arguments.Add(outputPath);
@@ -2162,7 +2300,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                     throw new InvalidOperationException("Codex CLI execution completed without writing the expected final response file.");
                 }
 
-                return await File.ReadAllTextAsync(outputPath, cancellationToken);
+                var content = await File.ReadAllTextAsync(outputPath, cancellationToken);
+                return new NativeCliExecutionResult(content, TryReadCodexJsonlUsage(result.StandardOutput));
             }
             finally
             {
@@ -2196,11 +2335,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         protected override IReadOnlyList<string> GetVersionArguments() => ["--version"];
 
-        public override async Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
+        public override async Task<NativeCliExecutionResult> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
         {
             var arguments = new List<string>
             {
-                "-p"
+                "-p",
+                "--output-format",
+                "json"
             };
 
             arguments.AddRange([
@@ -2225,7 +2366,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                     $"Claude CLI execution failed with exit code {result.ExitCode}. stderr: {result.StandardError.Trim()} stdout: {result.StandardOutput.Trim()}");
             }
 
-            return result.StandardOutput.Trim();
+            return ParseClaudeJsonExecutionResult(result.StandardOutput);
         }
     }
 
@@ -2239,7 +2380,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         protected override IReadOnlyList<string> GetVersionArguments() => ["copilot", "--", "--version"];
 
-        public override async Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
+        public override async Task<NativeCliExecutionResult> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
         {
             var arguments = new List<string>
             {
@@ -2255,9 +2396,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                     $"Copilot CLI execution failed with exit code {result.ExitCode}. stderr: {result.StandardError.Trim()} stdout: {result.StandardOutput.Trim()}");
             }
 
-            return result.StandardOutput.Trim();
+            return new NativeCliExecutionResult(result.StandardOutput.Trim(), null);
         }
     }
+
+    internal sealed record NativeCliExecutionResult(
+        string Content,
+        TokenUsage? Usage);
 
     internal sealed record ProcessExecutionResult(
         string Command,
