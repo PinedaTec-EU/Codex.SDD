@@ -1,15 +1,40 @@
 using SpecForge.Domain.Persistence;
 using SpecForge.Domain.Workflow;
+using SpecForge.Domain.Application;
 
 namespace SpecForge.OpenAICompatible;
 
 internal sealed class RepositoryPromptCatalog
 {
-    public void EnsureRepositoryIsInitialized(string workspaceRoot)
+    private readonly RepositoryPromptInitializer promptInitializer;
+
+    public RepositoryPromptCatalog()
+        : this(new RepositoryPromptInitializer())
+    {
+    }
+
+    internal RepositoryPromptCatalog(RepositoryPromptInitializer promptInitializer)
+    {
+        this.promptInitializer = promptInitializer ?? throw new ArgumentNullException(nameof(promptInitializer));
+    }
+
+    public async Task EnsureRepositoryIsInitializedAsync(
+        string workspaceRoot,
+        CancellationToken cancellationToken = default)
     {
         var paths = new PromptFilePaths(workspaceRoot);
+        if (!Directory.Exists(paths.PromptsDirectoryPath) || !File.Exists(paths.PromptManifestPath))
+        {
+            await promptInitializer.InitializeAsync(workspaceRoot, overwrite: false, cancellationToken);
+        }
+        else if (!File.Exists(paths.AgentInstructionsPath))
+        {
+            await promptInitializer.EnsureAgentInstructionsAsync(workspaceRoot, overwrite: false, cancellationToken);
+        }
+
         var requiredFiles = new[]
         {
+            paths.AgentInstructionsPath,
             paths.ConfigFilePath,
             paths.PromptManifestPath,
             paths.PromptSystemHashesPath,

@@ -82,6 +82,28 @@ public sealed class RepositoryPromptInitializer
             skippedFiles);
     }
 
+    public async Task<bool> EnsureAgentInstructionsAsync(
+        string workspaceRoot,
+        bool overwrite = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceRoot))
+        {
+            throw new ArgumentException("Workspace root is required.", nameof(workspaceRoot));
+        }
+
+        var paths = new PromptFilePaths(workspaceRoot);
+        Directory.CreateDirectory(paths.SpecsDirectoryPath);
+
+        if (File.Exists(paths.AgentInstructionsPath) && !overwrite)
+        {
+            return false;
+        }
+
+        await File.WriteAllTextAsync(paths.AgentInstructionsPath, BuildAgentInstructions(), cancellationToken);
+        return true;
+    }
+
     private static string BuildConfigYaml() =>
         """
         initialized: true

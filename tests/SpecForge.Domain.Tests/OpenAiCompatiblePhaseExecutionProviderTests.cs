@@ -1211,14 +1211,16 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithoutInitializedPromptSet_ThrowsClearError()
+    public async Task ExecuteAsync_WithoutInitializedPromptSet_InitializesPromptsAndAgentInstructions()
     {
         Directory.CreateDirectory(Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001"));
         await File.WriteAllTextAsync(
             Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
             "# US-0001");
+        var paths = new PromptFilePaths(workspaceRoot);
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecMarkdown());
         var provider = new OpenAiCompatiblePhaseExecutionProvider(
-            new HttpClient(new CapturingFakeHttpMessageHandler()),
+            new HttpClient(handler),
             CreateOptions(
                 model: "llama3.1",
                 apiKey: "ollama-local"));
@@ -1230,9 +1232,40 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ExecuteAsync(context));
+        var result = await provider.ExecuteAsync(context);
 
-        Assert.Contains("Missing required prompt template", error.Message);
+        Assert.Contains("# Spec · US-0001 · v01", result.Content);
+        Assert.True(File.Exists(paths.PromptManifestPath));
+        Assert.True(File.Exists(paths.AgentInstructionsPath));
+        Assert.Contains("SpecForge MCP", await File.ReadAllTextAsync(paths.AgentInstructionsPath));
+        Assert.NotNull(handler.LastRequest);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithExistingPromptsAndMissingAgentInstructions_CreatesAgentInstructionsOnly()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var paths = new PromptFilePaths(workspaceRoot);
+        File.Delete(paths.AgentInstructionsPath);
+        var originalSpecPrompt = await File.ReadAllTextAsync(paths.SpecExecutePromptPath);
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalSpecMarkdown());
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            CreateOptions(
+                model: "llama3.1",
+                apiKey: "ollama-local"));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.Spec,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        await provider.ExecuteAsync(context);
+
+        Assert.True(File.Exists(paths.AgentInstructionsPath));
+        Assert.Equal(originalSpecPrompt, await File.ReadAllTextAsync(paths.SpecExecutePromptPath));
     }
 
     public void Dispose()

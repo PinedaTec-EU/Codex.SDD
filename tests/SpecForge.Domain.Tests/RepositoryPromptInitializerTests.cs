@@ -74,6 +74,19 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.Empty(secondRun.CreatedFiles);
     }
 
+    [Fact]
+    public async Task EnsureAgentInstructionsAsync_CreatesOnlyAgentInstructionsWhenMissing()
+    {
+        var initializer = new RepositoryPromptInitializer();
+        var paths = new PromptFilePaths(workspaceRoot);
+
+        var created = await initializer.EnsureAgentInstructionsAsync(workspaceRoot);
+
+        Assert.True(created);
+        Assert.True(File.Exists(paths.AgentInstructionsPath));
+        Assert.False(File.Exists(paths.PromptManifestPath));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(workspaceRoot))

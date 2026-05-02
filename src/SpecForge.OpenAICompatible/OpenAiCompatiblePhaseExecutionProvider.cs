@@ -133,6 +133,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             return null;
         }
 
+        await promptCatalog.EnsureRepositoryIsInitializedAsync(context.WorkspaceRoot, cancellationToken);
+
         var modelSelection = ResolveAutoRefinementAnswersModelSelection();
         SpecForgeDiagnostics.Log(
             $"[provider.auto_refinement] usId={context.UsId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={modelSelection.Model} questions={session.Items.Count}");
@@ -191,7 +193,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         PhaseExecutionContext context,
         CancellationToken cancellationToken = default)
     {
-        promptCatalog.EnsureRepositoryIsInitialized(context.WorkspaceRoot);
+        await promptCatalog.EnsureRepositoryIsInitializedAsync(context.WorkspaceRoot, cancellationToken);
 
         var modelSelection = ResolveModelSelection(context.PhaseId);
         SpecForgeDiagnostics.Log(
