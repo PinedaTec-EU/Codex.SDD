@@ -51,6 +51,7 @@ const specsExplorer_1 = require("./specsExplorer");
 const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
 const backendClientModel_1 = require("./backendClientModel");
 const workflowGraphLayout_1 = require("./workflowGraphLayout");
+const workspaceMcpConfig_1 = require("./workspaceMcpConfig");
 let previousAttentionSnapshot = new Map();
 function activate(context) {
     (0, specsExplorer_1.configureBackendHostRoot)(context.extensionUri.fsPath);
@@ -110,6 +111,7 @@ function activate(context) {
     }));
     void ensureRepoPromptsInitializedAsync();
     void ensureWorkflowGraphLayoutInitializedAsync();
+    void ensureWorkspaceMcpLinkedAsync(context.extensionUri.fsPath, mcpProvider);
     void autoOpenStarredUserStoryAsync(sidebarProvider, workflowAuditProvider, mcpProvider);
 }
 function deactivate() {
@@ -151,6 +153,24 @@ async function ensureWorkflowGraphLayoutInitializedAsync() {
     }
     catch (error) {
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow graph layout bootstrap failed for '${workspaceRoot}': ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+async function ensureWorkspaceMcpLinkedAsync(hostRoot, mcpProvider) {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+        (0, outputChannel_1.appendSpecForgeDebugLog)("Skipping workspace MCP configuration bootstrap because no workspace folder is open.");
+        return;
+    }
+    (0, outputChannel_1.appendSpecForgeLog)(`Validating workspace MCP configuration for '${workspaceRoot}'.`);
+    try {
+        const result = await (0, workspaceMcpConfig_1.ensureWorkspaceMcpConfigAsync)(workspaceRoot, hostRoot);
+        (0, outputChannel_1.appendSpecForgeLog)(result.changed
+            ? `Workspace MCP configuration ${result.reason} at '${result.path}'.`
+            : `Workspace MCP configuration already contains the SpecForge server at '${result.path}'.`);
+        mcpProvider.refresh();
+    }
+    catch (error) {
+        (0, outputChannel_1.appendSpecForgeLog)(`Workspace MCP configuration bootstrap failed for '${workspaceRoot}': ${error instanceof Error ? error.message : String(error)}`);
     }
 }
 function createVsCodeHost() {

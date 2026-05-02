@@ -39,6 +39,7 @@ import { getUserWorkspacePreferencesPath, readUserWorkspacePreferences, setStarr
 import type { UserStorySummary } from "./backendClient";
 import { buildServerProjectPath } from "./backendClientModel";
 import { ensureWorkflowGraphLayoutConfigExistsAsync } from "./workflowGraphLayout";
+import { ensureWorkspaceMcpConfigAsync } from "./workspaceMcpConfig";
 
 let previousAttentionSnapshot = new Map<string, string>();
 
@@ -125,6 +126,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   void ensureRepoPromptsInitializedAsync();
   void ensureWorkflowGraphLayoutInitializedAsync();
+  void ensureWorkspaceMcpLinkedAsync(context.extensionUri.fsPath, mcpProvider);
   void autoOpenStarredUserStoryAsync(sidebarProvider, workflowAuditProvider, mcpProvider);
 }
 
@@ -179,6 +181,33 @@ async function ensureWorkflowGraphLayoutInitializedAsync(): Promise<void> {
   } catch (error) {
     appendSpecForgeLog(
       `Workflow graph layout bootstrap failed for '${workspaceRoot}': ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+async function ensureWorkspaceMcpLinkedAsync(
+  hostRoot: string,
+  mcpProvider: SpecForgeMcpServerDefinitionProvider
+): Promise<void> {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceRoot) {
+    appendSpecForgeDebugLog("Skipping workspace MCP configuration bootstrap because no workspace folder is open.");
+    return;
+  }
+
+  appendSpecForgeLog(`Validating workspace MCP configuration for '${workspaceRoot}'.`);
+
+  try {
+    const result = await ensureWorkspaceMcpConfigAsync(workspaceRoot, hostRoot);
+    appendSpecForgeLog(
+      result.changed
+        ? `Workspace MCP configuration ${result.reason} at '${result.path}'.`
+        : `Workspace MCP configuration already contains the SpecForge server at '${result.path}'.`
+    );
+    mcpProvider.refresh();
+  } catch (error) {
+    appendSpecForgeLog(
+      `Workspace MCP configuration bootstrap failed for '${workspaceRoot}': ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }
