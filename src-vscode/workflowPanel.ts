@@ -11,6 +11,7 @@ import { hasReachedImplementationReviewCycleLimit } from "./workflowAutomation";
 import {
   canPauseWorkflowExecutionPhase,
   normalizePlaybackStateAfterManualWorkflowChange,
+  resolveExecutionModelResponsePreview,
   resolveWorkflowExecutionPhaseId
 } from "./workflowPlaybackState";
 import { buildWorkBranchProposal } from "./workflowBranchName";
@@ -219,21 +220,12 @@ class WorkflowPanelController {
       return;
     }
 
-    const normalizedText = mode === "delta"
-      ? text.replace(/\s+/g, " ")
-      : text.replace(/\s+/g, " ").trim();
-    if (!normalizedText.trim()) {
+    const nextText = resolveExecutionModelResponsePreview(text);
+    if (!nextText) {
       return;
     }
 
-    const nextText = mode === "delta"
-      ? `${this.executionModelResponse ?? ""}${normalizedText}`
-      : this.executionModelResponse && normalizedText.endsWith("...") && normalizedText.length <= this.executionModelResponse.length
-        ? this.executionModelResponse
-        : normalizedText;
-    this.executionModelResponse = nextText.length > 900
-      ? `${nextText.slice(0, 900)}...`
-      : nextText;
+    this.executionModelResponse = nextText;
     appendSpecForgeDebugLog(
       `Workflow '${this.summary.usId}' received ${transport} model response ${mode} from '${providerKind}' (${this.executionModelResponse.length} chars).`
     );

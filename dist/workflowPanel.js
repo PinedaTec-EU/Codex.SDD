@@ -171,20 +171,11 @@ class WorkflowPanelController {
         if (this.playbackState !== "playing" && this.playbackState !== "stopping") {
             return;
         }
-        const normalizedText = mode === "delta"
-            ? text.replace(/\s+/g, " ")
-            : text.replace(/\s+/g, " ").trim();
-        if (!normalizedText.trim()) {
+        const nextText = (0, workflowPlaybackState_1.resolveExecutionModelResponsePreview)(text);
+        if (!nextText) {
             return;
         }
-        const nextText = mode === "delta"
-            ? `${this.executionModelResponse ?? ""}${normalizedText}`
-            : this.executionModelResponse && normalizedText.endsWith("...") && normalizedText.length <= this.executionModelResponse.length
-                ? this.executionModelResponse
-                : normalizedText;
-        this.executionModelResponse = nextText.length > 900
-            ? `${nextText.slice(0, 900)}...`
-            : nextText;
+        this.executionModelResponse = nextText;
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' received ${transport} model response ${mode} from '${providerKind}' (${this.executionModelResponse.length} chars).`);
         void this.panel.webview.postMessage({
             command: "modelResponsePreview",

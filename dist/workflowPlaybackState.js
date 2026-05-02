@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.normalizePlaybackStateAfterManualWorkflowChange = normalizePlaybackStateAfterManualWorkflowChange;
+exports.resolveExecutionModelResponsePreview = resolveExecutionModelResponsePreview;
 exports.canPauseWorkflowExecutionPhase = canPauseWorkflowExecutionPhase;
 exports.resolveWorkflowExecutionPhaseId = resolveWorkflowExecutionPhaseId;
 exports.resolveNextWorkflowExecutionPhaseId = resolveNextWorkflowExecutionPhaseId;
@@ -15,6 +16,15 @@ const workflowExecutionPhaseOrder = [
 ];
 function normalizePlaybackStateAfterManualWorkflowChange(playbackState) {
     return playbackState === "playing" ? "playing" : "idle";
+}
+function resolveExecutionModelResponsePreview(text) {
+    const normalizedText = text.replace(/\s+/g, " ").trim();
+    if (!normalizedText) {
+        return null;
+    }
+    return normalizedText.length > 900
+        ? `${normalizedText.slice(0, 900)}...`
+        : normalizedText;
 }
 function canPauseWorkflowExecutionPhase(phaseId) {
     // Capture is intentionally excluded: the first pauseable boundary is before refinement.

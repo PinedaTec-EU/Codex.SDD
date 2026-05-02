@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   canPauseWorkflowExecutionPhase,
   normalizePlaybackStateAfterManualWorkflowChange,
+  resolveExecutionModelResponsePreview,
   resolveNextWorkflowExecutionPhaseId,
   resolveWorkflowExecutionPhaseId
 } from "../src-vscode/workflowPlaybackState";
@@ -25,6 +26,18 @@ test("workflow playback helpers resolve executable and next pauseable phases", (
   assert.equal(resolveNextWorkflowExecutionPhaseId("pr-preparation"), null);
   assert.equal(canPauseWorkflowExecutionPhase("implementation"), true);
   assert.equal(canPauseWorkflowExecutionPhase("capture"), false);
+});
+
+test("resolveExecutionModelResponsePreview keeps only the latest model status message", () => {
+  assert.equal(
+    resolveExecutionModelResponsePreview("  Thinking...\n\nChecking files  "),
+    "Thinking... Checking files"
+  );
+  assert.equal(resolveExecutionModelResponsePreview(" \n\t "), null);
+  assert.equal(
+    resolveExecutionModelResponsePreview(`${"x".repeat(901)}`),
+    `${"x".repeat(900)}...`
+  );
 });
 
 test("resolvePreferredSelectedWorkflowPhaseId keeps the real last phase selected after workflow completion", () => {

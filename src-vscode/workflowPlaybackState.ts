@@ -16,6 +16,17 @@ export function normalizePlaybackStateAfterManualWorkflowChange(
   return playbackState === "playing" ? "playing" : "idle";
 }
 
+export function resolveExecutionModelResponsePreview(text: string): string | null {
+  const normalizedText = text.replace(/\s+/g, " ").trim();
+  if (!normalizedText) {
+    return null;
+  }
+
+  return normalizedText.length > 900
+    ? `${normalizedText.slice(0, 900)}...`
+    : normalizedText;
+}
+
 export function canPauseWorkflowExecutionPhase(phaseId: string): boolean {
   // Capture is intentionally excluded: the first pauseable boundary is before refinement.
   return workflowExecutionPhaseOrder.includes(phaseId as typeof workflowExecutionPhaseOrder[number]);
