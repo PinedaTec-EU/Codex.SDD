@@ -216,7 +216,7 @@ test("buildWorkflowHtml renders phase detail for the selected phase", () => {
   assert.doesNotMatch(html, /Audit Stream/);
 });
 
-test("buildWorkflowHtml shows model usage tokens and speed on phase nodes and completed dashboards", () => {
+test("buildWorkflowHtml shows model usage speed in the detail panel dashboards", () => {
   const html = buildWorkflowHtml({
     usId: "US-0211",
     title: "Usage telemetry",
@@ -301,7 +301,7 @@ test("buildWorkflowHtml shows model usage tokens and speed on phase nodes and co
     completedUsLockOnCompleted: true
   }, "idle");
 
-  assert.match(html, /phase-node spec[^]*phase-node-metrics[^]*in\/out 1,000\/250[^]*total 1,250[^]*50\.0 tok\/s/);
+  assert.doesNotMatch(html, /phase-node-metrics/);
   assert.match(html, /<th>Speed<\/th>/);
   assert.match(html, /release \/ gpt-4\.1<\/td><td>1<\/td><td>1,000<\/td><td>250<\/td><td>1,250<\/td><td>5\.00 s<\/td><td>50\.0 tok\/s<\/td>/);
   assert.match(html, /spec<\/td><td>1<\/td><td>1,000<\/td><td>250<\/td><td>1,250<\/td><td>5\.00 s<\/td><td>50\.0 tok\/s<\/td>/);

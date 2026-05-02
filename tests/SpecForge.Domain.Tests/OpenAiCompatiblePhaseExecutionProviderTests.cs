@@ -57,6 +57,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("ollama-local", handler.LastRequest.Headers.Authorization?.Parameter);
         Assert.Contains("\"model\":\"llama3.1\"", handler.LastBody);
         Assert.Contains("\"stream\":true", handler.LastBody);
+        Assert.Contains("\"stream_options\":{\"include_usage\":true}", handler.LastBody);
         Assert.Equal(0.2d, OpenAiCompatibleRequestJson.ReadTemperature(handler.LastBody));
         Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(handler.LastBody));
         Assert.Contains("Role: spec analyst.", handler.LastBody);
@@ -89,7 +90,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
 
         Assert.Contains("# Spec · US-0001 · v01", result.Content);
         Assert.Contains("Generated from streaming deltas.", result.Content);
+        Assert.NotNull(result.Usage);
+        Assert.Equal(120, result.Usage!.InputTokens);
+        Assert.Equal(48, result.Usage.OutputTokens);
+        Assert.Equal(168, result.Usage.TotalTokens);
         Assert.Contains("\"stream\":true", handler.LastBody);
+        Assert.Contains("\"stream_options\":{\"include_usage\":true}", handler.LastBody);
     }
 
     [Fact]
@@ -1464,6 +1470,21 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                     .AppendLine()
                     .AppendLine();
             }
+
+            builder
+                .Append("data: ")
+                .Append(JsonSerializer.Serialize(new
+                {
+                    usage = new
+                    {
+                        prompt_tokens = 120,
+                        completion_tokens = 48,
+                        total_tokens = 168
+                    },
+                    choices = Array.Empty<object>()
+                }))
+                .AppendLine()
+                .AppendLine();
 
             builder.AppendLine("data: [DONE]");
 

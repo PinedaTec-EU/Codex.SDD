@@ -293,7 +293,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             ["messages"] = messages,
             ["temperature"] = temperature,
             ["reasoning_effort"] = modelSelection.ReasoningEffort,
-            ["stream"] = true
+            ["stream"] = true,
+            ["stream_options"] = new
+            {
+                include_usage = true
+            }
         };
 
         return JsonSerializer.Serialize(requestBody);
