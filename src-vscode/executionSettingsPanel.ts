@@ -16,6 +16,7 @@ type ExecutionSettingsMessage =
       readonly phaseModelAssignments?: Partial<SpecForgePhaseModelAssignments>;
       readonly refinementTolerance?: string;
       readonly reviewTolerance?: string;
+      readonly reviewEvidencePolicy?: string;
       readonly watcherEnabled?: boolean;
       readonly attentionNotificationsEnabled?: boolean;
       readonly contextSuggestionsEnabled?: boolean;
@@ -91,6 +92,7 @@ class ExecutionSettingsPanelController {
               message.phaseModelAssignments ?? {},
               message.refinementTolerance ?? "balanced",
               message.reviewTolerance ?? "balanced",
+              message.reviewEvidencePolicy ?? "balanced",
               message.watcherEnabled ?? true,
               message.attentionNotificationsEnabled ?? true,
               message.contextSuggestionsEnabled ?? true,
@@ -131,6 +133,7 @@ class ExecutionSettingsPanelController {
       phaseModelAssignments: settings.phaseModelAssignments,
       refinementTolerance: settings.refinementTolerance,
       reviewTolerance: settings.reviewTolerance,
+      reviewEvidencePolicy: settings.reviewEvidencePolicy ?? "balanced",
       watcherEnabled: settings.watcherEnabled,
       attentionNotificationsEnabled: settings.attentionNotificationsEnabled,
       contextSuggestionsEnabled: settings.contextSuggestionsEnabled,
@@ -159,6 +162,7 @@ type ExecutionSettingsViewModel = {
   readonly phaseModelAssignments: SpecForgePhaseModelAssignments;
   readonly refinementTolerance: string;
   readonly reviewTolerance: string;
+  readonly reviewEvidencePolicy: string;
   readonly watcherEnabled: boolean;
   readonly attentionNotificationsEnabled: boolean;
   readonly contextSuggestionsEnabled: boolean;
@@ -668,6 +672,15 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
           </select>
         </label>
         <label class="phase-field">
+          ${renderConfigLabel("Review evidence policy", "Controls which Technical Design validation evidence classes block review. Operational checks can be tracked without requiring a live environment during implementation review.")}
+          <select data-review-evidence-policy>
+            <option value="strict"${model.reviewEvidencePolicy === "strict" ? " selected" : ""}>Strict</option>
+            <option value="balanced"${model.reviewEvidencePolicy === "balanced" ? " selected" : ""}>Balanced</option>
+            <option value="release"${model.reviewEvidencePolicy === "release" ? " selected" : ""}>Release</option>
+            <option value="advisory"${model.reviewEvidencePolicy === "advisory" ? " selected" : ""}>Advisory</option>
+          </select>
+        </label>
+        <label class="phase-field">
           ${renderConfigLabel("Enable auto answers", "Lets SpecForge ask the selected model to answer pending refinement questions once before handing the phase back to you.")}
           <select data-auto-refinement-enabled>
             <option value="false"${model.autoRefinementAnswersEnabled ? "" : " selected"}>Disabled</option>
@@ -834,6 +847,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       phaseModelAssignments: ${JSON.stringify(model.phaseModelAssignments)},
       refinementTolerance: ${JSON.stringify(model.refinementTolerance)},
       reviewTolerance: ${JSON.stringify(model.reviewTolerance)},
+      reviewEvidencePolicy: ${JSON.stringify(model.reviewEvidencePolicy)},
       watcherEnabled: ${JSON.stringify(model.watcherEnabled)},
       attentionNotificationsEnabled: ${JSON.stringify(model.attentionNotificationsEnabled)},
       contextSuggestionsEnabled: ${JSON.stringify(model.contextSuggestionsEnabled)},
@@ -974,6 +988,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       const autoRefinementWrapper = document.querySelector("[data-auto-refinement-profile-wrapper]");
       const refinementTolerance = document.querySelector("[data-refinement-tolerance]");
       const reviewTolerance = document.querySelector("[data-review-tolerance]");
+      const reviewEvidencePolicy = document.querySelector("[data-review-evidence-policy]");
       const watcherEnabled = document.querySelector("[data-watcher-enabled]");
       const attentionNotificationsEnabled = document.querySelector("[data-attention-notifications-enabled]");
       const contextSuggestionsEnabled = document.querySelector("[data-context-suggestions-enabled]");
@@ -1063,6 +1078,13 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         reviewTolerance.value = state.reviewTolerance || "balanced";
         reviewTolerance.addEventListener("change", () => {
           state.reviewTolerance = reviewTolerance.value || "balanced";
+        });
+      }
+
+      if (reviewEvidencePolicy instanceof HTMLSelectElement) {
+        reviewEvidencePolicy.value = state.reviewEvidencePolicy || "balanced";
+        reviewEvidencePolicy.addEventListener("change", () => {
+          state.reviewEvidencePolicy = reviewEvidencePolicy.value || "balanced";
         });
       }
 
@@ -1478,6 +1500,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         phaseModelAssignments: state.phaseModelAssignments,
         refinementTolerance: state.refinementTolerance,
         reviewTolerance: state.reviewTolerance,
+        reviewEvidencePolicy: state.reviewEvidencePolicy,
         watcherEnabled: state.watcherEnabled,
         attentionNotificationsEnabled: state.attentionNotificationsEnabled,
         contextSuggestionsEnabled: state.contextSuggestionsEnabled,
@@ -1510,6 +1533,7 @@ async function saveExecutionSettingsAsync(
   phaseModelAssignments: Partial<SpecForgePhaseModelAssignments>,
   refinementTolerance = "balanced",
   reviewTolerance = "balanced",
+  reviewEvidencePolicy = "balanced",
   watcherEnabled = true,
   attentionNotificationsEnabled = true,
   contextSuggestionsEnabled = true,
@@ -1574,6 +1598,7 @@ async function saveExecutionSettingsAsync(
   await configuration.update("execution.phaseModels", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
   await configuration.update("execution.refinementTolerance", refinementTolerance, vscode.ConfigurationTarget.Workspace);
   await configuration.update("execution.reviewTolerance", reviewTolerance, vscode.ConfigurationTarget.Workspace);
+  await configuration.update("execution.reviewEvidencePolicy", reviewEvidencePolicy, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.workflowGraphLayoutMode", workflowGraphLayoutMode, vscode.ConfigurationTarget.Global);
   await configuration.update("ui.workflowGraphInitialZoomMode", workflowGraphInitialZoomMode, vscode.ConfigurationTarget.Global);
   await configuration.update("ui.userStoryListViewMode", userStoryListViewMode, vscode.ConfigurationTarget.Global);

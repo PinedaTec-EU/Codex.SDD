@@ -23,6 +23,7 @@ public sealed record OpenAiCompatibleProviderOptions(
     string? SystemPrompt = null,
     string RefinementTolerance = "balanced",
     string ReviewTolerance = "balanced",
+    string ReviewEvidencePolicy = "balanced",
     bool AutoRefinementAnswersEnabled = false,
     string? AutoRefinementAnswersProfile = null,
     bool ReviewLearningEnabled = true,

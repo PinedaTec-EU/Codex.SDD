@@ -13,13 +13,15 @@ var serverVersion = typeof(Program).Assembly
 var refinementTolerance = (Environment.GetEnvironmentVariable("SPECFORGE_REFINEMENT_TOLERANCE")
     ?? Environment.GetEnvironmentVariable("SPECFORGE_CAPTURE_TOLERANCE"))?.Trim().ToLowerInvariant();
 refinementTolerance = refinementTolerance is "strict" or "balanced" or "inferential" ? refinementTolerance : "balanced";
+var reviewEvidencePolicy = Environment.GetEnvironmentVariable("SPECFORGE_REVIEW_EVIDENCE_POLICY")?.Trim().ToLowerInvariant();
+reviewEvidencePolicy = reviewEvidencePolicy is "strict" or "balanced" or "release" or "advisory" ? reviewEvidencePolicy : "balanced";
 var completedUsLockOnCompleted = string.Equals(
     Environment.GetEnvironmentVariable("SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED")?.Trim(),
     "true",
     StringComparison.OrdinalIgnoreCase);
 
 var phaseExecutionProvider = PhaseExecutionProviderFactory.Create();
-var workflowRunner = new WorkflowRunner(phaseExecutionProvider, serverVersion, refinementTolerance, completedUsLockOnCompleted);
+var workflowRunner = new WorkflowRunner(phaseExecutionProvider, serverVersion, refinementTolerance, completedUsLockOnCompleted, reviewEvidencePolicy);
 var applicationService = new SpecForgeApplicationService(new UserStoryFileStore(), workflowRunner, runtimeVersion: serverVersion, completedUsLockOnCompleted: completedUsLockOnCompleted);
 var serializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 var stdin = Console.OpenStandardInput();

@@ -20,6 +20,7 @@ function readSpecForgeSettings(configuration) {
         autoRefinementAnswersProfile,
         refinementTolerance: normalizeTolerance(configuration.get("execution.refinementTolerance", "balanced")),
         reviewTolerance: normalizeTolerance(configuration.get("execution.reviewTolerance", "balanced")),
+        reviewEvidencePolicy: normalizeReviewEvidencePolicy(configuration.get("execution.reviewEvidencePolicy", "balanced")),
         workflowGraphLayoutMode: configuration.get("ui.workflowGraphLayoutMode", "vertical") === "horizontal"
             ? "horizontal"
             : "vertical",
@@ -53,6 +54,7 @@ function buildBackendEnvironment(settings) {
     }
     env.SPECFORGE_REFINEMENT_TOLERANCE = settings.refinementTolerance;
     env.SPECFORGE_REVIEW_TOLERANCE = settings.reviewTolerance;
+    env.SPECFORGE_REVIEW_EVIDENCE_POLICY = settings.reviewEvidencePolicy ?? "balanced";
     env.SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED = settings.autoRefinementAnswersEnabled ? "true" : "false";
     env.SPECFORGE_REVIEW_LEARNING_ENABLED = settings.reviewLearningEnabled === false ? "false" : "true";
     env.SPECFORGE_REVIEW_LEARNING_SKILL_PATH =
@@ -350,6 +352,12 @@ function normalizeUnknownOptional(value) {
 function normalizeTolerance(value) {
     const normalized = value?.trim().toLowerCase();
     return normalized === "strict" || normalized === "inferential" ? normalized : "balanced";
+}
+function normalizeReviewEvidencePolicy(value) {
+    const normalized = value?.trim().toLowerCase();
+    return normalized === "strict" || normalized === "release" || normalized === "advisory"
+        ? normalized
+        : "balanced";
 }
 function normalizeReasoningEffort(value) {
     const normalized = normalizeUnknownOptional(value)?.toLowerCase();

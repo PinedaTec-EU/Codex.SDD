@@ -302,11 +302,23 @@ public static class ReviewArtifactJson
         IReadOnlyList<ReviewValidationChecklistItem>? items) =>
         (items ?? Array.Empty<ReviewValidationChecklistItem>())
             .Select(static item => new ReviewValidationChecklistItem(
-                Status: StructuredPhaseArtifactJson.NormalizeScalar(item.Status).Equals("pass", StringComparison.OrdinalIgnoreCase) ? "pass" : "fail",
+                Status: NormalizeChecklistStatus(item.Status),
                 Item: StructuredPhaseArtifactJson.NormalizeScalar(item.Item),
                 Evidence: StructuredPhaseArtifactJson.NormalizeScalar(item.Evidence)))
             .Where(static item => !string.IsNullOrWhiteSpace(item.Item))
             .ToArray();
+
+    private static string NormalizeChecklistStatus(string status)
+    {
+        var normalized = StructuredPhaseArtifactJson.NormalizeScalar(status);
+
+        return normalized.ToLowerInvariant() switch
+        {
+            "pass" => "pass",
+            "deferred" => "deferred",
+            _ => "fail"
+        };
+    }
 }
 
 public static class ReleaseApprovalArtifactJson
@@ -599,7 +611,12 @@ internal static class StructuredPhaseArtifactMarkdown
         return items
             .Select(static item =>
             {
-                var marker = item.Status.Equals("pass", StringComparison.OrdinalIgnoreCase) ? "\u2705" : "\u274C";
+                var marker = item.Status.ToLowerInvariant() switch
+                {
+                    "pass" => "\u2705",
+                    "deferred" => "\u26A0\uFE0F",
+                    _ => "\u274C"
+                };
                 var evidence = string.IsNullOrWhiteSpace(item.Evidence) ? "no evidence provided" : item.Evidence;
                 return $"- {marker} {item.Item} \u2014 Evidence: {evidence}";
             })

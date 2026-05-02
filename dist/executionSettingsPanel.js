@@ -78,7 +78,7 @@ class ExecutionSettingsPanelController {
                     return;
                 case "saveExecutionSettings":
                     try {
-                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.refinementTolerance ?? "balanced", message.reviewTolerance ?? "balanced", message.watcherEnabled ?? true, message.attentionNotificationsEnabled ?? true, message.contextSuggestionsEnabled ?? true, message.workflowGraphLayoutMode ?? "vertical", message.workflowGraphInitialZoomMode ?? "actual-size", message.userStoryListViewMode ?? "category", message.visualTimelineEnabled ?? false, message.requireExplicitApprovalBranchAcceptance ?? false, message.autoRefinementAnswersEnabled ?? false, message.autoRefinementAnswersProfile, message.autoPlayEnabled ?? false, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.destructiveRewindEnabled ?? false, message.pauseOnFailedReview ?? false, message.reviewLearningEnabled ?? true, message.reviewLearningSkillPath, message.completedUsLockOnCompleted ?? true);
+                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.refinementTolerance ?? "balanced", message.reviewTolerance ?? "balanced", message.reviewEvidencePolicy ?? "balanced", message.watcherEnabled ?? true, message.attentionNotificationsEnabled ?? true, message.contextSuggestionsEnabled ?? true, message.workflowGraphLayoutMode ?? "vertical", message.workflowGraphInitialZoomMode ?? "actual-size", message.userStoryListViewMode ?? "category", message.visualTimelineEnabled ?? false, message.requireExplicitApprovalBranchAcceptance ?? false, message.autoRefinementAnswersEnabled ?? false, message.autoRefinementAnswersProfile, message.autoPlayEnabled ?? false, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.destructiveRewindEnabled ?? false, message.pauseOnFailedReview ?? false, message.reviewLearningEnabled ?? true, message.reviewLearningSkillPath, message.completedUsLockOnCompleted ?? true);
                         await this.onDidSave();
                         await this.refreshAsync();
                     }
@@ -100,6 +100,7 @@ class ExecutionSettingsPanelController {
             phaseModelAssignments: settings.phaseModelAssignments,
             refinementTolerance: settings.refinementTolerance,
             reviewTolerance: settings.reviewTolerance,
+            reviewEvidencePolicy: settings.reviewEvidencePolicy ?? "balanced",
             watcherEnabled: settings.watcherEnabled,
             attentionNotificationsEnabled: settings.attentionNotificationsEnabled,
             contextSuggestionsEnabled: settings.contextSuggestionsEnabled,
@@ -600,6 +601,15 @@ function buildExecutionSettingsHtml(model) {
           </select>
         </label>
         <label class="phase-field">
+          ${renderConfigLabel("Review evidence policy", "Controls which Technical Design validation evidence classes block review. Operational checks can be tracked without requiring a live environment during implementation review.")}
+          <select data-review-evidence-policy>
+            <option value="strict"${model.reviewEvidencePolicy === "strict" ? " selected" : ""}>Strict</option>
+            <option value="balanced"${model.reviewEvidencePolicy === "balanced" ? " selected" : ""}>Balanced</option>
+            <option value="release"${model.reviewEvidencePolicy === "release" ? " selected" : ""}>Release</option>
+            <option value="advisory"${model.reviewEvidencePolicy === "advisory" ? " selected" : ""}>Advisory</option>
+          </select>
+        </label>
+        <label class="phase-field">
           ${renderConfigLabel("Enable auto answers", "Lets SpecForge ask the selected model to answer pending refinement questions once before handing the phase back to you.")}
           <select data-auto-refinement-enabled>
             <option value="false"${model.autoRefinementAnswersEnabled ? "" : " selected"}>Disabled</option>
@@ -766,6 +776,7 @@ function buildExecutionSettingsHtml(model) {
       phaseModelAssignments: ${JSON.stringify(model.phaseModelAssignments)},
       refinementTolerance: ${JSON.stringify(model.refinementTolerance)},
       reviewTolerance: ${JSON.stringify(model.reviewTolerance)},
+      reviewEvidencePolicy: ${JSON.stringify(model.reviewEvidencePolicy)},
       watcherEnabled: ${JSON.stringify(model.watcherEnabled)},
       attentionNotificationsEnabled: ${JSON.stringify(model.attentionNotificationsEnabled)},
       contextSuggestionsEnabled: ${JSON.stringify(model.contextSuggestionsEnabled)},
@@ -906,6 +917,7 @@ function buildExecutionSettingsHtml(model) {
       const autoRefinementWrapper = document.querySelector("[data-auto-refinement-profile-wrapper]");
       const refinementTolerance = document.querySelector("[data-refinement-tolerance]");
       const reviewTolerance = document.querySelector("[data-review-tolerance]");
+      const reviewEvidencePolicy = document.querySelector("[data-review-evidence-policy]");
       const watcherEnabled = document.querySelector("[data-watcher-enabled]");
       const attentionNotificationsEnabled = document.querySelector("[data-attention-notifications-enabled]");
       const contextSuggestionsEnabled = document.querySelector("[data-context-suggestions-enabled]");
@@ -995,6 +1007,13 @@ function buildExecutionSettingsHtml(model) {
         reviewTolerance.value = state.reviewTolerance || "balanced";
         reviewTolerance.addEventListener("change", () => {
           state.reviewTolerance = reviewTolerance.value || "balanced";
+        });
+      }
+
+      if (reviewEvidencePolicy instanceof HTMLSelectElement) {
+        reviewEvidencePolicy.value = state.reviewEvidencePolicy || "balanced";
+        reviewEvidencePolicy.addEventListener("change", () => {
+          state.reviewEvidencePolicy = reviewEvidencePolicy.value || "balanced";
         });
       }
 
@@ -1410,6 +1429,7 @@ function buildExecutionSettingsHtml(model) {
         phaseModelAssignments: state.phaseModelAssignments,
         refinementTolerance: state.refinementTolerance,
         reviewTolerance: state.reviewTolerance,
+        reviewEvidencePolicy: state.reviewEvidencePolicy,
         watcherEnabled: state.watcherEnabled,
         attentionNotificationsEnabled: state.attentionNotificationsEnabled,
         contextSuggestionsEnabled: state.contextSuggestionsEnabled,
@@ -1436,7 +1456,7 @@ function buildExecutionSettingsHtml(model) {
 </body>
 </html>`;
 }
-async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, refinementTolerance = "balanced", reviewTolerance = "balanced", watcherEnabled = true, attentionNotificationsEnabled = true, contextSuggestionsEnabled = true, workflowGraphLayoutMode = "vertical", workflowGraphInitialZoomMode = "actual-size", userStoryListViewMode = "category", visualTimelineEnabled = false, requireExplicitApprovalBranchAcceptance = false, autoRefinementAnswersEnabled = false, autoRefinementAnswersProfile, autoPlayEnabled = false, autoReviewEnabled = false, maxImplementationReviewCycles, destructiveRewindEnabled = false, pauseOnFailedReview = false, reviewLearningEnabled = true, reviewLearningSkillPath, completedUsLockOnCompleted = false) {
+async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, refinementTolerance = "balanced", reviewTolerance = "balanced", reviewEvidencePolicy = "balanced", watcherEnabled = true, attentionNotificationsEnabled = true, contextSuggestionsEnabled = true, workflowGraphLayoutMode = "vertical", workflowGraphInitialZoomMode = "actual-size", userStoryListViewMode = "category", visualTimelineEnabled = false, requireExplicitApprovalBranchAcceptance = false, autoRefinementAnswersEnabled = false, autoRefinementAnswersProfile, autoPlayEnabled = false, autoReviewEnabled = false, maxImplementationReviewCycles, destructiveRewindEnabled = false, pauseOnFailedReview = false, reviewLearningEnabled = true, reviewLearningSkillPath, completedUsLockOnCompleted = false) {
     const configuration = vscode.workspace.getConfiguration("specForge");
     const normalizedProfiles = modelProfiles
         .map((profile) => ({
@@ -1479,6 +1499,7 @@ async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, 
     await configuration.update("execution.phaseModels", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
     await configuration.update("execution.refinementTolerance", refinementTolerance, vscode.ConfigurationTarget.Workspace);
     await configuration.update("execution.reviewTolerance", reviewTolerance, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("execution.reviewEvidencePolicy", reviewEvidencePolicy, vscode.ConfigurationTarget.Workspace);
     await configuration.update("ui.workflowGraphLayoutMode", workflowGraphLayoutMode, vscode.ConfigurationTarget.Global);
     await configuration.update("ui.workflowGraphInitialZoomMode", workflowGraphInitialZoomMode, vscode.ConfigurationTarget.Global);
     await configuration.update("ui.userStoryListViewMode", userStoryListViewMode, vscode.ConfigurationTarget.Global);

@@ -69,6 +69,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 "ReviewTolerance must be one of: strict, balanced, inferential.",
                 nameof(options));
         }
+
+        if (!IsSupportedReviewEvidencePolicy(options.ReviewEvidencePolicy))
+        {
+            throw new ArgumentException(
+                "ReviewEvidencePolicy must be one of: strict, balanced, release, advisory.",
+                nameof(options));
+        }
     }
 
     public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId)
@@ -639,7 +646,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine("- Break implementation into ordered, reviewable steps rather than broad intent statements.")
                 .AppendLine("- Include edge cases, negative paths, and complexity risks that implementation must cover.")
                 .AppendLine("- Do not approve a god-class or central catch-all design; preserve local boundaries and existing responsibilities.")
-                .AppendLine("- Make `Validation Strategy` concrete enough that review can evaluate each item with code, artifact, or command evidence.");
+                .AppendLine("- Make `Validation Strategy` concrete enough that review can evaluate each item with code, artifact, or command evidence.")
+                .AppendLine("- Prefix every `Validation Strategy` bullet with one evidence tag: `[automated]`, `[static]`, `[operational]`, or `[deferred]`.")
+                .AppendLine("- Use `[automated]` for tests or commands that should run in review, `[static]` for code/payload/schema inspection, `[operational]` for live services/secrets/bootstrap/readback, and `[deferred]` for explicit manual or later release evidence.")
+                .AppendLine("- Do not mark live environment, credential, model, database, or external service checks as `[automated]` unless the repo provides a reliable local fake or test harness.");
         }
 
         if (context.PhaseId == PhaseId.Implementation && context.PreviousArtifactPaths.ContainsKey(PhaseId.Review))
@@ -693,11 +703,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine()
                 .AppendLine($"- Active tolerance: `{options.ReviewTolerance}`")
                 .AppendLine($"- Guidance: {ResolveReviewGuidance(options.ReviewTolerance)}")
+                .AppendLine($"- Evidence policy: `{options.ReviewEvidencePolicy}`")
+                .AppendLine($"- Evidence guidance: {ResolveReviewEvidencePolicyGuidance(options.ReviewEvidencePolicy)}")
                 .AppendLine()
                 .AppendLine("## Review Execution Expectations")
                 .AppendLine()
                 .AppendLine("- Inspect the repository files and implementation evidence directly, not only the artifact narrative.")
                 .AppendLine("- Run the most relevant validation commands required to verify the Technical Design validation strategy when direct inspection alone is insufficient.")
+                .AppendLine("- Derive workflow or bootstrap commands from repository evidence such as tasks, tool manifests, README files, or workflow configs; do not infer CLI names from folder names.")
+                .AppendLine("- Treat `[operational]` and `[deferred]` checklist items according to the active evidence policy instead of inventing successful execution.")
                 .AppendLine("- In each validation checklist evidence line, name the concrete files, commands, or artifacts you actually inspected.")
                 .AppendLine()
                 .AppendLine("Return the full `04-review.md` artifact as Markdown with `## State`, `## Validation Checklist`, `## Findings`, `## Verdict`, and `## Recommendation`.")
@@ -1424,13 +1438,30 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 "Use balanced judgment. Prioritize meaningful risks and missing evidence without inflating cosmetic or low-impact issues."
         };
 
+    private static string ResolveReviewEvidencePolicyGuidance(string policy) =>
+        NormalizeReviewEvidencePolicy(policy) switch
+        {
+            "strict" => "every validation strategy item blocks review until concrete evidence passes.",
+            "release" => "automated and static items block implementation review; operational and deferred gaps are release-readiness risks.",
+            "advisory" => "validation gaps must be reported, but checklist failures do not force implementation review failure by themselves.",
+            _ => "automated and static items block review; operational and deferred items can be recorded as non-blocking evidence gaps when the environment is unavailable."
+        };
+
     private static bool IsSupportedTolerance(string tolerance) =>
         NormalizeTolerance(tolerance) is StrictTolerance or BalancedTolerance or InferentialTolerance;
+
+    private static bool IsSupportedReviewEvidencePolicy(string policy) =>
+        NormalizeReviewEvidencePolicy(policy) is "strict" or "balanced" or "release" or "advisory";
 
     private static string NormalizeTolerance(string tolerance) =>
         string.IsNullOrWhiteSpace(tolerance)
             ? BalancedTolerance
             : tolerance.Trim().ToLowerInvariant();
+
+    private static string NormalizeReviewEvidencePolicy(string policy) =>
+        string.IsNullOrWhiteSpace(policy)
+            ? BalancedTolerance
+            : policy.Trim().ToLowerInvariant();
 
     private static string NormalizeProviderKind(string? providerKind) =>
         string.IsNullOrWhiteSpace(providerKind)

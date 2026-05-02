@@ -268,7 +268,8 @@ public sealed class RepositoryPromptInitializer
         Surface material findings, missing validation, and release risks without inventing work that was not inspected.
         Never pass review when implementation evidence is missing, empty, or disconnected from the repository delta under review.
         Review must validate every item listed in the Technical Design `Validation Strategy`.
-        The review artifact must contain one `## Validation Checklist` Markdown bullet for each Technical Design validation strategy item, marked passing only when there is concrete code, artifact, or validation evidence.
+        Technical Design validation strategy bullets should classify evidence with `[automated]`, `[static]`, `[operational]`, or `[deferred]`.
+        The review artifact must contain one `## Validation Checklist` Markdown bullet for each Technical Design validation strategy item, marked passing only when there is concrete code, artifact, or validation evidence, or marked deferred when the active evidence policy allows an operational/deferred gap.
         If the Technical Design validation strategy is missing, empty, or cannot be inspected, the review result must be `fail`.
         """;
 
@@ -421,6 +422,8 @@ public sealed class RepositoryPromptInitializer
         - call out edge cases, negative paths, and complexity risks that implementation must cover
         - reject designs that hide god-class growth, duplicated responsibilities, or missing validation behind vague wording
         - `Validation Strategy` must map to concrete checks the review phase can verify later
+        - prefix each `Validation Strategy` bullet with exactly one evidence tag: `[automated]`, `[static]`, `[operational]`, or `[deferred]`
+        - use `[operational]` for live services, secrets, databases, bootstrap execution, external models, or environment-dependent readback unless the repository provides a reliable local fake or test harness
         """;
 
     private static string BuildImplementationExecutePrompt() =>
@@ -455,7 +458,8 @@ public sealed class RepositoryPromptInitializer
         - inspect the implementation evidence produced by the previous phase, not only the narrative artifact
         - if implementation evidence shows zero touched files, the review must fail and explain why the user story cannot be considered implemented
         - derive the Validation Checklist from the Technical Design `Validation Strategy`; use one checklist item per validation strategy bullet
-        - never return `pass` if the Validation Checklist is missing, empty, incomplete, or contains any failed item
+        - derive workflow or bootstrap commands from repository evidence such as tasks, tool manifests, README files, or workflow configs; do not infer CLI names from folder names
+        - never return `pass` if the Validation Checklist is missing, empty, incomplete, or contains any failed blocking item
         - the `## State` section must contain exactly one `- Result:` line with value `pass` or `fail`
         Behave as reviewer, not as author.
         """;

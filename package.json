@@ -265,6 +265,17 @@
           ],
           "description": "How demanding the review phase should be when assessing findings and pass/fail readiness. This also adjusts the temperature sent for the review phase."
         },
+        "specForge.execution.reviewEvidencePolicy": {
+          "type": "string",
+          "default": "balanced",
+          "enum": [
+            "strict",
+            "balanced",
+            "release",
+            "advisory"
+          ],
+          "description": "Controls which validation evidence classes block review. Strict blocks on every validation item, balanced blocks automated/static items while deferring operational evidence, release records operational gaps for release readiness, and advisory reports gaps without forcing review failure."
+        },
         "specForge.execution.autoRefinementAnswersProfile": {
           "type": "string",
           "default": "",

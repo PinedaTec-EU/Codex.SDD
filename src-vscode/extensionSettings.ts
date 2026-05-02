@@ -7,6 +7,7 @@ export interface SpecForgeSettings {
   readonly autoRefinementAnswersProfile: string | null;
   readonly refinementTolerance: string;
   readonly reviewTolerance: string;
+  readonly reviewEvidencePolicy?: string;
   readonly workflowGraphLayoutMode: "horizontal" | "vertical";
   readonly workflowGraphInitialZoomMode: "actual-size" | "fit-width";
   readonly userStoryListViewMode: "category" | "phase";
@@ -85,6 +86,7 @@ export function readSpecForgeSettings(configuration: ConfigurationReader): SpecF
     autoRefinementAnswersProfile,
     refinementTolerance: normalizeTolerance(configuration.get<string>("execution.refinementTolerance", "balanced")),
     reviewTolerance: normalizeTolerance(configuration.get<string>("execution.reviewTolerance", "balanced")),
+    reviewEvidencePolicy: normalizeReviewEvidencePolicy(configuration.get<string>("execution.reviewEvidencePolicy", "balanced")),
     workflowGraphLayoutMode: configuration.get<"horizontal" | "vertical">("ui.workflowGraphLayoutMode", "vertical") === "horizontal"
       ? "horizontal"
       : "vertical",
@@ -123,6 +125,7 @@ export function buildBackendEnvironment(settings: SpecForgeSettings): NodeJS.Pro
 
   env.SPECFORGE_REFINEMENT_TOLERANCE = settings.refinementTolerance;
   env.SPECFORGE_REVIEW_TOLERANCE = settings.reviewTolerance;
+  env.SPECFORGE_REVIEW_EVIDENCE_POLICY = settings.reviewEvidencePolicy ?? "balanced";
   env.SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED = settings.autoRefinementAnswersEnabled ? "true" : "false";
   env.SPECFORGE_REVIEW_LEARNING_ENABLED = settings.reviewLearningEnabled === false ? "false" : "true";
   env.SPECFORGE_REVIEW_LEARNING_SKILL_PATH =
@@ -484,6 +487,13 @@ function normalizeUnknownOptional(value: unknown): string | null {
 function normalizeTolerance(value: string | undefined): string {
   const normalized = value?.trim().toLowerCase();
   return normalized === "strict" || normalized === "inferential" ? normalized : "balanced";
+}
+
+function normalizeReviewEvidencePolicy(value: string | undefined): string {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "strict" || normalized === "release" || normalized === "advisory"
+    ? normalized
+    : "balanced";
 }
 
 function normalizeReasoningEffort(value: unknown): string | null {

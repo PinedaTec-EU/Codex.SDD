@@ -301,6 +301,7 @@ Tolerance can still be controlled through environment variables when launching t
 ```bash
 export SPECFORGE_REFINEMENT_TOLERANCE=balanced
 export SPECFORGE_REVIEW_TOLERANCE=balanced
+export SPECFORGE_REVIEW_EVIDENCE_POLICY=balanced
 ```
 
 The current supported `provider` values are `openai-compatible`, `codex`, `copilot`, and `claude`.
@@ -320,6 +321,15 @@ For review, the backend supports the same three levels through `SPECFORGE_REVIEW
 - `strict` -> `0.0`
 - `balanced` -> `0.2`
 - `inferential` -> `0.4`
+
+Review evidence blocking is controlled separately through `SPECFORGE_REVIEW_EVIDENCE_POLICY`:
+
+- `strict`: every Technical Design validation item blocks review until concrete evidence passes.
+- `balanced`: automated and static items block review; operational and deferred items can be recorded as non-blocking evidence gaps.
+- `release`: automated and static items block implementation review; operational and deferred items are release-readiness risks.
+- `advisory`: validation gaps are reported without forcing review failure by themselves.
+
+Technical Design should prefix each `Validation Strategy` bullet with `[automated]`, `[static]`, `[operational]`, or `[deferred]` so review can apply the configured evidence policy deterministically.
 
 `temperature` is not exposed as an independent extension setting. The supported knobs are `refinementTolerance` and `reviewTolerance`, and the backend derives `temperature` from them for the corresponding phases only.
 
@@ -451,6 +461,7 @@ The extension contributes these settings:
 - `specForge.execution.phaseModels`
 - `specForge.execution.refinementTolerance`
 - `specForge.execution.reviewTolerance`
+- `specForge.execution.reviewEvidencePolicy`
 - `specForge.execution.autoRefinementAnswersProfile`
 - `specForge.ui.enableWatcher`
 - `specForge.ui.notifyOnAttention`

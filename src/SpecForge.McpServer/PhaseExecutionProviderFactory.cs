@@ -19,6 +19,7 @@ internal static class PhaseExecutionProviderFactory
     private const string RefinementToleranceEnvVar = "SPECFORGE_REFINEMENT_TOLERANCE";
     private const string LegacyRefinementToleranceEnvVar = "SPECFORGE_CAPTURE_TOLERANCE";
     private const string ReviewToleranceEnvVar = "SPECFORGE_REVIEW_TOLERANCE";
+    private const string ReviewEvidencePolicyEnvVar = "SPECFORGE_REVIEW_EVIDENCE_POLICY";
     private const string AutoRefinementAnswersEnabledEnvVar = "SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED";
     private const string LegacyAutoRefinementAnswersEnabledEnvVar = "SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED";
     private const string AutoRefinementAnswersProfileEnvVar = "SPECFORGE_AUTO_REFINEMENT_ANSWERS_PROFILE";
@@ -63,6 +64,7 @@ internal static class PhaseExecutionProviderFactory
             ?? Environment.GetEnvironmentVariable(LegacyRefinementToleranceEnvVar)
             ?? "balanced";
         var reviewTolerance = Environment.GetEnvironmentVariable(ReviewToleranceEnvVar) ?? "balanced";
+        var reviewEvidencePolicy = Environment.GetEnvironmentVariable(ReviewEvidencePolicyEnvVar) ?? "balanced";
         var autoRefinementAnswersEnabled = string.Equals(
             Environment.GetEnvironmentVariable(AutoRefinementAnswersEnabledEnvVar)
                 ?? Environment.GetEnvironmentVariable(LegacyAutoRefinementAnswersEnabledEnvVar),
@@ -85,6 +87,7 @@ internal static class PhaseExecutionProviderFactory
             SystemPrompt: systemPrompt,
             RefinementTolerance: refinementTolerance,
             ReviewTolerance: reviewTolerance,
+            ReviewEvidencePolicy: reviewEvidencePolicy,
             AutoRefinementAnswersEnabled: autoRefinementAnswersEnabled,
             AutoRefinementAnswersProfile: string.IsNullOrWhiteSpace(autoRefinementAnswersProfile) ? null : autoRefinementAnswersProfile.Trim(),
             ReviewLearningEnabled: reviewLearningEnabled,

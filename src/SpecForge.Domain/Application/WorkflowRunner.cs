@@ -29,6 +29,7 @@ public sealed class WorkflowRunner
     private readonly IPullRequestPublisher pullRequestPublisher;
     private readonly IPullRequestInvalidator pullRequestInvalidator;
     private readonly string refinementTolerance;
+    private readonly string reviewEvidencePolicy;
     private readonly string? runtimeVersion;
     private readonly bool completedUsLockOnCompleted;
 
@@ -47,8 +48,13 @@ public sealed class WorkflowRunner
     {
     }
 
-    public WorkflowRunner(IPhaseExecutionProvider phaseExecutionProvider, string? runtimeVersion, string refinementTolerance, bool completedUsLockOnCompleted)
-        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), null, runtimeVersion, refinementTolerance, completedUsLockOnCompleted)
+    public WorkflowRunner(
+        IPhaseExecutionProvider phaseExecutionProvider,
+        string? runtimeVersion,
+        string refinementTolerance,
+        bool completedUsLockOnCompleted,
+        string reviewEvidencePolicy = "balanced")
+        : this(new UserStoryFileStore(), phaseExecutionProvider, new RepositoryCategoryCatalog(), new GitWorkBranchManager(), new GitHubPullRequestPublisher(), null, runtimeVersion, refinementTolerance, completedUsLockOnCompleted, reviewEvidencePolicy)
     {
     }
 
@@ -61,7 +67,8 @@ public sealed class WorkflowRunner
         IPullRequestInvalidator? pullRequestInvalidator = null,
         string? runtimeVersion = null,
         string refinementTolerance = "balanced",
-        bool completedUsLockOnCompleted = true)
+        bool completedUsLockOnCompleted = true,
+        string reviewEvidencePolicy = "balanced")
     {
         this.fileStore = fileStore ?? throw new ArgumentNullException(nameof(fileStore));
         this.phaseExecutionProvider = phaseExecutionProvider ?? throw new ArgumentNullException(nameof(phaseExecutionProvider));
@@ -73,6 +80,7 @@ public sealed class WorkflowRunner
             ?? new NoOpPullRequestInvalidator();
         this.runtimeVersion = string.IsNullOrWhiteSpace(runtimeVersion) ? null : runtimeVersion.Trim();
         this.refinementTolerance = refinementTolerance is "strict" or "balanced" or "inferential" ? refinementTolerance : "balanced";
+        this.reviewEvidencePolicy = ReviewEvidencePolicy.Normalize(reviewEvidencePolicy);
         this.completedUsLockOnCompleted = completedUsLockOnCompleted;
     }
 
@@ -1405,7 +1413,7 @@ public sealed class WorkflowRunner
         else if (workflowRun.CurrentPhase == PhaseId.Review)
         {
             var version = ExtractArtifactVersion(artifactPath);
-            var reviewArtifact = EnforceReviewValidationStrategyContract(result.Content, paths, workflowRun.UsId, version);
+            var reviewArtifact = EnforceReviewValidationStrategyContract(result.Content, paths, workflowRun.UsId, version, reviewEvidencePolicy);
             await File.WriteAllTextAsync(artifactPath, reviewArtifact, cancellationToken);
         }
         else if (workflowRun.CurrentPhase == PhaseId.TechnicalDesign)
@@ -1642,7 +1650,8 @@ public sealed class WorkflowRunner
         string reviewMarkdown,
         UserStoryFilePaths paths,
         string usId,
-        int version)
+        int version,
+        string reviewEvidencePolicy)
     {
         var validationStrategy = ReadTechnicalDesignValidationStrategy(paths);
         if (validationStrategy.Count == 0)
@@ -1663,19 +1672,28 @@ public sealed class WorkflowRunner
 
         var reviewResult = WorkflowArtifactMarkdownReader.ParseReviewResult(reviewMarkdown);
         var reviewChecklist = WorkflowArtifactMarkdownReader.ParseReviewValidationChecklist(reviewMarkdown);
+        var policy = ReviewEvidencePolicy.Parse(reviewEvidencePolicy);
         var reviewChecklistByItem = reviewChecklist
-            .GroupBy(static item => WorkflowArtifactMarkdownReader.NormalizeReviewChecklistKey(item.Item), StringComparer.Ordinal)
+            .GroupBy(static item => ReviewEvidencePolicy.NormalizeChecklistKey(item.Item), StringComparer.Ordinal)
             .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal);
         var hasChecklist = reviewChecklistByItem.Count > 0;
         var enforcedChecklist = validationStrategy
             .Select(item =>
             {
-                var key = WorkflowArtifactMarkdownReader.NormalizeReviewChecklistKey(item);
+                var evidenceKind = ReviewEvidencePolicy.Classify(item);
+                var isBlocking = ReviewEvidencePolicy.IsBlocking(policy, evidenceKind);
+                var key = ReviewEvidencePolicy.NormalizeChecklistKey(item);
                 if (reviewChecklistByItem.TryGetValue(key, out var reviewed))
                 {
+                    var status = reviewed.Status.Equals("pass", StringComparison.OrdinalIgnoreCase)
+                        ? "pass"
+                        : isBlocking
+                            ? "fail"
+                            : "deferred";
+
                     return reviewed with
                     {
-                        Status = reviewed.Status.Equals("pass", StringComparison.OrdinalIgnoreCase) ? "pass" : "fail",
+                        Status = status,
                         Item = item,
                         Evidence = string.IsNullOrWhiteSpace(reviewed.Evidence)
                             ? "No concrete review evidence was provided for this validation item."
@@ -1684,14 +1702,17 @@ public sealed class WorkflowRunner
                 }
 
                 return new ReviewValidationChecklistItem(
-                    "fail",
+                    isBlocking ? "fail" : "deferred",
                     item,
                     hasChecklist
                         ? "The review artifact did not validate this Technical Design validation strategy item."
                         : "The review artifact did not include the required Validation Checklist.");
             })
             .ToArray();
-        var enforcedResult = reviewResult == "pass" && enforcedChecklist.All(static item => item.Status == "pass")
+        var hasBlockingValidationFailure = enforcedChecklist.Any(item =>
+            item.Status == "fail" &&
+            ReviewEvidencePolicy.IsBlocking(policy, ReviewEvidencePolicy.Classify(item.Item)));
+        var enforcedResult = reviewResult == "pass" && !hasBlockingValidationFailure
             ? "pass"
             : "fail";
         var findings = WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(reviewMarkdown, "## Findings");
@@ -1723,6 +1744,15 @@ public sealed class WorkflowRunner
             {
                 recommendations = ["Fix the failed validation strategy items and rerun the review phase."];
             }
+        }
+
+        var deferredItems = enforcedChecklist
+            .Where(static item => item.Status == "deferred")
+            .Select(static item => item.Item)
+            .ToArray();
+        if (deferredItems.Length > 0)
+        {
+            findings = [..findings, $"Review deferred {deferredItems.Length} non-blocking validation strategy item(s) under `{reviewEvidencePolicy}` evidence policy."];
         }
 
         if (findings.Count == 0)

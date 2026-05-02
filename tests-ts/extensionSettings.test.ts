@@ -72,6 +72,7 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
     }],
     ["execution.refinementTolerance", " inferential "],
     ["execution.reviewTolerance", " strict "],
+    ["execution.reviewEvidencePolicy", " release "],
     ["ui.enableWatcher", false],
     ["ui.notifyOnAttention", true],
     ["features.enableContextSuggestions", true],
@@ -125,6 +126,7 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
     autoRefinementAnswersProfile: null,
     refinementTolerance: "inferential",
     reviewTolerance: "strict",
+    reviewEvidencePolicy: "release",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
     userStoryListViewMode: "category",
@@ -272,6 +274,7 @@ test("buildBackendEnvironment only serializes model profiles and assignments", (
     })),
     SPECFORGE_REFINEMENT_TOLERANCE: "strict",
     SPECFORGE_REVIEW_TOLERANCE: "inferential",
+    SPECFORGE_REVIEW_EVIDENCE_POLICY: "balanced",
     SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED: "false",
     SPECFORGE_REVIEW_LEARNING_ENABLED: "true",
     SPECFORGE_REVIEW_LEARNING_SKILL_PATH: ".codex/skills/sdd-phase-agents/SKILL.md",
@@ -832,7 +835,7 @@ test("buildBackendEnvironment serializes auto-refinement settings", () => {
 test("readSpecForgeSettings falls back to balanced refinement tolerance for unsupported values", () => {
   const settings = readSpecForgeSettings({
     get<T>(section: string, defaultValue?: T): T {
-      if (section === "execution.refinementTolerance" || section === "execution.reviewTolerance") {
+      if (section === "execution.refinementTolerance" || section === "execution.reviewTolerance" || section === "execution.reviewEvidencePolicy") {
         return "chaotic" as T;
       }
 
@@ -842,6 +845,7 @@ test("readSpecForgeSettings falls back to balanced refinement tolerance for unsu
 
   assert.equal(settings.refinementTolerance, "balanced");
   assert.equal(settings.reviewTolerance, "balanced");
+  assert.equal(settings.reviewEvidencePolicy, "balanced");
   assert.equal(settings.requireExplicitApprovalBranchAcceptance, false);
   assert.equal(settings.autoRefinementAnswersEnabled, false);
   assert.equal(settings.autoRefinementAnswersProfile, null);

@@ -401,6 +401,33 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var userPrompt = OpenAiCompatibleRequestJson.ReadUserPrompt(handler.LastBody);
         Assert.Contains($"Active tolerance: `{reviewTolerance}`", userPrompt);
         Assert.Contains(expectedGuidance, userPrompt);
+        Assert.Contains("Evidence policy: `balanced`", userPrompt);
+        Assert.Contains("do not infer CLI names from folder names", userPrompt);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_TechnicalDesign_InstructsModelToClassifyValidationEvidence()
+    {
+        await PrepareInitializedWorkspaceAsync();
+        var handler = new CapturingFakeHttpMessageHandler(BuildMinimalTechnicalDesignMarkdown());
+        var provider = new OpenAiCompatiblePhaseExecutionProvider(
+            new HttpClient(handler),
+            CreateOptions(model: "llama3.1"));
+        var context = new PhaseExecutionContext(
+            WorkspaceRoot: workspaceRoot,
+            UsId: "US-0001",
+            PhaseId: PhaseId.TechnicalDesign,
+            UserStoryPath: Path.Combine(workspaceRoot, ".specs", "us", "workflow", "US-0001", "us.md"),
+            PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
+            ContextFilePaths: []);
+
+        await provider.ExecuteAsync(context);
+
+        var userPrompt = OpenAiCompatibleRequestJson.ReadUserPrompt(handler.LastBody);
+        Assert.Contains("[automated]", userPrompt);
+        Assert.Contains("[static]", userPrompt);
+        Assert.Contains("[operational]", userPrompt);
+        Assert.Contains("[deferred]", userPrompt);
     }
 
     [Theory]
@@ -1325,6 +1352,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         string apiKey = "",
         string refinementTolerance = "balanced",
         string reviewTolerance = "balanced",
+        string reviewEvidencePolicy = "balanced",
         string? reasoningEffort = null,
         string repositoryAccess = "read-write",
         string providerKind = "openai-compatible",
@@ -1336,6 +1364,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         return new OpenAiCompatibleProviderOptions(
             RefinementTolerance: refinementTolerance,
             ReviewTolerance: reviewTolerance,
+            ReviewEvidencePolicy: reviewEvidencePolicy,
             AutoRefinementAnswersEnabled: autoRefinementAnswersEnabled,
             AutoRefinementAnswersProfile: autoRefinementAnswersProfile,
             ReviewLearningEnabled: reviewLearningEnabled,

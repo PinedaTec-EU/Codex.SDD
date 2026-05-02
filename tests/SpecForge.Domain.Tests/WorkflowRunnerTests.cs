@@ -1398,6 +1398,41 @@ public sealed class WorkflowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task ContinuePhaseAsync_Review_DefersOperationalValidationGap_WhenEvidencePolicyAllowsIt()
+    {
+        await InitializeGitWorkspaceAsync(workspaceRoot);
+        await RunGitAsync(workspaceRoot, "checkout", "-b", "main");
+        await File.WriteAllTextAsync(Path.Combine(workspaceRoot, "README.md"), "seed");
+        await RunGitAsync(workspaceRoot, "add", "README.md");
+        await RunGitAsync(workspaceRoot, "commit", "-m", "seed");
+
+        var fileStore = new UserStoryFileStore();
+        var runner = new WorkflowRunner(
+            fileStore,
+            new OperationalReviewGapPhaseExecutionProvider(),
+            new RepositoryCategoryCatalog(),
+            new NoOpWorkBranchManager(),
+            reviewEvidencePolicy: "balanced");
+        var service = new SpecForgeApplicationService(fileStore, runner);
+        await runner.CreateUserStoryAsync(workspaceRoot, "US-0001", "Review guard", "feature", "workflow", "Initial source text");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await ResolvePendingApprovalQuestionsAsync(runner, "US-0001");
+        await runner.ApproveCurrentPhaseAsync(workspaceRoot, "US-0001", "main");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+        await runner.ContinuePhaseAsync(workspaceRoot, "US-0001");
+
+        var paths = UserStoryFilePaths.ResolveFromWorkspaceRoot(workspaceRoot, "US-0001");
+        var reviewArtifact = await File.ReadAllTextAsync(paths.GetPhaseArtifactPath(PhaseId.Review));
+        var currentPhase = await service.GetCurrentPhaseAsync(workspaceRoot, "US-0001");
+
+        Assert.Contains("- Result: `pass`", reviewArtifact);
+        Assert.Contains("⚠️ [operational] Run bootstrap workflow and verify persisted sampling controls.", reviewArtifact);
+        Assert.Contains("Review deferred 1 non-blocking validation strategy item(s) under `balanced` evidence policy.", reviewArtifact);
+        Assert.NotEqual("review_failed", currentPhase.BlockingReason);
+    }
+
+    [Fact]
     public async Task ContinuePhaseAsync_ReviewFailed_ReplaysCurrentReviewInsteadOfAdvancing()
     {
         await InitializeGitWorkspaceAsync(workspaceRoot);
@@ -1961,6 +1996,99 @@ public sealed class WorkflowRunnerTests : IDisposable
                             string.Empty,
                             "## Recommendation",
                             "- Advance."
+                        ]) + Environment.NewLine,
+                    "test-double");
+            }
+
+            return await inner.ExecuteAsync(context, cancellationToken);
+        }
+    }
+
+    private sealed class OperationalReviewGapPhaseExecutionProvider : IPhaseExecutionProvider
+    {
+        private readonly DeterministicPhaseExecutionProvider inner = new();
+
+        public PhaseExecutionReadiness GetPhaseExecutionReadiness(PhaseId phaseId) =>
+            inner.GetPhaseExecutionReadiness(phaseId);
+
+        public Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
+            PhaseExecutionContext context,
+            RefinementSession session,
+            CancellationToken cancellationToken = default) =>
+            inner.TryAutoAnswerRefinementAsync(context, session, cancellationToken);
+
+        public async Task<PhaseExecutionResult> ExecuteAsync(
+            PhaseExecutionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            if (context.PhaseId == PhaseId.TechnicalDesign)
+            {
+                return new PhaseExecutionResult(
+                    string.Join(
+                        Environment.NewLine,
+                        [
+                            $"# Technical Design · {context.UsId} · v01",
+                            string.Empty,
+                            "## State",
+                            "- State: `generated`",
+                            "- Based on: `01-spec.md`",
+                            string.Empty,
+                            "## Technical Summary",
+                            "Implement a change with operational bootstrap evidence.",
+                            string.Empty,
+                            "## Technical Objective",
+                            "Keep implementation review separate from live bootstrap verification.",
+                            string.Empty,
+                            "## Affected Components",
+                            "- Bootstrap workflow",
+                            string.Empty,
+                            "## Proposed Design",
+                            "### Architecture",
+                            "Validate local code and defer live service checks when no environment is available.",
+                            string.Empty,
+                            "## Implementation Strategy",
+                            "1. Update code.",
+                            "2. Validate static and automated behavior.",
+                            string.Empty,
+                            "## Validation Strategy",
+                            "- [operational] Run bootstrap workflow and verify persisted sampling controls.",
+                            string.Empty,
+                            "## Open Decisions",
+                            "- No open decisions."
+                        ]) + Environment.NewLine,
+                    "test-double");
+            }
+
+            if (context.PhaseId == PhaseId.Implementation)
+            {
+                var featurePath = Path.Combine(context.WorkspaceRoot, "src", "Feature.cs");
+                Directory.CreateDirectory(Path.GetDirectoryName(featurePath)!);
+                await File.WriteAllTextAsync(
+                    featurePath,
+                    "namespace SpecForge;\npublic static class Feature { public const int Enabled = 1; }\n",
+                    cancellationToken);
+            }
+
+            if (context.PhaseId == PhaseId.Review)
+            {
+                return new PhaseExecutionResult(
+                    string.Join(
+                        Environment.NewLine,
+                        [
+                            $"# Review · {context.UsId} · v01",
+                            string.Empty,
+                            "## State",
+                            "- Result: `pass`",
+                            string.Empty,
+                            "## Findings",
+                            "- Operational environment was not available during review.",
+                            string.Empty,
+                            "## Verdict",
+                            "- Final result: `pass`",
+                            "- Primary reason: implementation evidence passed and operational bootstrap readback is deferred.",
+                            string.Empty,
+                            "## Recommendation",
+                            "- Capture bootstrap evidence before release."
                         ]) + Environment.NewLine,
                     "test-double");
             }

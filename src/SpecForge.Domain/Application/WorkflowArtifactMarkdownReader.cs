@@ -85,6 +85,9 @@ internal static class WorkflowArtifactMarkdownReader
         var status = trimmed.Contains("\u2705", StringComparison.Ordinal) ||
             trimmed.Contains("[x]", StringComparison.OrdinalIgnoreCase)
                 ? "pass"
+                : trimmed.Contains("\u26A0", StringComparison.Ordinal) ||
+                  trimmed.Contains("[~]", StringComparison.OrdinalIgnoreCase)
+                    ? "deferred"
                 : trimmed.Contains("\u274C", StringComparison.Ordinal) ||
                   trimmed.Contains("[ ]", StringComparison.OrdinalIgnoreCase)
                     ? "fail"
@@ -97,8 +100,10 @@ internal static class WorkflowArtifactMarkdownReader
 
         var content = trimmed
             .Replace("\u2705", string.Empty, StringComparison.Ordinal)
+            .Replace("\u26A0", string.Empty, StringComparison.Ordinal)
             .Replace("\u274C", string.Empty, StringComparison.Ordinal)
             .Replace("[x]", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("[~]", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Replace("[ ]", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Trim();
         var evidenceMarkerIndex = content.IndexOf("Evidence:", StringComparison.OrdinalIgnoreCase);
