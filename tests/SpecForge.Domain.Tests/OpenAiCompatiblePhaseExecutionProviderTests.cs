@@ -49,7 +49,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("default", result.Execution.ProfileName);
         Assert.Equal(ComputeSha256(handler.LastBody), result.Execution.InputSha256);
         Assert.Equal(ComputeSha256(BuildMinimalSpecMarkdown()), result.Execution.OutputSha256);
-        Assert.Null(result.StructuredJsonContent);
         Assert.Null(result.Execution.StructuredOutputSha256);
         Assert.NotNull(handler.LastRequest);
         Assert.Equal(HttpMethod.Post, handler.LastRequest!.Method);
@@ -241,7 +240,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.NotEmpty(artifact.PrBody);
         Assert.Contains("US-0001", artifact.PrTitle);
         Assert.Contains("ready_to_publish", result.Content, StringComparison.OrdinalIgnoreCase);
-        Assert.Null(result.StructuredJsonContent);
         Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(handler.LastBody));
     }
 
@@ -1128,7 +1126,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Contains("## Decision", result.Content);
         Assert.Contains("ready_for_spec", result.Content);
         Assert.Contains("No refinement questions remain.", result.Content);
-        Assert.Null(result.StructuredJsonContent);
         Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(handler.LastBody));
     }
 
@@ -1169,7 +1166,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.StartsWith("# Refinement · US-0001 · v01", result.Content);
         Assert.Contains("needs_refinement", result.Content);
         Assert.Contains("## Questions", result.Content);
-        Assert.Null(result.StructuredJsonContent);
         Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(handler.LastBody));
     }
 
@@ -1192,7 +1188,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         var result = await provider.ExecuteAsync(context);
 
         Assert.Equal("# generated markdown" + Environment.NewLine, result.Content);
-        Assert.Null(result.StructuredJsonContent);
         Assert.False(OpenAiCompatibleRequestJson.HasResponseFormat(handler.LastBody));
     }
 

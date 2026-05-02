@@ -1378,17 +1378,12 @@ public sealed class WorkflowRunner
         }
         else if (workflowRun.CurrentPhase == PhaseId.Implementation)
         {
-            var version = ExtractArtifactVersion(artifactPath);
             var implementationEvidence = await ImplementationPhaseEvidence.CaptureAsync(
                 workspaceRoot,
                 paths,
                 implementationEvidenceBaseline,
                 cancellationToken);
             await ImplementationPhaseEvidence.PersistAsync(paths, implementationEvidence, cancellationToken);
-            await WriteStructuredJsonIfAvailableAsync(
-                paths.GetPhaseArtifactJsonPath(PhaseId.Implementation, version),
-                result.StructuredJsonContent,
-                cancellationToken);
             await File.WriteAllTextAsync(
                 artifactPath,
                 ImplementationPhaseEvidence.AppendSection(
@@ -1406,11 +1401,6 @@ public sealed class WorkflowRunner
         }
         else if (workflowRun.CurrentPhase == PhaseId.TechnicalDesign)
         {
-            var version = ExtractArtifactVersion(artifactPath);
-            await WriteStructuredJsonIfAvailableAsync(
-                paths.GetPhaseArtifactJsonPath(PhaseId.TechnicalDesign, version),
-                result.StructuredJsonContent,
-                cancellationToken);
             await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
         }
         else if (workflowRun.CurrentPhase is PhaseId.ReleaseApproval or PhaseId.PrPreparation)
@@ -1426,10 +1416,6 @@ public sealed class WorkflowRunner
             }
             else
             {
-                await WriteStructuredJsonIfAvailableAsync(
-                    paths.GetPhaseArtifactJsonPath(workflowRun.CurrentPhase, version),
-                    result.StructuredJsonContent,
-                    cancellationToken);
                 await File.WriteAllTextAsync(artifactPath, result.Content, cancellationToken);
             }
         }
@@ -1597,19 +1583,6 @@ public sealed class WorkflowRunner
         execution is null
             ? null
             : execution with { RuntimeVersion = execution.RuntimeVersion ?? runtimeVersion };
-
-    private static async Task WriteStructuredJsonIfAvailableAsync(
-        string artifactJsonPath,
-        string? structuredJsonContent,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(structuredJsonContent))
-        {
-            return;
-        }
-
-        await File.WriteAllTextAsync(artifactJsonPath, structuredJsonContent, cancellationToken);
-    }
 
     private static void EnsurePrPreparationArtifactIsPublishable(PrPreparationArtifactDocument document)
     {

@@ -206,9 +206,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             return await ExecuteViaNativeCliAsync(context, prompt, modelSelection, cancellationToken);
         }
 
-        if (!StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out _))
+        if (!PhaseMarkdownArtifactContracts.Supports(context.PhaseId))
         {
-            throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract.");
+            throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a Markdown artifact contract.");
         }
         var (content, usage, inputSha256, outputSha256) = await ExecuteStructuredHttpAsync(
             modelSelection,
@@ -235,8 +235,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 Warnings: prompt.Warnings,
                 InputSha256: inputSha256,
                 OutputSha256: outputSha256,
-                StructuredOutputSha256: null),
-            StructuredJsonContent: null);
+                StructuredOutputSha256: null));
     }
 
     private static HttpRequestMessage BuildRequest(
@@ -467,9 +466,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             paths.SharedSystemPromptPath,
             phaseSystemPromptPath);
         var refinementLogPath = Path.Combine(Path.GetDirectoryName(context.UserStoryPath)!, "refinement.md");
-        if (!StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out _))
+        if (!PhaseMarkdownArtifactContracts.Supports(context.PhaseId))
         {
-            throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract.");
+            throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a Markdown artifact contract.");
         }
         var effectiveOutputRulesPrompt = BuildMarkdownOutputRulesPrompt();
         var systemPrompt = string.Join(
@@ -957,16 +956,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     {
         SpecForgeDiagnostics.Log(
             $"[provider.native] usId={context.UsId} phase={context.PhaseId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={(string.IsNullOrWhiteSpace(modelSelection.Model) ? "(default)" : modelSelection.Model)}");
-        if (!StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var contract))
+        if (!PhaseMarkdownArtifactContracts.Supports(context.PhaseId))
         {
-            throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract for native provider execution.");
+            throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a Markdown artifact contract for native provider execution.");
         }
 
         var nativePrompt = NativeCliPromptBuilder.BuildPhasePrompt(
             context,
             prompt,
-            modelSelection.ProviderKind,
-            contract);
+            modelSelection.ProviderKind);
         var sandboxMode = context.PhaseId is PhaseId.Implementation or PhaseId.Review
             ? "workspace-write"
             : "read-only";
@@ -1002,8 +1000,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 Warnings: prompt.Warnings,
                 InputSha256: ComputeSha256(nativePrompt),
                 OutputSha256: ComputeSha256(response),
-                StructuredOutputSha256: null),
-            StructuredJsonContent: null);
+                StructuredOutputSha256: null));
     }
 
     private static string? ComputeSha256(string? content)
@@ -1612,12 +1609,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private static string NormalizePhaseContent(PhaseExecutionContext context, string content)
     {
-        if (StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var contract))
-        {
-            return contract.NormalizeContent(context, content);
-        }
-
-        return content;
+        return PhaseMarkdownArtifactContracts.NormalizeContent(content);
     }
 
     private static bool HasExplicitProfilesForAllModelDrivenPhases(OpenAiCompatiblePhaseModelAssignments? assignments) =>

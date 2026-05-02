@@ -4,5 +4,4 @@ public sealed record PhaseExecutionResult(
     string Content,
     string ExecutionKind,
     TokenUsage? Usage = null,
-    PhaseExecutionMetadata? Execution = null,
-    string? StructuredJsonContent = null);
+    PhaseExecutionMetadata? Execution = null);

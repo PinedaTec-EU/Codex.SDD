@@ -9,8 +9,7 @@ internal static class NativeCliPromptBuilder
     public static string BuildPhasePrompt(
         PhaseExecutionContext context,
         EffectivePrompt prompt,
-        string providerKind,
-        StructuredPhaseArtifactContract contract)
+        string providerKind)
     {
         var providerLabel = ResolveProviderLabel(providerKind);
         var builder = new StringBuilder()
@@ -38,7 +37,7 @@ internal static class NativeCliPromptBuilder
                 .AppendLine()
                 .AppendLine("- Make the required repository changes in this workspace before you finish.")
                 .AppendLine("- Run the most relevant validation commands you can justify from the repo.")
-                .AppendLine("- Base the JSON response on the changes and validation you actually performed.")
+                .AppendLine("- Base the Markdown artifact on the changes and validation you actually performed.")
                 .AppendLine();
         }
         else if (context.PhaseId == PhaseId.Review)
