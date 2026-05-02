@@ -45,10 +45,11 @@ function getWorkspaceMcpConfigPath(workspaceRoot) {
     return path.join(workspaceRoot, ".vscode", "mcp.json");
 }
 function buildSpecForgeWorkspaceMcpServerConfig(hostRoot) {
+    const launchConfig = (0, backendClientModel_1.resolveMcpServerLaunchConfig)(hostRoot);
     return {
         type: "stdio",
-        command: "dotnet",
-        args: ["run", "--project", (0, backendClientModel_1.buildServerProjectPath)(hostRoot)],
+        command: launchConfig.command,
+        args: launchConfig.args,
         envFile: "${workspaceFolder}/.env"
     };
 }

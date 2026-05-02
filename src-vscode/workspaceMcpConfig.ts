@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { buildServerProjectPath } from "./backendClientModel";
+import { resolveMcpServerLaunchConfig } from "./backendClientModel";
 
 export const specForgeWorkspaceMcpServerName = "specforge";
 
@@ -27,10 +27,11 @@ export function getWorkspaceMcpConfigPath(workspaceRoot: string): string {
 }
 
 export function buildSpecForgeWorkspaceMcpServerConfig(hostRoot: string): WorkspaceMcpServerConfig {
+  const launchConfig = resolveMcpServerLaunchConfig(hostRoot);
   return {
     type: "stdio",
-    command: "dotnet",
-    args: ["run", "--project", buildServerProjectPath(hostRoot)],
+    command: launchConfig.command,
+    args: launchConfig.args,
     envFile: "${workspaceFolder}/.env"
   };
 }

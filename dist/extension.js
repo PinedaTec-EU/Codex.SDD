@@ -196,9 +196,10 @@ class SpecForgeMcpServerDefinitionProvider {
         }
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
         const environment = toMcpEnvironment((0, extensionSettings_1.buildBackendEnvironment)(settings));
-        const server = new vscode.McpStdioServerDefinition(`SpecForge.AI (${workspaceFolder.name})`, "dotnet", ["run", "--project", (0, backendClientModel_1.buildServerProjectPath)(this.hostRoot)], environment, this.version);
-        server.cwd = workspaceFolder.uri;
-        (0, outputChannel_1.appendSpecForgeDebugLog)(`Providing SpecForge MCP server definition for workspace '${workspaceFolder.uri.fsPath}'.`);
+        const launchConfig = (0, backendClientModel_1.resolveMcpServerLaunchConfig)(this.hostRoot);
+        const server = new vscode.McpStdioServerDefinition(`SpecForge.AI (${workspaceFolder.name})`, launchConfig.command, [...launchConfig.args], environment, this.version);
+        server.cwd = vscode.Uri.file(launchConfig.cwd);
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Providing SpecForge MCP server definition for workspace '${workspaceFolder.uri.fsPath}' using ${launchConfig.source} server '${launchConfig.targetPath}'.`);
         return [server];
     }
     resolveMcpServerDefinition(server) {

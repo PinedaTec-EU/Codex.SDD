@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { buildPackagedServerDllPath } from "../src-vscode/backendClientModel";
 import {
   buildSpecForgeWorkspaceMcpServerConfig,
   ensureWorkspaceMcpConfigAsync,
@@ -79,4 +80,18 @@ test("ensureWorkspaceMcpConfigAsync updates stale SpecForge server and is idempo
   assert.equal(updated.changed, true);
   assert.equal(unchanged.reason, "unchanged");
   assert.equal(unchanged.changed, false);
+});
+
+test("buildSpecForgeWorkspaceMcpServerConfig links to the packaged MCP server when available", async () => {
+  const hostRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "specforge-host-"));
+  const packagedServerPath = buildPackagedServerDllPath(hostRoot);
+  await fs.promises.mkdir(path.dirname(packagedServerPath), { recursive: true });
+  await fs.promises.writeFile(packagedServerPath, "");
+
+  assert.deepEqual(buildSpecForgeWorkspaceMcpServerConfig(hostRoot), {
+    type: "stdio",
+    command: "dotnet",
+    args: [packagedServerPath],
+    envFile: "${workspaceFolder}/.env"
+  });
 });

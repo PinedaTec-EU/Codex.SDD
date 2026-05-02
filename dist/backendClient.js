@@ -62,7 +62,6 @@ class StdioMcpBackendClient {
     pending = new Map();
     bufferChunks = [];
     workspaceRoot;
-    hostRoot;
     stderrRemainder = "";
     writeQueue = Promise.resolve();
     nextRequestId = 1;
@@ -71,11 +70,10 @@ class StdioMcpBackendClient {
     disposed = false;
     constructor(workspaceRoot, hostRoot, settings) {
         this.workspaceRoot = workspaceRoot;
-        this.hostRoot = hostRoot;
-        const serverProjectPath = (0, backendClientModel_1.buildServerProjectPath)(hostRoot);
-        (0, outputChannel_1.appendSpecForgeLog)(`Starting MCP backend for '${path.basename(workspaceRoot)}' using '${serverProjectPath}'.`);
-        this.process = (0, node_child_process_1.spawn)("dotnet", ["run", "--project", serverProjectPath], {
-            cwd: this.hostRoot,
+        const launchConfig = (0, backendClientModel_1.resolveMcpServerLaunchConfig)(hostRoot);
+        (0, outputChannel_1.appendSpecForgeLog)(`Starting MCP backend for '${path.basename(workspaceRoot)}' using ${launchConfig.source} server '${launchConfig.targetPath}'.`);
+        this.process = (0, node_child_process_1.spawn)(launchConfig.command, [...launchConfig.args], {
+            cwd: launchConfig.cwd,
             stdio: "pipe",
             env: {
                 ...process.env,

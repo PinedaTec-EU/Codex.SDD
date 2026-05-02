@@ -6,8 +6,8 @@ import {
   buildRewindWorkflowArguments,
   buildRequestRegressionArguments,
   buildRestartUserStoryArguments,
-  buildServerProjectPath,
-  parseToolContent
+  parseToolContent,
+  resolveMcpServerLaunchConfig
 } from "./backendClientModel";
 import type { SpecForgeSettings } from "./extensionSettings";
 import { buildBackendEnvironment } from "./extensionSettings";
@@ -364,7 +364,6 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
   private readonly pending = new Map<number, PendingRequest>();
   private readonly bufferChunks: Buffer[] = [];
   private readonly workspaceRoot: string;
-  private readonly hostRoot: string;
   private stderrRemainder = "";
   private writeQueue: Promise<void> = Promise.resolve();
   private nextRequestId = 1;
@@ -374,14 +373,15 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
 
   public constructor(workspaceRoot: string, hostRoot: string, settings: SpecForgeSettings) {
     this.workspaceRoot = workspaceRoot;
-    this.hostRoot = hostRoot;
-    const serverProjectPath = buildServerProjectPath(hostRoot);
-    appendSpecForgeLog(`Starting MCP backend for '${path.basename(workspaceRoot)}' using '${serverProjectPath}'.`);
+    const launchConfig = resolveMcpServerLaunchConfig(hostRoot);
+    appendSpecForgeLog(
+      `Starting MCP backend for '${path.basename(workspaceRoot)}' using ${launchConfig.source} server '${launchConfig.targetPath}'.`
+    );
     this.process = spawn(
-      "dotnet",
-      ["run", "--project", serverProjectPath],
+      launchConfig.command,
+      [...launchConfig.args],
       {
-        cwd: this.hostRoot,
+        cwd: launchConfig.cwd,
         stdio: "pipe",
         env: {
           ...process.env,

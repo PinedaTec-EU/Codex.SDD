@@ -1,3 +1,14 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+
+export interface McpServerLaunchConfig {
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly cwd: string;
+  readonly source: "packaged" | "project";
+  readonly targetPath: string;
+}
+
 export function buildApprovePhaseArguments(
   workspaceRoot: string,
   usId: string,
@@ -132,4 +143,34 @@ export function parseToolContent<T>(toolName: string, result: any): T {
 
 export function buildServerProjectPath(hostRoot: string): string {
   return `${hostRoot.replace(/[\\\/]+$/, "")}/src/SpecForge.McpServer/SpecForge.McpServer.csproj`;
+}
+
+export function buildPackagedServerDllPath(hostRoot: string): string {
+  return path.join(trimTrailingPathSeparators(hostRoot), "dist", "mcp", "SpecForge.McpServer.dll");
+}
+
+export function resolveMcpServerLaunchConfig(hostRoot: string): McpServerLaunchConfig {
+  const packagedServerPath = buildPackagedServerDllPath(hostRoot);
+  if (fs.existsSync(packagedServerPath)) {
+    return {
+      command: "dotnet",
+      args: [packagedServerPath],
+      cwd: path.dirname(packagedServerPath),
+      source: "packaged",
+      targetPath: packagedServerPath
+    };
+  }
+
+  const serverProjectPath = buildServerProjectPath(hostRoot);
+  return {
+    command: "dotnet",
+    args: ["run", "--project", serverProjectPath],
+    cwd: trimTrailingPathSeparators(hostRoot),
+    source: "project",
+    targetPath: serverProjectPath
+  };
+}
+
+function trimTrailingPathSeparators(value: string): string {
+  return value.replace(/[\\\/]+$/, "");
 }
