@@ -206,6 +206,14 @@ function renderExecutionSettingsPhaseIcon(phase: typeof executionPhases[number])
   return `<span class="phase-field__icon-shell${toneClass}" aria-hidden="true">${icon}</span>`;
 }
 
+function renderConfigLabel(label: string, helpText: string): string {
+  return `<span class="config-label"><span>${escapeHtml(label)}</span>${renderConfigHelp(helpText)}</span>`;
+}
+
+function renderConfigHelp(helpText: string): string {
+  return `<span class="config-help" role="button" tabindex="0" data-help-toggle aria-label="${escapeHtmlAttr(`Show help: ${helpText}`)}" title="Show help" aria-expanded="false">?<span class="config-help__bubble" role="tooltip">${escapeHtml(helpText)}</span></span>`;
+}
+
 export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): string {
   const permissionIssues = validatePhasePermissionAssignments(model.modelProfiles, model.phaseModelAssignments);
   return `<!DOCTYPE html>
@@ -249,8 +257,13 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       margin: 0;
       text-transform: uppercase;
       letter-spacing: 0.16em;
-      font-size: 0.72rem;
+      font-size: 0.78rem;
+      font-weight: 700;
       color: #72f1b8;
+    }
+    .section-header .eyebrow {
+      font-size: 0.86rem;
+      letter-spacing: 0.12em;
     }
     h1, h2, h3, p { margin: 0; }
     h1 { font-size: 2rem; line-height: 1.02; }
@@ -393,6 +406,59 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     label span {
       font-size: 0.82rem;
       color: rgba(255, 255, 255, 0.78);
+    }
+    .config-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+      position: relative;
+    }
+    .config-label > span:first-child {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .config-help {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 22px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 50%;
+      border: 1px solid rgba(114, 241, 184, 0.28);
+      background: rgba(114, 241, 184, 0.08);
+      color: #b8f8dc;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 800;
+      line-height: 1;
+      user-select: none;
+    }
+    .config-help:focus-visible {
+      outline: 2px solid rgba(114, 241, 184, 0.72);
+      outline-offset: 2px;
+    }
+    .config-help__bubble {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 20;
+      width: min(280px, calc(100vw - 64px));
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(114, 241, 184, 0.24);
+      background: rgba(12, 18, 24, 0.98);
+      color: rgba(255, 255, 255, 0.86);
+      box-shadow: 0 16px 28px rgba(0, 0, 0, 0.34);
+      font-size: 0.78rem;
+      font-weight: 500;
+      line-height: 1.45;
+      text-align: left;
+    }
+    .config-help--open .config-help__bubble {
+      display: block;
     }
     input, select {
       width: 100%;
@@ -587,49 +653,46 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       </div>
       <div class="feature-grid">
         <label class="phase-field">
-          <span>Refinement tolerance</span>
+          ${renderConfigLabel("Refinement tolerance", "Controls how much ambiguity refinement tolerates before spec can continue. Strict asks for more explicit answers; inferential lets the model proceed with more assumptions.")}
           <select data-refinement-tolerance>
             <option value="strict"${model.refinementTolerance === "strict" ? " selected" : ""}>Strict</option>
             <option value="balanced"${model.refinementTolerance === "balanced" ? " selected" : ""}>Balanced</option>
             <option value="inferential"${model.refinementTolerance === "inferential" ? " selected" : ""}>Inferential</option>
           </select>
-          <span class="phase-field__hint">Controls how much ambiguity refinement tolerates before spec can continue.</span>
         </label>
         <label class="phase-field">
-          <span>Review tolerance</span>
+          ${renderConfigLabel("Review tolerance", "Controls how demanding the review phase is before it passes or fails delivered work. Strict produces fewer passes when evidence is weak.")}
           <select data-review-tolerance>
             <option value="strict"${model.reviewTolerance === "strict" ? " selected" : ""}>Strict</option>
             <option value="balanced"${model.reviewTolerance === "balanced" ? " selected" : ""}>Balanced</option>
             <option value="inferential"${model.reviewTolerance === "inferential" ? " selected" : ""}>Inferential</option>
           </select>
-          <span class="phase-field__hint">Controls how demanding the review phase is before it passes or fails delivered work.</span>
         </label>
         <label class="phase-field">
-          <span>Enable auto answers</span>
+          ${renderConfigLabel("Enable auto answers", "Lets SpecForge ask the selected model to answer pending refinement questions once before handing the phase back to you.")}
           <select data-auto-refinement-enabled>
             <option value="false"${model.autoRefinementAnswersEnabled ? "" : " selected"}>Disabled</option>
             <option value="true"${model.autoRefinementAnswersEnabled ? " selected" : ""}>Enabled</option>
           </select>
         </label>
         <label class="phase-field" data-auto-refinement-profile-wrapper>
-          <span>Auto-answer profile</span>
+          ${renderConfigLabel("Auto-answer profile", "Selects which configured model profile is allowed to generate automatic refinement answers.")}
           <select data-auto-refinement-profile></select>
+          <span class="phase-field__hint"></span>
         </label>
         <label class="phase-field">
-          <span>Context suggestions</span>
+          ${renderConfigLabel("Context suggestions", "Suggests nearby repository files during refinement to improve local context selection.")}
           <select data-context-suggestions-enabled>
             <option value="true"${model.contextSuggestionsEnabled ? " selected" : ""}>Enabled</option>
             <option value="false"${model.contextSuggestionsEnabled ? "" : " selected"}>Disabled</option>
           </select>
-          <span class="phase-field__hint">Suggest nearby repository files during refinement to improve local context selection.</span>
         </label>
         <label class="phase-field">
-          <span>Require approval branch acceptance</span>
+          ${renderConfigLabel("Require approval branch acceptance", "Forces explicit confirmation of the proposed base branch before approving spec.")}
           <select data-require-approval-branch-acceptance>
             <option value="false"${model.requireExplicitApprovalBranchAcceptance ? "" : " selected"}>Disabled</option>
             <option value="true"${model.requireExplicitApprovalBranchAcceptance ? " selected" : ""}>Enabled</option>
           </select>
-          <span class="phase-field__hint">Force explicit confirmation of the proposed base branch before approving spec.</span>
         </label>
       </div>
       <div class="section-header">
@@ -641,45 +704,40 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       </div>
       <div class="feature-grid">
         <label class="phase-field">
-          <span>Enable auto play</span>
+          ${renderConfigLabel("Enable auto play", "Resumes workflow playback automatically after qualifying manual actions such as approvals.")}
           <select data-auto-play-enabled>
             <option value="false"${model.autoPlayEnabled ? "" : " selected"}>Disabled</option>
             <option value="true"${model.autoPlayEnabled ? " selected" : ""}>Enabled</option>
           </select>
-          <span class="phase-field__hint">Resume workflow playback automatically after qualifying manual actions such as approvals.</span>
         </label>
         <label class="phase-field">
-          <span>Enable auto review</span>
+          ${renderConfigLabel("Enable auto review", "Automatically starts review after implementation completes when playback is active and the workflow is eligible to continue.")}
           <select data-auto-review-enabled>
             <option value="false"${model.autoReviewEnabled ? "" : " selected"}>Disabled</option>
             <option value="true"${model.autoReviewEnabled ? " selected" : ""}>Enabled</option>
           </select>
         </label>
         <label class="phase-field">
-          <span>Max implementation/review cycles</span>
+          ${renderConfigLabel("Max implementation/review cycles", "Stops automatic review after this many implementation attempts have been recorded.")}
           <input type="number" min="1" step="1" data-max-implementation-review-cycles value="${escapeHtmlAttr(String(model.maxImplementationReviewCycles ?? 5))}" />
-          <span class="phase-field__hint">Automatic review stops when this many implementation attempts have been recorded.</span>
         </label>
         <label class="phase-field">
-          <span>Pause on failed review</span>
+          ${renderConfigLabel("Pause on failed review", "Pauses playback automatically when review fails so the developer can inspect the result before continuing.")}
           <select data-pause-on-failed-review>
             <option value="false"${model.pauseOnFailedReview ? "" : " selected"}>Disabled</option>
             <option value="true"${model.pauseOnFailedReview ? " selected" : ""}>Enabled</option>
           </select>
-          <span class="phase-field__hint">Pause playback automatically when review fails so the developer can inspect before continuing.</span>
         </label>
         <label class="phase-field">
-          <span>Review learning</span>
+          ${renderConfigLabel("Review learning", "Allows failed-review retries to persist generalized guardrails into local skills or phase prompts.")}
           <select data-review-learning-enabled>
             <option value="true"${model.reviewLearningEnabled ? " selected" : ""}>Enabled</option>
             <option value="false"${model.reviewLearningEnabled ? "" : " selected"}>Disabled</option>
           </select>
-          <span class="phase-field__hint">Allow failed-review retries to persist generalized guardrails into local skills or phase prompts.</span>
         </label>
         <label class="phase-field">
-          <span>Review learning skill path</span>
+          ${renderConfigLabel("Review learning skill path", "Workspace-relative skill path updated when a reusable local SDD guardrail is found.")}
           <input type="text" data-review-learning-skill-path value="${escapeHtmlAttr(model.reviewLearningSkillPath)}" placeholder=".codex/skills/sdd-phase-agents/SKILL.md" />
-          <span class="phase-field__hint">Workspace-relative skill path updated when a reusable local SDD guardrail is found.</span>
         </label>
       </div>
       <div class="section-header">
@@ -691,20 +749,18 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       </div>
       <div class="feature-grid">
         <label class="phase-field">
-          <span>Destructive rewind</span>
+          ${renderConfigLabel("Destructive rewind", "When enabled, rewinds and regressions delete later derived artifacts instead of only moving workflow state.")}
           <select data-destructive-rewind-enabled>
             <option value="false"${model.destructiveRewindEnabled ? "" : " selected"}>Disabled</option>
             <option value="true"${model.destructiveRewindEnabled ? " selected" : ""}>Enabled</option>
           </select>
-          <span class="phase-field__hint">When enabled, rewinds and regressions delete later derived artifacts instead of only moving workflow state.</span>
         </label>
         <label class="phase-field">
-          <span>Lock completed workflows</span>
+          ${renderConfigLabel("Lock completed workflows", "Keeps completed workflows read-only until they are explicitly reopened from the completed phase.")}
           <select data-completed-us-lock-on-completed>
             <option value="true"${model.completedUsLockOnCompleted ? " selected" : ""}>Enabled</option>
             <option value="false"${model.completedUsLockOnCompleted ? "" : " selected"}>Disabled</option>
           </select>
-          <span class="phase-field__hint">Disable this if completed workflows should remain directly mutable instead of requiring explicit reopen.</span>
         </label>
       </div>
       <div class="section-header">
@@ -716,52 +772,46 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       </div>
       <div class="feature-grid">
         <label class="phase-field">
-          <span>Workflow graph layout</span>
+          ${renderConfigLabel("Workflow graph layout", "Sets the default graph orientation for this user in this workspace.")}
           <select data-workflow-graph-layout-mode>
             <option value="vertical"${model.workflowGraphLayoutMode === "vertical" ? " selected" : ""}>Vertical</option>
             <option value="horizontal"${model.workflowGraphLayoutMode === "horizontal" ? " selected" : ""}>Horizontal</option>
           </select>
-          <span class="phase-field__hint">Default graph orientation for this user in this workspace.</span>
         </label>
         <label class="phase-field">
-          <span>Workflow graph initial zoom</span>
+          ${renderConfigLabel("Workflow graph initial zoom", "Sets the default zoom mode used when opening a workflow graph.")}
           <select data-workflow-graph-initial-zoom-mode>
             <option value="actual-size"${model.workflowGraphInitialZoomMode === "fit-width" ? "" : " selected"}>100%</option>
             <option value="fit-width"${model.workflowGraphInitialZoomMode === "fit-width" ? " selected" : ""}>Fit to width</option>
           </select>
-          <span class="phase-field__hint">Default zoom mode used when opening a workflow graph.</span>
         </label>
         <label class="phase-field">
-          <span>User story list view</span>
+          ${renderConfigLabel("User story list view", "Sets the default grouping used by the user stories sidebar.")}
           <select data-user-story-list-view-mode>
             <option value="category"${model.userStoryListViewMode === "phase" ? "" : " selected"}>By category</option>
             <option value="phase"${model.userStoryListViewMode === "phase" ? " selected" : ""}>By phase</option>
           </select>
-          <span class="phase-field__hint">Default grouping used by the user stories sidebar.</span>
         </label>
         <label class="phase-field">
-          <span>Visual timeline</span>
+          ${renderConfigLabel("Visual timeline", "Shows or hides the visual workflow timeline dock in the workflow detail view.")}
           <select data-visual-timeline-enabled>
             <option value="false"${model.visualTimelineEnabled ? "" : " selected"}>Hidden</option>
             <option value="true"${model.visualTimelineEnabled ? " selected" : ""}>Visible</option>
           </select>
-          <span class="phase-field__hint">Show or hide the visual workflow timeline dock in the workflow detail view.</span>
         </label>
         <label class="phase-field">
-          <span>Workspace watcher</span>
+          ${renderConfigLabel("Workspace watcher", "Refreshes the explorer and workflow views automatically when .specs files change on disk.")}
           <select data-watcher-enabled>
             <option value="true"${model.watcherEnabled ? " selected" : ""}>Enabled</option>
             <option value="false"${model.watcherEnabled ? "" : " selected"}>Disabled</option>
           </select>
-          <span class="phase-field__hint">Refresh the explorer and workflow views automatically when <code>.specs</code> files change on disk.</span>
         </label>
         <label class="phase-field">
-          <span>Attention notifications</span>
+          ${renderConfigLabel("Attention notifications", "Shows notifications when a user story becomes waiting-user, blocked, or completed.")}
           <select data-attention-notifications-enabled>
             <option value="true"${model.attentionNotificationsEnabled ? " selected" : ""}>Enabled</option>
             <option value="false"${model.attentionNotificationsEnabled ? "" : " selected"}>Disabled</option>
           </select>
-          <span class="phase-field__hint">Show notifications when a user story becomes waiting-user, blocked, or completed.</span>
         </label>
       </div>
       <div class="actions">
@@ -1157,6 +1207,10 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       }
       if (autoRefinementWrapper instanceof HTMLElement) {
         autoRefinementWrapper.classList.toggle("phase-field--invalid", autoRefinementProblem);
+        const hint = autoRefinementWrapper.querySelector(".phase-field__hint");
+        if (hint instanceof HTMLElement) {
+          hint.textContent = autoRefinementProblem ? "Select the profile that should answer refinement questions." : "";
+        }
       }
       for (const phase of executionPhases) {
         if (phase.key === "defaultProfile") {
@@ -1349,6 +1403,49 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
 
     document.querySelector("[data-command='openRawSettings']")?.addEventListener("click", () => {
       vscode.postMessage({ command: "openRawSettings" });
+    });
+
+    function closeHelpPopovers(except) {
+      for (const help of document.querySelectorAll("[data-help-toggle]")) {
+        if (!(help instanceof HTMLElement) || help === except) {
+          continue;
+        }
+        help.classList.remove("config-help--open");
+        help.setAttribute("aria-expanded", "false");
+      }
+    }
+
+    function toggleHelpPopover(help) {
+      const isOpen = help.classList.contains("config-help--open");
+      closeHelpPopovers(help);
+      help.classList.toggle("config-help--open", !isOpen);
+      help.setAttribute("aria-expanded", String(!isOpen));
+    }
+
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      const help = target instanceof Element ? target.closest("[data-help-toggle]") : null;
+      if (help instanceof HTMLElement) {
+        event.preventDefault();
+        toggleHelpPopover(help);
+        return;
+      }
+      closeHelpPopovers(null);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.matches("[data-help-toggle]")) {
+        if (event.key === "Escape") {
+          closeHelpPopovers(null);
+        }
+        return;
+      }
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+      event.preventDefault();
+      toggleHelpPopover(target);
     });
 
     document.querySelector("[data-add-profile]")?.addEventListener("click", () => {
