@@ -47,6 +47,10 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.Contains("- workflow", configContent);
         Assert.Contains("Use the SpecForge MCP as the operational source of truth", agentInstructionsContent);
         Assert.Contains("Direct reads of `.specs/**` files are allowed", agentInstructionsContent);
+        Assert.Contains("The more explicit the actor, goal, trigger, business rules, inputs, outputs, constraints, edge cases, and acceptance intent are", agentInstructionsContent);
+        Assert.Contains("Questions can appear in multiple workflow phases", agentInstructionsContent);
+        Assert.Contains("model-on-behalf-of-user", agentInstructionsContent);
+        Assert.Contains("reopen_completed_workflow", agentInstructionsContent);
         Assert.Contains("refinement.execute.system.md", manifestContent);
         Assert.Contains("release-approval.approve.system.md", manifestContent);
         Assert.Contains("internalCalls:", manifestContent);

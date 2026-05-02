@@ -135,6 +135,30 @@ public sealed class RepositoryPromptInitializer
         - Do not modify `.specs/**` workflow artifacts directly when an MCP tool exposes the corresponding workflow action.
         - Direct reads of `.specs/**` files are allowed for evidence, debugging, and technical inspection, but they must not replace MCP workflow state when both are available.
         - If the MCP is unavailable or does not expose the required information or action, state that limitation explicitly before relying on direct file inspection or manual edits.
+
+        ## User Story Quality
+
+        - Prefer complete, precise, implementation-ready user stories. The more explicit the actor, goal, trigger, business rules, inputs, outputs, constraints, edge cases, and acceptance intent are, the better optimized the story is for the SpecForge workflow.
+        - Do not compress important business or technical context just to make the story shorter. Preserve facts that can reduce refinement loops, approval questions, design ambiguity, review failures, or later rewinds.
+        - If the user gives an incomplete story, use the MCP workflow to surface or answer questions instead of silently inventing business-critical facts.
+
+        ## Questions And Decisions
+
+        - Questions can appear in multiple workflow phases, including refinement, spec approval, review, release approval, and reopened workflows.
+        - Always inspect the current workflow details before assuming where the blocking questions live: refinement questions are exposed through `refinement.items`; approval and later decision questions are exposed through `approvalQuestions` or phase artifacts surfaced by the MCP.
+        - When answering on behalf of the user, keep answers grounded in user-provided intent or repository evidence. If the evidence is insufficient, report that the question still needs direct user input.
+
+        ## Audit Attribution
+
+        - When the model performs a workflow action requested by the user, pass an `actor` value that makes the indirect action explicit, for example `model-on-behalf-of-user`, unless the user provides a more specific actor.
+        - Do not present model-mediated approvals, rejections, overrides, rewinds, regressions, resets, reopens, or submitted answers as direct user actions.
+        - Include concise reasons when tools accept them, especially for `request_regression`, `rewind_workflow`, `restart_user_story_from_source`, `approve_review_anyway`, and `reopen_completed_workflow`.
+
+        ## Reopening Completed Workflows
+
+        - A completed user story can be reopened through `reopen_completed_workflow` when a real defect, merge conflict, functional issue, or technical issue is discovered after completion.
+        - Use the supported `reasonKind` values exposed by the MCP tool contract, and include a concrete `description` of what failed or what must be incorporated.
+        - After reopening, re-query `get_user_story_workflow` and continue from the reopened phase through MCP instead of editing artifacts directly.
         """;
 
     private static string BuildPromptManifestYaml() =>
