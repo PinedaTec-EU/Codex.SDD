@@ -44,7 +44,6 @@ export interface SpecForgeModelProfile {
 
 export interface SpecForgePhaseModelAssignments {
   readonly defaultProfile: string | null;
-  readonly captureProfile: string | null;
   readonly refinementProfile: string | null;
   readonly specProfile: string | null;
   readonly technicalDesignProfile: string | null;
@@ -56,7 +55,6 @@ export interface SpecForgePhaseModelAssignments {
 
 export interface EffectiveSpecForgePhaseModelAssignments {
   readonly defaultProfileName: string | null;
-  readonly captureProfileName: string | null;
   readonly refinementProfileName: string | null;
   readonly specProfileName: string | null;
   readonly technicalDesignProfileName: string | null;
@@ -228,7 +226,6 @@ function getModelProfileSettingsStatus(settings: SpecForgeSettings): SpecForgeSe
 
   const namedAssignments: Array<[string, string | null]> = [
     ["default", defaultProfileName],
-    ["capture", settings.phaseModelAssignments.captureProfile],
     ["refinement", settings.phaseModelAssignments.refinementProfile],
     ["spec", settings.phaseModelAssignments.specProfile],
     ["technicalDesign", settings.phaseModelAssignments.technicalDesignProfile],
@@ -324,7 +321,6 @@ function buildSettingsDiagnostics(settings: SpecForgeSettings): string {
     `profiles=${settings.modelProfiles.length}`,
     `catalog=[${profiles.join(", ")}]`,
     `phaseModels.default=${settings.phaseModelAssignments.defaultProfile ?? "<unset>"}`,
-    `phaseModels.capture=${settings.phaseModelAssignments.captureProfile ?? "<unset>"}`,
     `phaseModels.refinement=${settings.phaseModelAssignments.refinementProfile ?? "<unset>"}`,
     `phaseModels.spec=${settings.phaseModelAssignments.specProfile ?? "<unset>"}`,
     `phaseModels.technicalDesign=${settings.phaseModelAssignments.technicalDesignProfile ?? "<unset>"}`,
@@ -340,7 +336,6 @@ function buildSettingsDiagnostics(settings: SpecForgeSettings): string {
     `reviewLearningEnabled=${settings.reviewLearningEnabled === false ? false : true}`,
     `reviewLearningSkillPath=${settings.reviewLearningSkillPath ?? "<unset>"}`,
     `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
-    `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,
     `effective.refinement=${settings.effectivePhaseModelAssignments.refinementProfileName ?? "<unset>"}`,
     `effective.spec=${settings.effectivePhaseModelAssignments.specProfileName ?? "<unset>"}`,
     `effective.technicalDesign=${settings.effectivePhaseModelAssignments.technicalDesignProfileName ?? "<unset>"}`,
@@ -410,7 +405,6 @@ function normalizePhaseModelAssignments(value: unknown): SpecForgePhaseModelAssi
   if (!value || typeof value !== "object") {
     return {
       defaultProfile: null,
-      captureProfile: null,
       refinementProfile: null,
       specProfile: null,
       technicalDesignProfile: null,
@@ -424,7 +418,6 @@ function normalizePhaseModelAssignments(value: unknown): SpecForgePhaseModelAssi
   const candidate = value as Record<string, unknown>;
   return {
     defaultProfile: normalizeUnknownOptional(candidate.defaultProfile),
-    captureProfile: normalizeUnknownOptional(candidate.captureProfile),
     refinementProfile: normalizeUnknownOptional(candidate.refinementProfile),
     specProfile: normalizeUnknownOptional(candidate.specProfile),
     technicalDesignProfile: normalizeUnknownOptional(candidate.technicalDesignProfile),
@@ -441,7 +434,6 @@ function resolveEffectivePhaseModelAssignments(
 ): EffectiveSpecForgePhaseModelAssignments {
   const defaultProfile = resolveDefaultModelProfile(modelProfiles, assignments);
   const defaultProfileName = defaultProfile?.name ?? null;
-  const captureProfileName = resolveAssignedModelProfile(modelProfiles, assignments.captureProfile)?.name ?? defaultProfileName;
   const refinementProfileName = resolveAssignedModelProfile(modelProfiles, assignments.refinementProfile)?.name ?? defaultProfileName;
   const specProfileName = resolveAssignedModelProfile(modelProfiles, assignments.specProfile)?.name ?? defaultProfileName;
   const technicalDesignProfileName = resolveAssignedModelProfile(modelProfiles, assignments.technicalDesignProfile)?.name ?? defaultProfileName;
@@ -452,7 +444,6 @@ function resolveEffectivePhaseModelAssignments(
 
   return {
     defaultProfileName,
-    captureProfileName,
     refinementProfileName,
     specProfileName,
     technicalDesignProfileName,

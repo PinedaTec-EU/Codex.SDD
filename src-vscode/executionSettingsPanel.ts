@@ -187,7 +187,6 @@ const executionPhases: ReadonlyArray<{
   kind: "default" | "phase";
 }> = [
   { key: "defaultProfile", label: "Default / fallback", phaseId: null, kind: "default" },
-  { key: "captureProfile", label: "Capture", phaseId: "capture", kind: "phase" },
   { key: "refinementProfile", label: "Refinement", phaseId: "refinement", kind: "phase" },
   { key: "specProfile", label: "Spec", phaseId: "spec", kind: "phase" },
   { key: "technicalDesignProfile", label: "Technical Design", phaseId: "technical-design", kind: "phase" },
@@ -1552,7 +1551,6 @@ async function saveExecutionSettingsAsync(
 
   const normalizedAssignments: SpecForgePhaseModelAssignments = {
     defaultProfile: normalizeOptionalAssignment(phaseModelAssignments.defaultProfile),
-    captureProfile: normalizeOptionalAssignment(phaseModelAssignments.captureProfile),
     refinementProfile: normalizeOptionalAssignment(phaseModelAssignments.refinementProfile),
     specProfile: normalizeOptionalAssignment(phaseModelAssignments.specProfile),
     technicalDesignProfile: normalizeOptionalAssignment(phaseModelAssignments.technicalDesignProfile),

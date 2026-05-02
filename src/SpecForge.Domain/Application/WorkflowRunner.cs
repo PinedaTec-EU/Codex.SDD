@@ -998,16 +998,6 @@ public sealed class WorkflowRunner
         }
     }
 
-    private void EnsurePhaseExecutionIsReady(PhaseId phaseId)
-    {
-        var readiness = phaseExecutionProvider.GetPhaseExecutionReadiness(phaseId);
-        if (!readiness.CanExecute)
-        {
-            throw new WorkflowDomainException(
-                $"Phase '{WorkflowPresentation.ToPhaseSlug(phaseId)}' cannot run because '{readiness.BlockingReason ?? "phase_execution_not_ready"}'.");
-        }
-    }
-
     public async Task<SubmitRefinementAnswersResult> SubmitRefinementAnswersAsync(
         string workspaceRoot,
         string usId,
@@ -1118,13 +1108,10 @@ public sealed class WorkflowRunner
         string actor,
         CancellationToken cancellationToken)
     {
-        PhaseId? modelRoutingPhaseId = null;
         if (workflowRun.CurrentPhase == PhaseId.Capture)
         {
-            EnsurePhaseExecutionIsReady(PhaseId.Capture);
-            modelRoutingPhaseId = PhaseId.Capture;
             SpecForgeDiagnostics.Log(
-                $"[runner.capture] usId={workflowRun.UsId} routing capture transition through capture model before materializing refinement.");
+                $"[runner.capture] usId={workflowRun.UsId} advancing capture to refinement before materializing refinement.");
             workflowRun.GenerateNextPhase();
         }
 
@@ -1135,8 +1122,7 @@ public sealed class WorkflowRunner
             currentArtifactPath: null,
             operationPrompt: null,
             includeReviewArtifactInContext: true,
-            cancellationToken,
-            modelRoutingPhaseId);
+            cancellationToken);
         var refinement = ParseRefinementArtifact(await File.ReadAllTextAsync(refinementGeneration.ArtifactPath, cancellationToken));
         await UpdateRefinementLogAsync(paths, refinement, this.refinementTolerance, cancellationToken);
         await AppendTimelineEventAsync(
@@ -1336,8 +1322,7 @@ public sealed class WorkflowRunner
         string? currentArtifactPath,
         string? operationPrompt,
         bool includeReviewArtifactInContext,
-        CancellationToken cancellationToken,
-        PhaseId? modelRoutingPhaseId = null)
+        CancellationToken cancellationToken)
     {
         await using var diagnostics = SpecForgeDiagnostics.StartProgressScope(
             $"[runner.materialize] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)}",
@@ -1357,8 +1342,7 @@ public sealed class WorkflowRunner
             BuildPreviousArtifactMap(paths, workflowRun.CurrentPhase, includeReviewArtifactInContext),
             BuildContextFilePaths(paths, workflowRun.CurrentPhase),
             currentArtifactPath,
-            operationPrompt,
-            modelRoutingPhaseId);
+            operationPrompt);
         EnsureExecutionInputFilesExist(executionContext);
         var executionId = BuildExecutionId(workflowRun.CurrentPhase);
         var executionStartedAtUtc = DateTimeOffset.UtcNow;
@@ -1372,7 +1356,7 @@ public sealed class WorkflowRunner
             .Select(static path => $"'{path}'")
             .ToArray();
         SpecForgeDiagnostics.Log(
-            $"[runner.materialize] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} modelRoutingPhase={WorkflowPresentation.ToPhaseSlug(modelRoutingPhaseId ?? workflowRun.CurrentPhase)} artifactPath='{artifactPath}' contextFiles={executionContext.ContextFilePaths.Count} previousArtifacts={executionContext.PreviousArtifactPaths.Count} currentArtifactPath='{currentArtifactPath ?? "(none)"}' operationPrompt={(string.IsNullOrWhiteSpace(operationPrompt) ? "no" : "yes")}");
+            $"[runner.materialize] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} artifactPath='{artifactPath}' contextFiles={executionContext.ContextFilePaths.Count} previousArtifacts={executionContext.PreviousArtifactPaths.Count} currentArtifactPath='{currentArtifactPath ?? "(none)"}' operationPrompt={(string.IsNullOrWhiteSpace(operationPrompt) ? "no" : "yes")}");
         SpecForgeDiagnostics.Log(
             $"[runner.materialize.in] usId={workflowRun.UsId} phase={WorkflowPresentation.ToPhaseSlug(workflowRun.CurrentPhase)} executionId={executionId} inputManifestHash={inputManifest.ManifestSha256} userStory='{executionContext.UserStoryPath}' previousArtifacts=[{string.Join(", ", previousArtifactList)}] contextFiles=[{string.Join(", ", contextFileList)}] currentArtifact='{currentArtifactPath ?? "(none)"}'");
         var implementationEvidenceBaseline = workflowRun.CurrentPhase == PhaseId.Implementation

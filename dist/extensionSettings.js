@@ -136,7 +136,6 @@ function getModelProfileSettingsStatus(settings) {
     }
     const namedAssignments = [
         ["default", defaultProfileName],
-        ["capture", settings.phaseModelAssignments.captureProfile],
         ["refinement", settings.phaseModelAssignments.refinementProfile],
         ["spec", settings.phaseModelAssignments.specProfile],
         ["technicalDesign", settings.phaseModelAssignments.technicalDesignProfile],
@@ -215,7 +214,6 @@ function buildSettingsDiagnostics(settings) {
         `profiles=${settings.modelProfiles.length}`,
         `catalog=[${profiles.join(", ")}]`,
         `phaseModels.default=${settings.phaseModelAssignments.defaultProfile ?? "<unset>"}`,
-        `phaseModels.capture=${settings.phaseModelAssignments.captureProfile ?? "<unset>"}`,
         `phaseModels.refinement=${settings.phaseModelAssignments.refinementProfile ?? "<unset>"}`,
         `phaseModels.spec=${settings.phaseModelAssignments.specProfile ?? "<unset>"}`,
         `phaseModels.technicalDesign=${settings.phaseModelAssignments.technicalDesignProfile ?? "<unset>"}`,
@@ -231,7 +229,6 @@ function buildSettingsDiagnostics(settings) {
         `reviewLearningEnabled=${settings.reviewLearningEnabled === false ? false : true}`,
         `reviewLearningSkillPath=${settings.reviewLearningSkillPath ?? "<unset>"}`,
         `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
-        `effective.capture=${settings.effectivePhaseModelAssignments.captureProfileName ?? "<unset>"}`,
         `effective.refinement=${settings.effectivePhaseModelAssignments.refinementProfileName ?? "<unset>"}`,
         `effective.spec=${settings.effectivePhaseModelAssignments.specProfileName ?? "<unset>"}`,
         `effective.technicalDesign=${settings.effectivePhaseModelAssignments.technicalDesignProfileName ?? "<unset>"}`,
@@ -292,7 +289,6 @@ function normalizePhaseModelAssignments(value) {
     if (!value || typeof value !== "object") {
         return {
             defaultProfile: null,
-            captureProfile: null,
             refinementProfile: null,
             specProfile: null,
             technicalDesignProfile: null,
@@ -305,7 +301,6 @@ function normalizePhaseModelAssignments(value) {
     const candidate = value;
     return {
         defaultProfile: normalizeUnknownOptional(candidate.defaultProfile),
-        captureProfile: normalizeUnknownOptional(candidate.captureProfile),
         refinementProfile: normalizeUnknownOptional(candidate.refinementProfile),
         specProfile: normalizeUnknownOptional(candidate.specProfile),
         technicalDesignProfile: normalizeUnknownOptional(candidate.technicalDesignProfile),
@@ -318,7 +313,6 @@ function normalizePhaseModelAssignments(value) {
 function resolveEffectivePhaseModelAssignments(modelProfiles, assignments) {
     const defaultProfile = resolveDefaultModelProfile(modelProfiles, assignments);
     const defaultProfileName = defaultProfile?.name ?? null;
-    const captureProfileName = resolveAssignedModelProfile(modelProfiles, assignments.captureProfile)?.name ?? defaultProfileName;
     const refinementProfileName = resolveAssignedModelProfile(modelProfiles, assignments.refinementProfile)?.name ?? defaultProfileName;
     const specProfileName = resolveAssignedModelProfile(modelProfiles, assignments.specProfile)?.name ?? defaultProfileName;
     const technicalDesignProfileName = resolveAssignedModelProfile(modelProfiles, assignments.technicalDesignProfile)?.name ?? defaultProfileName;
@@ -328,7 +322,6 @@ function resolveEffectivePhaseModelAssignments(modelProfiles, assignments) {
     const prPreparationProfileName = resolveAssignedModelProfile(modelProfiles, assignments.prPreparationProfile)?.name ?? defaultProfileName;
     return {
         defaultProfileName,
-        captureProfileName,
         refinementProfileName,
         specProfileName,
         technicalDesignProfileName,

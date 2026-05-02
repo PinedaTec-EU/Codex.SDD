@@ -20,7 +20,6 @@ export interface WorkflowViewState {
   }[];
   readonly phaseModelAssignments?: {
     readonly defaultProfileName: string | null;
-    readonly captureProfileName: string | null;
     readonly refinementProfileName: string | null;
     readonly specProfileName: string | null;
     readonly technicalDesignProfileName: string | null;

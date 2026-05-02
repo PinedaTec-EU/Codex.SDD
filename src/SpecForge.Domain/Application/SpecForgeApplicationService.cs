@@ -442,11 +442,6 @@ public sealed class SpecForgeApplicationService
             return new PhaseExecutionReadiness(workflowRun.CurrentPhase, CanExecute: true);
         }
 
-        if (workflowRun.CurrentPhase == Workflow.PhaseId.Capture)
-        {
-            return workflowRunner.GetPhaseExecutionReadiness(Workflow.PhaseId.Capture);
-        }
-
         var nextPhase = workflowRun.Definition.GetNextPhase(workflowRun.CurrentPhase);
         return workflowRunner.GetPhaseExecutionReadiness(nextPhase);
     }

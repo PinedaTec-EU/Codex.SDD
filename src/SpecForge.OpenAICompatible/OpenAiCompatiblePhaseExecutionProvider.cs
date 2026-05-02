@@ -195,10 +195,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     {
         await promptCatalog.EnsureRepositoryIsInitializedAsync(context.WorkspaceRoot, cancellationToken);
 
-        var modelRoutingPhase = context.ModelRoutingPhaseId ?? context.PhaseId;
-        var modelSelection = ResolveModelSelection(modelRoutingPhase);
+        var modelSelection = ResolveModelSelection(context.PhaseId);
         SpecForgeDiagnostics.Log(
-            $"[provider.execute] usId={context.UsId} phase={context.PhaseId} modelRoutingPhase={modelRoutingPhase} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={modelSelection.Model} baseUrl={(string.IsNullOrWhiteSpace(modelSelection.BaseUrl) ? "(none)" : modelSelection.BaseUrl)}");
+            $"[provider.execute] usId={context.UsId} phase={context.PhaseId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={modelSelection.Model} baseUrl={(string.IsNullOrWhiteSpace(modelSelection.BaseUrl) ? "(none)" : modelSelection.BaseUrl)}");
         var prompt = await BuildEffectivePromptAsync(context, cancellationToken);
         SpecForgeDiagnostics.Log(
             $"[provider.execute] usId={context.UsId} phase={context.PhaseId} promptBuilt systemChars={prompt.SystemPrompt.Length} userChars={prompt.UserPrompt.Length} warnings={(prompt.Warnings?.Count ?? 0)}");
@@ -955,9 +954,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         ResolvedModelSelection modelSelection,
         CancellationToken cancellationToken)
     {
-        var modelRoutingPhase = context.ModelRoutingPhaseId ?? context.PhaseId;
         SpecForgeDiagnostics.Log(
-            $"[provider.native] usId={context.UsId} phase={context.PhaseId} modelRoutingPhase={modelRoutingPhase} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={(string.IsNullOrWhiteSpace(modelSelection.Model) ? "(default)" : modelSelection.Model)}");
+            $"[provider.native] usId={context.UsId} phase={context.PhaseId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={(string.IsNullOrWhiteSpace(modelSelection.Model) ? "(default)" : modelSelection.Model)}");
         if (!PhaseMarkdownArtifactContracts.Supports(context.PhaseId))
         {
             throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a Markdown artifact contract for native provider execution.");
@@ -1358,7 +1356,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var assignments = options.PhaseModelAssignments;
         var explicitName = phaseId switch
         {
-            PhaseId.Capture => assignments?.CaptureProfile,
             PhaseId.Refinement => assignments?.RefinementProfile,
             PhaseId.Spec => assignments?.SpecProfile,
             PhaseId.TechnicalDesign => assignments?.TechnicalDesignProfile,
@@ -1568,7 +1565,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         foreach (var profileName in new[]
                  {
                      defaultProfileName,
-                     assignments?.CaptureProfile,
                      assignments?.RefinementProfile,
                      assignments?.SpecProfile,
                      assignments?.TechnicalDesignProfile,

@@ -208,11 +208,6 @@
               "default": "",
               "description": "Fallback profile used when a specific phase does not declare its own profile."
             },
-            "captureProfile": {
-              "type": "string",
-              "default": "",
-              "description": "Optional profile override for capture."
-            },
             "refinementProfile": {
               "type": "string",
               "default": "",

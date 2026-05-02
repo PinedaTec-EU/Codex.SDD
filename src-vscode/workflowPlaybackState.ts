@@ -1,7 +1,6 @@
 export type WorkflowPlaybackState = "idle" | "playing" | "paused" | "stopping";
 
 const workflowExecutionPhaseOrder = [
-  "capture",
   "refinement",
   "spec",
   "technical-design",
@@ -18,13 +17,13 @@ export function normalizePlaybackStateAfterManualWorkflowChange(
 }
 
 export function canPauseWorkflowExecutionPhase(phaseId: string): boolean {
-  // Capture starts the model-routed transition, but pause boundaries begin before refinement.
-  return phaseId !== "capture" && workflowExecutionPhaseOrder.includes(phaseId as typeof workflowExecutionPhaseOrder[number]);
+  // Capture is intentionally excluded: the first pauseable boundary is before refinement.
+  return workflowExecutionPhaseOrder.includes(phaseId as typeof workflowExecutionPhaseOrder[number]);
 }
 
 export function resolveWorkflowExecutionPhaseId(currentPhaseId: string): string | null {
   if (currentPhaseId === "capture") {
-    return "capture";
+    return "refinement";
   }
 
   const phaseIndex = workflowExecutionPhaseOrder.indexOf(currentPhaseId as typeof workflowExecutionPhaseOrder[number]);

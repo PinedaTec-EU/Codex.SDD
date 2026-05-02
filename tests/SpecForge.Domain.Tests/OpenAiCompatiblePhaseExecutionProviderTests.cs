@@ -601,42 +601,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.Equal("light", reviewResult.Execution!.ProfileName);
         Assert.Equal("llama-light", reviewResult.Execution.Model);
 
-        var captureRoutedHandler = new CapturingFakeHttpMessageHandler(BuildReadyRefinementMarkdown());
-        var captureRoutedProvider = new OpenAiCompatiblePhaseExecutionProvider(
-            new HttpClient(captureRoutedHandler),
-            new OpenAiCompatibleProviderOptions(
-                ModelProfiles:
-                [
-                    new OpenAiCompatibleModelProfile(
-                        Name: "light",
-                        Provider: "openai-compatible",
-                        BaseUrl: "http://localhost:11434/v1",
-                        ApiKey: string.Empty,
-                        Model: "llama-light"),
-                    new OpenAiCompatibleModelProfile(
-                        Name: "top",
-                        Provider: "openai-compatible",
-                        BaseUrl: "http://localhost:22434/v1",
-                        ApiKey: string.Empty,
-                        Model: "llama-top")
-                ],
-                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
-                    DefaultProfile: "light",
-                    CaptureProfile: "top",
-                    RefinementProfile: "light")));
-        var captureRoutedContext = implementationContext with
-        {
-            PhaseId = PhaseId.Refinement,
-            ModelRoutingPhaseId = PhaseId.Capture
-        };
-
-        var captureRoutedResult = await captureRoutedProvider.ExecuteAsync(captureRoutedContext);
-
-        Assert.Equal("http://localhost:22434/v1/chat/completions", captureRoutedHandler.LastRequest!.RequestUri!.ToString());
-        Assert.Contains("\"model\":\"llama-top\"", captureRoutedHandler.LastBody);
-        Assert.Contains("This is the system prompt for the refinement execute template.", OpenAiCompatibleRequestJson.ReadSystemPrompt(captureRoutedHandler.LastBody));
-        Assert.Equal("top", captureRoutedResult.Execution!.ProfileName);
-        Assert.Equal("llama-top", captureRoutedResult.Execution.Model);
     }
 
     [Fact]

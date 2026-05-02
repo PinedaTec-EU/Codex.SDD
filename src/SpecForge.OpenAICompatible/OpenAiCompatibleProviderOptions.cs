@@ -11,7 +11,6 @@ public sealed record OpenAiCompatibleModelProfile(
 
 public sealed record OpenAiCompatiblePhaseModelAssignments(
     string? DefaultProfile = null,
-    string? CaptureProfile = null,
     string? RefinementProfile = null,
     string? SpecProfile = null,
     string? TechnicalDesignProfile = null,

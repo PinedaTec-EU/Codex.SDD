@@ -2126,7 +2126,7 @@ test("buildWorkflowHtml animates the current execution phase while autoplay is r
   assert.match(html, /executionOverlay\.style\.top = nextTop \+ "px"/);
 });
 
-test("buildWorkflowHtml shows capture as the active execution step from capture", () => {
+test("buildWorkflowHtml shows refinement as the active execution step from capture", () => {
   const html = buildWorkflowHtml({
     usId: "US-0004",
     title: "Capture autoplay",
@@ -2195,15 +2195,16 @@ test("buildWorkflowHtml shows capture as the active execution step from capture"
     selectedPhaseId: "capture",
     selectedArtifactContent: null,
     contextSuggestions: [],
-    executionPhaseId: "capture",
-    completedPhaseIds: [],
+    executionPhaseId: "refinement",
+    completedPhaseIds: ["capture"],
     settingsConfigured: true,
     settingsMessage: null
   }, "playing");
 
-  assert.match(html, /phase-node capture phase-tone-active/);
-  assert.match(html, /Executing Capture/);
-  assert.doesNotMatch(html, /phase-node capture phase-tone-completed/);
+  assert.match(html, /<path class="executing"/);
+  assert.match(html, /phase-node refinement phase-tone-active/);
+  assert.match(html, /Executing Refinement/);
+  assert.match(html, /phase-node capture phase-tone-completed/);
 });
 
 test("buildWorkflowHtml keeps refinement visible in the graph even before any refinement history exists", () => {
@@ -3035,7 +3036,6 @@ test("buildWorkflowHtml prefers configured overlay model label over stale histor
     ],
     phaseModelAssignments: {
       defaultProfileName: "light",
-      captureProfileName: null,
       refinementProfileName: null,
       specProfileName: null,
       technicalDesignProfileName: "codex-main",
@@ -3328,7 +3328,6 @@ test("buildWorkflowHtml prefers assigned overlay profile over stale history when
     ],
     phaseModelAssignments: {
       defaultProfileName: "light",
-      captureProfileName: null,
       refinementProfileName: null,
       specProfileName: null,
       technicalDesignProfileName: "codex-main",
@@ -3346,7 +3345,6 @@ test("buildWorkflowHtml prefers assigned overlay profile over stale history when
 
 test("buildWorkflowHtml uses phase routing instead of stale history for every execution overlay phase", () => {
   const phaseTitles = new Map([
-    ["capture", "Capture"],
     ["refinement", "Refinement"],
     ["spec", "Spec"],
     ["technical-design", "Technical Design"],
@@ -3356,7 +3354,6 @@ test("buildWorkflowHtml uses phase routing instead of stale history for every ex
     ["pr-preparation", "PR Preparation"]
   ]);
   const assignmentKeys = new Map([
-    ["capture", "captureProfileName"],
     ["refinement", "refinementProfileName"],
     ["spec", "specProfileName"],
     ["technical-design", "technicalDesignProfileName"],
@@ -3370,7 +3367,6 @@ test("buildWorkflowHtml uses phase routing instead of stale history for every ex
     const assignedProfile = `${phaseId}-runner`;
     const phaseModelAssignments = {
       defaultProfileName: "light",
-      captureProfileName: "capture-runner",
       refinementProfileName: "refinement-runner",
       specProfileName: "spec-runner",
       technicalDesignProfileName: "technical-design-runner",
@@ -3527,7 +3523,6 @@ test("buildWorkflowHtml prefers assigned phase model over stale execution histor
     ],
     phaseModelAssignments: {
       defaultProfileName: null,
-      captureProfileName: null,
       refinementProfileName: null,
       specProfileName: null,
       technicalDesignProfileName: null,

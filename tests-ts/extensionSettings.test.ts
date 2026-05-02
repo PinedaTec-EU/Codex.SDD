@@ -22,7 +22,6 @@ function effective(overrides: Partial<Record<keyof EffectiveAssignmentShape, str
 function emptyAssignments() {
   return {
     defaultProfile: null,
-    captureProfile: null,
     refinementProfile: null,
     specProfile: null,
     technicalDesignProfile: null,
@@ -36,7 +35,6 @@ function emptyAssignments() {
 function emptyEffectiveAssignments() {
   return {
     defaultProfileName: null,
-    captureProfileName: null,
     refinementProfileName: null,
     specProfileName: null,
     technicalDesignProfileName: null,
@@ -116,7 +114,6 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
     }),
     effectivePhaseModelAssignments: effective({
       defaultProfileName: "light",
-      captureProfileName: "light",
       refinementProfileName: "light",
       specProfileName: "light",
       technicalDesignProfileName: "light",

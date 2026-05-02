@@ -1120,7 +1120,7 @@ function phaseModelProfileLabel(phase: WorkflowPhaseDetails, state: WorkflowView
 
   switch (phase.phaseId) {
     case "capture":
-      return assignments.captureProfileName ?? assignments.defaultProfileName;
+      return null;
     case "refinement":
       return assignments.refinementProfileName ?? assignments.defaultProfileName;
     case "spec":
