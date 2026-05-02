@@ -133,7 +133,7 @@ test("buildWorkflowHtml renders phase detail for the selected phase", () => {
   assert.match(html, /currentFlow/);
   assert.match(html, /currentPulse/);
   assert.match(html, /<h2>Spec<\/h2>/);
-  assert.match(html, /token--output-format-markdown">Markdown output</);
+  assert.doesNotMatch(html, /token--output-format-markdown">Markdown output</);
   assert.doesNotMatch(html, /token--output-format-json">JSON output</);
   assert.match(html, /Open Artifact/);
   assert.match(html, /Open Execute Prompt/);

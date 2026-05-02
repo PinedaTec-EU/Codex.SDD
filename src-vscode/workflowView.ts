@@ -1064,33 +1064,6 @@ function phaseSecondaryLabel(phase: WorkflowPhaseDetails): string {
   }
 }
 
-function phaseOutputFormat(phaseId: string): "markdown" | "json" | null {
-  switch (phaseId) {
-    case "capture":
-    case "spec":
-    case "technical-design":
-    case "implementation":
-    case "release-approval":
-      return "markdown";
-    case "refinement":
-    case "review":
-    case "pr-preparation":
-      return "json";
-    default:
-      return null;
-  }
-}
-
-function phaseOutputFormatToken(phaseId: string): string {
-  const format = phaseOutputFormat(phaseId);
-  if (!format) {
-    return "";
-  }
-
-  const label = format === "json" ? "JSON output" : "Markdown output";
-  return `<span class="token token--output-format token--output-format-${format}">${label}</span>`;
-}
-
 function graphPhaseSecondaryLabel(phase: WorkflowPhaseDetails): string {
   return phaseSecondaryLabel(phase);
 }
@@ -2304,7 +2277,6 @@ export function buildWorkflowHtml(
               </div>
               <div class="detail-meta">
                 <span class="token">${escapeHtml(phaseSecondaryLabel(selectedPhase))}</span>
-                ${phaseOutputFormatToken(selectedPhase.phaseId)}
                 <span class="token${selectedPhaseStateClass}">${escapeHtml(selectedPhaseDisplayState)}</span>
                 ${selectedPhase.requiresApproval ? `<span class="token token--attention">approval required</span>` : ""}
                 ${selectedPhase.isApproved ? `<span class="token token--success">approved</span>` : ""}
@@ -2768,20 +2740,6 @@ export function buildWorkflowHtml(
       background: rgba(114, 241, 184, 0.12);
       color: var(--accent);
       border-color: rgba(114, 241, 184, 0.24);
-    }
-    .token.token--output-format {
-      font-weight: 700;
-      letter-spacing: 0.02em;
-    }
-    .token.token--output-format-markdown {
-      background: rgba(92, 181, 255, 0.14);
-      color: #9cd7ff;
-      border-color: rgba(92, 181, 255, 0.28);
-    }
-    .token.token--output-format-json {
-      background: rgba(179, 132, 255, 0.16);
-      color: #d6c0ff;
-      border-color: rgba(179, 132, 255, 0.3);
     }
     .token.token--attention {
       background: var(--attention-egg-soft);
