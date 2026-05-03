@@ -51,9 +51,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             throw new ArgumentException("At least one model profile is required.", nameof(options));
         }
 
-        ValidateModelProfiles(options.ModelProfiles, options.PhaseModelAssignments);
+        if (options.AgentProfiles is not { Count: > 0 })
+        {
+            throw new ArgumentException("At least one agent profile is required.", nameof(options));
+        }
+
+        ValidateModelProfiles(options.ModelProfiles);
+        ValidateAgentProfiles(options.AgentProfiles, options.ModelProfiles, options.PhaseAgentAssignments);
         ValidateAutoRefinementAnswers(
-            options.ModelProfiles.Select(static profile => profile.Name).ToArray(),
+            options.AgentProfiles.Select(static profile => profile.Name).ToArray(),
             options);
 
         if (!IsSupportedTolerance(options.RefinementTolerance))
@@ -99,7 +105,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             modelSelection.ProfileName,
             effectiveRepositoryAccess,
             NativeCliRequired: RequiresNativeCli(modelSelection),
-            NativeCliAvailable: nativeCliRunner?.IsAvailable ?? false);
+            NativeCliAvailable: nativeCliRunner?.IsAvailable ?? false,
+            AgentName: modelSelection.AgentName,
+            AgentRole: modelSelection.AgentRole);
         if (RequiresNativeCli(modelSelection) &&
             (nativeCliRunner is null || !nativeCliRunner.IsAvailable))
         {
@@ -120,14 +128,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 CanExecute: true,
                 RequiredPermissions: requirements,
                 AssignedModelSecurity: assignedModelSecurity,
-                ValidationMessage: "Phase permission precheck passed for the assigned model profile.")
+                ValidationMessage: "Phase permission precheck passed for the assigned agent profile.")
             : new PhaseExecutionReadiness(
                 phaseId,
                 CanExecute: false,
                 PhaseExecutionPermissionCatalog.ResolveRepositoryAccessBlockingReason(phaseId),
                 RequiredPermissions: requirements,
                 AssignedModelSecurity: assignedModelSecurity,
-                ValidationMessage: $"Phase permission precheck failed because the assigned model only has repository access '{effectiveRepositoryAccess}' but phase '{phaseId}' requires '{requirements.RepositoryAccess}'.");
+                ValidationMessage: $"Phase permission precheck failed because the assigned agent only has repository access '{effectiveRepositoryAccess}' but phase '{phaseId}' requires '{requirements.RepositoryAccess}'.");
     }
 
     public async Task<AutoRefinementAnswersResult?> TryAutoAnswerRefinementAsync(
@@ -139,8 +147,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         {
             return null;
         }
-
-        await promptCatalog.EnsureRepositoryIsInitializedAsync(context.WorkspaceRoot, cancellationToken);
 
         var modelSelection = ResolveAutoRefinementAnswersModelSelection();
         SpecForgeDiagnostics.Log(
@@ -168,6 +174,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                     ProviderKind: modelSelection.ProviderKind,
                     Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
                     ProfileName: modelSelection.ProfileName,
+                    AgentName: modelSelection.AgentName,
+                    AgentRole: modelSelection.AgentRole,
                     Warnings: prompt.Warnings,
                     InputSha256: ComputeSha256(nativePrompt),
                     OutputSha256: ComputeSha256(nativeResult.Content),
@@ -191,6 +199,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 Model: modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
                 BaseUrl: modelSelection.BaseUrl,
+                AgentName: modelSelection.AgentName,
+                AgentRole: modelSelection.AgentRole,
                 Warnings: prompt.Warnings,
                 InputSha256: inputSha256,
                 OutputSha256: outputSha256,
@@ -201,8 +211,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         PhaseExecutionContext context,
         CancellationToken cancellationToken = default)
     {
-        await promptCatalog.EnsureRepositoryIsInitializedAsync(context.WorkspaceRoot, cancellationToken);
-
         var modelSelection = ResolveModelSelection(context.PhaseId);
         SpecForgeDiagnostics.Log(
             $"[provider.execute] usId={context.UsId} phase={context.PhaseId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={modelSelection.Model} baseUrl={(string.IsNullOrWhiteSpace(modelSelection.BaseUrl) ? "(none)" : modelSelection.BaseUrl)}");
@@ -240,6 +248,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 Model: modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
                 BaseUrl: modelSelection.BaseUrl,
+                AgentName: modelSelection.AgentName,
+                AgentRole: modelSelection.AgentRole,
                 Warnings: prompt.Warnings,
                 InputSha256: inputSha256,
                 OutputSha256: outputSha256,
@@ -465,18 +475,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         CancellationToken cancellationToken)
     {
         var paths = new PromptFilePaths(context.WorkspaceRoot);
+        var modelSelection = ResolveModelSelection(context.PhaseId);
         var phasePromptPath = promptCatalog.GetExecutePromptPath(context.WorkspaceRoot, context.PhaseId);
         var phaseSystemPromptPath = promptCatalog.GetExecuteSystemPromptPath(context.WorkspaceRoot, context.PhaseId);
-        var sharedSystemPrompt = await File.ReadAllTextAsync(paths.SharedSystemPromptPath, cancellationToken);
-        var phaseSystemPrompt = await File.ReadAllTextAsync(phaseSystemPromptPath, cancellationToken);
-        var sharedStylePrompt = await File.ReadAllTextAsync(paths.SharedStylePromptPath, cancellationToken);
-        var phasePrompt = await File.ReadAllTextAsync(phasePromptPath, cancellationToken);
+        var sharedSystemPrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.SharedSystemPromptPath, cancellationToken);
+        var phaseSystemPrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, phaseSystemPromptPath, cancellationToken);
+        var sharedStylePrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.SharedStylePromptPath, cancellationToken);
+        var phasePrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, phasePromptPath, cancellationToken);
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
-        var warnings = await BuildPromptWarningsAsync(
-            context.WorkspaceRoot,
-            cancellationToken,
-            paths.SharedSystemPromptPath,
-            phaseSystemPromptPath);
+        var warnings = BuildPromptWarnings(sharedSystemPrompt, phaseSystemPrompt);
         var refinementLogPath = Path.Combine(Path.GetDirectoryName(context.UserStoryPath)!, "refinement.md");
         if (!PhaseMarkdownArtifactContracts.Supports(context.PhaseId))
         {
@@ -488,14 +495,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             new[]
             {
                 options.SystemPrompt,
-                sharedSystemPrompt.Trim(),
-                phaseSystemPrompt.Trim(),
-                sharedStylePrompt.Trim(),
+                sharedSystemPrompt.Content.Trim(),
+                phaseSystemPrompt.Content.Trim(),
+                BuildAgentSystemPrompt(modelSelection),
+                sharedStylePrompt.Content.Trim(),
                 effectiveOutputRulesPrompt
             }.Where(static part => !string.IsNullOrWhiteSpace(part)));
 
         var builder = new StringBuilder()
-            .AppendLine(phasePrompt.Trim())
+            .AppendLine(phasePrompt.Content.Trim())
             .AppendLine()
             .AppendLine("## Runtime Context")
             .AppendLine();
@@ -505,7 +513,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine($"- US ID: `{context.UsId}`")
             .AppendLine($"- Phase: `{context.PhaseId}`")
             .AppendLine($"- User story path: `{context.UserStoryPath}`")
-            .AppendLine($"- Repository access: `{NormalizeRepositoryAccess(options.ModelProfiles!.First(candidate => string.Equals(candidate.Name, ResolveProfileNameForPhase(context.PhaseId), StringComparison.Ordinal)).RepositoryAccess)}`")
+            .AppendLine($"- Agent: `{modelSelection.AgentName}`")
+            .AppendLine($"- Agent role: `{modelSelection.AgentRole}`")
+            .AppendLine($"- Model profile: `{modelSelection.ProfileName}`")
+            .AppendLine($"- Repository access: `{NormalizeRepositoryAccess(modelSelection.RepositoryAccess)}`")
             .AppendLine();
 
         builder
@@ -773,19 +784,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         CancellationToken cancellationToken)
     {
         var paths = new PromptFilePaths(context.WorkspaceRoot);
-        var sharedSystemPrompt = await File.ReadAllTextAsync(paths.SharedSystemPromptPath, cancellationToken);
-        var refinementSystemPrompt = await File.ReadAllTextAsync(paths.RefinementExecuteSystemPromptPath, cancellationToken);
-        var autoRefinementAnswersSystemPrompt = await File.ReadAllTextAsync(paths.AutoRefinementAnswersSystemPromptPath, cancellationToken);
-        var sharedStylePrompt = await File.ReadAllTextAsync(paths.SharedStylePromptPath, cancellationToken);
-        var sharedOutputRulesPrompt = await File.ReadAllTextAsync(paths.SharedOutputRulesPromptPath, cancellationToken);
-        var phasePrompt = await File.ReadAllTextAsync(paths.RefinementExecutePromptPath, cancellationToken);
+        var modelSelection = ResolveAutoRefinementAnswersModelSelection();
+        var sharedSystemPrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.SharedSystemPromptPath, cancellationToken);
+        var refinementSystemPrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.RefinementExecuteSystemPromptPath, cancellationToken);
+        var autoRefinementAnswersSystemPrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.AutoRefinementAnswersSystemPromptPath, cancellationToken);
+        var sharedStylePrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.SharedStylePromptPath, cancellationToken);
+        var sharedOutputRulesPrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.SharedOutputRulesPromptPath, cancellationToken);
+        var phasePrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.RefinementExecutePromptPath, cancellationToken);
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
-        var warnings = await BuildPromptWarningsAsync(
-            context.WorkspaceRoot,
-            cancellationToken,
-            paths.SharedSystemPromptPath,
-            paths.RefinementExecuteSystemPromptPath,
-            paths.AutoRefinementAnswersSystemPromptPath);
+        var warnings = BuildPromptWarnings(sharedSystemPrompt, refinementSystemPrompt, autoRefinementAnswersSystemPrompt);
         var refinementLogPath = Path.Combine(Path.GetDirectoryName(context.UserStoryPath)!, "refinement.md");
         var refinementLog = File.Exists(refinementLogPath)
             ? await File.ReadAllTextAsync(refinementLogPath, cancellationToken)
@@ -795,15 +802,16 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             new[]
             {
                 options.SystemPrompt,
-                sharedSystemPrompt.Trim(),
-                refinementSystemPrompt.Trim(),
-                autoRefinementAnswersSystemPrompt.Trim(),
-                sharedStylePrompt.Trim(),
-                sharedOutputRulesPrompt.Trim()
+                sharedSystemPrompt.Content.Trim(),
+                refinementSystemPrompt.Content.Trim(),
+                autoRefinementAnswersSystemPrompt.Content.Trim(),
+                BuildAgentSystemPrompt(modelSelection),
+                sharedStylePrompt.Content.Trim(),
+                sharedOutputRulesPrompt.Content.Trim()
             }.Where(static part => !string.IsNullOrWhiteSpace(part)));
 
         var builder = new StringBuilder()
-            .AppendLine(phasePrompt.Trim())
+            .AppendLine(phasePrompt.Content.Trim())
             .AppendLine()
             .AppendLine("## Auto Refinement Answer Task")
             .AppendLine()
@@ -817,7 +825,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine($"- Workspace root: `{context.WorkspaceRoot}`")
             .AppendLine($"- US ID: `{context.UsId}`")
             .AppendLine($"- Phase: `Refinement`")
-            .AppendLine($"- Auto-answer profile: `{ResolveAutoRefinementAnswersModelSelection().ProfileName ?? "default"}`")
+            .AppendLine($"- Auto-answer agent: `{modelSelection.AgentName}`")
+            .AppendLine($"- Auto-answer role: `{modelSelection.AgentRole}`")
+            .AppendLine($"- Auto-answer model profile: `{modelSelection.ProfileName}`")
+            .AppendLine($"- Repository access: `{NormalizeRepositoryAccess(modelSelection.RepositoryAccess)}`")
             .AppendLine()
             .AppendLine("## Pending Questions")
             .AppendLine();
@@ -903,42 +914,23 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         If required context is missing or contradictory, state it explicitly inside the Markdown artifact instead of hiding the issue.
         """;
 
-    private static async Task<IReadOnlyCollection<string>?> BuildPromptWarningsAsync(
-        string workspaceRoot,
-        CancellationToken cancellationToken,
-        params string[] promptPaths)
+    private static IReadOnlyCollection<string>? BuildPromptWarnings(
+        params RepositoryPromptCatalog.PromptTemplateContent[] prompts)
     {
-        var paths = new PromptFilePaths(workspaceRoot);
-        IReadOnlyDictionary<string, string> expectedHashes;
-
-        try
-        {
-            expectedHashes = await PromptSystemHashManifest.ReadAsync(paths, cancellationToken);
-        }
-        catch (Exception exception)
-        {
-            return
-            [
-                $"System prompt hash manifest '{PromptSystemHashManifest.ToRelativePromptPath(workspaceRoot, paths.PromptSystemHashesPath)}' could not be read. Reason: {exception.Message}"
-            ];
-        }
-
         var warnings = new List<string>();
-        foreach (var promptPath in promptPaths.Distinct(StringComparer.Ordinal))
+        foreach (var prompt in prompts.DistinctBy(static item => item.Path))
         {
-            var relativePath = PromptSystemHashManifest.ToRelativePromptPath(workspaceRoot, promptPath);
-            if (!expectedHashes.TryGetValue(relativePath, out var expectedHash))
+            if (!prompt.IsOverride || prompt.EmbeddedContent is null)
             {
-                warnings.Add($"System prompt '{relativePath}' is missing from the engine hash manifest.");
                 continue;
             }
 
-            var currentContent = await File.ReadAllTextAsync(promptPath, cancellationToken);
-            var currentHash = PromptSystemHashManifest.ComputeSha256(currentContent);
+            var expectedHash = PromptSystemHashManifest.ComputeSha256(prompt.EmbeddedContent);
+            var currentHash = PromptSystemHashManifest.ComputeSha256(prompt.Content);
             if (!string.Equals(expectedHash, currentHash, StringComparison.Ordinal))
             {
                 warnings.Add(
-                    $"System prompt '{relativePath}' was modified outside the engine. Expected hash `{expectedHash}`, current hash `{currentHash}`.");
+                    $"Prompt override '{prompt.Path}' differs from the embedded SpecForge template. Expected hash `{expectedHash}`, current hash `{currentHash}`.");
             }
         }
 
@@ -965,6 +957,28 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             canResolve,
             reason,
             answers);
+    }
+
+    private static string BuildAgentSystemPrompt(ResolvedModelSelection modelSelection)
+    {
+        if (string.IsNullOrWhiteSpace(modelSelection.AgentName))
+        {
+            return string.Empty;
+        }
+
+        return string.Join(
+            Environment.NewLine,
+            [
+                "## Agent Profile",
+                $"Name: {modelSelection.AgentName}",
+                $"Role: {modelSelection.AgentRole ?? "unspecified"}",
+                $"Repository access: {NormalizeRepositoryAccess(modelSelection.RepositoryAccess)}",
+                $"Model profile: {modelSelection.ProfileName ?? "default"}",
+                "Instructions:",
+                string.IsNullOrWhiteSpace(modelSelection.AgentInstructions)
+                    ? "Follow the phase contract exactly."
+                    : modelSelection.AgentInstructions.Trim()
+            ]);
     }
 
     private async Task<PhaseExecutionResult> ExecuteViaNativeCliAsync(
@@ -1016,6 +1030,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 ProviderKind: modelSelection.ProviderKind,
                 Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
+                AgentName: modelSelection.AgentName,
+                AgentRole: modelSelection.AgentRole,
                 Warnings: prompt.Warnings,
                 InputSha256: ComputeSha256(nativePrompt),
                 OutputSha256: ComputeSha256(response.Content),
@@ -1304,37 +1320,31 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private ResolvedModelSelection ResolveModelSelection(PhaseId phaseId)
     {
-        var profileName = ResolveProfileNameForPhase(phaseId);
-        var profile = options.ModelProfiles!.FirstOrDefault(candidate =>
-            string.Equals(candidate.Name, profileName, StringComparison.Ordinal));
-
-        if (profile is null)
-        {
-            throw new InvalidOperationException($"Model profile '{profileName}' was not found for phase '{phaseId}'.");
-        }
-
-        return new ResolvedModelSelection(
-            NormalizeProviderKind(profile.Provider),
-            profile.BaseUrl,
-            profile.ApiKey,
-            profile.Model,
-            NormalizeReasoningEffort(profile.ReasoningEffort),
-            profile.Name,
-            profile.RepositoryAccess);
+        var agentName = ResolveAgentNameForPhase(phaseId);
+        var agent = ResolveAgent(agentName, $"phase '{phaseId}'");
+        return ResolveModelSelectionForAgent(agent, $"phase '{phaseId}'");
     }
 
     private ResolvedModelSelection ResolveAutoRefinementAnswersModelSelection()
     {
-        var profileName = string.IsNullOrWhiteSpace(options.AutoRefinementAnswersProfile)
-            ? ResolveProfileNameForPhase(PhaseId.Refinement)
+        var agentName = string.IsNullOrWhiteSpace(options.AutoRefinementAnswersProfile)
+            ? ResolveAgentNameForPhase(PhaseId.Refinement)
             : options.AutoRefinementAnswersProfile.Trim();
+        var agent = ResolveAgent(agentName, "auto refinement answers");
+        return ResolveModelSelectionForAgent(agent, "auto refinement answers");
+    }
+
+    private ResolvedModelSelection ResolveModelSelectionForAgent(
+        OpenAiCompatibleAgentProfile agent,
+        string purpose)
+    {
+        var profileName = agent.ModelProfile.Trim();
         var profile = options.ModelProfiles!.FirstOrDefault(candidate =>
             string.Equals(candidate.Name, profileName, StringComparison.Ordinal));
 
         if (profile is null)
         {
-            throw new InvalidOperationException(
-                $"Model profile '{profileName}' was not found for auto refinement answers.");
+            throw new InvalidOperationException($"Model profile '{profileName}' was not found for {purpose}.");
         }
 
         return new ResolvedModelSelection(
@@ -1342,9 +1352,25 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             profile.BaseUrl,
             profile.ApiKey,
             profile.Model,
-            NormalizeReasoningEffort(profile.ReasoningEffort),
+            NormalizeReasoningEffort(agent.ReasoningEffort) ?? NormalizeReasoningEffort(profile.ReasoningEffort),
             profile.Name,
-            profile.RepositoryAccess);
+            agent.RepositoryAccess,
+            agent.Name,
+            agent.Role,
+            agent.Instructions);
+    }
+
+    private OpenAiCompatibleAgentProfile ResolveAgent(string agentName, string purpose)
+    {
+        var agent = options.AgentProfiles!.FirstOrDefault(candidate =>
+            string.Equals(candidate.Name, agentName, StringComparison.Ordinal));
+
+        if (agent is null)
+        {
+            throw new InvalidOperationException($"Agent profile '{agentName}' was not found for {purpose}.");
+        }
+
+        return agent;
     }
 
     private INativeCliRunner? ResolveNativeCliRunner(string providerKind) =>
@@ -1370,19 +1396,19 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             _ => PhaseExecutionBlockingReasons.CodexCliNotFound
         };
 
-    private string ResolveProfileNameForPhase(PhaseId phaseId)
+    private string ResolveAgentNameForPhase(PhaseId phaseId)
     {
-        var assignments = options.PhaseModelAssignments;
+        var assignments = options.PhaseAgentAssignments;
         var explicitName = phaseId switch
         {
-            PhaseId.Refinement => assignments?.RefinementProfile,
-            PhaseId.Spec => assignments?.SpecProfile,
-            PhaseId.TechnicalDesign => assignments?.TechnicalDesignProfile,
-            PhaseId.Implementation => assignments?.ImplementationProfile,
-            PhaseId.Review => assignments?.ReviewProfile,
-            PhaseId.ReleaseApproval => assignments?.ReleaseApprovalProfile,
-            PhaseId.PrPreparation => assignments?.PrPreparationProfile,
-            _ => assignments?.DefaultProfile
+            PhaseId.Refinement => assignments?.RefinementAgent,
+            PhaseId.Spec => assignments?.SpecAgent,
+            PhaseId.TechnicalDesign => assignments?.TechnicalDesignAgent,
+            PhaseId.Implementation => assignments?.ImplementationAgent,
+            PhaseId.Review => assignments?.ReviewAgent,
+            PhaseId.ReleaseApproval => assignments?.ReleaseApprovalAgent,
+            PhaseId.PrPreparation => assignments?.PrPreparationAgent,
+            _ => assignments?.DefaultAgent
         };
 
         if (!string.IsNullOrWhiteSpace(explicitName))
@@ -1390,18 +1416,18 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             return explicitName;
         }
 
-        var defaultProfileName = assignments?.DefaultProfile;
-        if (!string.IsNullOrWhiteSpace(defaultProfileName))
+        var defaultAgentName = assignments?.DefaultAgent;
+        if (!string.IsNullOrWhiteSpace(defaultAgentName))
         {
-            return defaultProfileName;
+            return defaultAgentName;
         }
 
-        if (options.ModelProfiles?.Count == 1)
+        if (options.AgentProfiles?.Count == 1)
         {
-            return options.ModelProfiles[0].Name;
+            return options.AgentProfiles[0].Name;
         }
 
-        throw new InvalidOperationException("A default model profile assignment is required when multiple model profiles are configured.");
+        throw new InvalidOperationException("A default agent profile assignment is required when multiple agent profiles are configured.");
     }
 
     private double ResolveTemperature(PhaseId phaseId) =>
@@ -1530,8 +1556,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         };
 
     private static void ValidateModelProfiles(
-        IReadOnlyList<OpenAiCompatibleModelProfile> modelProfiles,
-        OpenAiCompatiblePhaseModelAssignments? assignments)
+        IReadOnlyList<OpenAiCompatibleModelProfile> modelProfiles)
     {
         var names = new HashSet<string>(StringComparer.Ordinal);
 
@@ -1567,13 +1592,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 throw new ArgumentException($"Model is required for model profile '{profile.Name}'.", nameof(modelProfiles));
             }
 
-            if (!IsSupportedRepositoryAccess(profile.RepositoryAccess))
-            {
-                throw new ArgumentException(
-                    $"RepositoryAccess must be one of: {RepositoryAccessNone}, {RepositoryAccessRead}, {RepositoryAccessReadWrite} for model profile '{profile.Name}'.",
-                    nameof(modelProfiles));
-            }
-
             if (!IsSupportedReasoningEffort(profile.ReasoningEffort))
             {
                 throw new ArgumentException(
@@ -1587,32 +1605,80 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 throw new ArgumentException($"ApiKey is required for remote model profile '{profile.Name}'.", nameof(modelProfiles));
             }
         }
+    }
 
-        var defaultProfileName = assignments?.DefaultProfile;
-        if (string.IsNullOrWhiteSpace(defaultProfileName) &&
-            modelProfiles.Count > 1 &&
-            !HasExplicitProfilesForAllModelDrivenPhases(assignments))
+    private static void ValidateAgentProfiles(
+        IReadOnlyList<OpenAiCompatibleAgentProfile> agentProfiles,
+        IReadOnlyList<OpenAiCompatibleModelProfile> modelProfiles,
+        OpenAiCompatiblePhaseAgentAssignments? assignments)
+    {
+        var modelNames = modelProfiles.Select(static profile => profile.Name).ToHashSet(StringComparer.Ordinal);
+        var agentNames = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var agent in agentProfiles)
+        {
+            if (string.IsNullOrWhiteSpace(agent.Name))
+            {
+                throw new ArgumentException("Agent profile Name is required.", nameof(agentProfiles));
+            }
+
+            if (!agentNames.Add(agent.Name))
+            {
+                throw new ArgumentException($"Duplicate agent profile '{agent.Name}'.", nameof(agentProfiles));
+            }
+
+            if (string.IsNullOrWhiteSpace(agent.ModelProfile))
+            {
+                throw new ArgumentException($"ModelProfile is required for agent profile '{agent.Name}'.", nameof(agentProfiles));
+            }
+
+            if (!modelNames.Contains(agent.ModelProfile))
+            {
+                throw new ArgumentException(
+                    $"Model profile '{agent.ModelProfile}' referenced by agent profile '{agent.Name}' was not configured.",
+                    nameof(agentProfiles));
+            }
+
+            if (!IsSupportedRepositoryAccess(agent.RepositoryAccess))
+            {
+                throw new ArgumentException(
+                    $"RepositoryAccess must be one of: {RepositoryAccessNone}, {RepositoryAccessRead}, {RepositoryAccessReadWrite} for agent profile '{agent.Name}'.",
+                    nameof(agentProfiles));
+            }
+
+            if (!IsSupportedReasoningEffort(agent.ReasoningEffort))
+            {
+                throw new ArgumentException(
+                    $"ReasoningEffort must be one of: none, minimal, low, medium, high, xhigh for agent profile '{agent.Name}'.",
+                    nameof(agentProfiles));
+            }
+        }
+
+        var defaultAgentName = assignments?.DefaultAgent;
+        if (string.IsNullOrWhiteSpace(defaultAgentName) &&
+            agentProfiles.Count > 1 &&
+            !HasExplicitAgentsForAllModelDrivenPhases(assignments))
         {
             throw new ArgumentException(
-                "DefaultProfile is required when multiple model profiles are configured unless refinement, spec, technical design, implementation, and review each declare an explicit profile.",
+                "DefaultAgent is required when multiple agent profiles are configured unless refinement, spec, technical design, implementation, review, release approval, and PR preparation each declare an explicit agent.",
                 nameof(assignments));
         }
 
-        foreach (var profileName in new[]
+        foreach (var agentName in new[]
                  {
-                     defaultProfileName,
-                     assignments?.RefinementProfile,
-                     assignments?.SpecProfile,
-                     assignments?.TechnicalDesignProfile,
-                     assignments?.ImplementationProfile,
-                     assignments?.ReviewProfile,
-                     assignments?.ReleaseApprovalProfile,
-                     assignments?.PrPreparationProfile
+                     defaultAgentName,
+                     assignments?.RefinementAgent,
+                     assignments?.SpecAgent,
+                     assignments?.TechnicalDesignAgent,
+                     assignments?.ImplementationAgent,
+                     assignments?.ReviewAgent,
+                     assignments?.ReleaseApprovalAgent,
+                     assignments?.PrPreparationAgent
                  })
         {
-            if (!string.IsNullOrWhiteSpace(profileName) && !names.Contains(profileName))
+            if (!string.IsNullOrWhiteSpace(agentName) && !agentNames.Contains(agentName))
             {
-                throw new ArgumentException($"Assigned model profile '{profileName}' was not configured.", nameof(assignments));
+                throw new ArgumentException($"Assigned agent profile '{agentName}' was not configured.", nameof(assignments));
             }
         }
     }
@@ -1646,12 +1712,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return PhaseMarkdownArtifactContracts.NormalizeContent(content);
     }
 
-    private static bool HasExplicitProfilesForAllModelDrivenPhases(OpenAiCompatiblePhaseModelAssignments? assignments) =>
-        !string.IsNullOrWhiteSpace(assignments?.RefinementProfile)
-        && !string.IsNullOrWhiteSpace(assignments?.SpecProfile)
-        && !string.IsNullOrWhiteSpace(assignments?.TechnicalDesignProfile)
-        && !string.IsNullOrWhiteSpace(assignments?.ImplementationProfile)
-        && !string.IsNullOrWhiteSpace(assignments?.ReviewProfile);
+    private static bool HasExplicitAgentsForAllModelDrivenPhases(OpenAiCompatiblePhaseAgentAssignments? assignments) =>
+        !string.IsNullOrWhiteSpace(assignments?.RefinementAgent)
+        && !string.IsNullOrWhiteSpace(assignments?.SpecAgent)
+        && !string.IsNullOrWhiteSpace(assignments?.TechnicalDesignAgent)
+        && !string.IsNullOrWhiteSpace(assignments?.ImplementationAgent)
+        && !string.IsNullOrWhiteSpace(assignments?.ReviewAgent)
+        && !string.IsNullOrWhiteSpace(assignments?.ReleaseApprovalAgent)
+        && !string.IsNullOrWhiteSpace(assignments?.PrPreparationAgent);
 
     private static bool RequiresApiKey(string baseUrl) => !LocalEndpointHelper.IsLocal(baseUrl);
 
@@ -1902,7 +1970,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         string Model,
         string? ReasoningEffort,
         string? ProfileName,
-        string? RepositoryAccess);
+        string? RepositoryAccess,
+        string? AgentName,
+        string? AgentRole,
+        string? AgentInstructions);
 
     internal sealed record NativeCliInvocation(
         string ProviderKind,

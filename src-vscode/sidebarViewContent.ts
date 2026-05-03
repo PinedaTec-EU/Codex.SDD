@@ -48,22 +48,15 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
     `, isBusy, model.createFormResetToken ?? 0, model.typographyCssVars ?? "");
   }
 
-  const promptsBootstrapMarkup = !model.promptsInitialized
+  const promptsBootstrapMarkup = !model.promptsInitialized && model.promptsMessage
     ? buildPromptsBootstrapMarkup(model.userStories.length === 0, model.promptsMessage ?? null)
     : "";
 
-  if (model.userStories.length === 0 && !model.showCreateForm && !model.promptsInitialized) {
+  if (model.userStories.length === 0 && !model.showCreateForm) {
     return wrapHtml(`
       ${busyIndicatorMarkup}
       ${buildSettingsWarningMarkup(model)}
       ${promptsBootstrapMarkup}
-    `, isBusy, model.createFormResetToken ?? 0, model.typographyCssVars ?? "");
-  }
-
-  if (model.userStories.length === 0 && !model.showCreateForm && model.promptsInitialized) {
-    return wrapHtml(`
-      ${busyIndicatorMarkup}
-      ${buildSettingsWarningMarkup(model)}
       <section class="empty-state hero">
         <div class="hero-header">
           <div>
@@ -93,7 +86,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
     </section>
   `).join("");
 
-  const formMarkup = model.showCreateForm && model.promptsInitialized
+  const formMarkup = model.showCreateForm
     ? `
       <section class="form-card">
         <div class="section-header">
@@ -308,7 +301,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
         ${buildCompactActions(model)}
       </div>
       ${buildStorySearchMarkup()}
-      ${storiesMarkup || "<p class=\"copy story-list__empty\">Bootstrap the repo prompts to start creating user stories from the sidebar.</p>"}
+      ${storiesMarkup || "<p class=\"copy story-list__empty\">Create or import a user story to start the workflow.</p>"}
       <p class="copy story-list__empty" data-story-search-empty hidden>No user stories match this search.</p>
     </section>
   `, isBusy, model.createFormResetToken ?? 0, model.typographyCssVars ?? "");
@@ -355,17 +348,12 @@ function buildRuntimeVersionMarkup(runtimeVersion: string | null): string {
 }
 
 function buildCreateActionButton(enabled: boolean): string {
-  const title = enabled
-    ? "Create new user story"
-    : "Initialize repo prompts before creating a user story";
-  const disabled = enabled ? "" : " disabled";
-
   return `
     <button
       class="icon-action"
       data-command="showCreateForm"
-      title="${escapeHtmlAttr(title)}"
-      aria-label="${escapeHtmlAttr(title)}"${disabled}>
+      title="Create new user story"
+      aria-label="Create new user story">
       <span aria-hidden="true">+</span>
     </button>
   `;
@@ -383,7 +371,7 @@ function buildStorySearchMarkup(): string {
   `;
 }
 function buildPromptMenu(promptsInitialized: boolean): string {
-  const bootstrapLabel = promptsInitialized ? "Refresh Prompts" : "Bootstrap Prompts";
+  const bootstrapLabel = "Export All Prompts";
 
   return `
     <div class="action-menu" data-action-menu>
@@ -399,7 +387,7 @@ function buildPromptMenu(promptsInitialized: boolean): string {
       </button>
       <div class="action-menu__panel" data-action-menu-panel role="menu" hidden>
         <button class="action-menu__item" type="button" data-command="initializeRepoPrompts" role="menuitem"><span class="action-menu__item-icon" aria-hidden="true">↻</span><span>${escapeHtml(bootstrapLabel)}</span></button>
-        <button class="action-menu__item" type="button" data-command="openPromptTemplates" role="menuitem"${promptsInitialized ? "" : " disabled"}><span class="action-menu__item-icon" aria-hidden="true">📄</span><span>Open Prompt Templates</span></button>
+        <button class="action-menu__item" type="button" data-command="openPromptTemplates" role="menuitem"><span class="action-menu__item-icon" aria-hidden="true">📄</span><span>Customize Prompt Templates</span></button>
       </div>
     </div>
   `;
@@ -432,13 +420,13 @@ function buildPromptsBootstrapMarkup(isFirstRun: boolean, promptsMessage: string
     <section class="action-card bootstrap-card">
       <div class="section-header">
         <div>
-          <p class="eyebrow">Repo Bootstrap</p>
-          <h2>${isFirstRun ? "Initialize prompts before the first user story" : "Initialize missing repo prompts"}</h2>
+          <p class="eyebrow">Prompt Overrides</p>
+          <h2>Export embedded prompts when needed</h2>
         </div>
       </div>
-      <p class="copy">SpecForge.AI needs the repo prompt set under <code>.specs/prompts/</code> before the sidebar can create or refresh workflow intake.</p>
+      <p class="copy">SpecForge.AI uses embedded prompts by default. Export prompt templates only when you want repository-local overrides.</p>
       ${promptsMessage ? `<p class="copy">${escapeHtml(promptsMessage)}</p>` : ""}
-      <button class="primary-action" data-command="initializeRepoPrompts">Bootstrap Prompts</button>
+      <button class="primary-action" data-command="initializeRepoPrompts">Export All Prompts</button>
     </section>
   `;
 }

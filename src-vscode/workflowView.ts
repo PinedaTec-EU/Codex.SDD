@@ -836,6 +836,8 @@ function buildPhaseSecuritySummary(readiness: PhaseExecutionReadiness | null | u
   const provider = readiness.assignedModelSecurity?.providerKind ?? "unknown";
   const profile = readiness.assignedModelSecurity?.profileName ?? "default";
   const model = readiness.assignedModelSecurity?.model ?? "default";
+  const agent = readiness.assignedModelSecurity?.agentName ?? null;
+  const agentRole = readiness.assignedModelSecurity?.agentRole ?? null;
   const nativeCliState = readiness.assignedModelSecurity?.nativeCliRequired
     ? readiness.assignedModelSecurity.nativeCliAvailable
       ? "native cli ready"
@@ -861,6 +863,8 @@ function buildPhaseSecuritySummary(readiness: PhaseExecutionReadiness | null | u
           <span class="token token--${escapeHtmlAttribute(tone)}">${escapeHtml(headline)}</span>
           <span class="token">required ${escapeHtml(requiredAccess)}</span>
           <span class="token">assigned ${escapeHtml(effectiveAccess)}</span>
+          ${agent ? `<span class="token">agent ${escapeHtml(agent)}</span>` : ""}
+          ${agentRole ? `<span class="token">role ${escapeHtml(agentRole)}</span>` : ""}
           <span class="token">${escapeHtml(provider)}</span>
           <span class="token">${escapeHtml(profile)}</span>
           <span class="token">${escapeHtml(model)}</span>

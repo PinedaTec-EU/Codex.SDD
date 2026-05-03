@@ -61,6 +61,21 @@ const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
 const workflowGraphLayout_1 = require("./workflowGraphLayout");
 const utils_1 = require("./utils");
 const panels = new Map();
+function buildWorkflowModelCatalog(settings) {
+    const modelsByName = new Map(settings.modelProfiles.map((profile) => [profile.name, profile]));
+    const modelEntries = settings.modelProfiles.map((profile) => ({
+        name: profile.name,
+        model: profile.model
+    }));
+    const agentEntries = (settings.agentProfiles ?? settings.modelProfiles.map((profile) => ({
+        name: profile.name,
+        modelProfile: profile.name
+    }))).map((agent) => ({
+        name: agent.name,
+        model: modelsByName.get(agent.modelProfile)?.model ?? agent.modelProfile
+    }));
+    return [...modelEntries, ...agentEntries];
+}
 async function openWorkflowView(workspaceRoot, summary, getBackendClient, callbacks) {
     const panelId = `${workspaceRoot}:${summary.usId}`;
     let controller = panels.get(panelId);
@@ -1177,10 +1192,7 @@ class WorkflowPanelController {
             contextSuggestions,
             settingsConfigured: settingsStatus.executionConfigured,
             settingsMessage: settingsStatus.message,
-            modelProfiles: settings.modelProfiles.map((profile) => ({
-                name: profile.name,
-                model: profile.model
-            })),
+            modelProfiles: buildWorkflowModelCatalog(settings),
             phaseModelAssignments: {
                 defaultProfileName: settings.effectivePhaseAgentAssignments.defaultAgentName,
                 captureProfileName: settings.effectivePhaseAgentAssignments.captureAgentName,

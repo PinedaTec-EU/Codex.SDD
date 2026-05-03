@@ -3,8 +3,9 @@ import { escapeHtml, escapeHtmlAttr } from "./htmlEscape";
 import { requiresDefaultFallback, validatePhasePermissionAssignments } from "./executionSettingsModel";
 import {
   getSpecForgeSettings,
+  type SpecForgeAgentProfile,
   type SpecForgeModelProfile,
-  type SpecForgePhaseModelAssignments
+  type SpecForgePhaseAgentAssignments
 } from "./extensionSettings";
 import { automationPhaseIcon, workflowPhaseIcon } from "./workflow-view/icons";
 import { buildWebviewTypographyRootCss, getEditorTypographyCssVars } from "./webviewTypography";
@@ -13,7 +14,8 @@ type ExecutionSettingsMessage =
   | {
       readonly command: "saveExecutionSettings";
       readonly modelProfiles?: readonly Partial<SpecForgeModelProfile>[];
-      readonly phaseModelAssignments?: Partial<SpecForgePhaseModelAssignments>;
+      readonly agentProfiles?: readonly Partial<SpecForgeAgentProfile>[];
+      readonly phaseAgentAssignments?: Partial<SpecForgePhaseAgentAssignments>;
       readonly refinementTolerance?: string;
       readonly reviewTolerance?: string;
       readonly reviewEvidencePolicy?: string;
@@ -89,7 +91,8 @@ class ExecutionSettingsPanelController {
           try {
             await saveExecutionSettingsAsync(
               message.modelProfiles ?? [],
-              message.phaseModelAssignments ?? {},
+              message.agentProfiles ?? [],
+              message.phaseAgentAssignments ?? {},
               message.refinementTolerance ?? "balanced",
               message.reviewTolerance ?? "balanced",
               message.reviewEvidencePolicy ?? "balanced",
@@ -130,7 +133,8 @@ class ExecutionSettingsPanelController {
     const settings = getSpecForgeSettings();
     this.panel.webview.html = buildExecutionSettingsHtml({
       modelProfiles: settings.modelProfiles,
-      phaseModelAssignments: settings.phaseModelAssignments,
+      agentProfiles: settings.agentProfiles ?? deriveAgentProfilesFromModels(settings.modelProfiles),
+      phaseAgentAssignments: settings.phaseAgentAssignments,
       refinementTolerance: settings.refinementTolerance,
       reviewTolerance: settings.reviewTolerance,
       reviewEvidencePolicy: settings.reviewEvidencePolicy ?? "balanced",
@@ -157,9 +161,21 @@ class ExecutionSettingsPanelController {
   }
 }
 
+function deriveAgentProfilesFromModels(modelProfiles: readonly SpecForgeModelProfile[]): readonly SpecForgeAgentProfile[] {
+  return modelProfiles.map((profile) => ({
+    name: profile.name,
+    role: profile.name,
+    modelProfile: profile.name,
+    instructions: "",
+    repositoryAccess: profile.repositoryAccess,
+    ...(profile.reasoningEffort ? { reasoningEffort: profile.reasoningEffort } : {})
+  }));
+}
+
 type ExecutionSettingsViewModel = {
   readonly modelProfiles: readonly SpecForgeModelProfile[];
-  readonly phaseModelAssignments: SpecForgePhaseModelAssignments;
+  readonly agentProfiles: readonly SpecForgeAgentProfile[];
+  readonly phaseAgentAssignments: SpecForgePhaseAgentAssignments;
   readonly refinementTolerance: string;
   readonly reviewTolerance: string;
   readonly reviewEvidencePolicy: string;
@@ -185,19 +201,20 @@ type ExecutionSettingsViewModel = {
 };
 
 const executionPhases: ReadonlyArray<{
-  key: keyof SpecForgePhaseModelAssignments;
+  key: keyof SpecForgePhaseAgentAssignments;
   label: string;
   phaseId: string | null;
   kind: "default" | "phase";
 }> = [
-  { key: "defaultProfile", label: "Default / fallback", phaseId: null, kind: "default" },
-  { key: "refinementProfile", label: "Refinement", phaseId: "refinement", kind: "phase" },
-  { key: "specProfile", label: "Spec", phaseId: "spec", kind: "phase" },
-  { key: "technicalDesignProfile", label: "Technical Design", phaseId: "technical-design", kind: "phase" },
-  { key: "implementationProfile", label: "Implementation", phaseId: "implementation", kind: "phase" },
-  { key: "reviewProfile", label: "Review", phaseId: "review", kind: "phase" },
-  { key: "releaseApprovalProfile", label: "Release Approval", phaseId: "release-approval", kind: "phase" },
-  { key: "prPreparationProfile", label: "PR Preparation", phaseId: "pr-preparation", kind: "phase" }
+  { key: "defaultAgent", label: "Default / fallback", phaseId: null, kind: "default" },
+  { key: "captureAgent", label: "Capture", phaseId: "capture", kind: "phase" },
+  { key: "refinementAgent", label: "Refinement", phaseId: "refinement", kind: "phase" },
+  { key: "specAgent", label: "Spec", phaseId: "spec", kind: "phase" },
+  { key: "technicalDesignAgent", label: "Technical Design", phaseId: "technical-design", kind: "phase" },
+  { key: "implementationAgent", label: "Implementation", phaseId: "implementation", kind: "phase" },
+  { key: "reviewAgent", label: "Review", phaseId: "review", kind: "phase" },
+  { key: "releaseApprovalAgent", label: "Release Approval", phaseId: "release-approval", kind: "phase" },
+  { key: "prPreparationAgent", label: "PR Preparation", phaseId: "pr-preparation", kind: "phase" }
 ];
 
 function renderExecutionSettingsPhaseIcon(phase: typeof executionPhases[number]): string {
@@ -209,16 +226,8 @@ function renderExecutionSettingsPhaseIcon(phase: typeof executionPhases[number])
   return `<span class="phase-field__icon-shell${toneClass}" aria-hidden="true">${icon}</span>`;
 }
 
-function renderConfigLabel(label: string, helpText: string): string {
-  return `<span class="config-label"><span>${escapeHtml(label)}</span>${renderConfigHelp(helpText)}</span>`;
-}
-
-function renderConfigHelp(helpText: string): string {
-  return `<span class="config-help" role="button" tabindex="0" data-help-toggle aria-label="${escapeHtmlAttr(`Show help: ${helpText}`)}" title="Show help" aria-expanded="false">?<span class="config-help__bubble" role="tooltip">${escapeHtml(helpText)}</span></span>`;
-}
-
 export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): string {
-  const permissionIssues = validatePhasePermissionAssignments(model.modelProfiles, model.phaseModelAssignments);
+  const permissionIssues = validatePhasePermissionAssignments(model.agentProfiles, model.phaseAgentAssignments);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -260,13 +269,8 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       margin: 0;
       text-transform: uppercase;
       letter-spacing: 0.16em;
-      font-size: 0.78rem;
-      font-weight: 700;
+      font-size: 0.72rem;
       color: #72f1b8;
-    }
-    .section-header .eyebrow {
-      font-size: 0.86rem;
-      letter-spacing: 0.12em;
     }
     h1, h2, h3, p { margin: 0; }
     h1 { font-size: 2rem; line-height: 1.02; }
@@ -409,59 +413,6 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     label span {
       font-size: 0.82rem;
       color: rgba(255, 255, 255, 0.78);
-    }
-    .config-label {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      min-width: 0;
-      position: relative;
-    }
-    .config-label > span:first-child {
-      min-width: 0;
-      overflow-wrap: anywhere;
-    }
-    .config-help {
-      width: 22px;
-      height: 22px;
-      flex: 0 0 22px;
-      display: inline-grid;
-      place-items: center;
-      border-radius: 50%;
-      border: 1px solid rgba(114, 241, 184, 0.28);
-      background: rgba(114, 241, 184, 0.08);
-      color: #b8f8dc;
-      cursor: pointer;
-      font-size: 0.78rem;
-      font-weight: 800;
-      line-height: 1;
-      user-select: none;
-    }
-    .config-help:focus-visible {
-      outline: 2px solid rgba(114, 241, 184, 0.72);
-      outline-offset: 2px;
-    }
-    .config-help__bubble {
-      display: none;
-      position: absolute;
-      top: calc(100% + 8px);
-      right: 0;
-      z-index: 20;
-      width: min(280px, calc(100vw - 64px));
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(114, 241, 184, 0.24);
-      background: rgba(12, 18, 24, 0.98);
-      color: rgba(255, 255, 255, 0.86);
-      box-shadow: 0 16px 28px rgba(0, 0, 0, 0.34);
-      font-size: 0.78rem;
-      font-weight: 500;
-      line-height: 1.45;
-      text-align: left;
-    }
-    .config-help--open .config-help__bubble {
-      display: block;
     }
     input, select {
       width: 100%;
@@ -620,13 +571,22 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       <div class="profiles" data-profiles></div>
       <div class="section-header">
         <div>
+          <p class="eyebrow">Agent Profiles</p>
+          <h2>Roles, instructions, and permissions</h2>
+          <p class="copy">Agents define the operational role SpecForge injects into prompts, the repository permissions enforced for phases, and which model profile powers the agent.</p>
+        </div>
+        <button class="secondary-action" type="button" data-add-agent>Add Agent</button>
+      </div>
+      <div class="profiles" data-agents></div>
+      <div class="section-header">
+        <div>
           <p class="eyebrow">Phase Routing</p>
           <h2>Per-phase selection</h2>
         </div>
       </div>
       <div class="warning-banner" data-default-warning>
         <strong>Default / fallback missing</strong>
-        <span>With multiple profiles, define a fallback profile or keep a single-profile setup.</span>
+        <span>With multiple agents, define a fallback agent or keep a single-agent setup.</span>
       </div>
       <div class="phase-grid" data-phase-grid>
         ${executionPhases.map((phase) => `
@@ -635,14 +595,14 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
               ${renderExecutionSettingsPhaseIcon(phase)}
               <span class="phase-field__title-stack">
                 <span class="phase-field__title">${escapeHtml(phase.label)}</span>
-                ${phase.key === "defaultProfile"
-                  ? '<span class="phase-field__inline-hint">Required when you have multiple profiles and no single implicit fallback.</span>'
+                ${phase.key === "defaultAgent"
+                  ? '<span class="phase-field__inline-hint">Required when you have multiple agents and no single implicit fallback.</span>'
                   : ""}
               </span>
             </span>
             <select data-phase-field="${escapeHtmlAttr(String(phase.key))}"></select>
-            ${phase.key === "defaultProfile"
-              ? '<span class="phase-field__hint">Required when you have multiple profiles and no single implicit fallback.</span>'
+            ${phase.key === "defaultAgent"
+              ? '<span class="phase-field__hint">Required when you have multiple agents and no single implicit fallback.</span>'
               : '<span class="phase-field__hint"></span>'}
           </label>
         `).join("")}
@@ -656,55 +616,59 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       </div>
       <div class="feature-grid">
         <label class="phase-field">
-          ${renderConfigLabel("Refinement tolerance", "Controls how much ambiguity refinement tolerates before spec can continue. Strict asks for more explicit answers; inferential lets the model proceed with more assumptions.")}
+          <span>Refinement tolerance</span>
           <select data-refinement-tolerance>
             <option value="strict"${model.refinementTolerance === "strict" ? " selected" : ""}>Strict</option>
             <option value="balanced"${model.refinementTolerance === "balanced" ? " selected" : ""}>Balanced</option>
             <option value="inferential"${model.refinementTolerance === "inferential" ? " selected" : ""}>Inferential</option>
           </select>
+          <span class="phase-field__hint">Controls how much ambiguity refinement tolerates before spec can continue.</span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Review tolerance", "Controls how demanding the review phase is before it passes or fails delivered work. Strict produces fewer passes when evidence is weak.")}
+          <span>Review tolerance</span>
           <select data-review-tolerance>
             <option value="strict"${model.reviewTolerance === "strict" ? " selected" : ""}>Strict</option>
             <option value="balanced"${model.reviewTolerance === "balanced" ? " selected" : ""}>Balanced</option>
             <option value="inferential"${model.reviewTolerance === "inferential" ? " selected" : ""}>Inferential</option>
           </select>
+          <span class="phase-field__hint">Controls how demanding the review phase is before it passes or fails delivered work.</span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Review evidence policy", "Controls which Technical Design validation evidence classes block review. Operational checks can be tracked without requiring a live environment during implementation review.")}
+          <span>Review evidence policy</span>
           <select data-review-evidence-policy>
             <option value="strict"${model.reviewEvidencePolicy === "strict" ? " selected" : ""}>Strict</option>
             <option value="balanced"${model.reviewEvidencePolicy === "balanced" ? " selected" : ""}>Balanced</option>
             <option value="release"${model.reviewEvidencePolicy === "release" ? " selected" : ""}>Release</option>
             <option value="advisory"${model.reviewEvidencePolicy === "advisory" ? " selected" : ""}>Advisory</option>
           </select>
+          <span class="phase-field__hint">Controls how missing validation evidence affects review pass/fail readiness.</span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Enable auto answers", "Lets SpecForge ask the selected model to answer pending refinement questions once before handing the phase back to you.")}
+          <span>Enable auto answers</span>
           <select data-auto-refinement-enabled>
             <option value="false"${model.autoRefinementAnswersEnabled ? "" : " selected"}>Disabled</option>
             <option value="true"${model.autoRefinementAnswersEnabled ? " selected" : ""}>Enabled</option>
           </select>
         </label>
         <label class="phase-field" data-auto-refinement-profile-wrapper>
-          ${renderConfigLabel("Auto-answer profile", "Selects which configured model profile is allowed to generate automatic refinement answers.")}
+          <span>Auto-answer profile</span>
           <select data-auto-refinement-profile></select>
-          <span class="phase-field__hint"></span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Context suggestions", "Suggests nearby repository files during refinement to improve local context selection.")}
+          <span>Context suggestions</span>
           <select data-context-suggestions-enabled>
             <option value="true"${model.contextSuggestionsEnabled ? " selected" : ""}>Enabled</option>
             <option value="false"${model.contextSuggestionsEnabled ? "" : " selected"}>Disabled</option>
           </select>
+          <span class="phase-field__hint">Suggest nearby repository files during refinement to improve local context selection.</span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Require approval branch acceptance", "Forces explicit confirmation of the proposed base branch before approving spec.")}
+          <span>Require approval branch acceptance</span>
           <select data-require-approval-branch-acceptance>
             <option value="false"${model.requireExplicitApprovalBranchAcceptance ? "" : " selected"}>Disabled</option>
             <option value="true"${model.requireExplicitApprovalBranchAcceptance ? " selected" : ""}>Enabled</option>
           </select>
+          <span class="phase-field__hint">Force explicit confirmation of the proposed base branch before approving spec.</span>
         </label>
       </div>
       <div class="section-header">
@@ -716,40 +680,45 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       </div>
       <div class="feature-grid">
         <label class="phase-field">
-          ${renderConfigLabel("Enable auto play", "Resumes workflow playback automatically after qualifying manual actions such as approvals.")}
+          <span>Enable auto play</span>
           <select data-auto-play-enabled>
             <option value="false"${model.autoPlayEnabled ? "" : " selected"}>Disabled</option>
             <option value="true"${model.autoPlayEnabled ? " selected" : ""}>Enabled</option>
           </select>
+          <span class="phase-field__hint">Resume workflow playback automatically after qualifying manual actions such as approvals.</span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Enable auto review", "Automatically starts review after implementation completes when playback is active and the workflow is eligible to continue.")}
+          <span>Enable auto review</span>
           <select data-auto-review-enabled>
             <option value="false"${model.autoReviewEnabled ? "" : " selected"}>Disabled</option>
             <option value="true"${model.autoReviewEnabled ? " selected" : ""}>Enabled</option>
           </select>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Max implementation/review cycles", "Stops automatic review after this many implementation attempts have been recorded.")}
+          <span>Max implementation/review cycles</span>
           <input type="number" min="1" step="1" data-max-implementation-review-cycles value="${escapeHtmlAttr(String(model.maxImplementationReviewCycles ?? 5))}" />
+          <span class="phase-field__hint">Automatic review stops when this many implementation attempts have been recorded.</span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Pause on failed review", "Pauses playback automatically when review fails so the developer can inspect the result before continuing.")}
+          <span>Pause on failed review</span>
           <select data-pause-on-failed-review>
             <option value="false"${model.pauseOnFailedReview ? "" : " selected"}>Disabled</option>
             <option value="true"${model.pauseOnFailedReview ? " selected" : ""}>Enabled</option>
           </select>
+          <span class="phase-field__hint">Pause playback automatically when review fails so the developer can inspect before continuing.</span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Review learning", "Allows failed-review retries to persist generalized guardrails into local skills or phase prompts.")}
+          <span>Review learning</span>
           <select data-review-learning-enabled>
             <option value="true"${model.reviewLearningEnabled ? " selected" : ""}>Enabled</option>
             <option value="false"${model.reviewLearningEnabled ? "" : " selected"}>Disabled</option>
           </select>
+          <span class="phase-field__hint">Persist generalized implementation lessons after failed reviews.</span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Review learning skill path", "Workspace-relative skill path updated when a reusable local SDD guardrail is found.")}
-          <input type="text" data-review-learning-skill-path value="${escapeHtmlAttr(model.reviewLearningSkillPath)}" placeholder=".codex/skills/sdd-phase-agents/SKILL.md" />
+          <span>Review learning skill path</span>
+          <input type="text" data-review-learning-skill-path value="${escapeHtmlAttr(model.reviewLearningSkillPath)}" />
+          <span class="phase-field__hint">Workspace-relative skill file used for review-learning guardrails.</span>
         </label>
       </div>
       <div class="section-header">
@@ -761,18 +730,20 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       </div>
       <div class="feature-grid">
         <label class="phase-field">
-          ${renderConfigLabel("Destructive rewind", "When enabled, rewinds and regressions delete later derived artifacts instead of only moving workflow state.")}
+          <span>Destructive rewind</span>
           <select data-destructive-rewind-enabled>
             <option value="false"${model.destructiveRewindEnabled ? "" : " selected"}>Disabled</option>
             <option value="true"${model.destructiveRewindEnabled ? " selected" : ""}>Enabled</option>
           </select>
+          <span class="phase-field__hint">When enabled, rewinds and regressions delete later derived artifacts instead of only moving workflow state.</span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Lock completed workflows", "Keeps completed workflows read-only until they are explicitly reopened from the completed phase.")}
+          <span>Lock completed workflows</span>
           <select data-completed-us-lock-on-completed>
             <option value="true"${model.completedUsLockOnCompleted ? " selected" : ""}>Enabled</option>
             <option value="false"${model.completedUsLockOnCompleted ? "" : " selected"}>Disabled</option>
           </select>
+          <span class="phase-field__hint">Disable this if completed workflows should remain directly mutable instead of requiring explicit reopen.</span>
         </label>
       </div>
       <div class="section-header">
@@ -784,46 +755,52 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       </div>
       <div class="feature-grid">
         <label class="phase-field">
-          ${renderConfigLabel("Workflow graph layout", "Sets the default graph orientation for this user in this workspace.")}
+          <span>Workflow graph layout</span>
           <select data-workflow-graph-layout-mode>
             <option value="vertical"${model.workflowGraphLayoutMode === "vertical" ? " selected" : ""}>Vertical</option>
             <option value="horizontal"${model.workflowGraphLayoutMode === "horizontal" ? " selected" : ""}>Horizontal</option>
           </select>
+          <span class="phase-field__hint">Default graph orientation for this user in this workspace.</span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Workflow graph initial zoom", "Sets the default zoom mode used when opening a workflow graph.")}
+          <span>Workflow graph initial zoom</span>
           <select data-workflow-graph-initial-zoom-mode>
             <option value="actual-size"${model.workflowGraphInitialZoomMode === "fit-width" ? "" : " selected"}>100%</option>
             <option value="fit-width"${model.workflowGraphInitialZoomMode === "fit-width" ? " selected" : ""}>Fit to width</option>
           </select>
+          <span class="phase-field__hint">Default zoom mode used when opening a workflow graph.</span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("User story list view", "Sets the default grouping used by the user stories sidebar.")}
+          <span>User story list view</span>
           <select data-user-story-list-view-mode>
-            <option value="category"${model.userStoryListViewMode === "phase" ? "" : " selected"}>By category</option>
-            <option value="phase"${model.userStoryListViewMode === "phase" ? " selected" : ""}>By phase</option>
+            <option value="category"${model.userStoryListViewMode === "phase" ? "" : " selected"}>Category</option>
+            <option value="phase"${model.userStoryListViewMode === "phase" ? " selected" : ""}>Phase</option>
           </select>
+          <span class="phase-field__hint">Group user stories by category or current workflow phase in the sidebar.</span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Visual timeline", "Shows or hides the visual workflow timeline dock in the workflow detail view.")}
+          <span>Visual timeline</span>
           <select data-visual-timeline-enabled>
             <option value="false"${model.visualTimelineEnabled ? "" : " selected"}>Hidden</option>
             <option value="true"${model.visualTimelineEnabled ? " selected" : ""}>Visible</option>
           </select>
+          <span class="phase-field__hint">Show or hide the visual workflow timeline dock in the workflow detail view.</span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Workspace watcher", "Refreshes the explorer and workflow views automatically when .specs files change on disk.")}
+          <span>Workspace watcher</span>
           <select data-watcher-enabled>
             <option value="true"${model.watcherEnabled ? " selected" : ""}>Enabled</option>
             <option value="false"${model.watcherEnabled ? "" : " selected"}>Disabled</option>
           </select>
+          <span class="phase-field__hint">Refresh the explorer and workflow views automatically when <code>.specs</code> files change on disk.</span>
         </label>
         <label class="phase-field">
-          ${renderConfigLabel("Attention notifications", "Shows notifications when a user story becomes waiting-user, blocked, or completed.")}
+          <span>Attention notifications</span>
           <select data-attention-notifications-enabled>
             <option value="true"${model.attentionNotificationsEnabled ? " selected" : ""}>Enabled</option>
             <option value="false"${model.attentionNotificationsEnabled ? "" : " selected"}>Disabled</option>
           </select>
+          <span class="phase-field__hint">Show notifications when a user story becomes waiting-user, blocked, or completed.</span>
         </label>
       </div>
       <div class="actions">
@@ -836,15 +813,18 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     const vscode = acquireVsCodeApi();
     const executionPhases = ${JSON.stringify(executionPhases)};
     const permissionRequirements = ${JSON.stringify([
-      { assignmentKey: "refinementProfile", label: "Refinement", requiredRepositoryAccess: "read" },
-      { assignmentKey: "specProfile", label: "Spec", requiredRepositoryAccess: "read" },
-      { assignmentKey: "technicalDesignProfile", label: "Technical Design", requiredRepositoryAccess: "read" },
-      { assignmentKey: "implementationProfile", label: "Implementation", requiredRepositoryAccess: "read-write" },
-      { assignmentKey: "reviewProfile", label: "Review", requiredRepositoryAccess: "read-write" }
+      { assignmentKey: "refinementAgent", label: "Refinement", requiredRepositoryAccess: "read" },
+      { assignmentKey: "specAgent", label: "Spec", requiredRepositoryAccess: "read" },
+      { assignmentKey: "technicalDesignAgent", label: "Technical Design", requiredRepositoryAccess: "read" },
+      { assignmentKey: "implementationAgent", label: "Implementation", requiredRepositoryAccess: "read-write" },
+      { assignmentKey: "reviewAgent", label: "Review", requiredRepositoryAccess: "read-write" },
+      { assignmentKey: "releaseApprovalAgent", label: "Release Approval", requiredRepositoryAccess: "read" },
+      { assignmentKey: "prPreparationAgent", label: "PR Preparation", requiredRepositoryAccess: "read" }
     ])};
     let state = {
       modelProfiles: ${JSON.stringify(model.modelProfiles)},
-      phaseModelAssignments: ${JSON.stringify(model.phaseModelAssignments)},
+      agentProfiles: ${JSON.stringify(model.agentProfiles)},
+      phaseAgentAssignments: ${JSON.stringify(model.phaseAgentAssignments)},
       refinementTolerance: ${JSON.stringify(model.refinementTolerance)},
       reviewTolerance: ${JSON.stringify(model.reviewTolerance)},
       reviewEvidencePolicy: ${JSON.stringify(model.reviewEvidencePolicy)},
@@ -868,7 +848,9 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       completedUsLockOnCompleted: ${JSON.stringify(model.completedUsLockOnCompleted)},
       initialPermissionIssues: ${JSON.stringify(permissionIssues)},
       expandedProfileIndexes: ${JSON.stringify(model.modelProfiles.map((_, index) => index === 0))},
-      pendingFocusProfileIndex: null
+      expandedAgentIndexes: ${JSON.stringify(model.agentProfiles.map((_, index) => index === 0))},
+      pendingFocusProfileIndex: null,
+      pendingFocusAgentIndex: null
     };
 
     function escapeHtml(value) {
@@ -912,14 +894,22 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
 
     function phaseOptions(selectedValue) {
       const options = ['<option value="">Use default</option>'];
-      for (const profile of state.modelProfiles) {
-        options.push('<option value="' + escapeHtml(profile.name || "") + '"' + ((profile.name || "") === selectedValue ? " selected" : "") + '>' + escapeHtml(profile.name || "") + '</option>');
+      for (const agent of state.agentProfiles) {
+        options.push('<option value="' + escapeHtml(agent.name || "") + '"' + ((agent.name || "") === selectedValue ? " selected" : "") + '>' + escapeHtml(agent.name || "") + '</option>');
       }
       return options.join("");
     }
 
     function autoRefinementProfileOptions(selectedValue) {
-      const options = ['<option value="">Select a profile</option>'];
+      const options = ['<option value="">Select an agent</option>'];
+      for (const agent of state.agentProfiles) {
+        options.push('<option value="' + escapeHtml(agent.name || "") + '"' + ((agent.name || "") === selectedValue ? " selected" : "") + '>' + escapeHtml(agent.name || "") + '</option>');
+      }
+      return options.join("");
+    }
+
+    function modelProfileOptions(selectedValue) {
+      const options = ['<option value="">Select a model profile</option>'];
       for (const profile of state.modelProfiles) {
         options.push('<option value="' + escapeHtml(profile.name || "") + '"' + ((profile.name || "") === selectedValue ? " selected" : "") + '>' + escapeHtml(profile.name || "") + '</option>');
       }
@@ -927,8 +917,8 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     }
 
     function hasFallbackProblem() {
-      const nonEmptyProfiles = state.modelProfiles.filter((profile) => String(profile.name || "").trim().length > 0);
-      return nonEmptyProfiles.length > 1 && !String(state.phaseModelAssignments.defaultProfile || "").trim();
+      const nonEmptyAgents = state.agentProfiles.filter((agent) => String(agent.name || "").trim().length > 0);
+      return nonEmptyAgents.length > 1 && !String(state.phaseAgentAssignments.defaultAgent || "").trim();
     }
 
     function hasAutoRefinementProblem() {
@@ -937,22 +927,22 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
 
     function validatePermissionIssues() {
       const profilesByName = new Map(
-        state.modelProfiles
-          .map((profile) => ({
-            name: String(profile.name || "").trim(),
-            repositoryAccess: String(profile.repositoryAccess || "none").trim() || "none"
+        state.agentProfiles
+          .map((agent) => ({
+            name: String(agent.name || "").trim(),
+            repositoryAccess: String(agent.repositoryAccess || "none").trim() || "none"
           }))
-          .filter((profile) => profile.name.length > 0)
-          .map((profile) => [profile.name, profile])
+          .filter((agent) => agent.name.length > 0)
+          .map((agent) => [agent.name, agent])
       );
-      const implicitDefaultProfile = state.modelProfiles.length === 1
-        ? String(state.modelProfiles[0]?.name || "").trim() || null
+      const implicitDefaultAgent = state.agentProfiles.length === 1
+        ? String(state.agentProfiles[0]?.name || "").trim() || null
         : null;
-      const defaultProfile = String(state.phaseModelAssignments.defaultProfile || "").trim() || implicitDefaultProfile;
+      const defaultAgent = String(state.phaseAgentAssignments.defaultAgent || "").trim() || implicitDefaultAgent;
       const issues = [];
 
       for (const requirement of permissionRequirements) {
-        const assignedProfile = String(state.phaseModelAssignments[requirement.assignmentKey] || "").trim() || defaultProfile;
+        const assignedProfile = String(state.phaseAgentAssignments[requirement.assignmentKey] || "").trim() || defaultAgent;
         if (!assignedProfile) {
           continue;
         }
@@ -973,7 +963,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         issues.push({
           assignmentKey: requirement.assignmentKey,
           label: requirement.label,
-          message: requirement.label + " requires repository access '" + requirement.requiredRepositoryAccess + "', but profile '" + assignedProfile + "' only grants '" + actual + "'."
+            message: requirement.label + " requires repository access '" + requirement.requiredRepositoryAccess + "', but agent '" + assignedProfile + "' only grants '" + actual + "'."
         });
       }
 
@@ -982,6 +972,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
 
     function render() {
       const profilesHost = document.querySelector("[data-profiles]");
+      const agentsHost = document.querySelector("[data-agents]");
       const phaseGrid = document.querySelector("[data-phase-grid]");
       const warning = document.querySelector("[data-default-warning]");
       const autoRefinementProfile = document.querySelector("[data-auto-refinement-profile]");
@@ -1008,7 +999,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       const completedUsLockOnCompleted = document.querySelector("[data-completed-us-lock-on-completed]");
       const saveButton = document.querySelector('button[type="submit"]');
       const saveError = document.querySelector("[data-save-error]");
-      if (!(profilesHost instanceof HTMLElement) || !(phaseGrid instanceof HTMLElement)) {
+      if (!(profilesHost instanceof HTMLElement) || !(agentsHost instanceof HTMLElement) || !(phaseGrid instanceof HTMLElement)) {
         return;
       }
 
@@ -1047,15 +1038,49 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         }).join("");
       }
 
+      if (state.agentProfiles.length === 0) {
+        agentsHost.innerHTML = '<div class="empty">No agent profiles configured yet.</div>';
+      } else {
+        agentsHost.innerHTML = state.agentProfiles.map((agent, index) => {
+          const isExpanded = Array.isArray(state.expandedAgentIndexes) ? Boolean(state.expandedAgentIndexes[index]) : index === 0;
+          const summaryTitle = escapeHtml(agent.name || ('Agent ' + (index + 1)));
+          const summaryMeta = [
+            String(agent.role || "agent").trim() || "agent",
+            String(agent.modelProfile || "").trim() || "no model",
+            String(agent.repositoryAccess || "none").trim() || "none"
+          ].join(" · ");
+          return '<details class="profile-card" data-agent-index="' + index + '"' + (isExpanded ? ' open' : '') + '>'
+            + '<summary class="profile-card__summary">'
+            + '<div class="profile-card__summary-main">'
+            + '<strong class="profile-card__summary-title">' + summaryTitle + '</strong>'
+            + '<span class="profile-card__summary-meta">' + escapeHtml(summaryMeta) + '</span>'
+            + '</div>'
+            + '<div class="profile-card__summary-actions">'
+            + '<button class="danger-action" type="button" data-remove-agent="' + index + '" title="Remove agent ' + (index + 1) + '" aria-label="Remove agent ' + (index + 1) + '">×</button>'
+            + '<span class="profile-card__chevron" aria-hidden="true">⌄</span>'
+            + '</div>'
+            + '</summary>'
+            + '<div class="profile-grid">'
+            + fieldMarkup("Name", '<input type="text" data-agent-field="name" value="' + escapeHtml(agent.name || "") + '" placeholder="planner" />')
+            + fieldMarkup("Role", '<input type="text" data-agent-field="role" value="' + escapeHtml(agent.role || "") + '" placeholder="Planner" />')
+            + fieldMarkup("Model Profile", '<select data-agent-field="modelProfile">' + modelProfileOptions(agent.modelProfile || "") + '</select>')
+            + fieldMarkup("Repository Access", '<select data-agent-field="repositoryAccess">' + repositoryAccessOptions(agent.repositoryAccess || "none") + '</select>')
+            + fieldMarkup("Reasoning Effort", '<select data-agent-field="reasoningEffort">' + reasoningEffortOptions(agent.reasoningEffort || "") + '</select>')
+            + fieldMarkup("Instructions", '<input type="text" data-agent-field="instructions" value="' + escapeHtml(agent.instructions || "") + '" placeholder="Follow the phase contract exactly." />')
+            + '</div>'
+            + '</details>';
+        }).join("");
+      }
+
       for (const select of phaseGrid.querySelectorAll("[data-phase-field]")) {
         if (!(select instanceof HTMLSelectElement) || !select.dataset.phaseField) {
           continue;
         }
-        const value = state.phaseModelAssignments[select.dataset.phaseField] || "";
+        const value = state.phaseAgentAssignments[select.dataset.phaseField] || "";
         select.innerHTML = phaseOptions(value);
         select.value = value;
         select.addEventListener("change", () => {
-          state.phaseModelAssignments[select.dataset.phaseField] = select.value;
+          state.phaseAgentAssignments[select.dataset.phaseField] = select.value;
         });
       }
 
@@ -1222,19 +1247,15 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       if (warning instanceof HTMLElement) {
         warning.classList.toggle("warning-banner--visible", fallbackProblem);
       }
-      const defaultWrapper = document.querySelector('[data-phase-wrapper="defaultProfile"]');
+      const defaultWrapper = document.querySelector('[data-phase-wrapper="defaultAgent"]');
       if (defaultWrapper instanceof HTMLElement) {
         defaultWrapper.classList.toggle("phase-field--invalid", fallbackProblem);
       }
       if (autoRefinementWrapper instanceof HTMLElement) {
         autoRefinementWrapper.classList.toggle("phase-field--invalid", autoRefinementProblem);
-        const hint = autoRefinementWrapper.querySelector(".phase-field__hint");
-        if (hint instanceof HTMLElement) {
-          hint.textContent = autoRefinementProblem ? "Select the profile that should answer refinement questions." : "";
-        }
       }
       for (const phase of executionPhases) {
-        if (phase.key === "defaultProfile") {
+        if (phase.key === "defaultAgent") {
           continue;
         }
         const wrapper = document.querySelector('[data-phase-wrapper="' + phase.key + '"]');
@@ -1250,18 +1271,18 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       if (saveButton instanceof HTMLButtonElement) {
         saveButton.disabled = fallbackProblem || autoRefinementProblem || permissionIssues.length > 0;
         saveButton.title = fallbackProblem
-          ? "Define the default fallback profile before saving."
+          ? "Define the default fallback agent before saving."
           : autoRefinementProblem
-            ? "Select the profile that should answer refinement questions."
+            ? "Select the agent that should answer refinement questions."
             : permissionIssues.length > 0
               ? permissionIssues[0].message
             : "";
       }
       if (saveError instanceof HTMLElement) {
         const errorMessage = fallbackProblem
-          ? "Define the default fallback profile before saving."
+          ? "Define the default fallback agent before saving."
           : autoRefinementProblem
-            ? "Select the profile that should answer refinement questions."
+            ? "Select the agent that should answer refinement questions."
             : permissionIssues[0]?.message || "";
         saveError.textContent = errorMessage;
         saveError.classList.toggle("save-error--visible", errorMessage.length > 0);
@@ -1311,6 +1332,50 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         }
       }
 
+      for (const button of agentsHost.querySelectorAll("[data-remove-agent]")) {
+        if (!(button instanceof HTMLButtonElement)) {
+          continue;
+        }
+        button.addEventListener("click", () => {
+          const index = Number(button.dataset.removeAgent ?? "-1");
+          if (index < 0) {
+            return;
+          }
+          state.agentProfiles.splice(index, 1);
+          if (Array.isArray(state.expandedAgentIndexes)) {
+            state.expandedAgentIndexes.splice(index, 1);
+          }
+          pruneMissingAssignments();
+          render();
+        });
+      }
+
+      for (const card of agentsHost.querySelectorAll("[data-agent-index]")) {
+        if (!(card instanceof HTMLDetailsElement)) {
+          continue;
+        }
+        const index = Number(card.dataset.agentIndex ?? "-1");
+        if (index < 0) {
+          continue;
+        }
+        card.addEventListener("toggle", () => {
+          if (!Array.isArray(state.expandedAgentIndexes)) {
+            state.expandedAgentIndexes = [];
+          }
+          state.expandedAgentIndexes[index] = card.open;
+        });
+      }
+
+      for (const card of agentsHost.querySelectorAll("[data-agent-index]")) {
+        for (const input of card.querySelectorAll("[data-agent-field]")) {
+          if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement)) {
+            continue;
+          }
+          input.addEventListener("input", syncFromDomSilently);
+          input.addEventListener("change", syncFromDom);
+        }
+      }
+
       if (typeof state.pendingFocusProfileIndex === "number" && state.pendingFocusProfileIndex >= 0) {
         const targetCard = profilesHost.querySelector('[data-profile-index="' + state.pendingFocusProfileIndex + '"]');
         if (targetCard instanceof HTMLDetailsElement) {
@@ -1328,6 +1393,24 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         }
         state.pendingFocusProfileIndex = null;
       }
+
+      if (typeof state.pendingFocusAgentIndex === "number" && state.pendingFocusAgentIndex >= 0) {
+        const targetCard = agentsHost.querySelector('[data-agent-index="' + state.pendingFocusAgentIndex + '"]');
+        if (targetCard instanceof HTMLDetailsElement) {
+          targetCard.open = true;
+          requestAnimationFrame(() => {
+            targetCard.scrollIntoView({ behavior: "smooth", block: "center" });
+            const firstField = targetCard.querySelector('[data-agent-field="name"]');
+            if (firstField instanceof HTMLInputElement || firstField instanceof HTMLSelectElement) {
+              firstField.focus();
+              if (firstField instanceof HTMLInputElement) {
+                firstField.select();
+              }
+            }
+          });
+        }
+        state.pendingFocusAgentIndex = null;
+      }
     }
 
     function fieldMarkup(label, controlMarkup, hidden) {
@@ -1336,6 +1419,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
 
     function syncFromDom() {
       const previousProfiles = state.modelProfiles.slice();
+      const previousAgents = state.agentProfiles.slice();
       const nextProfiles = [];
       for (const card of document.querySelectorAll("[data-profile-index]")) {
         nextProfiles.push({
@@ -1348,14 +1432,18 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
           repositoryAccess: readProfileField(card, "repositoryAccess") || "none"
         });
       }
-      remapAssignmentsForRenamedProfiles(previousProfiles, nextProfiles);
+      const nextAgents = readAgentsFromDom();
+      remapAgentModelProfilesForRenamedModels(previousProfiles, nextProfiles, nextAgents);
+      remapAssignmentsForRenamedAgents(previousAgents, nextAgents);
       state.modelProfiles = nextProfiles;
+      state.agentProfiles = nextAgents;
       pruneMissingAssignments();
       render();
     }
 
     function syncFromDomSilently() {
       const previousProfiles = state.modelProfiles.slice();
+      const previousAgents = state.agentProfiles.slice();
       const nextProfiles = [];
       for (const card of document.querySelectorAll("[data-profile-index]")) {
         nextProfiles.push({
@@ -1368,12 +1456,30 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
           repositoryAccess: readProfileField(card, "repositoryAccess") || "none"
         });
       }
-      remapAssignmentsForRenamedProfiles(previousProfiles, nextProfiles);
+      const nextAgents = readAgentsFromDom();
+      remapAgentModelProfilesForRenamedModels(previousProfiles, nextProfiles, nextAgents);
+      remapAssignmentsForRenamedAgents(previousAgents, nextAgents);
       state.modelProfiles = nextProfiles;
+      state.agentProfiles = nextAgents;
       pruneMissingAssignments();
     }
 
-    function remapAssignmentsForRenamedProfiles(previousProfiles, nextProfiles) {
+    function readAgentsFromDom() {
+      const nextAgents = [];
+      for (const card of document.querySelectorAll("[data-agent-index]")) {
+        nextAgents.push({
+          name: readAgentField(card, "name"),
+          role: readAgentField(card, "role"),
+          modelProfile: readAgentField(card, "modelProfile"),
+          instructions: readAgentField(card, "instructions"),
+          repositoryAccess: readAgentField(card, "repositoryAccess") || "none",
+          reasoningEffort: readAgentField(card, "reasoningEffort")
+        });
+      }
+      return nextAgents;
+    }
+
+    function remapAgentModelProfilesForRenamedModels(previousProfiles, nextProfiles, nextAgents) {
       const renameMap = new Map();
       for (let index = 0; index < Math.min(previousProfiles.length, nextProfiles.length); index += 1) {
         const previousName = String(previousProfiles[index]?.name || "").trim();
@@ -1389,10 +1495,34 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         return;
       }
 
-      for (const phase of executionPhases) {
-        const current = String(state.phaseModelAssignments[phase.key] || "").trim();
+      for (const agent of nextAgents) {
+        const current = String(agent.modelProfile || "").trim();
         if (current && renameMap.has(current)) {
-          state.phaseModelAssignments[phase.key] = renameMap.get(current);
+          agent.modelProfile = renameMap.get(current);
+        }
+      }
+    }
+
+    function remapAssignmentsForRenamedAgents(previousAgents, nextAgents) {
+      const renameMap = new Map();
+      for (let index = 0; index < Math.min(previousAgents.length, nextAgents.length); index += 1) {
+        const previousName = String(previousAgents[index]?.name || "").trim();
+        const nextName = String(nextAgents[index]?.name || "").trim();
+        if (!previousName || !nextName || previousName === nextName) {
+          continue;
+        }
+
+        renameMap.set(previousName, nextName);
+      }
+
+      if (renameMap.size === 0) {
+        return;
+      }
+
+      for (const phase of executionPhases) {
+        const current = String(state.phaseAgentAssignments[phase.key] || "").trim();
+        if (current && renameMap.has(current)) {
+          state.phaseAgentAssignments[phase.key] = renameMap.get(current);
         }
       }
 
@@ -1403,11 +1533,11 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     }
 
     function pruneMissingAssignments() {
-      const names = new Set(state.modelProfiles.map((profile) => profile.name).filter(Boolean));
+      const names = new Set(state.agentProfiles.map((agent) => agent.name).filter(Boolean));
       for (const phase of executionPhases) {
-        const current = state.phaseModelAssignments[phase.key];
+        const current = state.phaseAgentAssignments[phase.key];
         if (current && !names.has(current)) {
-          state.phaseModelAssignments[phase.key] = "";
+          state.phaseAgentAssignments[phase.key] = "";
         }
       }
       if (state.autoRefinementAnswersProfile && !names.has(state.autoRefinementAnswersProfile)) {
@@ -1422,51 +1552,15 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         : "";
     }
 
+    function readAgentField(card, field) {
+      const input = card.querySelector('[data-agent-field="' + field + '"]');
+      return input instanceof HTMLInputElement || input instanceof HTMLSelectElement
+        ? input.value
+        : "";
+    }
+
     document.querySelector("[data-command='openRawSettings']")?.addEventListener("click", () => {
       vscode.postMessage({ command: "openRawSettings" });
-    });
-
-    function closeHelpPopovers(except) {
-      for (const help of document.querySelectorAll("[data-help-toggle]")) {
-        if (!(help instanceof HTMLElement) || help === except) {
-          continue;
-        }
-        help.classList.remove("config-help--open");
-        help.setAttribute("aria-expanded", "false");
-      }
-    }
-
-    function toggleHelpPopover(help) {
-      const isOpen = help.classList.contains("config-help--open");
-      closeHelpPopovers(help);
-      help.classList.toggle("config-help--open", !isOpen);
-      help.setAttribute("aria-expanded", String(!isOpen));
-    }
-
-    document.addEventListener("click", (event) => {
-      const target = event.target;
-      const help = target instanceof Element ? target.closest("[data-help-toggle]") : null;
-      if (help instanceof HTMLElement) {
-        event.preventDefault();
-        toggleHelpPopover(help);
-        return;
-      }
-      closeHelpPopovers(null);
-    });
-
-    document.addEventListener("keydown", (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement) || !target.matches("[data-help-toggle]")) {
-        if (event.key === "Escape") {
-          closeHelpPopovers(null);
-        }
-        return;
-      }
-      if (event.key !== "Enter" && event.key !== " ") {
-        return;
-      }
-      event.preventDefault();
-      toggleHelpPopover(target);
     });
 
     document.querySelector("[data-add-profile]")?.addEventListener("click", () => {
@@ -1488,6 +1582,24 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       render();
     });
 
+    document.querySelector("[data-add-agent]")?.addEventListener("click", () => {
+      const nextIndex = state.agentProfiles.length;
+      state.agentProfiles.push({
+        name: "",
+        role: "",
+        modelProfile: state.modelProfiles[0]?.name || "",
+        instructions: "",
+        repositoryAccess: "none",
+        reasoningEffort: ""
+      });
+      if (!Array.isArray(state.expandedAgentIndexes)) {
+        state.expandedAgentIndexes = [];
+      }
+      state.expandedAgentIndexes = state.agentProfiles.map((_, index) => index === nextIndex);
+      state.pendingFocusAgentIndex = nextIndex;
+      render();
+    });
+
     document.getElementById("execution-settings-form")?.addEventListener("submit", (event) => {
       event.preventDefault();
       syncFromDom();
@@ -1497,7 +1609,8 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       vscode.postMessage({
         command: "saveExecutionSettings",
         modelProfiles: state.modelProfiles,
-        phaseModelAssignments: state.phaseModelAssignments,
+        agentProfiles: state.agentProfiles,
+        phaseAgentAssignments: state.phaseAgentAssignments,
         refinementTolerance: state.refinementTolerance,
         reviewTolerance: state.reviewTolerance,
         reviewEvidencePolicy: state.reviewEvidencePolicy,
@@ -1530,7 +1643,8 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
 
 async function saveExecutionSettingsAsync(
   modelProfiles: readonly Partial<SpecForgeModelProfile>[],
-  phaseModelAssignments: Partial<SpecForgePhaseModelAssignments>,
+  agentProfiles: readonly Partial<SpecForgeAgentProfile>[],
+  phaseAgentAssignments: Partial<SpecForgePhaseAgentAssignments>,
   refinementTolerance = "balanced",
   reviewTolerance = "balanced",
   reviewEvidencePolicy = "balanced",
@@ -1573,29 +1687,66 @@ async function saveExecutionSettingsAsync(
       || profile.provider !== "openai-compatible"
       || profile.repositoryAccess !== "none");
 
-  const normalizedAssignments: SpecForgePhaseModelAssignments = {
-    defaultProfile: normalizeOptionalAssignment(phaseModelAssignments.defaultProfile),
-    refinementProfile: normalizeOptionalAssignment(phaseModelAssignments.refinementProfile),
-    specProfile: normalizeOptionalAssignment(phaseModelAssignments.specProfile),
-    technicalDesignProfile: normalizeOptionalAssignment(phaseModelAssignments.technicalDesignProfile),
-    implementationProfile: normalizeOptionalAssignment(phaseModelAssignments.implementationProfile),
-    reviewProfile: normalizeOptionalAssignment(phaseModelAssignments.reviewProfile),
-    releaseApprovalProfile: normalizeOptionalAssignment(phaseModelAssignments.releaseApprovalProfile),
-    prPreparationProfile: normalizeOptionalAssignment(phaseModelAssignments.prPreparationProfile)
+  const normalizedAgents = agentProfiles
+    .map((agent) => ({
+      name: typeof agent.name === "string" ? agent.name.trim() : "",
+      role: typeof agent.role === "string" ? agent.role.trim() : "",
+      modelProfile: typeof agent.modelProfile === "string" ? agent.modelProfile.trim() : "",
+      instructions: typeof agent.instructions === "string" ? agent.instructions.trim() : "",
+      repositoryAccess: typeof agent.repositoryAccess === "string" ? agent.repositoryAccess.trim() : "none",
+      reasoningEffort: typeof agent.reasoningEffort === "string" ? agent.reasoningEffort.trim().toLowerCase() : ""
+    }))
+    .filter((agent) =>
+      agent.name.length > 0
+      || agent.role.length > 0
+      || agent.modelProfile.length > 0
+      || agent.instructions.length > 0
+      || agent.reasoningEffort.length > 0
+      || agent.repositoryAccess !== "none");
+
+  const normalizedAssignments: SpecForgePhaseAgentAssignments = {
+    defaultAgent: normalizeOptionalAssignment(phaseAgentAssignments.defaultAgent),
+    captureAgent: normalizeOptionalAssignment(phaseAgentAssignments.captureAgent),
+    refinementAgent: normalizeOptionalAssignment(phaseAgentAssignments.refinementAgent),
+    specAgent: normalizeOptionalAssignment(phaseAgentAssignments.specAgent),
+    technicalDesignAgent: normalizeOptionalAssignment(phaseAgentAssignments.technicalDesignAgent),
+    implementationAgent: normalizeOptionalAssignment(phaseAgentAssignments.implementationAgent),
+    reviewAgent: normalizeOptionalAssignment(phaseAgentAssignments.reviewAgent),
+    releaseApprovalAgent: normalizeOptionalAssignment(phaseAgentAssignments.releaseApprovalAgent),
+    prPreparationAgent: normalizeOptionalAssignment(phaseAgentAssignments.prPreparationAgent)
   };
-  const permissionIssues = validatePhasePermissionAssignments(normalizedProfiles, normalizedAssignments);
-  if (requiresDefaultFallback(normalizedProfiles, normalizedAssignments)) {
-    throw new Error("Define the default fallback profile before saving execution settings.");
+  const modelNames = new Set(normalizedProfiles.map((profile) => profile.name));
+  const agentWithoutModel = normalizedAgents.find((agent) => !agent.modelProfile);
+  if (agentWithoutModel) {
+    throw new Error(`Agent '${agentWithoutModel.name || "<unnamed>"}' must reference a model profile.`);
+  }
+
+  const missingModelAgent = normalizedAgents.find((agent) => agent.modelProfile && !modelNames.has(agent.modelProfile));
+  if (missingModelAgent) {
+    throw new Error(`Agent '${missingModelAgent.name || "<unnamed>"}' references unknown model profile '${missingModelAgent.modelProfile}'.`);
+  }
+
+  const agentNames = new Set(normalizedAgents.map((agent) => agent.name));
+  const autoAnswerAgent = normalizeOptionalAssignment(autoRefinementAnswersProfile);
+  if (autoRefinementAnswersEnabled && autoAnswerAgent && !agentNames.has(autoAnswerAgent)) {
+    throw new Error(`Auto-refinement answers agent '${autoAnswerAgent}' was not configured.`);
+  }
+
+  const permissionIssues = validatePhasePermissionAssignments(normalizedAgents, normalizedAssignments);
+  if (requiresDefaultFallback(normalizedAgents, normalizedAssignments)) {
+    throw new Error("Define the default fallback agent before saving execution settings.");
   }
   if (autoRefinementAnswersEnabled && !normalizeOptionalAssignment(autoRefinementAnswersProfile)) {
-    throw new Error("Select the profile that should answer refinement questions before saving execution settings.");
+    throw new Error("Select the agent that should answer refinement questions before saving execution settings.");
   }
   if (permissionIssues.length > 0) {
     throw new Error(permissionIssues[0]?.message ?? "Execution settings include a phase model permission mismatch.");
   }
 
   await configuration.update("execution.modelProfiles", normalizedProfiles, vscode.ConfigurationTarget.Workspace);
-  await configuration.update("execution.phaseModels", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
+  await configuration.update("execution.agentProfiles", normalizedAgents, vscode.ConfigurationTarget.Workspace);
+  await configuration.update("execution.phaseAgents", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
+  await configuration.update("execution.phaseModels", undefined, vscode.ConfigurationTarget.Workspace);
   await configuration.update("execution.refinementTolerance", refinementTolerance, vscode.ConfigurationTarget.Workspace);
   await configuration.update("execution.reviewTolerance", reviewTolerance, vscode.ConfigurationTarget.Workspace);
   await configuration.update("execution.reviewEvidencePolicy", reviewEvidencePolicy, vscode.ConfigurationTarget.Workspace);

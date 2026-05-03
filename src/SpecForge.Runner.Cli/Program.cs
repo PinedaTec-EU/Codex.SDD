@@ -160,7 +160,23 @@ static int ExitWithError(string message)
 
 static IPhaseExecutionProvider CreatePhaseExecutionProvider()
 {
-    var payload = Environment.GetEnvironmentVariable("SPECFORGE_OPENAI_MODEL_PROFILES_JSON");
+    const string modelProfilesEnvVar = "SPECFORGE_OPENAI_MODEL_PROFILES_JSON";
+    const string agentProfilesEnvVar = "SPECFORGE_OPENAI_AGENT_PROFILES_JSON";
+    const string phaseAgentsEnvVar = "SPECFORGE_OPENAI_PHASE_AGENT_ASSIGNMENTS_JSON";
+    const string refinementToleranceEnvVar = "SPECFORGE_REFINEMENT_TOLERANCE";
+    const string legacyRefinementToleranceEnvVar = "SPECFORGE_CAPTURE_TOLERANCE";
+    const string reviewToleranceEnvVar = "SPECFORGE_REVIEW_TOLERANCE";
+    const string reviewEvidencePolicyEnvVar = "SPECFORGE_REVIEW_EVIDENCE_POLICY";
+    const string autoRefinementAnswersEnabledEnvVar = "SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED";
+    const string legacyAutoRefinementAnswersEnabledEnvVar = "SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED";
+    const string autoRefinementAnswersProfileEnvVar = "SPECFORGE_AUTO_REFINEMENT_ANSWERS_PROFILE";
+    const string legacyAutoRefinementAnswersProfileEnvVar = "SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE";
+    const string reviewLearningEnabledEnvVar = "SPECFORGE_REVIEW_LEARNING_ENABLED";
+    const string reviewLearningSkillPathEnvVar = "SPECFORGE_REVIEW_LEARNING_SKILL_PATH";
+    const string systemPromptEnvVar = "SPECFORGE_OPENAI_SYSTEM_PROMPT";
+    const string timeoutSecondsEnvVar = "SPECFORGE_OPENAI_TIMEOUT_SECONDS";
+
+    var payload = Environment.GetEnvironmentVariable(modelProfilesEnvVar);
     if (string.IsNullOrWhiteSpace(payload))
     {
         return new DeterministicPhaseExecutionProvider();
@@ -171,19 +187,61 @@ static IPhaseExecutionProvider CreatePhaseExecutionProvider()
         PropertyNameCaseInsensitive = true
     };
     var modelProfiles = JsonSerializer.Deserialize<List<OpenAiCompatibleModelProfile>>(payload, jsonOptions)
-        ?? throw new InvalidOperationException("SPECFORGE_OPENAI_MODEL_PROFILES_JSON could not be parsed.");
+        ?? throw new InvalidOperationException($"{modelProfilesEnvVar} could not be parsed.");
     var agentProfiles = JsonSerializer.Deserialize<List<OpenAiCompatibleAgentProfile>>(
-            Environment.GetEnvironmentVariable("SPECFORGE_OPENAI_AGENT_PROFILES_JSON") ?? "[]",
+            Environment.GetEnvironmentVariable(agentProfilesEnvVar) ?? "[]",
             jsonOptions)
         ?? [];
     var phaseAgents = JsonSerializer.Deserialize<OpenAiCompatiblePhaseAgentAssignments>(
-        Environment.GetEnvironmentVariable("SPECFORGE_OPENAI_PHASE_AGENT_ASSIGNMENTS_JSON") ?? "{}",
+        Environment.GetEnvironmentVariable(phaseAgentsEnvVar) ?? "{}",
         jsonOptions);
+    var autoRefinementAnswersProfile = Environment.GetEnvironmentVariable(autoRefinementAnswersProfileEnvVar)
+        ?? Environment.GetEnvironmentVariable(legacyAutoRefinementAnswersProfileEnvVar);
+    var reviewLearningSkillPath = Environment.GetEnvironmentVariable(reviewLearningSkillPathEnvVar);
 
     return new OpenAiCompatiblePhaseExecutionProvider(
-        new HttpClient { Timeout = TimeSpan.FromMinutes(10) },
+        new HttpClient { Timeout = ReadOpenAiTimeout(timeoutSecondsEnvVar) },
         new OpenAiCompatibleProviderOptions(
+            SystemPrompt: Environment.GetEnvironmentVariable(systemPromptEnvVar)
+                ?? "You generate SpecForge workflow artifacts. Follow the phase-specific Markdown output contract exactly and do not return JSON.",
+            RefinementTolerance: Environment.GetEnvironmentVariable(refinementToleranceEnvVar)
+                ?? Environment.GetEnvironmentVariable(legacyRefinementToleranceEnvVar)
+                ?? "balanced",
+            ReviewTolerance: Environment.GetEnvironmentVariable(reviewToleranceEnvVar) ?? "balanced",
+            ReviewEvidencePolicy: Environment.GetEnvironmentVariable(reviewEvidencePolicyEnvVar) ?? "balanced",
+            AutoRefinementAnswersEnabled: string.Equals(
+                Environment.GetEnvironmentVariable(autoRefinementAnswersEnabledEnvVar)
+                    ?? Environment.GetEnvironmentVariable(legacyAutoRefinementAnswersEnabledEnvVar),
+                "true",
+                StringComparison.OrdinalIgnoreCase),
+            AutoRefinementAnswersProfile: string.IsNullOrWhiteSpace(autoRefinementAnswersProfile)
+                ? null
+                : autoRefinementAnswersProfile.Trim(),
+            ReviewLearningEnabled: !string.Equals(
+                Environment.GetEnvironmentVariable(reviewLearningEnabledEnvVar),
+                "false",
+                StringComparison.OrdinalIgnoreCase),
+            ReviewLearningSkillPath: string.IsNullOrWhiteSpace(reviewLearningSkillPath)
+                ? ".codex/skills/sdd-phase-agents/SKILL.md"
+                : reviewLearningSkillPath.Trim(),
             ModelProfiles: modelProfiles,
             AgentProfiles: agentProfiles,
             PhaseAgentAssignments: phaseAgents));
+}
+
+static TimeSpan ReadOpenAiTimeout(string timeoutSecondsEnvVar)
+{
+    var configured = Environment.GetEnvironmentVariable(timeoutSecondsEnvVar);
+    if (string.IsNullOrWhiteSpace(configured))
+    {
+        return TimeSpan.FromMinutes(10);
+    }
+
+    if (int.TryParse(configured, out var seconds) && seconds > 0)
+    {
+        return TimeSpan.FromSeconds(seconds);
+    }
+
+    throw new InvalidOperationException(
+        $"Environment variable '{timeoutSecondsEnvVar}' must be a positive integer number of seconds.");
 }

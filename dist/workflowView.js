@@ -643,6 +643,8 @@ function buildPhaseSecuritySummary(readiness) {
     const provider = readiness.assignedModelSecurity?.providerKind ?? "unknown";
     const profile = readiness.assignedModelSecurity?.profileName ?? "default";
     const model = readiness.assignedModelSecurity?.model ?? "default";
+    const agent = readiness.assignedModelSecurity?.agentName ?? null;
+    const agentRole = readiness.assignedModelSecurity?.agentRole ?? null;
     const nativeCliState = readiness.assignedModelSecurity?.nativeCliRequired
         ? readiness.assignedModelSecurity.nativeCliAvailable
             ? "native cli ready"
@@ -667,6 +669,8 @@ function buildPhaseSecuritySummary(readiness) {
           <span class="token token--${(0, htmlEscape_1.escapeHtmlAttr)(tone)}">${(0, htmlEscape_1.escapeHtml)(headline)}</span>
           <span class="token">required ${(0, htmlEscape_1.escapeHtml)(requiredAccess)}</span>
           <span class="token">assigned ${(0, htmlEscape_1.escapeHtml)(effectiveAccess)}</span>
+          ${agent ? `<span class="token">agent ${(0, htmlEscape_1.escapeHtml)(agent)}</span>` : ""}
+          ${agentRole ? `<span class="token">role ${(0, htmlEscape_1.escapeHtml)(agentRole)}</span>` : ""}
           <span class="token">${(0, htmlEscape_1.escapeHtml)(provider)}</span>
           <span class="token">${(0, htmlEscape_1.escapeHtml)(profile)}</span>
           <span class="token">${(0, htmlEscape_1.escapeHtml)(model)}</span>

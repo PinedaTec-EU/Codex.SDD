@@ -3,7 +3,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import { onModelResponseDiagnostic, type PhaseCommitResult, type SpecForgeBackendClient, type UserStorySummary, type UserStoryWorkflowDetails } from "./backendClient";
 import { suggestContextFiles } from "./contextSuggestions";
-import { getSpecForgeSettings, getSpecForgeSettingsStatus } from "./extensionSettings";
+import { getSpecForgeSettings, getSpecForgeSettingsStatus, type SpecForgeSettings } from "./extensionSettings";
 import { appendSpecForgeDebugLog, appendSpecForgeLog, isSpecForgeDebugLoggingEnabled, showSpecForgeOutput } from "./outputChannel";
 import { buildPhaseCommitNotification } from "./phaseCommitNotification";
 import { readRuntimeVersionAsync } from "./runtimeVersion";
@@ -69,6 +69,23 @@ type WorkflowExecutionRequest = {
 };
 
 const panels = new Map<string, WorkflowPanelController>();
+
+function buildWorkflowModelCatalog(settings: SpecForgeSettings): WorkflowViewState["modelProfiles"] {
+  const modelsByName = new Map(settings.modelProfiles.map((profile) => [profile.name, profile] as const));
+  const modelEntries = settings.modelProfiles.map((profile) => ({
+    name: profile.name,
+    model: profile.model
+  }));
+  const agentEntries = (settings.agentProfiles ?? settings.modelProfiles.map((profile) => ({
+    name: profile.name,
+    modelProfile: profile.name
+  }))).map((agent) => ({
+    name: agent.name,
+    model: modelsByName.get(agent.modelProfile)?.model ?? agent.modelProfile
+  }));
+
+  return [...modelEntries, ...agentEntries];
+}
 
 export interface WorkflowPanelCallbacks {
   refreshExplorer(): Promise<void>;
@@ -1544,10 +1561,7 @@ class WorkflowPanelController {
       contextSuggestions,
       settingsConfigured: settingsStatus.executionConfigured,
       settingsMessage: settingsStatus.message,
-      modelProfiles: settings.modelProfiles.map((profile) => ({
-        name: profile.name,
-        model: profile.model
-      })),
+      modelProfiles: buildWorkflowModelCatalog(settings),
       phaseModelAssignments: {
         defaultProfileName: settings.effectivePhaseAgentAssignments.defaultAgentName,
         captureProfileName: settings.effectivePhaseAgentAssignments.captureAgentName,

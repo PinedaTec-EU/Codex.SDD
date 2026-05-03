@@ -1,75 +1,53 @@
+using SpecForge.Domain.Application;
 using SpecForge.Domain.Persistence;
 using SpecForge.Domain.Workflow;
-using SpecForge.Domain.Application;
 
 namespace SpecForge.OpenAICompatible;
 
 internal sealed class RepositoryPromptCatalog
 {
-    private readonly RepositoryPromptInitializer promptInitializer;
-
-    public RepositoryPromptCatalog()
-        : this(new RepositoryPromptInitializer())
-    {
-    }
-
-    internal RepositoryPromptCatalog(RepositoryPromptInitializer promptInitializer)
-    {
-        this.promptInitializer = promptInitializer ?? throw new ArgumentNullException(nameof(promptInitializer));
-    }
-
-    public async Task EnsureRepositoryIsInitializedAsync(
+    public Task<PromptTemplateContent> ReadPromptAsync(
         string workspaceRoot,
+        string promptPath,
         CancellationToken cancellationToken = default)
     {
         var paths = new PromptFilePaths(workspaceRoot);
-        if (!Directory.Exists(paths.PromptsDirectoryPath) || !File.Exists(paths.PromptManifestPath))
+        var templates = RepositoryPromptInitializer.BuildTemplateMap(paths)
+            .ToDictionary(
+                static item => Path.GetFullPath(item.Key),
+                static item => item.Value,
+                StringComparer.Ordinal);
+        var absolutePath = Path.GetFullPath(promptPath);
+
+        if (File.Exists(absolutePath))
         {
-            await promptInitializer.InitializeAsync(workspaceRoot, overwrite: false, cancellationToken);
-        }
-        else if (!File.Exists(paths.AgentInstructionsPath))
-        {
-            await promptInitializer.EnsureAgentInstructionsAsync(workspaceRoot, overwrite: false, cancellationToken);
+            return ReadOverrideAsync(absolutePath, templates, cancellationToken);
         }
 
-        var requiredFiles = new[]
+        if (!templates.TryGetValue(absolutePath, out var embeddedContent))
         {
-            paths.AgentInstructionsPath,
-            paths.ConfigFilePath,
-            paths.PromptManifestPath,
-            paths.PromptSystemHashesPath,
-            paths.SharedSystemPromptPath,
-            paths.SharedStylePromptPath,
-            paths.SharedOutputRulesPromptPath,
-            paths.RefinementExecuteSystemPromptPath,
-            paths.RefinementExecutePromptPath,
-            paths.SpecExecuteSystemPromptPath,
-            paths.SpecExecutePromptPath,
-            paths.SpecApproveSystemPromptPath,
-            paths.SpecApprovePromptPath,
-            paths.TechnicalDesignExecuteSystemPromptPath,
-            paths.TechnicalDesignExecutePromptPath,
-            paths.ImplementationExecuteSystemPromptPath,
-            paths.ImplementationExecutePromptPath,
-            paths.ReviewExecuteSystemPromptPath,
-            paths.ReviewExecutePromptPath,
-            paths.ReleaseApprovalExecuteSystemPromptPath,
-            paths.ReleaseApprovalExecutePromptPath,
-            paths.ReleaseApprovalApproveSystemPromptPath,
-            paths.PrPreparationExecuteSystemPromptPath,
-            paths.PrPreparationExecutePromptPath,
-            paths.AutoRefinementAnswersSystemPromptPath,
-            paths.ReleaseApprovalApprovePromptPath
-        };
-
-        foreach (var requiredFile in requiredFiles)
-        {
-            if (!File.Exists(requiredFile))
-            {
-                throw new InvalidOperationException(
-                    $"Missing required prompt template '{requiredFile}'. Run initialize_repo_prompts or restore the prompt file.");
-            }
+            throw new InvalidOperationException($"Prompt template '{promptPath}' is not a known SpecForge prompt template.");
         }
+
+        return Task.FromResult(new PromptTemplateContent(
+            absolutePath,
+            embeddedContent,
+            IsOverride: false,
+            EmbeddedContent: embeddedContent));
+    }
+
+    private static async Task<PromptTemplateContent> ReadOverrideAsync(
+        string absolutePath,
+        IReadOnlyDictionary<string, string> templates,
+        CancellationToken cancellationToken)
+    {
+        var content = await File.ReadAllTextAsync(absolutePath, cancellationToken);
+        templates.TryGetValue(absolutePath, out var embeddedContent);
+        return new PromptTemplateContent(
+            absolutePath,
+            content,
+            IsOverride: true,
+            EmbeddedContent: embeddedContent);
     }
 
     public string GetExecutePromptPath(string workspaceRoot, PhaseId phaseId)
@@ -129,4 +107,10 @@ internal sealed class RepositoryPromptCatalog
             _ => throw new InvalidOperationException($"Phase '{phaseId}' does not have an approve system prompt.")
         };
     }
+
+    public sealed record PromptTemplateContent(
+        string Path,
+        string Content,
+        bool IsOverride,
+        string? EmbeddedContent);
 }

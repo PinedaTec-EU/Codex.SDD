@@ -124,6 +124,10 @@ static async Task<JsonNode> HandleToolCallAsync(
             "initialize_repo_prompts" => await applicationService.InitializeRepoPromptsAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
                 overwrite: GetOptionalBoolean(arguments, "overwrite")),
+            "export_prompt_template" => await applicationService.ExportPromptTemplateAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                promptPath: GetRequired(arguments, "promptPath"),
+                overwrite: GetOptionalBoolean(arguments, "overwrite")),
             "list_user_stories" => new
             {
                 items = await applicationService.ListUserStoriesAsync(
@@ -283,6 +287,14 @@ static JsonObject BuildToolsList()
                     Props(
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
                         ("overwrite",     Prop("boolean", "If true, overwrite existing prompt files. Defaults to false."))))),
+
+            Tool("export_prompt_template", "Export one embedded prompt template into .specs/prompts/ so it can be customized.",
+                Schema(
+                    required: ["workspaceRoot", "promptPath"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("promptPath",    Prop("string", "Known prompt template path, absolute or workspace-relative.")),
+                        ("overwrite",     Prop("boolean", "If true, overwrite an existing prompt override. Defaults to false."))))),
 
             Tool("list_user_stories", "List all user stories persisted in the workspace.",
                 Schema(
