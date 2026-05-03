@@ -117,8 +117,12 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
                         Model: "stub-model",
                         RepositoryAccess: "read-write")
                 ],
-                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
-                    DefaultProfile: "default")));
+                AgentProfiles:
+                [
+                    new OpenAiCompatibleAgentProfile("default", "workflow-agent", "default", "Run workflow phases.", "read-write")
+                ],
+                PhaseAgentAssignments: new OpenAiCompatiblePhaseAgentAssignments(
+                    DefaultAgent: "default")));
         var workflowRunner = new WorkflowRunner(provider);
         var applicationService = new SpecForgeApplicationService(
             new UserStoryFileStore(),
@@ -315,8 +319,13 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
                         Model: "stub-resolver",
                         RepositoryAccess: "read")
                 ],
-                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
-                    DefaultProfile: "default")));
+                AgentProfiles:
+                [
+                    new OpenAiCompatibleAgentProfile("default", "workflow-agent", "default", "Run workflow phases.", "read-write"),
+                    new OpenAiCompatibleAgentProfile("resolver", "resolver", "resolver", "Answer refinement questions.", "read")
+                ],
+                PhaseAgentAssignments: new OpenAiCompatiblePhaseAgentAssignments(
+                    DefaultAgent: "default")));
         var applicationService = new SpecForgeApplicationService(
             new UserStoryFileStore(),
             new WorkflowRunner(provider),
@@ -595,8 +604,13 @@ public sealed class OpenAiCompatibleWorkflowIntegrationTests : IDisposable
                         Model: "stub-resolver",
                         RepositoryAccess: "read")
                 ],
-                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
-                    DefaultProfile: "default")));
+                AgentProfiles:
+                [
+                    new OpenAiCompatibleAgentProfile("default", "workflow-agent", "default", "Run workflow phases.", "read-write"),
+                    new OpenAiCompatibleAgentProfile("resolver", "resolver", "resolver", "Answer refinement questions.", "read")
+                ],
+                PhaseAgentAssignments: new OpenAiCompatiblePhaseAgentAssignments(
+                    DefaultAgent: "default")));
         var applicationService = new SpecForgeApplicationService(
             new UserStoryFileStore(),
             new WorkflowRunner(provider),

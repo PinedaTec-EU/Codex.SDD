@@ -828,6 +828,8 @@ function buildPhaseSecuritySummary(readiness: PhaseExecutionReadiness | null | u
   const effectiveAccess = readiness.assignedModelSecurity?.repositoryAccess ?? "unknown";
   const provider = readiness.assignedModelSecurity?.providerKind ?? "unknown";
   const profile = readiness.assignedModelSecurity?.profileName ?? "default";
+  const agent = readiness.assignedModelSecurity?.agentName ?? "default";
+  const agentRole = readiness.assignedModelSecurity?.agentRole ?? "agent";
   const model = readiness.assignedModelSecurity?.model ?? "default";
   const nativeCliState = readiness.assignedModelSecurity?.nativeCliRequired
     ? readiness.assignedModelSecurity.nativeCliAvailable
@@ -847,6 +849,7 @@ function buildPhaseSecuritySummary(readiness: PhaseExecutionReadiness | null | u
         <span class="token">required ${escapeHtml(requiredAccess)}</span>
         <span class="token">assigned ${escapeHtml(effectiveAccess)}</span>
         <span class="token">${escapeHtml(provider)}</span>
+        <span class="token">${escapeHtml(agent)} / ${escapeHtml(agentRole)}</span>
         <span class="token">${escapeHtml(profile)}</span>
         <span class="token">${escapeHtml(model)}</span>
         <span class="token">${escapeHtml(nativeCliState)}</span>

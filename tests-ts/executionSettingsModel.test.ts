@@ -7,7 +7,7 @@ test("requiresDefaultFallback returns true when multiple profiles exist without 
     { name: "planner" },
     { name: "implementer" }
   ], {
-    defaultProfile: null
+    defaultAgent: null
   }), true);
 });
 
@@ -15,14 +15,14 @@ test("requiresDefaultFallback returns false for a single profile or explicit def
   assert.equal(requiresDefaultFallback([
     { name: "planner" }
   ], {
-    defaultProfile: null
+    defaultAgent: null
   }), false);
 
   assert.equal(requiresDefaultFallback([
     { name: "planner" },
     { name: "implementer" }
   ], {
-    defaultProfile: "planner"
+    defaultAgent: "planner"
   }), false);
 });
 
@@ -30,17 +30,17 @@ test("validatePhasePermissionAssignments rejects implementation and review when 
   const issues = validatePhasePermissionAssignments([
     { name: "planner", repositoryAccess: "read" }
   ], {
-    defaultProfile: "planner",
-    refinementProfile: null,
-    specProfile: null,
-    technicalDesignProfile: null,
-    implementationProfile: null,
-    reviewProfile: null,
-    releaseApprovalProfile: null,
-    prPreparationProfile: null
+    defaultAgent: "planner",
+    refinementAgent: null,
+    specAgent: null,
+    technicalDesignAgent: null,
+    implementationAgent: null,
+    reviewAgent: null,
+    releaseApprovalAgent: null,
+    prPreparationAgent: null
   });
 
-  assert.deepEqual(issues.map((item) => item.assignmentKey), ["implementationProfile", "reviewProfile"]);
+  assert.deepEqual(issues.map((item) => item.assignmentKey), ["implementationAgent", "reviewAgent"]);
   assert.match(issues[0]?.message ?? "", /Implementation requires repository access 'read-write'/);
 });
 
@@ -49,14 +49,14 @@ test("validatePhasePermissionAssignments accepts read phases on read and write p
     { name: "planner", repositoryAccess: "read" },
     { name: "implementer", repositoryAccess: "read-write" }
   ], {
-    defaultProfile: "planner",
-    refinementProfile: null,
-    specProfile: null,
-    technicalDesignProfile: null,
-    implementationProfile: "implementer",
-    reviewProfile: "implementer",
-    releaseApprovalProfile: null,
-    prPreparationProfile: null
+    defaultAgent: "planner",
+    refinementAgent: null,
+    specAgent: null,
+    technicalDesignAgent: null,
+    implementationAgent: "implementer",
+    reviewAgent: "implementer",
+    releaseApprovalAgent: null,
+    prPreparationAgent: null
   });
 
   assert.equal(issues.length, 0);

@@ -21,7 +21,9 @@ public sealed record PhaseExecutionModelSecurity(
     string? ProfileName,
     string RepositoryAccess,
     bool NativeCliRequired,
-    bool NativeCliAvailable);
+    bool NativeCliAvailable,
+    string? AgentName = null,
+    string? AgentRole = null);
 
 public static class PhaseExecutionBlockingReasons
 {

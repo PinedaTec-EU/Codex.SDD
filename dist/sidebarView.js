@@ -174,7 +174,7 @@ class SidebarViewProvider {
                 await this.toggleStarredUserStoryAsync(message.usId);
                 return;
             case "initializeRepoPrompts":
-                await this.runBusyActionAsync("Bootstrapping repo prompts...", async () => {
+                await this.runBusyActionAsync("Exporting prompt templates...", async () => {
                     await this.initializeRepoPromptsFromSidebarAsync();
                     await this.safeRenderAsync();
                 });
@@ -481,7 +481,7 @@ class SidebarViewProvider {
             (0, outputChannel_1.appendSpecForgeLog)(`Sidebar settings warning for '${workspaceRoot}': ${settingsStatus.message}. Diagnostics: ${settingsStatus.diagnostics}`);
         }
         if (!promptsStatus.initialized) {
-            (0, outputChannel_1.appendSpecForgeLog)(`Sidebar prompt bootstrap warning for '${workspaceRoot}': ${promptsStatus.message ?? "missing prompt files"}. Checked: ${promptsStatus.checkedPaths.join(", ")}`);
+            (0, outputChannel_1.appendSpecForgeLog)(`Sidebar prompt override warning for '${workspaceRoot}': ${promptsStatus.message ?? "prompt overrides not materialized"}. Checked: ${promptsStatus.checkedPaths.join(", ")}`);
         }
         const preferences = await (0, userWorkspacePreferences_1.readUserWorkspacePreferences)(workspaceRoot);
         const runtimeVersion = await (0, runtimeVersion_1.readRuntimeVersionAsync)();

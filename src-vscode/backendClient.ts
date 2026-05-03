@@ -58,6 +58,8 @@ export interface PhaseExecutionMetadata {
   readonly providerKind: string;
   readonly model: string;
   readonly profileName: string | null;
+  readonly agentName?: string | null;
+  readonly agentRole?: string | null;
   readonly baseUrl: string | null;
   readonly warnings?: readonly string[] | null;
   readonly inputSha256?: string | null;
@@ -186,6 +188,8 @@ export interface PhaseExecutionModelSecurity {
   readonly repositoryAccess: string;
   readonly nativeCliRequired: boolean;
   readonly nativeCliAvailable: boolean;
+  readonly agentName?: string | null;
+  readonly agentRole?: string | null;
 }
 
 export interface PhaseExecutionReadiness {
@@ -312,6 +316,7 @@ export interface SpecForgeBackendClient {
   createUserStory(usId: string, title: string, kind: string, category: string, sourceText: string, actor?: string): Promise<CreateOrImportUserStoryResult>;
   importUserStory(usId: string, sourcePath: string, title: string, kind: string, category: string, actor?: string): Promise<CreateOrImportUserStoryResult>;
   initializeRepoPrompts(overwrite?: boolean): Promise<InitializeRepoPromptsResult>;
+  exportPromptTemplate(promptPath: string, overwrite?: boolean): Promise<InitializeRepoPromptsResult>;
   continuePhase(usId: string, actor?: string): Promise<ContinuePhaseResult>;
   approveReviewAnyway(usId: string, reason: string, actor?: string): Promise<ContinuePhaseResult>;
   approveCurrentPhase(usId: string, baseBranch?: string, workBranch?: string, actor?: string): Promise<UserStorySummary>;
@@ -464,6 +469,14 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
   public async initializeRepoPrompts(overwrite = false): Promise<InitializeRepoPromptsResult> {
     return this.callTool<InitializeRepoPromptsResult>("initialize_repo_prompts", {
       workspaceRoot: this.workspaceRoot,
+      overwrite
+    });
+  }
+
+  public async exportPromptTemplate(promptPath: string, overwrite = false): Promise<InitializeRepoPromptsResult> {
+    return this.callTool<InitializeRepoPromptsResult>("export_prompt_template", {
+      workspaceRoot: this.workspaceRoot,
+      promptPath,
       overwrite
     });
   }

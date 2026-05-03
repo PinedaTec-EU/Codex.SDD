@@ -4,25 +4,8 @@ namespace SpecForge.Domain.Application;
 
 public sealed class RepositoryPromptInitializer
 {
-    public async Task<InitializeRepoPromptsResult> InitializeAsync(
-        string workspaceRoot,
-        bool overwrite = false,
-        CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(workspaceRoot))
-        {
-            throw new ArgumentException("Workspace root is required.", nameof(workspaceRoot));
-        }
-
-        var paths = new PromptFilePaths(workspaceRoot);
-        Directory.CreateDirectory(paths.SpecsDirectoryPath);
-        Directory.CreateDirectory(paths.PromptsDirectoryPath);
-        Directory.CreateDirectory(paths.SharedPromptsDirectoryPath);
-        Directory.CreateDirectory(paths.PhasePromptsDirectoryPath);
-
-        var createdFiles = new List<string>();
-        var skippedFiles = new List<string>();
-        var files = new Dictionary<string, string>(StringComparer.Ordinal)
+    public static IReadOnlyDictionary<string, string> BuildTemplateMap(PromptFilePaths paths) =>
+        new Dictionary<string, string>(StringComparer.Ordinal)
         {
             [paths.ConfigFilePath] = BuildConfigYaml(),
             [paths.PromptManifestPath] = BuildPromptManifestYaml(),
@@ -49,6 +32,77 @@ public sealed class RepositoryPromptInitializer
             [paths.PrPreparationExecutePromptPath] = BuildPrPreparationExecutePrompt(),
             [paths.AutoRefinementAnswersSystemPromptPath] = BuildAutoRefinementAnswersSystemPrompt()
         };
+
+    public async Task<InitializeRepoPromptsResult> ExportPromptTemplateAsync(
+        string workspaceRoot,
+        string promptPath,
+        bool overwrite = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceRoot))
+        {
+            throw new ArgumentException("Workspace root is required.", nameof(workspaceRoot));
+        }
+
+        if (string.IsNullOrWhiteSpace(promptPath))
+        {
+            throw new ArgumentException("Prompt path is required.", nameof(promptPath));
+        }
+
+        var paths = new PromptFilePaths(workspaceRoot);
+        var templates = BuildTemplateMap(paths);
+        var requestedPath = Path.IsPathRooted(promptPath)
+            ? Path.GetFullPath(promptPath)
+            : Path.GetFullPath(Path.Combine(workspaceRoot, promptPath));
+        var match = templates.FirstOrDefault(candidate =>
+            string.Equals(Path.GetFullPath(candidate.Key), requestedPath, StringComparison.Ordinal));
+
+        if (string.IsNullOrWhiteSpace(match.Key))
+        {
+            throw new InvalidOperationException($"Prompt template '{promptPath}' is not a known SpecForge prompt template.");
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(match.Key)!);
+        if (File.Exists(match.Key) && !overwrite)
+        {
+            return new InitializeRepoPromptsResult(
+                workspaceRoot,
+                paths.ConfigFilePath,
+                paths.PromptManifestPath,
+                paths.PromptSystemHashesPath,
+                [],
+                [match.Key]);
+        }
+
+        await File.WriteAllTextAsync(match.Key, match.Value, cancellationToken);
+        return new InitializeRepoPromptsResult(
+            workspaceRoot,
+            paths.ConfigFilePath,
+            paths.PromptManifestPath,
+            paths.PromptSystemHashesPath,
+            [match.Key],
+            []);
+    }
+
+    public async Task<InitializeRepoPromptsResult> InitializeAsync(
+        string workspaceRoot,
+        bool overwrite = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceRoot))
+        {
+            throw new ArgumentException("Workspace root is required.", nameof(workspaceRoot));
+        }
+
+        var paths = new PromptFilePaths(workspaceRoot);
+        Directory.CreateDirectory(paths.SpecsDirectoryPath);
+        Directory.CreateDirectory(paths.PromptsDirectoryPath);
+        Directory.CreateDirectory(paths.SharedPromptsDirectoryPath);
+        Directory.CreateDirectory(paths.PhasePromptsDirectoryPath);
+
+        var createdFiles = new List<string>();
+        var skippedFiles = new List<string>();
+        var files = BuildTemplateMap(paths);
 
         foreach (var file in files)
         {

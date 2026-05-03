@@ -64,29 +64,11 @@ async function getRepoPromptsStatusAsync(workspaceRoot) {
         path.join(workspaceRoot, ".specs", "prompts", "phases", "pr-preparation.execute.md"),
         path.join(workspaceRoot, ".specs", "prompts", "phases", "refinement.auto-answer.system.md")
     ];
-    const missingPaths = [];
-    for (const checkedPath of checkedPaths) {
-        if (!await pathExistsAsync(checkedPath)) {
-            missingPaths.push(checkedPath);
-        }
-    }
-    if (missingPaths.length === 0) {
-        return {
-            initialized: true,
-            message: null,
-            missingPaths: [],
-            checkedPaths
-        };
-    }
-    const missingPreview = missingPaths
-        .slice(0, 3)
-        .map((filePath) => path.relative(workspaceRoot, filePath) || filePath)
-        .join(", ");
-    const extraCount = missingPaths.length - Math.min(missingPaths.length, 3);
+    void workspaceRoot;
     return {
-        initialized: false,
-        message: `Missing ${missingPaths.length} required prompt file(s): ${missingPreview}${extraCount > 0 ? `, +${extraCount} more` : ""}.`,
-        missingPaths,
+        initialized: true,
+        message: null,
+        missingPaths: [],
         checkedPaths
     };
 }

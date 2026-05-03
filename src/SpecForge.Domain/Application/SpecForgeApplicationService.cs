@@ -42,6 +42,13 @@ public sealed class SpecForgeApplicationService
         CancellationToken cancellationToken = default) =>
         repositoryPromptInitializer.InitializeAsync(workspaceRoot, overwrite, cancellationToken);
 
+    public Task<InitializeRepoPromptsResult> ExportPromptTemplateAsync(
+        string workspaceRoot,
+        string promptPath,
+        bool overwrite = false,
+        CancellationToken cancellationToken = default) =>
+        repositoryPromptInitializer.ExportPromptTemplateAsync(workspaceRoot, promptPath, overwrite, cancellationToken);
+
     public async Task<CreateOrImportUserStoryResult> CreateUserStoryAsync(
         string workspaceRoot,
         string usId,

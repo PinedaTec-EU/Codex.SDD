@@ -5,6 +5,8 @@ public sealed record PhaseExecutionMetadata(
     string Model,
     string? ProfileName = null,
     string? BaseUrl = null,
+    string? AgentName = null,
+    string? AgentRole = null,
     IReadOnlyCollection<string>? Warnings = null,
     string? RuntimeVersion = null,
     string? InputSha256 = null,

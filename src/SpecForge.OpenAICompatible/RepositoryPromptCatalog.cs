@@ -1,50 +1,35 @@
 using SpecForge.Domain.Persistence;
+using SpecForge.Domain.Application;
 using SpecForge.Domain.Workflow;
 
 namespace SpecForge.OpenAICompatible;
 
 internal sealed class RepositoryPromptCatalog
 {
-    public void EnsureRepositoryIsInitialized(string workspaceRoot)
+    public async Task<PromptTemplateContent> ReadPromptAsync(
+        string workspaceRoot,
+        string promptPath,
+        CancellationToken cancellationToken)
     {
         var paths = new PromptFilePaths(workspaceRoot);
-        var requiredFiles = new[]
-        {
-            paths.ConfigFilePath,
-            paths.PromptManifestPath,
-            paths.PromptSystemHashesPath,
-            paths.SharedSystemPromptPath,
-            paths.SharedStylePromptPath,
-            paths.SharedOutputRulesPromptPath,
-            paths.RefinementExecuteSystemPromptPath,
-            paths.RefinementExecutePromptPath,
-            paths.SpecExecuteSystemPromptPath,
-            paths.SpecExecutePromptPath,
-            paths.SpecApproveSystemPromptPath,
-            paths.SpecApprovePromptPath,
-            paths.TechnicalDesignExecuteSystemPromptPath,
-            paths.TechnicalDesignExecutePromptPath,
-            paths.ImplementationExecuteSystemPromptPath,
-            paths.ImplementationExecutePromptPath,
-            paths.ReviewExecuteSystemPromptPath,
-            paths.ReviewExecutePromptPath,
-            paths.ReleaseApprovalExecuteSystemPromptPath,
-            paths.ReleaseApprovalExecutePromptPath,
-            paths.ReleaseApprovalApproveSystemPromptPath,
-            paths.PrPreparationExecuteSystemPromptPath,
-            paths.PrPreparationExecutePromptPath,
-            paths.AutoRefinementAnswersSystemPromptPath,
-            paths.ReleaseApprovalApprovePromptPath
-        };
+        var templates = RepositoryPromptInitializer.BuildTemplateMap(paths);
+        var normalizedPath = Path.GetFullPath(promptPath);
 
-        foreach (var requiredFile in requiredFiles)
+        if (File.Exists(normalizedPath))
         {
-            if (!File.Exists(requiredFile))
-            {
-                throw new InvalidOperationException(
-                    $"Missing required prompt template '{requiredFile}'. Run initialize_repo_prompts or restore the prompt file.");
-            }
+            return new PromptTemplateContent(
+                normalizedPath,
+                await File.ReadAllTextAsync(normalizedPath, cancellationToken),
+                IsOverride: true,
+                EmbeddedContent: templates.TryGetValue(normalizedPath, out var embedded) ? embedded : null);
         }
+
+        if (!templates.TryGetValue(normalizedPath, out var content))
+        {
+            throw new InvalidOperationException($"Prompt template '{promptPath}' is not a known SpecForge prompt template.");
+        }
+
+        return new PromptTemplateContent(normalizedPath, content, IsOverride: false, EmbeddedContent: content);
     }
 
     public string GetExecutePromptPath(string workspaceRoot, PhaseId phaseId)
@@ -104,4 +89,10 @@ internal sealed class RepositoryPromptCatalog
             _ => throw new InvalidOperationException($"Phase '{phaseId}' does not have an approve system prompt.")
         };
     }
+
+    internal sealed record PromptTemplateContent(
+        string Path,
+        string Content,
+        bool IsOverride,
+        string? EmbeddedContent);
 }

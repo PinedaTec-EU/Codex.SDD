@@ -201,7 +201,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         await this.toggleStarredUserStoryAsync(message.usId);
         return;
       case "initializeRepoPrompts":
-        await this.runBusyActionAsync("Bootstrapping repo prompts...", async () => {
+        await this.runBusyActionAsync("Exporting prompt templates...", async () => {
           await this.initializeRepoPromptsFromSidebarAsync();
           await this.safeRenderAsync();
         });
@@ -585,7 +585,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       appendSpecForgeLog(`Sidebar settings warning for '${workspaceRoot}': ${settingsStatus.message}. Diagnostics: ${settingsStatus.diagnostics}`);
     }
     if (!promptsStatus.initialized) {
-      appendSpecForgeLog(`Sidebar prompt bootstrap warning for '${workspaceRoot}': ${promptsStatus.message ?? "missing prompt files"}. Checked: ${promptsStatus.checkedPaths.join(", ")}`);
+      appendSpecForgeLog(`Sidebar prompt override warning for '${workspaceRoot}': ${promptsStatus.message ?? "prompt overrides not materialized"}. Checked: ${promptsStatus.checkedPaths.join(", ")}`);
     }
     const preferences = await readUserWorkspacePreferences(workspaceRoot);
     const runtimeVersion = await readRuntimeVersionAsync();

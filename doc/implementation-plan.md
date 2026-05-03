@@ -113,10 +113,10 @@ Deliverables:
 5. ✅ lock branch naming strategy and safe user-story restart
 6. ✅ introduce the real MCP backend behind the current boundary
 7. ✅ enrich phase execution with real providers/agents
-8. ✅ materialize versioned prompts per phase in `.specs/prompts/`
-9. ✅ initialize the repo with required prompts and `config.yaml`
-10. ✅ require prompts in real phase execution
-11. ✅ compose effective per-phase prompts using runtime context
+8. ✅ embed versioned prompts and materialize `.specs/prompts/` overrides lazily
+9. ✅ keep `.specs/config.yaml` initialization independent from prompt execution
+10. ✅ run real phase execution with embedded prompts when disk overrides are absent
+11. ✅ compose effective per-phase prompts from disk override or embedded template using runtime context
 12. ✅ expose `request_regression` end to end in domain, MCP, and extension
 13. ✅ implement safe restart from source
 14. ✅ close the baseline branch-naming strategy for phase 1
@@ -165,7 +165,7 @@ Included in the MVP:
 - ✅ linear phase advance with approval where required
 - ✅ local persistence in `.specs/`
 - ✅ minimum MCP backend
-- ✅ repo-versioned prompts and OpenAI-compatible provider
+- ✅ embedded prompts with lazy repo overrides and OpenAI-compatible provider
 - ✅ explicit phase regression from UI and backend
 - ✅ safe restart of a user story from source
 - ✅ explicit branch naming by `kind` with `<kind>/us-xxxx-short-slug`
@@ -179,7 +179,7 @@ Included in the MVP:
 - ✅ extension sidebar with a single empty-state CTA and embedded creation form
 - ✅ optional guided wizard in the sidebar intake to capture minimum and recommended user-story information
 - ✅ visible distinction in UI and documentation between automatic phases and user checkpoints
-- ✅ compact action in the sidebar header to initialize or rebootstrap versioned repo prompts
+- ✅ compact action in the sidebar header to customize one prompt template or export all embedded prompts
 - ✅ initial visibility focused on active user stories and workflows in the sidebar and main views
 - ✅ access from workflow view to prompts associated with the selected phase
 - ✅ separation between `context files` and `user story info` within a user story
@@ -196,22 +196,23 @@ Does not block the MVP:
 - ✅ workflow graph view
 - [ ] rich detail panel with diff, navigable timeline, or effective prompt inspection
 - [ ] real PR/issues integration
-- [ ] customizable workflows and advanced agent profiles
+- ✅ phase agent profiles with real repository permissions
+- [ ] customizable workflows and advanced agent strategies
 - [ ] show completed user stories through an explicit UI switch
 - [ ] add search over user stories/workflows in the side view
 - [ ] link with ticketing tools (Jira, etc.)
 
 Recently completed subtask:
 
-- ✅ add commands and affordances in the extension to initialize `.specs/prompts/`, detect uninitialized repos, and open templates from the UI
+- ✅ add commands and affordances in the extension to customize individual prompt overrides under `.specs/prompts/`
 - ✅ make it explicit in `README` and roadmap which phases are automatic and which require human intervention
 
 Recently completed subtasks:
 
-- ✅ add an MCP initialization tool that exports `.specs/prompts/` and `.specs/config.yaml`
+- ✅ add MCP tools to export all prompts or one explicit prompt override under `.specs/prompts/`
 - ✅ lock the minimum prompt set per phase: `execute` and `approve` where applicable
-- ✅ make the engine fail if the repo is not initialized or required prompts are missing
-- ✅ load and compose the effective prompt from repo-versioned artifacts
+- ✅ make the engine fall back to embedded prompts when repo prompt overrides are absent
+- ✅ load and compose the effective prompt from repo overrides or embedded artifacts
 - ✅ use that effective prompt from the OpenAI-compatible provider for OpenAI and Ollama
 - ✅ expose `request_regression` in domain, application, MCP, and extension
 - ✅ invalidate obsolete approvals when regressing to a previous phase

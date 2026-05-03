@@ -1,21 +1,21 @@
-import type { SpecForgeModelProfile, SpecForgePhaseModelAssignments } from "./extensionSettings";
+import type { SpecForgeAgentProfile, SpecForgePhaseAgentAssignments } from "./extensionSettings";
 
 export function requiresDefaultFallback(
-  modelProfiles: readonly Pick<SpecForgeModelProfile, "name">[],
-  phaseModelAssignments: Pick<SpecForgePhaseModelAssignments, "defaultProfile">
+  agentProfiles: readonly Pick<SpecForgeAgentProfile, "name">[],
+  phaseAgentAssignments: Pick<SpecForgePhaseAgentAssignments, "defaultAgent">
 ): boolean {
-  const nonEmptyProfiles = modelProfiles.filter((profile) => profile.name.trim().length > 0);
-  return nonEmptyProfiles.length > 1 && !(phaseModelAssignments.defaultProfile?.trim());
+  const nonEmptyProfiles = agentProfiles.filter((profile) => profile.name.trim().length > 0);
+  return nonEmptyProfiles.length > 1 && !(phaseAgentAssignments.defaultAgent?.trim());
 }
 
 type ModelDrivenPhaseAssignmentKey =
-  | "refinementProfile"
-  | "specProfile"
-  | "technicalDesignProfile"
-  | "implementationProfile"
-  | "reviewProfile"
-  | "releaseApprovalProfile"
-  | "prPreparationProfile";
+  | "refinementAgent"
+  | "specAgent"
+  | "technicalDesignAgent"
+  | "implementationAgent"
+  | "reviewAgent"
+  | "releaseApprovalAgent"
+  | "prPreparationAgent";
 
 type PhasePermissionRequirement = {
   readonly assignmentKey: ModelDrivenPhaseAssignmentKey;
@@ -33,24 +33,21 @@ export type PhasePermissionIssue = {
 };
 
 const modelDrivenPhaseRequirements: readonly PhasePermissionRequirement[] = [
-  { assignmentKey: "refinementProfile", label: "Refinement", requiredRepositoryAccess: "read" },
-  { assignmentKey: "specProfile", label: "Spec", requiredRepositoryAccess: "read" },
-  { assignmentKey: "technicalDesignProfile", label: "Technical Design", requiredRepositoryAccess: "read" },
-  { assignmentKey: "implementationProfile", label: "Implementation", requiredRepositoryAccess: "read-write" },
-  { assignmentKey: "reviewProfile", label: "Review", requiredRepositoryAccess: "read-write" },
-  { assignmentKey: "releaseApprovalProfile", label: "Release Approval", requiredRepositoryAccess: "read" },
-  { assignmentKey: "prPreparationProfile", label: "PR Preparation", requiredRepositoryAccess: "read" }
+  { assignmentKey: "refinementAgent", label: "Refinement", requiredRepositoryAccess: "read" },
+  { assignmentKey: "specAgent", label: "Spec", requiredRepositoryAccess: "read" },
+  { assignmentKey: "technicalDesignAgent", label: "Technical Design", requiredRepositoryAccess: "read" },
+  { assignmentKey: "implementationAgent", label: "Implementation", requiredRepositoryAccess: "read-write" },
+  { assignmentKey: "reviewAgent", label: "Review", requiredRepositoryAccess: "read-write" },
+  { assignmentKey: "releaseApprovalAgent", label: "Release Approval", requiredRepositoryAccess: "read" },
+  { assignmentKey: "prPreparationAgent", label: "PR Preparation", requiredRepositoryAccess: "read" }
 ];
 
 export function validatePhasePermissionAssignments(
-  modelProfiles: readonly Pick<SpecForgeModelProfile, "name" | "repositoryAccess">[],
-  phaseModelAssignments: Pick<
-    SpecForgePhaseModelAssignments,
-    "defaultProfile" | ModelDrivenPhaseAssignmentKey
-  >
+  agentProfiles: readonly Pick<SpecForgeAgentProfile, "name" | "repositoryAccess">[],
+  phaseAgentAssignments: Pick<SpecForgePhaseAgentAssignments, "defaultAgent" | ModelDrivenPhaseAssignmentKey>
 ): readonly PhasePermissionIssue[] {
-  const profilesByName = new Map(
-    modelProfiles
+  const agentsByName = new Map(
+    agentProfiles
       .map((profile) => ({
         name: profile.name.trim(),
         repositoryAccess: profile.repositoryAccess.trim()
@@ -58,34 +55,34 @@ export function validatePhasePermissionAssignments(
       .filter((profile) => profile.name.length > 0)
       .map((profile) => [profile.name, profile] as const)
   );
-  const implicitDefaultProfileName = modelProfiles.length === 1
-    ? modelProfiles[0]?.name.trim() || null
+  const implicitDefaultAgentName = agentProfiles.length === 1
+    ? agentProfiles[0]?.name.trim() || null
     : null;
-  const defaultProfileName = phaseModelAssignments.defaultProfile?.trim() || implicitDefaultProfileName;
+  const defaultAgentName = phaseAgentAssignments.defaultAgent?.trim() || implicitDefaultAgentName;
   const issues: PhasePermissionIssue[] = [];
 
   for (const requirement of modelDrivenPhaseRequirements) {
-    const profileName = phaseModelAssignments[requirement.assignmentKey]?.trim() || defaultProfileName || null;
-    if (!profileName) {
+    const agentName = phaseAgentAssignments[requirement.assignmentKey]?.trim() || defaultAgentName || null;
+    if (!agentName) {
       continue;
     }
 
-    const profile = profilesByName.get(profileName);
-    if (!profile) {
+    const agent = agentsByName.get(agentName);
+    if (!agent) {
       continue;
     }
 
-    if (hasRequiredRepositoryAccess(profile.repositoryAccess, requirement.requiredRepositoryAccess)) {
+    if (hasRequiredRepositoryAccess(agent.repositoryAccess, requirement.requiredRepositoryAccess)) {
       continue;
     }
 
     issues.push({
       assignmentKey: requirement.assignmentKey,
       label: requirement.label,
-      profileName,
+      profileName: agentName,
       requiredRepositoryAccess: requirement.requiredRepositoryAccess,
-      actualRepositoryAccess: profile.repositoryAccess || "none",
-      message: `${requirement.label} requires repository access '${requirement.requiredRepositoryAccess}', but profile '${profileName}' only grants '${profile.repositoryAccess || "none"}'.`
+      actualRepositoryAccess: agent.repositoryAccess || "none",
+      message: `${requirement.label} requires repository access '${requirement.requiredRepositoryAccess}', but agent '${agentName}' only grants '${agent.repositoryAccess || "none"}'.`
     });
   }
 

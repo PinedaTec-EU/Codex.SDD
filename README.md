@@ -162,7 +162,7 @@ npm run test:ts
 
 By default, phase execution uses a deterministic local engine.
 
-To enable model-backed phase execution, configure at least one model profile.
+To enable model-backed phase execution, configure at least one model profile and at least one agent profile.
 
 Important: `provider` is not a global setting anymore. It lives inside each item in `specForge.execution.modelProfiles`, next to that profile's endpoint or local-runtime settings. If you omit it, SpecForge.AI defaults it to `openai-compatible`.
 
@@ -170,7 +170,7 @@ Important: `provider` is not a global setting anymore. It lives inside each item
 
 `copilot` and `claude` are still routed through the OpenAI-compatible HTTP bridge today.
 
-Minimal shape of one profile:
+Minimal shape of one model profile:
 
 ```json
 {
@@ -195,46 +195,80 @@ Equivalent shorthand without an explicit `provider` field:
 }
 ```
 
-Full example with routing:
+Model profiles describe engines. Agent profiles describe who runs a phase, which model profile they use, their instructions, and their effective repository permission. Phases route to agents through `specForge.execution.phaseAgents`.
+
+Minimal agent profile:
+
+```json
+{
+  "name": "planner",
+  "role": "Planning agent",
+  "modelProfile": "light",
+  "instructions": "Clarify scope, preserve traceability, and avoid code changes.",
+  "repositoryAccess": "read"
+}
+```
+
+Full example with agent routing:
 
 ```json
 {
   "specForge.execution.modelProfiles": [
     {
-      "name": "planner",
+      "name": "planner-model",
       "provider": "copilot",
       "baseUrl": "https://api.example.test/v1",
       "apiKey": "<your-api-key>",
-      "model": "gpt-4.1-mini",
-      "repositoryAccess": "none"
+      "model": "gpt-4.1-mini"
+    },
+    {
+      "name": "codex-model",
+      "provider": "codex"
+    },
+    {
+      "name": "review-model",
+      "provider": "claude",
+      "baseUrl": "https://api.example.test/v1",
+      "apiKey": "<your-api-key>",
+      "model": "claude-sonnet"
+    }
+  ],
+  "specForge.execution.agentProfiles": [
+    {
+      "name": "planner",
+      "role": "Planning agent",
+      "modelProfile": "planner-model",
+      "instructions": "Clarify requirements and keep downstream phases grounded.",
+      "repositoryAccess": "read"
     },
     {
       "name": "implementer",
-      "provider": "codex",
+      "role": "Implementation agent",
+      "modelProfile": "codex-model",
+      "instructions": "Edit the repository and keep changes scoped to the approved design.",
       "repositoryAccess": "read-write"
     },
     {
       "name": "reviewer",
-      "provider": "claude",
-      "baseUrl": "https://api.example.test/v1",
-      "apiKey": "<your-api-key>",
-      "model": "claude-sonnet",
-      "repositoryAccess": "read"
+      "role": "Review agent",
+      "modelProfile": "review-model",
+      "instructions": "Review behavior, tests, and release risk before approval.",
+      "repositoryAccess": "read-write"
     }
   ],
-  "specForge.execution.phaseModels": {
-    "defaultProfile": "planner",
-    "implementationProfile": "implementer",
-    "reviewProfile": "reviewer"
+  "specForge.execution.phaseAgents": {
+    "defaultAgent": "planner",
+    "implementationAgent": "implementer",
+    "reviewAgent": "reviewer"
   }
 }
 ```
 
-With that setup, capture, refinement, spec, technical design, release approval, and PR preparation use `defaultProfile`; implementation can be routed to the developer's preferred executor; review can use a separate provider family. `repositoryAccess` is part of the contract now:
+With that setup, capture, refinement, spec, technical design, release approval, and PR preparation use `defaultAgent`; implementation can be routed to the developer's preferred executor; review can use a separate provider family. Agent `repositoryAccess` is enforced:
 
-- `none`: planning-only, no repo execution claims allowed
-- `read`: enough for repository-aware review
-- `read-write`: required before implementation can continue
+- `none`: no repository access
+- `read`: required for refinement, spec, technical design, release approval, and PR preparation
+- `read-write`: required for implementation and review
 
 If no model profiles are configured, SpecForge.AI stays on the deterministic local engine and the UI warns that model-backed execution is incomplete.
 
@@ -251,7 +285,19 @@ For local testing with Ollama, use a single profile that points at the local end
       "model": "llama3.1",
       "repositoryAccess": "none"
     }
-  ]
+  ],
+  "specForge.execution.agentProfiles": [
+    {
+      "name": "local-planner",
+      "role": "Local planning agent",
+      "modelProfile": "local",
+      "instructions": "",
+      "repositoryAccess": "read"
+    }
+  ],
+  "specForge.execution.phaseAgents": {
+    "defaultAgent": "local-planner"
+  }
 }
 ```
 
@@ -270,22 +316,43 @@ Example targeted routing for a developer who wants Codex for implementation and 
     },
     {
       "name": "codex-main",
-      "provider": "codex",
-      "repositoryAccess": "read-write"
+      "provider": "codex"
     },
     {
       "name": "claude-review",
       "provider": "claude",
       "baseUrl": "https://api.example.test/v1",
       "apiKey": "<your-api-key>",
-      "model": "claude-sonnet",
+      "model": "claude-sonnet"
+    }
+  ],
+  "specForge.execution.agentProfiles": [
+    {
+      "name": "default-planner",
+      "role": "Planner",
+      "modelProfile": "default-planner",
+      "instructions": "Plan and validate requirements before implementation.",
+      "repositoryAccess": "read"
+    },
+    {
+      "name": "codex-implementer",
+      "role": "Implementer",
+      "modelProfile": "codex-main",
+      "instructions": "Implement the approved technical design.",
+      "repositoryAccess": "read-write"
+    },
+    {
+      "name": "claude-reviewer",
+      "role": "Reviewer",
+      "modelProfile": "claude-review",
+      "instructions": "Review implementation quality and release risk.",
       "repositoryAccess": "read"
     }
   ],
-  "specForge.execution.phaseModels": {
-    "defaultProfile": "default-planner",
-    "implementationProfile": "codex-main",
-    "reviewProfile": "claude-review"
+  "specForge.execution.phaseAgents": {
+    "defaultAgent": "default-planner",
+    "implementationAgent": "codex-implementer",
+    "reviewAgent": "claude-reviewer"
   }
 }
 ```
@@ -323,7 +390,7 @@ For review, the backend supports the same three levels through `SPECFORGE_REVIEW
 
 `temperature` is not exposed as an independent extension setting. The supported knobs are `refinementTolerance` and `reviewTolerance`, and the backend derives `temperature` from them for the corresponding phases only.
 
-Before executing real model-backed phases, initialize the repository prompt set through the MCP backend. This materializes `.specs/config.yaml` and `.specs/prompts/`, and the engine will fail fast if the required prompt files are missing.
+Prompt templates are embedded in SpecForge.AI and are used by default. Files under `.specs/prompts/` are lazy overrides: the tool writes a prompt file only when you customize that specific template or explicitly export templates. At execution time the extension, MCP backend, and CLI read the disk override first and fall back to the embedded template when no override exists.
 
 ## Usage
 
@@ -338,9 +405,9 @@ The .NET core already supports:
 - approving approval-required phases
 - creating the work branch metadata when the spec phase is approved using `<kind>/us-xxxx-short-slug`
 - generating minimal phase artifacts and timeline entries
-- initializing versioned repo prompts under `.specs/prompts/`
-- requiring prompt initialization for real model-backed phase execution
-- composing effective phase prompts from repo templates and runtime artifacts
+- serving embedded phase prompts without requiring a repo prompt bootstrap
+- exporting prompt overrides under `.specs/prompts/` only when requested
+- composing effective phase prompts from disk overrides or embedded templates plus runtime artifacts
 
 ### VS Code extension
 
@@ -350,13 +417,13 @@ The extension currently provides:
 - a sidebar webview with embedded user-story intake
 - an optional guided wizard in that intake to collect the minimum and recommended user-story information before creating the workflow
 - a single high-contrast `Create User Story` empty state in the sidebar
-- a compact header action in the sidebar to initialize or reinitialize `.specs/prompts/`
+- a compact header action in the sidebar to customize a single prompt template or export the full prompt set
 - per-user starred user stories persisted on disk inside the workspace
 - automatic reopening of the starred user story in workflow view for the same local user
 - a default navigation focus on active user stories and active workflows
 - a workflow webview opened directly from a user story click
 - per-phase detail inside the workflow view with artifact preview
-- per-phase prompt access inside the workflow view when the selected phase exposes `execute` or `approve` templates
+- per-phase prompt access inside the workflow view when the selected phase exposes `execute` or `approve` templates, with disk files created lazily when opened for customization
 - user-story file management inside the workflow view, split between `context files` and `user story info`
 - only `context files` are injected into model-backed runtime context; `user story info` remains attached to the workflow without entering the model prompt by default
 - MCP tools to list, add, and reclassify workflow files so models can attach repo context without going through the VS Code UI
@@ -370,16 +437,16 @@ The extension currently provides:
 - unified workflow/sidebar state colors documented in `doc/workflow-visual-states.md`
 - `Create User Story`
 - `Import User Story`
-- `Initialize Repo Prompts`
-- `Open Prompt Templates`
+- `Export All Prompt Templates`
+- `Customize Prompt Templates`
 - `Open Main Artifact`
 - `Continue Phase`
 - explicit `feature` / `bug` / `hotfix` selection when creating or importing a US
 - explicit category selection from the repo category catalog when creating or importing a US
 - user-story intake guidance that distinguishes minimum information from recommended extra detail
 - extension settings for per-profile model routing, watcher behavior, and attention notifications
-- visible configuration warnings with a direct action to open the central execution settings view when model profiles or phase assignments are incomplete
-- a central execution-settings view, launched from the sidebar gear icon, to manage provider profiles and per-phase routing without editing raw VS Code JSON settings
+- visible configuration warnings with a direct action to open the central execution settings view when model profiles, agent profiles, or phase assignments are incomplete
+- a central execution-settings view, launched from the sidebar gear icon, to manage model profiles, agent profiles, and per-phase routing without editing raw VS Code JSON settings
 - auto-refresh watcher over `.specs/us/**` when enabled
 - lightweight TypeScript tests for explorer grouping, detail rendering, MCP client payload/parsing, and extension command wiring
 
@@ -388,7 +455,7 @@ Current limitation:
 - `stop` is best-effort: it cancels the local MCP backend process for the workspace, but it is not yet a durable job-control protocol
 - the extension still does not provide a richer prompt editor, diffing, or effective prompt inspection UX
 - the sidebar does not yet expose completed user stories through a visibility switch or search; for the MVP it stays focused on active work
-- workflow execution controls such as `Play` and `Continue` remain disabled until the configured model profile catalog is complete
+- workflow execution controls such as `Play` and `Continue` remain disabled until the configured model and agent profile catalogs are complete
 
 ### User-story intake guidance
 
@@ -448,7 +515,8 @@ Today the canonical checkpoints are `spec` as the spec baseline and `release-app
 The extension contributes these settings:
 
 - `specForge.execution.modelProfiles`
-- `specForge.execution.phaseModels`
+- `specForge.execution.agentProfiles`
+- `specForge.execution.phaseAgents`
 - `specForge.execution.refinementTolerance`
 - `specForge.execution.reviewTolerance`
 - `specForge.execution.autoRefinementAnswersProfile`
@@ -469,8 +537,9 @@ Use it to:
 
 - create or edit named provider profiles for `codex`, `copilot`, `claude`, or `openai-compatible`
 - enter endpoint details for bridge-based providers
-- assign a configured profile to each workflow phase
-- read and write the same persisted values stored under `specForge.execution.modelProfiles` and `specForge.execution.phaseModels`
+- create or edit agent profiles with role, instructions, permissions, and a model profile reference
+- assign a configured agent to each workflow phase
+- read and write the same persisted values stored under `specForge.execution.modelProfiles`, `specForge.execution.agentProfiles`, and `specForge.execution.phaseAgents`
 
 Example persisted shape:
 
@@ -479,25 +548,46 @@ Example persisted shape:
   "specForge.execution.modelProfiles": [
     {
       "name": "codex-main",
-      "provider": "codex",
-      "repositoryAccess": "read-write"
+      "provider": "codex"
     },
     {
       "name": "compat-review",
       "provider": "openai-compatible",
       "baseUrl": "https://api.example.test/v1",
       "apiKey": "secret",
-      "model": "gpt-5.4",
-      "repositoryAccess": "read"
+      "model": "gpt-5.4"
     }
   ],
-  "specForge.execution.phaseModels": {
-    "defaultProfile": "compat-review",
-    "refinementProfile": "compat-review",
-    "specProfile": "compat-review",
-    "technicalDesignProfile": "compat-review",
-    "implementationProfile": "codex-main",
-    "reviewProfile": "compat-review"
+  "specForge.execution.agentProfiles": [
+    {
+      "name": "planner",
+      "role": "Planner",
+      "modelProfile": "compat-review",
+      "instructions": "Plan the next workflow step.",
+      "repositoryAccess": "read"
+    },
+    {
+      "name": "implementer",
+      "role": "Implementer",
+      "modelProfile": "codex-main",
+      "instructions": "Implement the approved change.",
+      "repositoryAccess": "read-write"
+    },
+    {
+      "name": "reviewer",
+      "role": "Reviewer",
+      "modelProfile": "compat-review",
+      "instructions": "Review implementation quality and release risk.",
+      "repositoryAccess": "read-write"
+    }
+  ],
+  "specForge.execution.phaseAgents": {
+    "defaultAgent": "planner",
+    "refinementAgent": "planner",
+    "specAgent": "planner",
+    "technicalDesignAgent": "planner",
+    "implementationAgent": "implementer",
+    "reviewAgent": "reviewer"
   }
 }
 ```
@@ -559,16 +649,16 @@ This preference file currently stores the starred user story that should reopen 
 - [x] refresh the explorer and open generated artifacts after workflow actions
 - [x] add approval and user-story detail actions to the extension
 - [x] add an OpenAI-compatible provider layer usable with OpenAI or Ollama
-- [x] export versioned prompts per phase into `.specs/prompts/`
-- [x] require repo prompt initialization before executing real model-backed phases
-- [x] compose effective per-phase prompts from repo templates plus runtime context
+- [x] embed prompt templates and export disk overrides lazily under `.specs/prompts/`
+- [x] execute real model-backed phases without requiring repo prompt initialization
+- [x] compose effective per-phase prompts from disk overrides or embedded templates plus runtime context
 - [x] expose explicit phase regression through domain, MCP, and VS Code
 - [x] implement safe restart from source and archive superseded derived state
 - [x] derive branch names from explicit US kind plus short slug
 - [x] validate explicit US categories against a repo-configured catalog
 - [x] group the VS Code explorer by user-story category
 - [x] open user stories into a workflow view with phase detail and timeline audit
-- [x] add extension settings for model profiles, phase routing, and watcher behavior
+- [x] add extension settings for model profiles, agent profiles, phase routing, and watcher behavior
 - [x] add watcher-driven refresh, attention notifications, and playback controls with best-effort stop
 - [x] keep the default navigation focused on active user stories and workflows for the MVP
 - [x] persist a per-user starred user story on disk and autoopen it when reopening the workspace
@@ -577,7 +667,7 @@ This preference file currently stores the starred user story that should reopen 
 - [ ] finalize richer branch lifecycle rules and Git/PR metadata
 - [x] add richer phase detail UI and graph visualization
 - [ ] add issue and PR preparation integration
-- [ ] support customizable workflows and agent profiles
+- [x] support phase agent profiles with real repository permissions
 - [ ] add a switch to show completed user stories and workflows
 - [ ] add sidebar search across user stories and workflows
 
@@ -591,7 +681,7 @@ The current target is an MVP, not a feature-complete product.
 - [x] persist workflow state and artifacts under `.specs/`
 - [x] advance the canonical phase workflow with approvals
 - [x] expose the workflow through a local MCP backend
-- [x] support repo-initialized prompts and OpenAI-compatible model profiles
+- [x] support embedded prompts with lazy overrides and OpenAI-compatible model profiles
 - [x] support explicit regression to an earlier valid phase
 - [x] support safe restart from the original source
 - [x] support per-user starred user stories with automatic reopening
@@ -601,7 +691,7 @@ The current target is an MVP, not a feature-complete product.
 - [x] graph visualization and richer workflow observability
 - [ ] prompt diffing and effective prompt inspection UX
 - [ ] GitHub PR / issue integration
-- [ ] customizable workflows and agent profiles
+- [ ] customizable workflows
 - [ ] completed user story visibility toggle in the sidebar
 - [ ] user story and workflow search in the sidebar
 

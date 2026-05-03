@@ -52,15 +52,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
     ? buildPromptsBootstrapMarkup(model.userStories.length === 0, model.promptsMessage ?? null)
     : "";
 
-  if (model.userStories.length === 0 && !model.showCreateForm && !model.promptsInitialized) {
-    return wrapHtml(`
-      ${busyIndicatorMarkup}
-      ${buildSettingsWarningMarkup(model)}
-      ${promptsBootstrapMarkup}
-    `, isBusy, model.createFormResetToken ?? 0, model.typographyCssVars ?? "");
-  }
-
-  if (model.userStories.length === 0 && !model.showCreateForm && model.promptsInitialized) {
+  if (model.userStories.length === 0 && !model.showCreateForm) {
     return wrapHtml(`
       ${busyIndicatorMarkup}
       ${buildSettingsWarningMarkup(model)}
@@ -93,7 +85,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
     </section>
   `).join("");
 
-  const formMarkup = model.showCreateForm && model.promptsInitialized
+  const formMarkup = model.showCreateForm
     ? `
       <section class="form-card">
         <div class="section-header">
@@ -307,7 +299,7 @@ export function buildSidebarHtml(model: SidebarViewModel): string {
         </div>
         ${buildCompactActions(model)}
       </div>
-      ${storiesMarkup || "<p class=\"copy story-list__empty\">Bootstrap the repo prompts to start creating user stories from the sidebar.</p>"}
+      ${storiesMarkup || "<p class=\"copy story-list__empty\">Create or import a user story to start the workflow.</p>"}
     </section>
   `, isBusy, model.createFormResetToken ?? 0, model.typographyCssVars ?? "");
 }
@@ -352,11 +344,9 @@ function buildRuntimeVersionMarkup(runtimeVersion: string | null): string {
     : "";
 }
 
-function buildCreateActionButton(enabled: boolean): string {
-  const title = enabled
-    ? "Create new user story"
-    : "Initialize repo prompts before creating a user story";
-  const disabled = enabled ? "" : " disabled";
+function buildCreateActionButton(_enabled: boolean): string {
+  const title = "Create new user story";
+  const disabled = "";
 
   return `
     <button
@@ -387,7 +377,7 @@ function buildViewModeActionButton(viewMode: SidebarViewModel["viewMode"]): stri
 }
 
 function buildPromptMenu(promptsInitialized: boolean): string {
-  const bootstrapLabel = promptsInitialized ? "Refresh Prompts" : "Bootstrap Prompts";
+  const exportLabel = promptsInitialized ? "Export All Prompts" : "Export All Prompts";
 
   return `
     <div class="action-menu" data-action-menu>
@@ -402,8 +392,8 @@ function buildPromptMenu(promptsInitialized: boolean): string {
         <span aria-hidden="true">☰</span>
       </button>
       <div class="action-menu__panel" data-action-menu-panel role="menu" hidden>
-        <button class="action-menu__item" type="button" data-command="initializeRepoPrompts" role="menuitem"><span class="action-menu__item-icon" aria-hidden="true">↻</span><span>${escapeHtml(bootstrapLabel)}</span></button>
-        <button class="action-menu__item" type="button" data-command="openPromptTemplates" role="menuitem"${promptsInitialized ? "" : " disabled"}><span class="action-menu__item-icon" aria-hidden="true">📄</span><span>Open Prompt Templates</span></button>
+        <button class="action-menu__item" type="button" data-command="initializeRepoPrompts" role="menuitem"><span class="action-menu__item-icon" aria-hidden="true">↻</span><span>${escapeHtml(exportLabel)}</span></button>
+        <button class="action-menu__item" type="button" data-command="openPromptTemplates" role="menuitem"><span class="action-menu__item-icon" aria-hidden="true">📄</span><span>Customize Prompt Templates</span></button>
       </div>
     </div>
   `;
@@ -437,13 +427,13 @@ function buildPromptsBootstrapMarkup(isFirstRun: boolean, promptsMessage: string
     <section class="action-card bootstrap-card">
       <div class="section-header">
         <div>
-          <p class="eyebrow">Repo Bootstrap</p>
-          <h2>${isFirstRun ? "Initialize prompts before the first user story" : "Initialize missing repo prompts"}</h2>
+          <p class="eyebrow">Prompt Overrides</p>
+          <h2>${isFirstRun ? "Customize prompts when needed" : "Export embedded prompts when needed"}</h2>
         </div>
       </div>
-      <p class="copy">SpecForge.AI needs the repo prompt set under <code>.specs/prompts/</code> before the sidebar can create or refresh workflow intake.</p>
+      <p class="copy">SpecForge.AI runs with embedded prompts by default. Disk files under <code>.specs/prompts/</code> are overrides created only when you customize or export them.</p>
       ${promptsMessage ? `<p class="copy">${escapeHtml(promptsMessage)}</p>` : ""}
-      <button class="primary-action" data-command="initializeRepoPrompts">Bootstrap Prompts</button>
+      <button class="primary-action" data-command="openPromptTemplates">Customize Prompt Templates</button>
     </section>
   `;
 }

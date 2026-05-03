@@ -103,28 +103,28 @@ class UserStoryCategoryTreeItem extends vscode.TreeItem {
 class RepoPromptSetupTreeItem extends vscode.TreeItem {
     contextValue = "repoPromptSetup";
     constructor(message) {
-        super("Repo Prompts Not Initialized", vscode.TreeItemCollapsibleState.None);
-        this.description = "required for real providers";
+        super("Prompt Overrides", vscode.TreeItemCollapsibleState.None);
+        this.description = "optional customization";
         this.tooltip = message
-            ? `Initialize .specs/config.yaml and .specs/prompts/ for model-backed phase execution.\n${message}`
-            : "Initialize .specs/config.yaml and .specs/prompts/ for model-backed phase execution.";
-        this.iconPath = new vscode.ThemeIcon("warning");
+            ? `SpecForge.AI runs with embedded prompts and only writes disk overrides when you customize them.\n${message}`
+            : "SpecForge.AI runs with embedded prompts and only writes disk overrides when you customize them.";
+        this.iconPath = new vscode.ThemeIcon("book");
         this.command = {
-            command: "specForge.initializeRepoPrompts",
-            title: "Initialize Repo Prompts"
+            command: "specForge.openPromptTemplates",
+            title: "Customize Prompt Templates"
         };
     }
 }
 class RepoPromptTemplatesTreeItem extends vscode.TreeItem {
     contextValue = "repoPromptTemplates";
     constructor() {
-        super("Open Prompt Templates", vscode.TreeItemCollapsibleState.None);
+        super("Customize Prompt Templates", vscode.TreeItemCollapsibleState.None);
         this.description = ".specs/prompts/";
-        this.tooltip = "Open the repo prompt manifest and templates.";
+        this.tooltip = "Choose one embedded prompt template to materialize as a disk override and open it.";
         this.iconPath = new vscode.ThemeIcon("book");
         this.command = {
             command: "specForge.openPromptTemplates",
-            title: "Open Prompt Templates"
+            title: "Customize Prompt Templates"
         };
     }
 }
@@ -166,7 +166,7 @@ class SpecsExplorerProvider {
             items.push(new RepoPromptTemplatesTreeItem());
         }
         else {
-            (0, outputChannel_1.appendSpecForgeLog)(`[explorer.getChildren] prompt bootstrap warning for '${workspaceRoot}': ${promptsStatus.message ?? "missing prompt files"}. Checked: ${promptsStatus.checkedPaths.join(", ")}`);
+            (0, outputChannel_1.appendSpecForgeLog)(`[explorer.getChildren] prompt override warning for '${workspaceRoot}': ${promptsStatus.message ?? "prompt overrides not materialized"}. Checked: ${promptsStatus.checkedPaths.join(", ")}`);
             items.push(new RepoPromptSetupTreeItem(promptsStatus.message));
         }
         for (const group of (0, explorerModel_1.groupUserStoriesByCategory)(summaries)) {
@@ -247,7 +247,7 @@ async function importUserStoryFromMarkdown() {
 async function initializeRepoPrompts(overwrite = false) {
     const workspaceRoot = getWorkspaceRoot();
     if (!workspaceRoot) {
-        void vscode.window.showWarningMessage("Open a workspace folder before initializing repo prompts.");
+        void vscode.window.showWarningMessage("Open a workspace folder before exporting prompt templates.");
         return;
     }
     try {
@@ -255,8 +255,8 @@ async function initializeRepoPrompts(overwrite = false) {
         const createdCount = result.createdFiles.length;
         const skippedCount = result.skippedFiles.length;
         void vscode.window.showInformationMessage(overwrite
-            ? `Repo prompts reinitialized. Created ${createdCount} files and skipped ${skippedCount}.`
-            : `Repo prompts initialized. Created ${createdCount} files and skipped ${skippedCount}.`);
+            ? `Prompt templates exported with overwrite. Created ${createdCount} files and skipped ${skippedCount}.`
+            : `Prompt templates exported. Created ${createdCount} files and skipped ${skippedCount}.`);
     }
     catch (error) {
         void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));
@@ -268,12 +268,33 @@ async function openPromptTemplates() {
         void vscode.window.showWarningMessage("Open a workspace folder before opening prompt templates.");
         return;
     }
-    const manifestPath = path.join(workspaceRoot, ".specs", "prompts", "prompts.yaml");
-    if (!await pathExistsAsync(manifestPath)) {
-        void vscode.window.showWarningMessage("Repo prompts are not initialized yet.");
+    const prompts = [
+        [".specs/prompts/shared/system.md", "Shared system"],
+        [".specs/prompts/shared/style.md", "Shared style"],
+        [".specs/prompts/shared/output-rules.md", "Shared output rules"],
+        [".specs/prompts/phases/refinement.execute.system.md", "Refinement execute system"],
+        [".specs/prompts/phases/refinement.execute.md", "Refinement execute"],
+        [".specs/prompts/phases/spec.execute.system.md", "Spec execute system"],
+        [".specs/prompts/phases/spec.execute.md", "Spec execute"],
+        [".specs/prompts/phases/technical-design.execute.system.md", "Technical design execute system"],
+        [".specs/prompts/phases/technical-design.execute.md", "Technical design execute"],
+        [".specs/prompts/phases/implementation.execute.system.md", "Implementation execute system"],
+        [".specs/prompts/phases/implementation.execute.md", "Implementation execute"],
+        [".specs/prompts/phases/review.execute.system.md", "Review execute system"],
+        [".specs/prompts/phases/review.execute.md", "Review execute"],
+        [".specs/prompts/phases/release-approval.execute.system.md", "Release approval execute system"],
+        [".specs/prompts/phases/release-approval.execute.md", "Release approval execute"],
+        [".specs/prompts/phases/pr-preparation.execute.system.md", "PR preparation execute system"],
+        [".specs/prompts/phases/pr-preparation.execute.md", "PR preparation execute"],
+        [".specs/prompts/phases/refinement.auto-answer.system.md", "Refinement auto-answer system"]
+    ];
+    const selected = await vscode.window.showQuickPick(prompts.map(([relativePath, label]) => ({ label, description: relativePath, relativePath })), { placeHolder: "Select a prompt template to export and customize" });
+    if (!selected) {
         return;
     }
-    await openTextDocument(manifestPath);
+    const promptPath = path.join(workspaceRoot, selected.relativePath);
+    await getBackendClient(workspaceRoot).exportPromptTemplate(promptPath, false);
+    await openTextDocument(promptPath);
 }
 async function openMainArtifact(summary) {
     if (!summary) {

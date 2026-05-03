@@ -2202,6 +2202,16 @@ public sealed class WorkflowRunner
                 builder.AppendLine($"  - profile: `{execution.ProfileName}`");
             }
 
+            if (!string.IsNullOrWhiteSpace(execution.AgentName))
+            {
+                builder.AppendLine($"  - agent: `{execution.AgentName}`");
+            }
+
+            if (!string.IsNullOrWhiteSpace(execution.AgentRole))
+            {
+                builder.AppendLine($"  - agent-role: `{execution.AgentRole}`");
+            }
+
             if (!string.IsNullOrWhiteSpace(execution.BaseUrl))
             {
                 builder.AppendLine($"  - base-url: `{execution.BaseUrl}`");

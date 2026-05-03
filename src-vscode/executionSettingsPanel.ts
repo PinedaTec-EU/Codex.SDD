@@ -4,7 +4,7 @@ import { requiresDefaultFallback, validatePhasePermissionAssignments } from "./e
 import {
   getSpecForgeSettings,
   type SpecForgeModelProfile,
-  type SpecForgePhaseModelAssignments
+  type SpecForgePhaseAgentAssignments
 } from "./extensionSettings";
 import { automationPhaseIcon, workflowPhaseIcon } from "./workflow-view/icons";
 import { buildWebviewTypographyRootCss, getEditorTypographyCssVars } from "./webviewTypography";
@@ -13,7 +13,7 @@ type ExecutionSettingsMessage =
   | {
       readonly command: "saveExecutionSettings";
       readonly modelProfiles?: readonly Partial<SpecForgeModelProfile>[];
-      readonly phaseModelAssignments?: Partial<SpecForgePhaseModelAssignments>;
+      readonly phaseAgentAssignments?: Partial<SpecForgePhaseAgentAssignments>;
       readonly refinementTolerance?: string;
       readonly reviewTolerance?: string;
       readonly watcherEnabled?: boolean;
@@ -85,7 +85,7 @@ class ExecutionSettingsPanelController {
           try {
             await saveExecutionSettingsAsync(
               message.modelProfiles ?? [],
-              message.phaseModelAssignments ?? {},
+              message.phaseAgentAssignments ?? {},
               message.refinementTolerance ?? "balanced",
               message.reviewTolerance ?? "balanced",
               message.watcherEnabled ?? true,
@@ -122,7 +122,7 @@ class ExecutionSettingsPanelController {
     const settings = getSpecForgeSettings();
     this.panel.webview.html = buildExecutionSettingsHtml({
       modelProfiles: settings.modelProfiles,
-      phaseModelAssignments: settings.phaseModelAssignments,
+      phaseAgentAssignments: settings.phaseAgentAssignments,
       refinementTolerance: settings.refinementTolerance,
       reviewTolerance: settings.reviewTolerance,
       watcherEnabled: settings.watcherEnabled,
@@ -147,7 +147,7 @@ class ExecutionSettingsPanelController {
 
 type ExecutionSettingsViewModel = {
   readonly modelProfiles: readonly SpecForgeModelProfile[];
-  readonly phaseModelAssignments: SpecForgePhaseModelAssignments;
+  readonly phaseAgentAssignments: SpecForgePhaseAgentAssignments;
   readonly refinementTolerance: string;
   readonly reviewTolerance: string;
   readonly watcherEnabled: boolean;
@@ -169,20 +169,20 @@ type ExecutionSettingsViewModel = {
 };
 
 const executionPhases: ReadonlyArray<{
-  key: keyof SpecForgePhaseModelAssignments;
+  key: keyof SpecForgePhaseAgentAssignments;
   label: string;
   phaseId: string | null;
   kind: "default" | "phase";
 }> = [
-  { key: "defaultProfile", label: "Default / fallback", phaseId: null, kind: "default" },
-  { key: "captureProfile", label: "Capture", phaseId: "capture", kind: "phase" },
-  { key: "refinementProfile", label: "Refinement", phaseId: "refinement", kind: "phase" },
-  { key: "specProfile", label: "Spec", phaseId: "spec", kind: "phase" },
-  { key: "technicalDesignProfile", label: "Technical Design", phaseId: "technical-design", kind: "phase" },
-  { key: "implementationProfile", label: "Implementation", phaseId: "implementation", kind: "phase" },
-  { key: "reviewProfile", label: "Review", phaseId: "review", kind: "phase" },
-  { key: "releaseApprovalProfile", label: "Release Approval", phaseId: "release-approval", kind: "phase" },
-  { key: "prPreparationProfile", label: "PR Preparation", phaseId: "pr-preparation", kind: "phase" }
+  { key: "defaultAgent", label: "Default / fallback", phaseId: null, kind: "default" },
+  { key: "captureAgent", label: "Capture", phaseId: "capture", kind: "phase" },
+  { key: "refinementAgent", label: "Refinement", phaseId: "refinement", kind: "phase" },
+  { key: "specAgent", label: "Spec", phaseId: "spec", kind: "phase" },
+  { key: "technicalDesignAgent", label: "Technical Design", phaseId: "technical-design", kind: "phase" },
+  { key: "implementationAgent", label: "Implementation", phaseId: "implementation", kind: "phase" },
+  { key: "reviewAgent", label: "Review", phaseId: "review", kind: "phase" },
+  { key: "releaseApprovalAgent", label: "Release Approval", phaseId: "release-approval", kind: "phase" },
+  { key: "prPreparationAgent", label: "PR Preparation", phaseId: "pr-preparation", kind: "phase" }
 ];
 
 function renderExecutionSettingsPhaseIcon(phase: typeof executionPhases[number]): string {
@@ -195,7 +195,7 @@ function renderExecutionSettingsPhaseIcon(phase: typeof executionPhases[number])
 }
 
 export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): string {
-  const permissionIssues = validatePhasePermissionAssignments(model.modelProfiles, model.phaseModelAssignments);
+  const permissionIssues = validatePhasePermissionAssignments(model.modelProfiles, model.phaseAgentAssignments);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -554,13 +554,13 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
               ${renderExecutionSettingsPhaseIcon(phase)}
               <span class="phase-field__title-stack">
                 <span class="phase-field__title">${escapeHtml(phase.label)}</span>
-                ${phase.key === "defaultProfile"
+                ${phase.key === "defaultAgent"
                   ? '<span class="phase-field__inline-hint">Required when you have multiple profiles and no single implicit fallback.</span>'
                   : ""}
               </span>
             </span>
             <select data-phase-field="${escapeHtmlAttr(String(phase.key))}"></select>
-            ${phase.key === "defaultProfile"
+            ${phase.key === "defaultAgent"
               ? '<span class="phase-field__hint">Required when you have multiple profiles and no single implicit fallback.</span>'
               : '<span class="phase-field__hint"></span>'}
           </label>
@@ -741,15 +741,15 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     const vscode = acquireVsCodeApi();
     const executionPhases = ${JSON.stringify(executionPhases)};
     const permissionRequirements = ${JSON.stringify([
-      { assignmentKey: "refinementProfile", label: "Refinement", requiredRepositoryAccess: "read" },
-      { assignmentKey: "specProfile", label: "Spec", requiredRepositoryAccess: "read" },
-      { assignmentKey: "technicalDesignProfile", label: "Technical Design", requiredRepositoryAccess: "read" },
-      { assignmentKey: "implementationProfile", label: "Implementation", requiredRepositoryAccess: "read-write" },
-      { assignmentKey: "reviewProfile", label: "Review", requiredRepositoryAccess: "read-write" }
+      { assignmentKey: "refinementAgent", label: "Refinement", requiredRepositoryAccess: "read" },
+      { assignmentKey: "specAgent", label: "Spec", requiredRepositoryAccess: "read" },
+      { assignmentKey: "technicalDesignAgent", label: "Technical Design", requiredRepositoryAccess: "read" },
+      { assignmentKey: "implementationAgent", label: "Implementation", requiredRepositoryAccess: "read-write" },
+      { assignmentKey: "reviewAgent", label: "Review", requiredRepositoryAccess: "read-write" }
     ])};
     let state = {
       modelProfiles: ${JSON.stringify(model.modelProfiles)},
-      phaseModelAssignments: ${JSON.stringify(model.phaseModelAssignments)},
+      phaseAgentAssignments: ${JSON.stringify(model.phaseAgentAssignments)},
       refinementTolerance: ${JSON.stringify(model.refinementTolerance)},
       reviewTolerance: ${JSON.stringify(model.reviewTolerance)},
       watcherEnabled: ${JSON.stringify(model.watcherEnabled)},
@@ -829,7 +829,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
 
     function hasFallbackProblem() {
       const nonEmptyProfiles = state.modelProfiles.filter((profile) => String(profile.name || "").trim().length > 0);
-      return nonEmptyProfiles.length > 1 && !String(state.phaseModelAssignments.defaultProfile || "").trim();
+      return nonEmptyProfiles.length > 1 && !String(state.phaseAgentAssignments.defaultAgent || "").trim();
     }
 
     function hasAutoRefinementProblem() {
@@ -849,11 +849,11 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       const implicitDefaultProfile = state.modelProfiles.length === 1
         ? String(state.modelProfiles[0]?.name || "").trim() || null
         : null;
-      const defaultProfile = String(state.phaseModelAssignments.defaultProfile || "").trim() || implicitDefaultProfile;
+      const defaultAgent = String(state.phaseAgentAssignments.defaultAgent || "").trim() || implicitDefaultProfile;
       const issues = [];
 
       for (const requirement of permissionRequirements) {
-        const assignedProfile = String(state.phaseModelAssignments[requirement.assignmentKey] || "").trim() || defaultProfile;
+        const assignedProfile = String(state.phaseAgentAssignments[requirement.assignmentKey] || "").trim() || defaultAgent;
         if (!assignedProfile) {
           continue;
         }
@@ -948,11 +948,11 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         if (!(select instanceof HTMLSelectElement) || !select.dataset.phaseField) {
           continue;
         }
-        const value = state.phaseModelAssignments[select.dataset.phaseField] || "";
+        const value = state.phaseAgentAssignments[select.dataset.phaseField] || "";
         select.innerHTML = phaseOptions(value);
         select.value = value;
         select.addEventListener("change", () => {
-          state.phaseModelAssignments[select.dataset.phaseField] = select.value;
+          state.phaseAgentAssignments[select.dataset.phaseField] = select.value;
         });
       }
 
@@ -1087,7 +1087,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       if (warning instanceof HTMLElement) {
         warning.classList.toggle("warning-banner--visible", fallbackProblem);
       }
-      const defaultWrapper = document.querySelector('[data-phase-wrapper="defaultProfile"]');
+      const defaultWrapper = document.querySelector('[data-phase-wrapper="defaultAgent"]');
       if (defaultWrapper instanceof HTMLElement) {
         defaultWrapper.classList.toggle("phase-field--invalid", fallbackProblem);
       }
@@ -1095,7 +1095,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
         autoRefinementWrapper.classList.toggle("phase-field--invalid", autoRefinementProblem);
       }
       for (const phase of executionPhases) {
-        if (phase.key === "defaultProfile") {
+        if (phase.key === "defaultAgent") {
           continue;
         }
         const wrapper = document.querySelector('[data-phase-wrapper="' + phase.key + '"]');
@@ -1251,9 +1251,9 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       }
 
       for (const phase of executionPhases) {
-        const current = String(state.phaseModelAssignments[phase.key] || "").trim();
+        const current = String(state.phaseAgentAssignments[phase.key] || "").trim();
         if (current && renameMap.has(current)) {
-          state.phaseModelAssignments[phase.key] = renameMap.get(current);
+          state.phaseAgentAssignments[phase.key] = renameMap.get(current);
         }
       }
 
@@ -1266,9 +1266,9 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
     function pruneMissingAssignments() {
       const names = new Set(state.modelProfiles.map((profile) => profile.name).filter(Boolean));
       for (const phase of executionPhases) {
-        const current = state.phaseModelAssignments[phase.key];
+        const current = state.phaseAgentAssignments[phase.key];
         if (current && !names.has(current)) {
-          state.phaseModelAssignments[phase.key] = "";
+          state.phaseAgentAssignments[phase.key] = "";
         }
       }
       if (state.autoRefinementAnswersProfile && !names.has(state.autoRefinementAnswersProfile)) {
@@ -1315,7 +1315,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
       vscode.postMessage({
         command: "saveExecutionSettings",
         modelProfiles: state.modelProfiles,
-        phaseModelAssignments: state.phaseModelAssignments,
+        phaseAgentAssignments: state.phaseAgentAssignments,
         refinementTolerance: state.refinementTolerance,
         reviewTolerance: state.reviewTolerance,
         watcherEnabled: state.watcherEnabled,
@@ -1344,7 +1344,7 @@ export function buildExecutionSettingsHtml(model: ExecutionSettingsViewModel): s
 
 async function saveExecutionSettingsAsync(
   modelProfiles: readonly Partial<SpecForgeModelProfile>[],
-  phaseModelAssignments: Partial<SpecForgePhaseModelAssignments>,
+  phaseAgentAssignments: Partial<SpecForgePhaseAgentAssignments>,
   refinementTolerance = "balanced",
   reviewTolerance = "balanced",
   watcherEnabled = true,
@@ -1383,30 +1383,40 @@ async function saveExecutionSettingsAsync(
       || profile.provider !== "openai-compatible"
       || profile.repositoryAccess !== "none");
 
-  const normalizedAssignments: SpecForgePhaseModelAssignments = {
-    defaultProfile: normalizeOptionalAssignment(phaseModelAssignments.defaultProfile),
-    captureProfile: normalizeOptionalAssignment(phaseModelAssignments.captureProfile),
-    refinementProfile: normalizeOptionalAssignment(phaseModelAssignments.refinementProfile),
-    specProfile: normalizeOptionalAssignment(phaseModelAssignments.specProfile),
-    technicalDesignProfile: normalizeOptionalAssignment(phaseModelAssignments.technicalDesignProfile),
-    implementationProfile: normalizeOptionalAssignment(phaseModelAssignments.implementationProfile),
-    reviewProfile: normalizeOptionalAssignment(phaseModelAssignments.reviewProfile),
-    releaseApprovalProfile: normalizeOptionalAssignment(phaseModelAssignments.releaseApprovalProfile),
-    prPreparationProfile: normalizeOptionalAssignment(phaseModelAssignments.prPreparationProfile)
+  const normalizedAssignments: SpecForgePhaseAgentAssignments = {
+    defaultAgent: normalizeOptionalAssignment(phaseAgentAssignments.defaultAgent),
+    captureAgent: normalizeOptionalAssignment(phaseAgentAssignments.captureAgent),
+    refinementAgent: normalizeOptionalAssignment(phaseAgentAssignments.refinementAgent),
+    specAgent: normalizeOptionalAssignment(phaseAgentAssignments.specAgent),
+    technicalDesignAgent: normalizeOptionalAssignment(phaseAgentAssignments.technicalDesignAgent),
+    implementationAgent: normalizeOptionalAssignment(phaseAgentAssignments.implementationAgent),
+    reviewAgent: normalizeOptionalAssignment(phaseAgentAssignments.reviewAgent),
+    releaseApprovalAgent: normalizeOptionalAssignment(phaseAgentAssignments.releaseApprovalAgent),
+    prPreparationAgent: normalizeOptionalAssignment(phaseAgentAssignments.prPreparationAgent)
   };
-  const permissionIssues = validatePhasePermissionAssignments(normalizedProfiles, normalizedAssignments);
-  if (requiresDefaultFallback(normalizedProfiles, normalizedAssignments)) {
-    throw new Error("Define the default fallback profile before saving execution settings.");
+  const normalizedAgents = normalizedProfiles.map((profile) => ({
+    name: profile.name,
+    role: profile.name,
+    modelProfile: profile.name,
+    instructions: "",
+    repositoryAccess: profile.repositoryAccess,
+    reasoningEffort: profile.reasoningEffort
+  }));
+  const permissionIssues = validatePhasePermissionAssignments(normalizedAgents, normalizedAssignments);
+  if (requiresDefaultFallback(normalizedAgents, normalizedAssignments)) {
+    throw new Error("Define the default fallback agent before saving execution settings.");
   }
   if (autoRefinementAnswersEnabled && !normalizeOptionalAssignment(autoRefinementAnswersProfile)) {
-    throw new Error("Select the profile that should answer refinement questions before saving execution settings.");
+    throw new Error("Select the agent that should answer refinement questions before saving execution settings.");
   }
   if (permissionIssues.length > 0) {
     throw new Error(permissionIssues[0]?.message ?? "Execution settings include a phase model permission mismatch.");
   }
 
   await configuration.update("execution.modelProfiles", normalizedProfiles, vscode.ConfigurationTarget.Workspace);
-  await configuration.update("execution.phaseModels", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
+  await configuration.update("execution.agentProfiles", normalizedAgents, vscode.ConfigurationTarget.Workspace);
+  await configuration.update("execution.phaseAgents", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
+  await configuration.update("execution.phaseModels", undefined, vscode.ConfigurationTarget.Workspace);
   await configuration.update("execution.refinementTolerance", refinementTolerance, vscode.ConfigurationTarget.Workspace);
   await configuration.update("execution.reviewTolerance", reviewTolerance, vscode.ConfigurationTarget.Workspace);
   await configuration.update("ui.workflowGraphLayoutMode", workflowGraphLayoutMode, vscode.ConfigurationTarget.Global);

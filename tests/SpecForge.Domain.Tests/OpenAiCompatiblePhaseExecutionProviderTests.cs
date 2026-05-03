@@ -209,9 +209,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                         Model: "llama-resolver",
                         RepositoryAccess: "read")
                 ],
-                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
-                    DefaultProfile: "default",
-                    RefinementProfile: "default")));
+                AgentProfiles:
+                [
+                    new OpenAiCompatibleAgentProfile("default", "planner", "default", "Run refinement.", "read"),
+                    new OpenAiCompatibleAgentProfile("resolver", "resolver", "resolver", "Answer refinement questions.", "read")
+                ],
+                PhaseAgentAssignments: new OpenAiCompatiblePhaseAgentAssignments(
+                    DefaultAgent: "default",
+                    RefinementAgent: "default")));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -273,7 +278,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
         Assert.NotNull(result.Execution);
         Assert.NotNull(result.Execution!.Warnings);
         Assert.Contains(result.Execution.Warnings!, warning => warning.Contains("spec.execute.system.md", StringComparison.Ordinal));
-        Assert.Contains("modified outside the engine", result.Execution.Warnings!.First());
+        Assert.Contains("differs from the embedded SpecForge template", result.Execution.Warnings!.First());
         Assert.Contains("This spec system prompt was modified outside the engine.", OpenAiCompatibleRequestJson.ReadSystemPrompt(handler.LastBody));
     }
 
@@ -387,11 +392,16 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                         Model: "llama-top",
                         RepositoryAccess: "read-write")
                 ],
-                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
-                    DefaultProfile: "light",
-                    TechnicalDesignProfile: "top",
-                    ImplementationProfile: "top",
-                    ReviewProfile: "light")));
+                AgentProfiles:
+                [
+                    new OpenAiCompatibleAgentProfile("light", "planner", "light", "Plan and review.", "read"),
+                    new OpenAiCompatibleAgentProfile("top", "implementer", "top", "Implement.", "read-write")
+                ],
+                PhaseAgentAssignments: new OpenAiCompatiblePhaseAgentAssignments(
+                    DefaultAgent: "light",
+                    TechnicalDesignAgent: "top",
+                    ImplementationAgent: "top",
+                    ReviewAgent: "light")));
 
         var technicalDesignContext = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
@@ -440,10 +450,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                         ApiKey: string.Empty,
                         Model: "llama-top")
                 ],
-                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
-                    DefaultProfile: "light",
-                    ImplementationProfile: "top",
-                    ReviewProfile: "light")));
+                AgentProfiles:
+                [
+                    new OpenAiCompatibleAgentProfile("light", "reviewer", "light", "Review.", "read-write"),
+                    new OpenAiCompatibleAgentProfile("top", "implementer", "top", "Implement.", "read-write")
+                ],
+                PhaseAgentAssignments: new OpenAiCompatiblePhaseAgentAssignments(
+                    DefaultAgent: "light",
+                    ImplementationAgent: "top",
+                    ReviewAgent: "light")));
         var reviewContext = implementationContext with
         {
             PhaseId = PhaseId.Review
@@ -614,8 +629,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                         ApiKey: string.Empty,
                         Model: "llama-light")
                 ],
-                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
-                    DefaultProfile: "light")));
+                AgentProfiles:
+                [
+                    new OpenAiCompatibleAgentProfile("light", "planner", "light", "Run the phase.", "read-write")
+                ],
+                PhaseAgentAssignments: new OpenAiCompatiblePhaseAgentAssignments(
+                    DefaultAgent: "light")));
         var context = new PhaseExecutionContext(
             WorkspaceRoot: workspaceRoot,
             UsId: "US-0001",
@@ -650,8 +669,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                         Model: "model-1",
                         RepositoryAccess: "read-write")
                 ],
-                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
-                    DefaultProfile: "bridge")),
+                AgentProfiles:
+                [
+                    new OpenAiCompatibleAgentProfile("bridge", "planner", "bridge", "Run the phase.", "read-write")
+                ],
+                PhaseAgentAssignments: new OpenAiCompatiblePhaseAgentAssignments(
+                    DefaultAgent: "bridge")),
             new RepositoryPromptCatalog(),
             [new FakeNativeCliRunner(providerKind, isAvailable: false)]);
         var context = new PhaseExecutionContext(
@@ -953,12 +976,17 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                         Model: string.Empty,
                         RepositoryAccess: "read-write")
                 ],
-                PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
-                    RefinementProfile: "planner",
-                    SpecProfile: "planner",
-                    TechnicalDesignProfile: "planner",
-                    ImplementationProfile: "implementer",
-                    ReviewProfile: "planner")));
+                AgentProfiles:
+                [
+                    new OpenAiCompatibleAgentProfile("planner", "planner", "planner", "Plan.", "read"),
+                    new OpenAiCompatibleAgentProfile("implementer", "implementer", "implementer", "Implement.", "read-write")
+                ],
+                PhaseAgentAssignments: new OpenAiCompatiblePhaseAgentAssignments(
+                    RefinementAgent: "planner",
+                    SpecAgent: "planner",
+                    TechnicalDesignAgent: "planner",
+                    ImplementationAgent: "implementer",
+                    ReviewAgent: "planner")));
 
         Assert.NotNull(provider);
     }
@@ -1086,9 +1114,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
             PreviousArtifactPaths: new Dictionary<PhaseId, string>(),
             ContextFilePaths: []);
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ExecuteAsync(context));
+        var result = await provider.ExecuteAsync(context);
 
-        Assert.Contains("Missing required prompt template", error.Message);
+        Assert.Contains("# Spec · US-0001 · v01", result.Content);
     }
 
     public void Dispose()
@@ -1174,8 +1202,18 @@ public sealed class OpenAiCompatiblePhaseExecutionProviderTests : IDisposable
                     ReasoningEffort: reasoningEffort,
                     RepositoryAccess: repositoryAccess)
             ],
-            PhaseModelAssignments: new OpenAiCompatiblePhaseModelAssignments(
-                DefaultProfile: profileName));
+            AgentProfiles:
+            [
+                new OpenAiCompatibleAgentProfile(
+                    Name: profileName,
+                    Role: "test-agent",
+                    ModelProfile: profileName,
+                    Instructions: "Run the test phase.",
+                    RepositoryAccess: repositoryAccess,
+                    ReasoningEffort: reasoningEffort)
+            ],
+            PhaseAgentAssignments: new OpenAiCompatiblePhaseAgentAssignments(
+                DefaultAgent: profileName));
     }
 
     private sealed class CapturingFakeHttpMessageHandler : HttpMessageHandler

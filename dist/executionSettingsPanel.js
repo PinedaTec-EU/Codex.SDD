@@ -78,7 +78,7 @@ class ExecutionSettingsPanelController {
                     return;
                 case "saveExecutionSettings":
                     try {
-                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseModelAssignments ?? {}, message.refinementTolerance ?? "balanced", message.reviewTolerance ?? "balanced", message.watcherEnabled ?? true, message.attentionNotificationsEnabled ?? true, message.contextSuggestionsEnabled ?? true, message.workflowGraphLayoutMode ?? "vertical", message.workflowGraphInitialZoomMode ?? "actual-size", message.visualTimelineEnabled ?? false, message.requireExplicitApprovalBranchAcceptance ?? false, message.autoRefinementAnswersEnabled ?? false, message.autoRefinementAnswersProfile, message.autoPlayEnabled ?? false, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.destructiveRewindEnabled ?? false, message.pauseOnFailedReview ?? false, message.completedUsLockOnCompleted ?? true);
+                        await saveExecutionSettingsAsync(message.modelProfiles ?? [], message.phaseAgentAssignments ?? {}, message.refinementTolerance ?? "balanced", message.reviewTolerance ?? "balanced", message.watcherEnabled ?? true, message.attentionNotificationsEnabled ?? true, message.contextSuggestionsEnabled ?? true, message.workflowGraphLayoutMode ?? "vertical", message.workflowGraphInitialZoomMode ?? "actual-size", message.visualTimelineEnabled ?? false, message.requireExplicitApprovalBranchAcceptance ?? false, message.autoRefinementAnswersEnabled ?? false, message.autoRefinementAnswersProfile, message.autoPlayEnabled ?? false, message.autoReviewEnabled ?? false, message.maxImplementationReviewCycles ?? null, message.destructiveRewindEnabled ?? false, message.pauseOnFailedReview ?? false, message.completedUsLockOnCompleted ?? true);
                         await this.onDidSave();
                         await this.refreshAsync();
                     }
@@ -97,7 +97,7 @@ class ExecutionSettingsPanelController {
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
         this.panel.webview.html = buildExecutionSettingsHtml({
             modelProfiles: settings.modelProfiles,
-            phaseModelAssignments: settings.phaseModelAssignments,
+            phaseAgentAssignments: settings.phaseAgentAssignments,
             refinementTolerance: settings.refinementTolerance,
             reviewTolerance: settings.reviewTolerance,
             watcherEnabled: settings.watcherEnabled,
@@ -120,15 +120,15 @@ class ExecutionSettingsPanelController {
     }
 }
 const executionPhases = [
-    { key: "defaultProfile", label: "Default / fallback", phaseId: null, kind: "default" },
-    { key: "captureProfile", label: "Capture", phaseId: "capture", kind: "phase" },
-    { key: "refinementProfile", label: "Refinement", phaseId: "refinement", kind: "phase" },
-    { key: "specProfile", label: "Spec", phaseId: "spec", kind: "phase" },
-    { key: "technicalDesignProfile", label: "Technical Design", phaseId: "technical-design", kind: "phase" },
-    { key: "implementationProfile", label: "Implementation", phaseId: "implementation", kind: "phase" },
-    { key: "reviewProfile", label: "Review", phaseId: "review", kind: "phase" },
-    { key: "releaseApprovalProfile", label: "Release Approval", phaseId: "release-approval", kind: "phase" },
-    { key: "prPreparationProfile", label: "PR Preparation", phaseId: "pr-preparation", kind: "phase" }
+    { key: "defaultAgent", label: "Default / fallback", phaseId: null, kind: "default" },
+    { key: "captureAgent", label: "Capture", phaseId: "capture", kind: "phase" },
+    { key: "refinementAgent", label: "Refinement", phaseId: "refinement", kind: "phase" },
+    { key: "specAgent", label: "Spec", phaseId: "spec", kind: "phase" },
+    { key: "technicalDesignAgent", label: "Technical Design", phaseId: "technical-design", kind: "phase" },
+    { key: "implementationAgent", label: "Implementation", phaseId: "implementation", kind: "phase" },
+    { key: "reviewAgent", label: "Review", phaseId: "review", kind: "phase" },
+    { key: "releaseApprovalAgent", label: "Release Approval", phaseId: "release-approval", kind: "phase" },
+    { key: "prPreparationAgent", label: "PR Preparation", phaseId: "pr-preparation", kind: "phase" }
 ];
 function renderExecutionSettingsPhaseIcon(phase) {
     const icon = phase.phaseId ? (0, icons_1.workflowPhaseIcon)(phase.phaseId) : (0, icons_1.automationPhaseIcon)();
@@ -138,7 +138,7 @@ function renderExecutionSettingsPhaseIcon(phase) {
     return `<span class="phase-field__icon-shell${toneClass}" aria-hidden="true">${icon}</span>`;
 }
 function buildExecutionSettingsHtml(model) {
-    const permissionIssues = (0, executionSettingsModel_1.validatePhasePermissionAssignments)(model.modelProfiles, model.phaseModelAssignments);
+    const permissionIssues = (0, executionSettingsModel_1.validatePhasePermissionAssignments)(model.modelProfiles, model.phaseAgentAssignments);
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -497,13 +497,13 @@ function buildExecutionSettingsHtml(model) {
               ${renderExecutionSettingsPhaseIcon(phase)}
               <span class="phase-field__title-stack">
                 <span class="phase-field__title">${(0, htmlEscape_1.escapeHtml)(phase.label)}</span>
-                ${phase.key === "defaultProfile"
+                ${phase.key === "defaultAgent"
         ? '<span class="phase-field__inline-hint">Required when you have multiple profiles and no single implicit fallback.</span>'
         : ""}
               </span>
             </span>
             <select data-phase-field="${(0, htmlEscape_1.escapeHtmlAttr)(String(phase.key))}"></select>
-            ${phase.key === "defaultProfile"
+            ${phase.key === "defaultAgent"
         ? '<span class="phase-field__hint">Required when you have multiple profiles and no single implicit fallback.</span>'
         : '<span class="phase-field__hint"></span>'}
           </label>
@@ -684,15 +684,15 @@ function buildExecutionSettingsHtml(model) {
     const vscode = acquireVsCodeApi();
     const executionPhases = ${JSON.stringify(executionPhases)};
     const permissionRequirements = ${JSON.stringify([
-        { assignmentKey: "refinementProfile", label: "Refinement", requiredRepositoryAccess: "read" },
-        { assignmentKey: "specProfile", label: "Spec", requiredRepositoryAccess: "read" },
-        { assignmentKey: "technicalDesignProfile", label: "Technical Design", requiredRepositoryAccess: "read" },
-        { assignmentKey: "implementationProfile", label: "Implementation", requiredRepositoryAccess: "read-write" },
-        { assignmentKey: "reviewProfile", label: "Review", requiredRepositoryAccess: "read-write" }
+        { assignmentKey: "refinementAgent", label: "Refinement", requiredRepositoryAccess: "read" },
+        { assignmentKey: "specAgent", label: "Spec", requiredRepositoryAccess: "read" },
+        { assignmentKey: "technicalDesignAgent", label: "Technical Design", requiredRepositoryAccess: "read" },
+        { assignmentKey: "implementationAgent", label: "Implementation", requiredRepositoryAccess: "read-write" },
+        { assignmentKey: "reviewAgent", label: "Review", requiredRepositoryAccess: "read-write" }
     ])};
     let state = {
       modelProfiles: ${JSON.stringify(model.modelProfiles)},
-      phaseModelAssignments: ${JSON.stringify(model.phaseModelAssignments)},
+      phaseAgentAssignments: ${JSON.stringify(model.phaseAgentAssignments)},
       refinementTolerance: ${JSON.stringify(model.refinementTolerance)},
       reviewTolerance: ${JSON.stringify(model.reviewTolerance)},
       watcherEnabled: ${JSON.stringify(model.watcherEnabled)},
@@ -772,7 +772,7 @@ function buildExecutionSettingsHtml(model) {
 
     function hasFallbackProblem() {
       const nonEmptyProfiles = state.modelProfiles.filter((profile) => String(profile.name || "").trim().length > 0);
-      return nonEmptyProfiles.length > 1 && !String(state.phaseModelAssignments.defaultProfile || "").trim();
+      return nonEmptyProfiles.length > 1 && !String(state.phaseAgentAssignments.defaultAgent || "").trim();
     }
 
     function hasAutoRefinementProblem() {
@@ -792,11 +792,11 @@ function buildExecutionSettingsHtml(model) {
       const implicitDefaultProfile = state.modelProfiles.length === 1
         ? String(state.modelProfiles[0]?.name || "").trim() || null
         : null;
-      const defaultProfile = String(state.phaseModelAssignments.defaultProfile || "").trim() || implicitDefaultProfile;
+      const defaultAgent = String(state.phaseAgentAssignments.defaultAgent || "").trim() || implicitDefaultProfile;
       const issues = [];
 
       for (const requirement of permissionRequirements) {
-        const assignedProfile = String(state.phaseModelAssignments[requirement.assignmentKey] || "").trim() || defaultProfile;
+        const assignedProfile = String(state.phaseAgentAssignments[requirement.assignmentKey] || "").trim() || defaultAgent;
         if (!assignedProfile) {
           continue;
         }
@@ -891,11 +891,11 @@ function buildExecutionSettingsHtml(model) {
         if (!(select instanceof HTMLSelectElement) || !select.dataset.phaseField) {
           continue;
         }
-        const value = state.phaseModelAssignments[select.dataset.phaseField] || "";
+        const value = state.phaseAgentAssignments[select.dataset.phaseField] || "";
         select.innerHTML = phaseOptions(value);
         select.value = value;
         select.addEventListener("change", () => {
-          state.phaseModelAssignments[select.dataset.phaseField] = select.value;
+          state.phaseAgentAssignments[select.dataset.phaseField] = select.value;
         });
       }
 
@@ -1030,7 +1030,7 @@ function buildExecutionSettingsHtml(model) {
       if (warning instanceof HTMLElement) {
         warning.classList.toggle("warning-banner--visible", fallbackProblem);
       }
-      const defaultWrapper = document.querySelector('[data-phase-wrapper="defaultProfile"]');
+      const defaultWrapper = document.querySelector('[data-phase-wrapper="defaultAgent"]');
       if (defaultWrapper instanceof HTMLElement) {
         defaultWrapper.classList.toggle("phase-field--invalid", fallbackProblem);
       }
@@ -1038,7 +1038,7 @@ function buildExecutionSettingsHtml(model) {
         autoRefinementWrapper.classList.toggle("phase-field--invalid", autoRefinementProblem);
       }
       for (const phase of executionPhases) {
-        if (phase.key === "defaultProfile") {
+        if (phase.key === "defaultAgent") {
           continue;
         }
         const wrapper = document.querySelector('[data-phase-wrapper="' + phase.key + '"]');
@@ -1194,9 +1194,9 @@ function buildExecutionSettingsHtml(model) {
       }
 
       for (const phase of executionPhases) {
-        const current = String(state.phaseModelAssignments[phase.key] || "").trim();
+        const current = String(state.phaseAgentAssignments[phase.key] || "").trim();
         if (current && renameMap.has(current)) {
-          state.phaseModelAssignments[phase.key] = renameMap.get(current);
+          state.phaseAgentAssignments[phase.key] = renameMap.get(current);
         }
       }
 
@@ -1209,9 +1209,9 @@ function buildExecutionSettingsHtml(model) {
     function pruneMissingAssignments() {
       const names = new Set(state.modelProfiles.map((profile) => profile.name).filter(Boolean));
       for (const phase of executionPhases) {
-        const current = state.phaseModelAssignments[phase.key];
+        const current = state.phaseAgentAssignments[phase.key];
         if (current && !names.has(current)) {
-          state.phaseModelAssignments[phase.key] = "";
+          state.phaseAgentAssignments[phase.key] = "";
         }
       }
       if (state.autoRefinementAnswersProfile && !names.has(state.autoRefinementAnswersProfile)) {
@@ -1258,7 +1258,7 @@ function buildExecutionSettingsHtml(model) {
       vscode.postMessage({
         command: "saveExecutionSettings",
         modelProfiles: state.modelProfiles,
-        phaseModelAssignments: state.phaseModelAssignments,
+        phaseAgentAssignments: state.phaseAgentAssignments,
         refinementTolerance: state.refinementTolerance,
         reviewTolerance: state.reviewTolerance,
         watcherEnabled: state.watcherEnabled,
@@ -1284,7 +1284,7 @@ function buildExecutionSettingsHtml(model) {
 </body>
 </html>`;
 }
-async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, refinementTolerance = "balanced", reviewTolerance = "balanced", watcherEnabled = true, attentionNotificationsEnabled = true, contextSuggestionsEnabled = true, workflowGraphLayoutMode = "vertical", workflowGraphInitialZoomMode = "actual-size", visualTimelineEnabled = false, requireExplicitApprovalBranchAcceptance = false, autoRefinementAnswersEnabled = false, autoRefinementAnswersProfile, autoPlayEnabled = false, autoReviewEnabled = false, maxImplementationReviewCycles, destructiveRewindEnabled = false, pauseOnFailedReview = false, completedUsLockOnCompleted = false) {
+async function saveExecutionSettingsAsync(modelProfiles, phaseAgentAssignments, refinementTolerance = "balanced", reviewTolerance = "balanced", watcherEnabled = true, attentionNotificationsEnabled = true, contextSuggestionsEnabled = true, workflowGraphLayoutMode = "vertical", workflowGraphInitialZoomMode = "actual-size", visualTimelineEnabled = false, requireExplicitApprovalBranchAcceptance = false, autoRefinementAnswersEnabled = false, autoRefinementAnswersProfile, autoPlayEnabled = false, autoReviewEnabled = false, maxImplementationReviewCycles, destructiveRewindEnabled = false, pauseOnFailedReview = false, completedUsLockOnCompleted = false) {
     const configuration = vscode.workspace.getConfiguration("specForge");
     const normalizedProfiles = modelProfiles
         .map((profile) => ({
@@ -1304,28 +1304,38 @@ async function saveExecutionSettingsAsync(modelProfiles, phaseModelAssignments, 
         || profile.provider !== "openai-compatible"
         || profile.repositoryAccess !== "none");
     const normalizedAssignments = {
-        defaultProfile: normalizeOptionalAssignment(phaseModelAssignments.defaultProfile),
-        captureProfile: normalizeOptionalAssignment(phaseModelAssignments.captureProfile),
-        refinementProfile: normalizeOptionalAssignment(phaseModelAssignments.refinementProfile),
-        specProfile: normalizeOptionalAssignment(phaseModelAssignments.specProfile),
-        technicalDesignProfile: normalizeOptionalAssignment(phaseModelAssignments.technicalDesignProfile),
-        implementationProfile: normalizeOptionalAssignment(phaseModelAssignments.implementationProfile),
-        reviewProfile: normalizeOptionalAssignment(phaseModelAssignments.reviewProfile),
-        releaseApprovalProfile: normalizeOptionalAssignment(phaseModelAssignments.releaseApprovalProfile),
-        prPreparationProfile: normalizeOptionalAssignment(phaseModelAssignments.prPreparationProfile)
+        defaultAgent: normalizeOptionalAssignment(phaseAgentAssignments.defaultAgent),
+        captureAgent: normalizeOptionalAssignment(phaseAgentAssignments.captureAgent),
+        refinementAgent: normalizeOptionalAssignment(phaseAgentAssignments.refinementAgent),
+        specAgent: normalizeOptionalAssignment(phaseAgentAssignments.specAgent),
+        technicalDesignAgent: normalizeOptionalAssignment(phaseAgentAssignments.technicalDesignAgent),
+        implementationAgent: normalizeOptionalAssignment(phaseAgentAssignments.implementationAgent),
+        reviewAgent: normalizeOptionalAssignment(phaseAgentAssignments.reviewAgent),
+        releaseApprovalAgent: normalizeOptionalAssignment(phaseAgentAssignments.releaseApprovalAgent),
+        prPreparationAgent: normalizeOptionalAssignment(phaseAgentAssignments.prPreparationAgent)
     };
-    const permissionIssues = (0, executionSettingsModel_1.validatePhasePermissionAssignments)(normalizedProfiles, normalizedAssignments);
-    if ((0, executionSettingsModel_1.requiresDefaultFallback)(normalizedProfiles, normalizedAssignments)) {
-        throw new Error("Define the default fallback profile before saving execution settings.");
+    const normalizedAgents = normalizedProfiles.map((profile) => ({
+        name: profile.name,
+        role: profile.name,
+        modelProfile: profile.name,
+        instructions: "",
+        repositoryAccess: profile.repositoryAccess,
+        reasoningEffort: profile.reasoningEffort
+    }));
+    const permissionIssues = (0, executionSettingsModel_1.validatePhasePermissionAssignments)(normalizedAgents, normalizedAssignments);
+    if ((0, executionSettingsModel_1.requiresDefaultFallback)(normalizedAgents, normalizedAssignments)) {
+        throw new Error("Define the default fallback agent before saving execution settings.");
     }
     if (autoRefinementAnswersEnabled && !normalizeOptionalAssignment(autoRefinementAnswersProfile)) {
-        throw new Error("Select the profile that should answer refinement questions before saving execution settings.");
+        throw new Error("Select the agent that should answer refinement questions before saving execution settings.");
     }
     if (permissionIssues.length > 0) {
         throw new Error(permissionIssues[0]?.message ?? "Execution settings include a phase model permission mismatch.");
     }
     await configuration.update("execution.modelProfiles", normalizedProfiles, vscode.ConfigurationTarget.Workspace);
-    await configuration.update("execution.phaseModels", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("execution.agentProfiles", normalizedAgents, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("execution.phaseAgents", normalizedAssignments, vscode.ConfigurationTarget.Workspace);
+    await configuration.update("execution.phaseModels", undefined, vscode.ConfigurationTarget.Workspace);
     await configuration.update("execution.refinementTolerance", refinementTolerance, vscode.ConfigurationTarget.Workspace);
     await configuration.update("execution.reviewTolerance", reviewTolerance, vscode.ConfigurationTarget.Workspace);
     await configuration.update("ui.workflowGraphLayoutMode", workflowGraphLayoutMode, vscode.ConfigurationTarget.Global);

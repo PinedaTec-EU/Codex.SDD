@@ -1,8 +1,10 @@
 using System.Text.Json;
 using SpecForge.Domain.Application;
+using SpecForge.Domain.Persistence;
+using SpecForge.OpenAICompatible;
 
-var runner = new WorkflowRunner();
-var applicationService = new SpecForgeApplicationService();
+var runner = new WorkflowRunner(CreatePhaseExecutionProvider());
+var applicationService = new SpecForgeApplicationService(new UserStoryFileStore(), runner);
 
 if (args.Length == 0)
 {
@@ -154,4 +156,34 @@ static int ExitWithError(string message)
 {
     Console.Error.WriteLine(message);
     return 1;
+}
+
+static IPhaseExecutionProvider CreatePhaseExecutionProvider()
+{
+    var payload = Environment.GetEnvironmentVariable("SPECFORGE_OPENAI_MODEL_PROFILES_JSON");
+    if (string.IsNullOrWhiteSpace(payload))
+    {
+        return new DeterministicPhaseExecutionProvider();
+    }
+
+    var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+    {
+        PropertyNameCaseInsensitive = true
+    };
+    var modelProfiles = JsonSerializer.Deserialize<List<OpenAiCompatibleModelProfile>>(payload, jsonOptions)
+        ?? throw new InvalidOperationException("SPECFORGE_OPENAI_MODEL_PROFILES_JSON could not be parsed.");
+    var agentProfiles = JsonSerializer.Deserialize<List<OpenAiCompatibleAgentProfile>>(
+            Environment.GetEnvironmentVariable("SPECFORGE_OPENAI_AGENT_PROFILES_JSON") ?? "[]",
+            jsonOptions)
+        ?? [];
+    var phaseAgents = JsonSerializer.Deserialize<OpenAiCompatiblePhaseAgentAssignments>(
+        Environment.GetEnvironmentVariable("SPECFORGE_OPENAI_PHASE_AGENT_ASSIGNMENTS_JSON") ?? "{}",
+        jsonOptions);
+
+    return new OpenAiCompatiblePhaseExecutionProvider(
+        new HttpClient { Timeout = TimeSpan.FromMinutes(10) },
+        new OpenAiCompatibleProviderOptions(
+            ModelProfiles: modelProfiles,
+            AgentProfiles: agentProfiles,
+            PhaseAgentAssignments: phaseAgents));
 }

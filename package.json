@@ -85,11 +85,11 @@
       },
       {
         "command": "specForge.initializeRepoPrompts",
-        "title": "Initialize Repo Prompts"
+        "title": "Export All Prompt Templates"
       },
       {
         "command": "specForge.openPromptTemplates",
-        "title": "Open Prompt Templates"
+        "title": "Customize Prompt Templates"
       },
       {
         "command": "specForge.openWorkflowView",
@@ -198,55 +198,107 @@
             }
           }
         },
-        "specForge.execution.phaseModels": {
+        "specForge.execution.agentProfiles": {
+          "type": "array",
+          "default": [],
+          "description": "Named agent profiles. Agents define behavior, instructions, repository access, and the model profile they use.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "modelProfile"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Stable agent name used by phase assignments."
+              },
+              "role": {
+                "type": "string",
+                "description": "Operational role, such as planner, implementer, reviewer, or release-preparer."
+              },
+              "modelProfile": {
+                "type": "string",
+                "description": "Name of the model profile this agent runs on."
+              },
+              "instructions": {
+                "type": "string",
+                "description": "Additional behavior instructions injected into the effective phase prompt."
+              },
+              "repositoryAccess": {
+                "type": "string",
+                "default": "none",
+                "enum": [
+                  "none",
+                  "read",
+                  "read-write"
+                ],
+                "description": "Repository access granted to this agent."
+              },
+              "reasoningEffort": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "minimal",
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh"
+                ],
+                "description": "Optional reasoning effort override for this agent."
+              }
+            }
+          }
+        },
+        "specForge.execution.phaseAgents": {
           "type": "object",
           "default": {},
-          "description": "Assign named model profiles to workflow phases. Any unassigned phase falls back to the default profile.",
+          "description": "Assign named agent profiles to workflow phases. Any unassigned phase falls back to the default agent.",
           "properties": {
-            "defaultProfile": {
+            "defaultAgent": {
               "type": "string",
               "default": "",
-              "description": "Fallback profile used when a specific phase does not declare its own profile."
+              "description": "Fallback agent used when a specific phase does not declare its own agent."
             },
-            "captureProfile": {
+            "captureAgent": {
               "type": "string",
               "default": "",
-              "description": "Optional profile override for capture."
+              "description": "Optional agent override for capture."
             },
-            "refinementProfile": {
+            "refinementAgent": {
               "type": "string",
               "default": "",
-              "description": "Optional profile override for refinement."
+              "description": "Optional agent override for refinement."
             },
-            "specProfile": {
+            "specAgent": {
               "type": "string",
               "default": "",
-              "description": "Optional profile override for spec."
+              "description": "Optional agent override for spec."
             },
-            "technicalDesignProfile": {
+            "technicalDesignAgent": {
               "type": "string",
               "default": "",
-              "description": "Optional profile override for technical design."
+              "description": "Optional agent override for technical design."
             },
-            "implementationProfile": {
+            "implementationAgent": {
               "type": "string",
               "default": "",
-              "description": "Optional profile override for implementation. This is the place for the strongest model."
+              "description": "Optional agent override for implementation."
             },
-            "reviewProfile": {
+            "reviewAgent": {
               "type": "string",
               "default": "",
-              "description": "Optional profile override for review. Falls back to the default profile when unset."
+              "description": "Optional agent override for review."
             },
-            "releaseApprovalProfile": {
+            "releaseApprovalAgent": {
               "type": "string",
               "default": "",
-              "description": "Optional profile override for release approval."
+              "description": "Optional agent override for release approval."
             },
-            "prPreparationProfile": {
+            "prPreparationAgent": {
               "type": "string",
               "default": "",
-              "description": "Optional profile override for PR preparation."
+              "description": "Optional agent override for PR preparation."
             }
           }
         },
@@ -273,7 +325,7 @@
         "specForge.execution.autoRefinementAnswersProfile": {
           "type": "string",
           "default": "",
-          "description": "Named profile used to auto-answer refinement questions before handing spec back to the user."
+          "description": "Named agent used to auto-answer refinement questions before handing spec back to the user."
         },
         "specForge.ui.workflowGraphLayoutMode": {
           "type": "string",

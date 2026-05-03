@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SpecForge.Domain\SpecForge.Domain.csproj" />
+    <ProjectReference Include="..\SpecForge.OpenAICompatible\SpecForge.OpenAICompatible.csproj" />
   </ItemGroup>
 
 </Project>

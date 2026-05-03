@@ -46,7 +46,6 @@ const runtimeVersion_1 = require("./runtimeVersion");
 const workflowPanel_1 = require("./workflowPanel");
 const workflowAuditView_1 = require("./workflowAuditView");
 const sidebarView_1 = require("./sidebarView");
-const repoPromptsStatus_1 = require("./repoPromptsStatus");
 const specsExplorer_1 = require("./specsExplorer");
 const userWorkspacePreferences_1 = require("./userWorkspacePreferences");
 const backendClientModel_1 = require("./backendClientModel");
@@ -108,7 +107,6 @@ function activate(context) {
         mcpProvider.refresh();
         void refreshWorkspaceUiAsync("configurationChanged");
     }));
-    void ensureRepoPromptsInitializedAsync();
     void ensureWorkflowGraphLayoutInitializedAsync();
     void autoOpenStarredUserStoryAsync(sidebarProvider, workflowAuditProvider, mcpProvider);
 }
@@ -121,25 +119,6 @@ async function logActivationVersionAsync(context) {
     const manifestVersion = readManifestVersion(context);
     const runtimeVersion = await (0, runtimeVersion_1.readRuntimeVersionAsync)();
     (0, outputChannel_1.appendSpecForgeLog)(`Extension version manifest='${manifestVersion}' runtime='${runtimeVersion ?? "unknown"}'.`);
-}
-async function ensureRepoPromptsInitializedAsync() {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) {
-        return;
-    }
-    const promptsStatus = await (0, repoPromptsStatus_1.getRepoPromptsStatusAsync)(workspaceRoot);
-    if (promptsStatus.initialized) {
-        (0, outputChannel_1.appendSpecForgeDebugLog)(`Repo prompts already initialized for '${workspaceRoot}'.`);
-        return;
-    }
-    (0, outputChannel_1.appendSpecForgeLog)(`Repo prompts missing for '${workspaceRoot}'. Attempting non-destructive bootstrap. Missing: ${promptsStatus.missingPaths.join(", ")}`);
-    try {
-        const result = await (0, specsExplorer_1.getOrCreateBackendClient)(workspaceRoot).initializeRepoPrompts(false);
-        (0, outputChannel_1.appendSpecForgeLog)(`Repo prompts bootstrap completed for '${workspaceRoot}'. Created ${result.createdFiles.length} file(s), skipped ${result.skippedFiles.length}.`);
-    }
-    catch (error) {
-        (0, outputChannel_1.appendSpecForgeLog)(`Repo prompts bootstrap failed for '${workspaceRoot}': ${error instanceof Error ? error.message : String(error)}`);
-    }
 }
 async function ensureWorkflowGraphLayoutInitializedAsync() {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;

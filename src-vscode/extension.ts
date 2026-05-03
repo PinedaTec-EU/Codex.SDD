@@ -15,7 +15,6 @@ import { readRuntimeVersionAsync } from "./runtimeVersion";
 import { hasActiveWorkflowPlayback, notifyWorkflowFileChanged, openWorkflowView, refreshWorkflowViews } from "./workflowPanel";
 import { WorkflowAuditViewProvider } from "./workflowAuditView";
 import { SidebarViewProvider } from "./sidebarView";
-import { getRepoPromptsStatusAsync } from "./repoPromptsStatus";
 import {
   approveCurrentPhase,
   applyPendingBackendClientReset,
@@ -123,7 +122,6 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  void ensureRepoPromptsInitializedAsync();
   void ensureWorkflowGraphLayoutInitializedAsync();
   void autoOpenStarredUserStoryAsync(sidebarProvider, workflowAuditProvider, mcpProvider);
 }
@@ -140,32 +138,6 @@ async function logActivationVersionAsync(context: vscode.ExtensionContext): Prom
   appendSpecForgeLog(
     `Extension version manifest='${manifestVersion}' runtime='${runtimeVersion ?? "unknown"}'.`
   );
-}
-
-async function ensureRepoPromptsInitializedAsync(): Promise<void> {
-  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!workspaceRoot) {
-    return;
-  }
-
-  const promptsStatus = await getRepoPromptsStatusAsync(workspaceRoot);
-  if (promptsStatus.initialized) {
-    appendSpecForgeDebugLog(`Repo prompts already initialized for '${workspaceRoot}'.`);
-    return;
-  }
-
-  appendSpecForgeLog(
-    `Repo prompts missing for '${workspaceRoot}'. Attempting non-destructive bootstrap. Missing: ${promptsStatus.missingPaths.join(", ")}`
-  );
-
-  try {
-    const result = await getOrCreateBackendClient(workspaceRoot).initializeRepoPrompts(false);
-    appendSpecForgeLog(
-      `Repo prompts bootstrap completed for '${workspaceRoot}'. Created ${result.createdFiles.length} file(s), skipped ${result.skippedFiles.length}.`
-    );
-  } catch (error) {
-    appendSpecForgeLog(`Repo prompts bootstrap failed for '${workspaceRoot}': ${error instanceof Error ? error.message : String(error)}`);
-  }
 }
 
 async function ensureWorkflowGraphLayoutInitializedAsync(): Promise<void> {

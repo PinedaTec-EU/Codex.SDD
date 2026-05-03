@@ -9,16 +9,24 @@ public sealed record OpenAiCompatibleModelProfile(
     string? ReasoningEffort = null,
     string RepositoryAccess = "none");
 
-public sealed record OpenAiCompatiblePhaseModelAssignments(
-    string? DefaultProfile = null,
-    string? CaptureProfile = null,
-    string? RefinementProfile = null,
-    string? SpecProfile = null,
-    string? TechnicalDesignProfile = null,
-    string? ImplementationProfile = null,
-    string? ReviewProfile = null,
-    string? ReleaseApprovalProfile = null,
-    string? PrPreparationProfile = null);
+public sealed record OpenAiCompatibleAgentProfile(
+    string Name,
+    string Role,
+    string ModelProfile,
+    string Instructions,
+    string RepositoryAccess = "none",
+    string? ReasoningEffort = null);
+
+public sealed record OpenAiCompatiblePhaseAgentAssignments(
+    string? DefaultAgent = null,
+    string? CaptureAgent = null,
+    string? RefinementAgent = null,
+    string? SpecAgent = null,
+    string? TechnicalDesignAgent = null,
+    string? ImplementationAgent = null,
+    string? ReviewAgent = null,
+    string? ReleaseApprovalAgent = null,
+    string? PrPreparationAgent = null);
 
 public sealed record OpenAiCompatibleProviderOptions(
     string? SystemPrompt = null,
@@ -27,4 +35,5 @@ public sealed record OpenAiCompatibleProviderOptions(
     bool AutoRefinementAnswersEnabled = false,
     string? AutoRefinementAnswersProfile = null,
     IReadOnlyList<OpenAiCompatibleModelProfile>? ModelProfiles = null,
-    OpenAiCompatiblePhaseModelAssignments? PhaseModelAssignments = null);
+    IReadOnlyList<OpenAiCompatibleAgentProfile>? AgentProfiles = null,
+    OpenAiCompatiblePhaseAgentAssignments? PhaseAgentAssignments = null);

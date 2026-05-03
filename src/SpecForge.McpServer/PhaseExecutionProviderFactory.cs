@@ -15,7 +15,8 @@ internal static class PhaseExecutionProviderFactory
     };
 
     private const string ModelProfilesJsonEnvVar = "SPECFORGE_OPENAI_MODEL_PROFILES_JSON";
-    private const string PhaseModelAssignmentsJsonEnvVar = "SPECFORGE_OPENAI_PHASE_MODEL_ASSIGNMENTS_JSON";
+    private const string AgentProfilesJsonEnvVar = "SPECFORGE_OPENAI_AGENT_PROFILES_JSON";
+    private const string PhaseAgentAssignmentsJsonEnvVar = "SPECFORGE_OPENAI_PHASE_AGENT_ASSIGNMENTS_JSON";
     private const string RefinementToleranceEnvVar = "SPECFORGE_REFINEMENT_TOLERANCE";
     private const string LegacyRefinementToleranceEnvVar = "SPECFORGE_CAPTURE_TOLERANCE";
     private const string ReviewToleranceEnvVar = "SPECFORGE_REVIEW_TOLERANCE";
@@ -56,7 +57,8 @@ internal static class PhaseExecutionProviderFactory
 
     private static IPhaseExecutionProvider CreateOpenAiCompatibleProvider(IReadOnlyList<OpenAiCompatibleModelProfile> modelProfiles)
     {
-        var assignments = ReadPhaseModelAssignmentsFromEnvironment();
+        var agentProfiles = ReadAgentProfilesFromEnvironment();
+        var assignments = ReadPhaseAgentAssignmentsFromEnvironment();
         var refinementTolerance = Environment.GetEnvironmentVariable(RefinementToleranceEnvVar)
             ?? Environment.GetEnvironmentVariable(LegacyRefinementToleranceEnvVar)
             ?? "balanced";
@@ -81,7 +83,8 @@ internal static class PhaseExecutionProviderFactory
             AutoRefinementAnswersEnabled: autoRefinementAnswersEnabled,
             AutoRefinementAnswersProfile: string.IsNullOrWhiteSpace(autoRefinementAnswersProfile) ? null : autoRefinementAnswersProfile.Trim(),
             ModelProfiles: modelProfiles,
-            PhaseModelAssignments: assignments);
+            AgentProfiles: agentProfiles,
+            PhaseAgentAssignments: assignments);
         return new OpenAiCompatiblePhaseExecutionProvider(httpClient, options);
     }
 
@@ -101,17 +104,30 @@ internal static class PhaseExecutionProviderFactory
             .ToList();
     }
 
-    private static OpenAiCompatiblePhaseModelAssignments? ReadPhaseModelAssignmentsFromEnvironment()
+    private static IReadOnlyList<OpenAiCompatibleAgentProfile> ReadAgentProfilesFromEnvironment()
     {
-        var payload = Environment.GetEnvironmentVariable(PhaseModelAssignmentsJsonEnvVar);
+        var payload = Environment.GetEnvironmentVariable(AgentProfilesJsonEnvVar);
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return [];
+        }
+
+        return JsonSerializer.Deserialize<List<OpenAiCompatibleAgentProfile>>(payload, JsonOptions)
+               ?? throw new InvalidOperationException(
+                   $"Environment variable '{AgentProfilesJsonEnvVar}' could not be parsed as agent profile JSON.");
+    }
+
+    private static OpenAiCompatiblePhaseAgentAssignments? ReadPhaseAgentAssignmentsFromEnvironment()
+    {
+        var payload = Environment.GetEnvironmentVariable(PhaseAgentAssignmentsJsonEnvVar);
         if (string.IsNullOrWhiteSpace(payload))
         {
             return null;
         }
 
-        return JsonSerializer.Deserialize<OpenAiCompatiblePhaseModelAssignments>(payload, JsonOptions)
+        return JsonSerializer.Deserialize<OpenAiCompatiblePhaseAgentAssignments>(payload, JsonOptions)
                ?? throw new InvalidOperationException(
-                   $"Environment variable '{PhaseModelAssignmentsJsonEnvVar}' could not be parsed as phase assignment JSON.");
+                   $"Environment variable '{PhaseAgentAssignmentsJsonEnvVar}' could not be parsed as phase agent assignment JSON.");
     }
     private static TimeSpan ReadOpenAiTimeout()
     {

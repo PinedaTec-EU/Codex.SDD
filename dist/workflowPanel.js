@@ -1136,7 +1136,17 @@ class WorkflowPanelController {
                 name: profile.name,
                 model: profile.model
             })),
-            phaseModelAssignments: settings.effectivePhaseModelAssignments,
+            phaseModelAssignments: {
+                defaultProfileName: settings.effectivePhaseAgentAssignments.defaultAgentName,
+                captureProfileName: settings.effectivePhaseAgentAssignments.captureAgentName,
+                refinementProfileName: settings.effectivePhaseAgentAssignments.refinementAgentName,
+                specProfileName: settings.effectivePhaseAgentAssignments.specAgentName,
+                technicalDesignProfileName: settings.effectivePhaseAgentAssignments.technicalDesignAgentName,
+                implementationProfileName: settings.effectivePhaseAgentAssignments.implementationAgentName,
+                reviewProfileName: settings.effectivePhaseAgentAssignments.reviewAgentName,
+                releaseApprovalProfileName: settings.effectivePhaseAgentAssignments.releaseApprovalAgentName,
+                prPreparationProfileName: settings.effectivePhaseAgentAssignments.prPreparationAgentName
+            },
             runtimeVersion,
             executionPhaseId: this.transientExecutionPhaseId,
             pausedPhaseIds: [...this.pausedPhaseIds],

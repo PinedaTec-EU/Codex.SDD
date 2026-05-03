@@ -21,17 +21,16 @@ function model(overrides: Partial<SidebarViewModel>): SidebarViewModel {
   };
 }
 
-test("buildSidebarHtml shows the bootstrap block when prompts are missing before the first user story", () => {
+test("buildSidebarHtml does not block first user story creation when prompt overrides are absent", () => {
   const html = buildSidebarHtml(model({
     promptsInitialized: false,
     categories: ["workflow", "ux"],
     userStories: []
   }));
 
-  assert.match(html, /Initialize prompts before the first user story/);
-  assert.match(html, /Bootstrap Prompts/);
+  assert.match(html, /Create your first user story/);
+  assert.match(html, /Create User Story/);
   assert.doesNotMatch(html, /aria-label="Initialize repo prompts"/);
-  assert.doesNotMatch(html, /data-command="showCreateForm"/);
   assert.doesNotMatch(html, /Workflow backlog/);
 });
 
@@ -82,7 +81,7 @@ test("buildSidebarHtml renders the embedded creation form inside the sidebar", (
   assert.match(html, /service\.cs/);
 });
 
-test("buildSidebarHtml exposes a compact prompt reset action when repo prompts are initialized", () => {
+test("buildSidebarHtml exposes a compact prompt customization action", () => {
   const html = buildSidebarHtml(model({
     categories: ["workflow"],
     userStories: [{
@@ -98,7 +97,8 @@ test("buildSidebarHtml exposes a compact prompt reset action when repo prompts a
   }));
 
   assert.match(html, /aria-label="Prompt actions"/);
-  assert.match(html, /Refresh Prompts/);
+  assert.match(html, /Export All Prompts/);
+  assert.match(html, /Customize Prompt Templates/);
   assert.match(html, /aria-label="Create new user story"/);
   assert.match(html, /aria-label="Configure execution providers"/);
   assert.doesNotMatch(html, /Repo prompts ready/);
@@ -191,7 +191,7 @@ test("buildSidebarHtml hides the phase rail for completed user stories", () => {
   assert.doesNotMatch(html, /<span class="story-card__phase-label">/);
 });
 
-test("buildSidebarHtml shows a bootstrap block above the backlog when prompts are missing", () => {
+test("buildSidebarHtml shows prompt override guidance above the backlog when reported", () => {
   const html = buildSidebarHtml(model({
     promptsInitialized: false,
     promptsMessage: "Missing 2 required prompt file(s): .specs/prompts/prompts.yaml, .specs/prompts/shared/system.md.",
@@ -208,10 +208,10 @@ test("buildSidebarHtml shows a bootstrap block above the backlog when prompts ar
     }],
   }));
 
-  assert.match(html, /Initialize missing repo prompts/);
-  assert.match(html, /Bootstrap Prompts/);
+  assert.match(html, /Export embedded prompts when needed/);
+  assert.match(html, /Customize Prompt Templates/);
   assert.match(html, /Missing 2 required prompt file\(s\)/);
-  assert.match(html, /aria-label="Initialize repo prompts before creating a user story"/);
+  assert.match(html, /aria-label="Create new user story"/);
 });
 
 test("buildSidebarHtml exposes a visible settings warning when execution is not configured", () => {
@@ -253,14 +253,14 @@ test("buildSidebarHtml surfaces the model warning when the deterministic fallbac
 
 test("buildSidebarHtml shows a busy indicator and disables actions while a sidebar operation is running", () => {
   const html = buildSidebarHtml(model({
-    busyMessage: "Bootstrapping repo prompts...",
+    busyMessage: "Exporting prompt templates...",
     promptsInitialized: false,
     categories: ["workflow"],
     userStories: []
   }));
 
   assert.match(html, /Working/);
-  assert.match(html, /Bootstrapping repo prompts\.\.\./);
+  assert.match(html, /Exporting prompt templates\.\.\./);
   assert.match(html, /const busy = true/);
 });
 

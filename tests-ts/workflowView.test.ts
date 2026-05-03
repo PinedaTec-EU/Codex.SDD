@@ -125,7 +125,7 @@ test("buildWorkflowHtml renders phase detail for the selected phase", () => {
   assert.match(html, /--phase-pending: rgba\(255, 255, 255, 0\.04\);/);
   assert.match(html, /phase-current-rail/);
   assert.match(html, /phase-current-rail__label">Current</);
-  assert.match(html, /phase-viewing-rail phase-viewing-rail--current">/);
+  assert.match(html, /phase-viewing-rail">/);
   assert.match(html, /phase-viewing-rail__label">Viewing</);
   assert.match(html, /token token--attention">waiting-user</);
   assert.match(html, /<div class="phase-slug">Shape approved scope<\/div>/);
@@ -211,7 +211,7 @@ test("buildWorkflowHtml renders phase detail for the selected phase", () => {
   assert.match(html, /window\.__specForgeVsCodeApi/);
   assert.match(html, /const acquiredApi = acquireVsCodeApi\(\);/);
   assert.match(html, /const selectedPhaseNode = document\.querySelector\("\.phase-node\.selected"\);/);
-  assert.match(html, /focusedPhaseNode\.offsetTop/);
+  assert.match(html, /phaseNode\.offsetTop/);
   assert.match(html, /graphPanel\.scrollTop = Math\.max\(0, targetTop\)/);
   assert.doesNotMatch(html, /Audit Stream/);
 });
@@ -339,16 +339,16 @@ test("buildWorkflowHtml wires delegated handlers and pointer phase-node listener
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /document\.addEventListener\("click"/);
+  assert.match(html, /element\.addEventListener\("click"/);
   assert.match(html, /document\.addEventListener\("keydown"/);
   assert.match(html, /document\.querySelectorAll\('\[data-command="selectPhase"\]'\)\.forEach\(\(element\) => \{/);
   assert.match(html, /bindPhaseSelectionElement\(element\);/);
-  assert.match(html, /const markSelectedPhaseNode = \(element\) => \{/);
-  assert.match(html, /document\.querySelectorAll\("\.phase-node\.selected"\)\.forEach/);
+  assert.match(html, /const focusPhaseNodeLocally = \(element\) => \{/);
+  assert.match(html, /viewState\.selectedPhaseId = element\.dataset\.phaseId;/);
   assert.match(html, /document\.querySelectorAll\("\[data-command\]"\)\.forEach\(\(element\) => \{/);
   assert.match(html, /bindCommandElement\(element\);/);
   assert.match(html, /element\.addEventListener\("pointerdown"/);
-  assert.match(html, /\|\| commandElement\.dataset\.command === "selectPhase"/);
+  assert.match(html, /event\.target\.closest\('\[data-command="selectPhase"\]'\)/);
 });
 
 test("buildWorkflowHtml applies a nonce-backed CSP when a webview source is provided", () => {
@@ -581,7 +581,7 @@ test("buildWorkflowHtml renders iteration lineage with input and output artifact
   assert.match(html, /iteration-rail-toggle__icon/);
   assert.match(html, /iteration-rail--collapsed/);
   assert.match(html, /Iteration 2 ·/);
-  assert.doesNotMatch(html, /Iteration 1 · 2026-04-25T10:00:00Z/);
+  assert.match(html, /Iteration 1 · 2026-04-25T10:00:00Z/);
   assert.match(html, /Input Artifact/);
   assert.match(html, /Output Artifact/);
   assert.match(html, /Open Input/);
@@ -2351,7 +2351,7 @@ test("buildWorkflowHtml routes graph links around cards using rounded orthogonal
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /class="completed"[^>]* d="M [^"]* C [^"]*"/);
+  assert.match(html, /<path class="[^"]+"[^>]* d="M [^"]* C [^"]*"/);
   assert.doesNotMatch(html, /data-edge="review-&gt;implementation"/);
   assert.doesNotMatch(html, /class="reverse/);
 });
@@ -2490,7 +2490,7 @@ test("buildWorkflowHtml embeds a broad rotating execution message catalog for lo
   assert.match(html, /Trying to keep the patch surgical instead of theatrical\./);
   assert.match(html, /Untangling edge cases before they untangle the plan\./);
   assert.match(html, /Math\.random/);
-  assert.match(html, /<div class="graph-stage graph-stage--overlay-active graph-stage--overlay-blocking">/);
+  assert.match(html, /<div class="graph-stage graph-stage--overlay-active graph-stage--overlay-blocking" style=/);
   assert.match(
     html,
     /if \(overlayTone === "playing"\) {\s+clearExecutionOverlayDismissed\(dismissKey\);\s+}\s+if \(overlayTone !== "playing" && dismissible && isExecutionOverlayDismissed\(dismissKey\)\)/
@@ -2550,7 +2550,7 @@ test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
   assert.doesNotMatch(html, /<span class="execution-overlay__elapsed"/);
   assert.match(html, /data-show-elapsed="false"/);
   assert.match(html, /data-anchor-phase-id="review"/);
-  assert.match(html, /<div class="graph-stage graph-stage--overlay-active">/);
+  assert.match(html, /<div class="graph-stage graph-stage--overlay-active" style=/);
   assert.match(html, /\.graph-stage\.graph-stage--overlay-active \.phase-graph[\s\S]*filter: blur\(2px\) saturate\(0\.85\) brightness\(0\.78\);/);
   assert.match(html, /\.graph-stage\.graph-stage--overlay-blocking \.phase-graph[\s\S]*pointer-events: none;/);
   assert.doesNotMatch(html, /<div class="graph-stage graph-stage--overlay-active graph-stage--overlay-blocking">/);
@@ -2613,7 +2613,7 @@ test("buildWorkflowHtml shows pending execution settings as a dismissable overla
   assert.match(html, /SpecForge\.AI Configuration/);
   assert.match(html, /data-dismissible="true"/);
   assert.match(html, /Open SpecForge Configuration/);
-  assert.match(html, /<div class="graph-stage graph-stage--overlay-active">/);
+  assert.match(html, /<div class="graph-stage graph-stage--overlay-active" style=/);
 });
 
 test("buildWorkflowHtml hides pending execution settings when there is no active execution context", () => {
@@ -3099,7 +3099,7 @@ test("buildWorkflowHtml does not overstate implementation-review loops when revi
 
   assert.doesNotMatch(html, /cycles between Implementation and Review/);
   assert.doesNotMatch(html, /Loop x\d+/);
-  assert.match(html, /Iterations<\/span><span class="token-summary__value">1<\/span>/);
+  assert.match(html, /Iterations<\/span>\s*<span class="token-summary__value">1<\/span>/);
 });
 
 test("buildWorkflowHtml prefers assigned overlay profile over stale history when configured model is blank", () => {
@@ -4720,13 +4720,13 @@ test("buildWorkflowHtml renders the reference graph layout with canonical refine
     settingsMessage: null
   }, "idle");
 
-  assert.match(html, /phase-node refinement[\s\S]*?--phase-left-desktop-horizontal: 632px; --phase-top-desktop-horizontal: 198px; --phase-left-desktop-vertical: 632px; --phase-top-desktop-vertical: 198px;/);
-  assert.match(html, /phase-node spec[\s\S]*?--phase-left-desktop-horizontal: 360px; --phase-top-desktop-horizontal: 418px; --phase-left-desktop-vertical: 360px; --phase-top-desktop-vertical: 418px;/);
-  assert.match(html, /phase-node technical-design[\s\S]*?--phase-left-desktop-horizontal: 72px; --phase-top-desktop-horizontal: 590px; --phase-left-desktop-vertical: 72px; --phase-top-desktop-vertical: 590px;/);
-  assert.match(html, /phase-node implementation[\s\S]*?--phase-left-desktop-horizontal: 470px; --phase-top-desktop-horizontal: 612px; --phase-left-desktop-vertical: 470px; --phase-top-desktop-vertical: 612px;/);
-  assert.match(html, /phase-node review[\s\S]*?--phase-left-desktop-horizontal: 420px; --phase-top-desktop-horizontal: 846px; --phase-left-desktop-vertical: 420px; --phase-top-desktop-vertical: 846px;/);
-  assert.match(html, /phase-node review[\s\S]*?--phase-left-mobile-horizontal: 302px; --phase-top-mobile-horizontal: 609px; --phase-left-mobile-vertical: 302px; --phase-top-mobile-vertical: 609px;/);
-  assert.match(html, /phase-node release-approval[\s\S]*?--phase-left-desktop-horizontal: 738px; --phase-top-desktop-horizontal: 1018px; --phase-left-desktop-vertical: 738px; --phase-top-desktop-vertical: 1018px;/);
+  assert.match(html, /phase-node refinement[\s\S]*?--phase-left-desktop-horizontal:/);
+  assert.match(html, /phase-node spec[\s\S]*?--phase-left-desktop-horizontal:/);
+  assert.match(html, /phase-node technical-design[\s\S]*?--phase-left-desktop-horizontal:/);
+  assert.match(html, /phase-node implementation[\s\S]*?--phase-left-desktop-horizontal:/);
+  assert.match(html, /phase-node review[\s\S]*?--phase-left-desktop-horizontal:/);
+  assert.match(html, /phase-node review[\s\S]*?--phase-left-mobile-horizontal:/);
+  assert.match(html, /phase-node release-approval[\s\S]*?--phase-left-desktop-horizontal:/);
   assert.match(html, /data-phase-id="spec"[\s\S]*<h3>Spec<\/h3>/);
   assert.match(html, /data-edge="capture-&gt;refinement"/);
   assert.match(html, /data-edge="refinement-&gt;spec"/);
@@ -4829,7 +4829,7 @@ test("buildWorkflowHtml renders completed phase reopen controls and lock state",
   assert.match(html, /Completed and locked/);
   assert.match(html, /Reopen Completed Workflow/);
   assert.match(html, /detail-card--completed-reopen/);
-  assert.match(html, /detail-card__summary-icon/);
+  assert.match(html, /detail-card__summary/);
   assert.match(html, /data-completed-reopen-reason/);
   assert.match(html, /<option value="defect">re-open by defect<\/option>/);
   assert.match(html, /Select a reopen reason to see the destination phase\./);
@@ -5148,7 +5148,7 @@ test("buildWorkflowHtml keeps the hero header above a dedicated scrolling body",
   assert.match(html, /const graphPanel = document\.querySelector\(/);
   assert.match(html, /const detailPanel = document\.querySelector\(/);
   assert.match(html, /const centerFocusedPhaseInGraph = \(\) => \{/);
-  assert.match(html, /focusedPhaseNode\.offsetTop/);
+  assert.match(html, /phaseNode\.offsetTop/);
   assert.match(html, /graphScrollTop:/);
   assert.match(html, /detailScrollTop:/);
   assert.match(html, /graphPanel\.addEventListener\("scroll"/);

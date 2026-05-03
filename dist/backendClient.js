@@ -151,6 +151,13 @@ class StdioMcpBackendClient {
             overwrite
         });
     }
+    async exportPromptTemplate(promptPath, overwrite = false) {
+        return this.callTool("export_prompt_template", {
+            workspaceRoot: this.workspaceRoot,
+            promptPath,
+            overwrite
+        });
+    }
     async continuePhase(usId, actor) {
         return this.callTool("generate_next_phase", {
             workspaceRoot: this.workspaceRoot,

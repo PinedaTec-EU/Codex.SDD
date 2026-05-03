@@ -122,6 +122,10 @@ static async Task<JsonNode> HandleToolCallAsync(
             "initialize_repo_prompts" => await applicationService.InitializeRepoPromptsAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
                 overwrite: GetOptionalBoolean(arguments, "overwrite")),
+            "export_prompt_template" => await applicationService.ExportPromptTemplateAsync(
+                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
+                promptPath: GetRequired(arguments, "promptPath"),
+                overwrite: GetOptionalBoolean(arguments, "overwrite")),
             "list_user_stories" => new
             {
                 items = await applicationService.ListUserStoriesAsync(
@@ -275,12 +279,20 @@ static JsonObject BuildToolsList()
                         ("category",      Prop("string", "Category that groups the user story.")),
                         ("actor",         Prop("string", "Actor performing the action. Defaults to 'user'."))))),
 
-            Tool("initialize_repo_prompts", "Export the repo prompt templates into .specs/prompts/.",
+            Tool("initialize_repo_prompts", "Export the full embedded repo prompt template set into .specs/prompts/.",
                 Schema(
                     required: ["workspaceRoot"],
                     Props(
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
                         ("overwrite",     Prop("boolean", "If true, overwrite existing prompt files. Defaults to false."))))),
+
+            Tool("export_prompt_template", "Export one embedded prompt template override into .specs/prompts/ so it can be customized.",
+                Schema(
+                    required: ["workspaceRoot", "promptPath"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("promptPath",    Prop("string", "Absolute or workspace-relative prompt path to export.")),
+                        ("overwrite",     Prop("boolean", "If true, overwrite the existing prompt file. Defaults to false."))))),
 
             Tool("list_user_stories", "List all user stories persisted in the workspace.",
                 Schema(
