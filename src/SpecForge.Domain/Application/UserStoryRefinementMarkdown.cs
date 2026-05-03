@@ -4,6 +4,7 @@ namespace SpecForge.Domain.Application;
 
 public static class UserStoryRefinementMarkdown
 {
+    private const string ReadyForSpecStatus = "ready_for_spec";
     private const string RefinementSectionHeading = "## Refinement Log";
     private const string StatusPrefix = "- Status:";
     private const string TolerancePrefix = "- Tolerance:";
@@ -204,8 +205,9 @@ public static class UserStoryRefinementMarkdown
 
     public static bool HasAllAnswers(RefinementSession? session) =>
         session is not null
-        && session.Items.Count > 0
-        && session.Items.All(item => !string.IsNullOrWhiteSpace(item.Answer));
+        && (string.Equals(session.Status, ReadyForSpecStatus, StringComparison.OrdinalIgnoreCase)
+            || session.Items.Count == 0
+            || session.Items.All(item => !string.IsNullOrWhiteSpace(item.Answer)));
 
     private static string BuildSection(RefinementSession session)
     {

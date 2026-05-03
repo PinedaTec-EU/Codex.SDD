@@ -41,9 +41,11 @@ exports.closeWorkflowView = closeWorkflowView;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const vscode = __importStar(require("vscode"));
+const backendClient_1 = require("./backendClient");
 const contextSuggestions_1 = require("./contextSuggestions");
 const extensionSettings_1 = require("./extensionSettings");
 const outputChannel_1 = require("./outputChannel");
+const phaseCommitNotification_1 = require("./phaseCommitNotification");
 const runtimeVersion_1 = require("./runtimeVersion");
 const userActor_1 = require("./userActor");
 const workflowAutomation_1 = require("./workflowAutomation");
@@ -108,6 +110,8 @@ class WorkflowPanelController {
     pausedPhaseIds = new Set();
     specApprovalBaseBranchProposal = "main";
     lastRenderedViewState = null;
+    executionModelResponse = null;
+    modelResponseUnsubscribe;
     constructor(workspaceRoot, summary, getBackendClient, callbacks) {
         this.workspaceRoot = workspaceRoot;
         this.summary = summary;
@@ -119,6 +123,7 @@ class WorkflowPanelController {
             retainContextWhenHidden: true
         });
         this.panel.onDidDispose(() => {
+            this.modelResponseUnsubscribe();
             this.callbacks.setActiveWorkflowUsId(null);
             this.callbacks.clearWorkflowAudit(this.summary.usId);
             panels.delete(this.key);
@@ -147,6 +152,9 @@ class WorkflowPanelController {
                 void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));
             }
         });
+        this.modelResponseUnsubscribe = (0, backendClient_1.onModelResponseDiagnostic)((diagnostic) => {
+            this.handleModelResponseDiagnostic(diagnostic.text, diagnostic.providerKind, diagnostic.transport, diagnostic.mode);
+        });
     }
     get key() {
         return `${this.workspaceRoot}:${this.summary.usId}`;
@@ -159,6 +167,23 @@ class WorkflowPanelController {
     }
     dispose() {
         this.panel.dispose();
+    }
+    handleModelResponseDiagnostic(text, providerKind, transport, mode) {
+        if (this.playbackState !== "playing" && this.playbackState !== "stopping") {
+            return;
+        }
+        const nextText = (0, workflowPlaybackState_1.resolveExecutionModelResponsePreview)(text);
+        if (!nextText) {
+            return;
+        }
+        this.executionModelResponse = nextText;
+        (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' received ${transport} model response ${mode} from '${providerKind}' (${this.executionModelResponse.length} chars).`);
+        void this.panel.webview.postMessage({
+            command: "modelResponsePreview",
+            text: this.executionModelResponse,
+            providerKind,
+            transport
+        });
     }
     hasActivePlayback() {
         return this.playbackState === "playing" || this.playbackState === "stopping";
@@ -357,6 +382,7 @@ class WorkflowPanelController {
             : "";
         const executionSummary = this.formatExecutionSummary(result.execution);
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' advanced from '${previousPhase}' to '${result.currentPhase}' with status '${result.status}'.${executionSummary}${usageSummary}`);
+        this.notifyPhaseCommit(result.commit);
         this.logExecutionWarnings(result.execution);
         this.summary = {
             ...this.summary,
@@ -377,6 +403,7 @@ class WorkflowPanelController {
         if (this.playbackState !== "playing") {
             this.playbackStartedAtMs = Date.now();
         }
+        this.executionModelResponse = null;
         this.playbackState = "playing";
         this.setTransientExecutionPhase(phaseId);
         await this.refreshAsync(reason);
@@ -463,6 +490,7 @@ class WorkflowPanelController {
         const previousPhase = this.summary.currentPhase;
         const result = await this.getBackendClient().operateCurrentPhaseArtifact(this.summary.usId, normalizedPrompt, (0, userActor_1.getCurrentActor)());
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' regenerated phase '${result.currentPhase}' after human input.${this.formatExecutionSummary(result.execution)}`);
+        this.notifyPhaseCommit(result.commit);
         this.logExecutionWarnings(result.execution);
         this.summary = {
             ...this.summary,
@@ -521,6 +549,7 @@ class WorkflowPanelController {
         if (this.playbackState !== "playing") {
             this.playbackStartedAtMs = Date.now();
         }
+        this.executionModelResponse = null;
         this.playbackState = "playing";
         this.setTransientExecutionPhase("implementation");
         await this.refreshAsync("sendReviewToImplementationAsync:running");
@@ -535,6 +564,7 @@ class WorkflowPanelController {
             }
         }
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' applied the approved review correction pass over implementation. reviewArtifactIncluded=${includeReviewArtifactInContext}.${this.formatExecutionSummary(operation.execution)}`);
+        this.notifyPhaseCommit(operation.commit);
         this.logExecutionWarnings(operation.execution);
         this.summary = {
             ...this.summary,
@@ -548,7 +578,7 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' sendReviewToImplementationAsync requested explorer refresh.`);
         await this.callbacks.refreshExplorer();
         await this.refreshAsync("sendReviewToImplementationAsync");
-        await this.maybeAutoReviewAfterImplementationAsync("review correction");
+        await this.maybeAutoReviewAfterImplementationAsync("review correction", { requireAutoReviewSetting: false });
     }
     async approveReviewAnywayAsync(reason) {
         const normalizedReason = reason.trim();
@@ -601,6 +631,14 @@ class WorkflowPanelController {
         for (const warning of execution.warnings) {
             (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' system prompt warning: ${warning}`);
         }
+    }
+    notifyPhaseCommit(commit) {
+        const notification = (0, phaseCommitNotification_1.buildPhaseCommitNotification)(this.summary.usId, commit);
+        if (!notification) {
+            return;
+        }
+        (0, outputChannel_1.appendSpecForgeLog)(notification.logMessage);
+        void vscode.window.showInformationMessage(notification.userMessage);
     }
     formatExecutionSummary(execution) {
         if (!execution) {
@@ -849,6 +887,7 @@ class WorkflowPanelController {
             if (this.playbackState !== "playing") {
                 this.playbackStartedAtMs = Date.now();
             }
+            this.executionModelResponse = null;
             this.playbackState = "playing";
             this.setTransientExecutionPhase(result.currentPhase);
             await this.refreshAsync("reopenCompletedWorkflowAsync:running");
@@ -863,6 +902,7 @@ class WorkflowPanelController {
                 }
             }
             (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' applied the completed-workflow reopen note over '${operation.currentPhase}'.${this.formatExecutionSummary(operation.execution)}`);
+            this.notifyPhaseCommit(operation.commit);
             this.logExecutionWarnings(operation.execution);
             this.summary = {
                 ...this.summary,
@@ -990,6 +1030,7 @@ class WorkflowPanelController {
         if (this.playbackState !== "paused" || this.playbackStartedAtMs === null) {
             this.playbackStartedAtMs = Date.now();
         }
+        this.executionModelResponse = null;
         this.playbackState = "playing";
         this.setTransientExecutionPhase(executionPhaseId ?? this.deriveInitialExecutionPhaseId());
         if (!this.autoplayPromise) {
@@ -1042,11 +1083,15 @@ class WorkflowPanelController {
         (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' accepted one manual extra review pass after reaching the implementation/review loop limit (${settings.maxImplementationReviewCycles}).`);
         await this.continueCurrentPhaseAsync();
     }
-    async maybeAutoReviewAfterImplementationAsync(trigger) {
+    async maybeAutoReviewAfterImplementationAsync(trigger, options = {}) {
+        const requireAutoReviewSetting = options.requireAutoReviewSetting ?? true;
         const settings = (0, extensionSettings_1.getSpecForgeSettings)();
-        if (!settings.autoReviewEnabled) {
+        if (requireAutoReviewSetting && !settings.autoReviewEnabled) {
             (0, outputChannel_1.appendSpecForgeDebugLog)(`Workflow '${this.summary.usId}' did not auto-review after ${trigger} because 'specForge.features.autoReviewEnabled' is false.`);
             return;
+        }
+        if (!requireAutoReviewSetting && !settings.autoReviewEnabled) {
+            (0, outputChannel_1.appendSpecForgeLog)(`Workflow '${this.summary.usId}' continuing into review after ${trigger} because the review correction loop was explicitly requested.`);
         }
         const workflow = this.lastWorkflow ?? await this.getBackendClient().getUserStoryWorkflow(this.summary.usId);
         this.lastWorkflow = workflow;
@@ -1149,6 +1194,7 @@ class WorkflowPanelController {
             },
             runtimeVersion,
             executionPhaseId: this.transientExecutionPhaseId,
+            executionModelResponse: this.executionModelResponse,
             pausedPhaseIds: [...this.pausedPhaseIds],
             completedPhaseIds: this.transientCompletedPhaseIds,
             pendingRewindPhaseId: this.pendingRewindPhaseId,
@@ -1223,6 +1269,9 @@ class WorkflowPanelController {
         return null;
     }
     setTransientExecutionPhase(phaseId) {
+        if (this.transientExecutionPhaseId !== phaseId) {
+            this.executionModelResponse = null;
+        }
         this.transientExecutionPhaseId = phaseId;
         this.transientCompletedPhaseIds = this.computeCompletedPhaseIds(phaseId);
     }

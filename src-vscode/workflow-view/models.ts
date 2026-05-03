@@ -20,7 +20,6 @@ export interface WorkflowViewState {
   }[];
   readonly phaseModelAssignments?: {
     readonly defaultProfileName: string | null;
-    readonly captureProfileName: string | null;
     readonly refinementProfileName: string | null;
     readonly specProfileName: string | null;
     readonly technicalDesignProfileName: string | null;
@@ -31,6 +30,7 @@ export interface WorkflowViewState {
   };
   readonly runtimeVersion?: string | null;
   readonly executionPhaseId?: string | null;
+  readonly executionModelResponse?: string | null;
   readonly pausedPhaseIds?: readonly string[];
   readonly completedPhaseIds?: readonly string[];
   readonly playbackStartedAtMs?: number | null;

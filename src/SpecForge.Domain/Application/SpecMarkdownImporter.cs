@@ -1,3 +1,4 @@
+using System.Net;
 using SpecForge.Domain.Workflow;
 
 namespace SpecForge.Domain.Application;
@@ -74,20 +75,51 @@ internal static class SpecMarkdownImporter
 
         var items = new List<SpecApprovalQuestionDocument>();
         SpecApprovalQuestionDocument? pending = null;
+        List<string>? answerBlock = null;
         foreach (var rawLine in content.Split('\n'))
         {
             var trimmed = rawLine.Trim();
             var normalized = trimmed.TrimStart('-', '*').Trim();
+            if (answerBlock is not null)
+            {
+                if (IsHumanAnswerEndTag(normalized))
+                {
+                    pending = pending! with
+                    {
+                        Answer = DecodeHumanAnswerBlock(answerBlock),
+                        Status = "resolved"
+                    };
+                    items[^1] = pending;
+                    answerBlock = null;
+                    continue;
+                }
+
+                answerBlock.Add(trimmed);
+                continue;
+            }
+
             if (string.IsNullOrWhiteSpace(trimmed))
             {
                 continue;
             }
 
+            if (IsHumanAnswerStartTag(normalized) && pending is not null)
+            {
+                answerBlock = [];
+                continue;
+            }
+
             if (normalized.StartsWith("Answer:", StringComparison.OrdinalIgnoreCase) && pending is not null)
             {
+                var answer = normalized["Answer:".Length..].Trim();
+                if (string.IsNullOrWhiteSpace(answer))
+                {
+                    continue;
+                }
+
                 pending = pending with
                 {
-                    Answer = normalized["Answer:".Length..].Trim(),
+                    Answer = answer,
                     Status = "resolved"
                 };
                 items[^1] = pending;
@@ -120,6 +152,15 @@ internal static class SpecMarkdownImporter
 
         return items;
     }
+
+    private static bool IsHumanAnswerStartTag(string line) =>
+        string.Equals(line, "<specforge-human-answer>", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsHumanAnswerEndTag(string line) =>
+        string.Equals(line, "</specforge-human-answer>", StringComparison.OrdinalIgnoreCase);
+
+    private static string DecodeHumanAnswerBlock(IReadOnlyCollection<string> lines) =>
+        WebUtility.HtmlDecode(string.Join(Environment.NewLine, lines).Trim());
 
     private static (string Question, bool Resolved)? ParseQuestionLine(string line)
     {

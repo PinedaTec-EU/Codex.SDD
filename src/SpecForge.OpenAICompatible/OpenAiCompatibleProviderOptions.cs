@@ -9,31 +9,24 @@ public sealed record OpenAiCompatibleModelProfile(
     string? ReasoningEffort = null,
     string RepositoryAccess = "none");
 
-public sealed record OpenAiCompatibleAgentProfile(
-    string Name,
-    string Role,
-    string ModelProfile,
-    string Instructions,
-    string RepositoryAccess = "none",
-    string? ReasoningEffort = null);
-
-public sealed record OpenAiCompatiblePhaseAgentAssignments(
-    string? DefaultAgent = null,
-    string? CaptureAgent = null,
-    string? RefinementAgent = null,
-    string? SpecAgent = null,
-    string? TechnicalDesignAgent = null,
-    string? ImplementationAgent = null,
-    string? ReviewAgent = null,
-    string? ReleaseApprovalAgent = null,
-    string? PrPreparationAgent = null);
+public sealed record OpenAiCompatiblePhaseModelAssignments(
+    string? DefaultProfile = null,
+    string? RefinementProfile = null,
+    string? SpecProfile = null,
+    string? TechnicalDesignProfile = null,
+    string? ImplementationProfile = null,
+    string? ReviewProfile = null,
+    string? ReleaseApprovalProfile = null,
+    string? PrPreparationProfile = null);
 
 public sealed record OpenAiCompatibleProviderOptions(
     string? SystemPrompt = null,
     string RefinementTolerance = "balanced",
     string ReviewTolerance = "balanced",
+    string ReviewEvidencePolicy = "balanced",
     bool AutoRefinementAnswersEnabled = false,
     string? AutoRefinementAnswersProfile = null,
+    bool ReviewLearningEnabled = true,
+    string ReviewLearningSkillPath = ".codex/skills/sdd-phase-agents/SKILL.md",
     IReadOnlyList<OpenAiCompatibleModelProfile>? ModelProfiles = null,
-    IReadOnlyList<OpenAiCompatibleAgentProfile>? AgentProfiles = null,
-    OpenAiCompatiblePhaseAgentAssignments? PhaseAgentAssignments = null);
+    OpenAiCompatiblePhaseModelAssignments? PhaseModelAssignments = null);

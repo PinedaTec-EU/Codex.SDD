@@ -6,18 +6,19 @@ import {
   buildRewindWorkflowArguments,
   buildRequestRegressionArguments,
   buildRestartUserStoryArguments,
-  buildServerProjectPath,
-  parseToolContent
+  parseToolContent,
+  resolveMcpServerLaunchConfig
 } from "./backendClientModel";
 import type { SpecForgeSettings } from "./extensionSettings";
 import { buildBackendEnvironment } from "./extensionSettings";
-import { summarizeMcpDiagnosticLine } from "./mcpDiagnostics";
+import { parseModelResponseDiagnosticLine, summarizeMcpDiagnosticLine, type ModelResponseDiagnostic } from "./mcpDiagnostics";
 import { appendSpecForgeDebugLog, appendSpecForgeLog } from "./outputChannel";
 import { asErrorMessage } from "./utils";
 
 export interface UserStorySummary {
   readonly usId: string;
   readonly title: string;
+  readonly description?: string;
   readonly category: string;
   readonly directoryPath: string;
   readonly mainArtifactPath: string;
@@ -46,6 +47,15 @@ export interface ContinuePhaseResult {
   readonly generatedArtifactPath: string | null;
   readonly usage: TokenUsage | null;
   readonly execution?: PhaseExecutionMetadata | null;
+  readonly commit?: PhaseCommitResult | null;
+}
+
+export interface PhaseCommitResult {
+  readonly isGitWorkspace: boolean;
+  readonly commitCreated: boolean;
+  readonly commitSha: string | null;
+  readonly message: string | null;
+  readonly stagedPaths: readonly string[];
 }
 
 export interface TokenUsage {
@@ -66,6 +76,23 @@ export interface PhaseExecutionMetadata {
   readonly outputSha256?: string | null;
   readonly structuredOutputSha256?: string | null;
   readonly receiptPath?: string | null;
+}
+
+type ModelResponseListener = (diagnostic: ModelResponseDiagnostic) => void;
+
+const modelResponseListeners = new Set<ModelResponseListener>();
+
+export function onModelResponseDiagnostic(listener: ModelResponseListener): () => void {
+  modelResponseListeners.add(listener);
+  return () => {
+    modelResponseListeners.delete(listener);
+  };
+}
+
+function notifyModelResponseDiagnostic(diagnostic: ModelResponseDiagnostic): void {
+  for (const listener of modelResponseListeners) {
+    listener(diagnostic);
+  }
 }
 
 export interface WorkflowLineageFinding {
@@ -110,6 +137,7 @@ export interface OperateCurrentPhaseArtifactResult {
   readonly generatedArtifactPath: string;
   readonly usage: TokenUsage | null;
   readonly execution?: PhaseExecutionMetadata | null;
+  readonly commit?: PhaseCommitResult | null;
 }
 
 export interface SubmitApprovalAnswerResult {
@@ -351,7 +379,6 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
   private readonly pending = new Map<number, PendingRequest>();
   private readonly bufferChunks: Buffer[] = [];
   private readonly workspaceRoot: string;
-  private readonly hostRoot: string;
   private stderrRemainder = "";
   private writeQueue: Promise<void> = Promise.resolve();
   private nextRequestId = 1;
@@ -361,14 +388,15 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
 
   public constructor(workspaceRoot: string, hostRoot: string, settings: SpecForgeSettings) {
     this.workspaceRoot = workspaceRoot;
-    this.hostRoot = hostRoot;
-    const serverProjectPath = buildServerProjectPath(hostRoot);
-    appendSpecForgeLog(`Starting MCP backend for '${path.basename(workspaceRoot)}' using '${serverProjectPath}'.`);
+    const launchConfig = resolveMcpServerLaunchConfig(hostRoot);
+    appendSpecForgeLog(
+      `Starting MCP backend for '${path.basename(workspaceRoot)}' using ${launchConfig.source} server '${launchConfig.targetPath}'.`
+    );
     this.process = spawn(
-      "dotnet",
-      ["run", "--project", serverProjectPath],
+      launchConfig.command,
+      [...launchConfig.args],
       {
-        cwd: this.hostRoot,
+        cwd: launchConfig.cwd,
         stdio: "pipe",
         env: {
           ...process.env,
@@ -797,6 +825,11 @@ class StdioMcpBackendClient implements SpecForgeBackendClient {
     }
 
     const summarized = summarizeMcpDiagnosticLine(message);
+    const modelResponse = parseModelResponseDiagnosticLine(message);
+    if (modelResponse) {
+      notifyModelResponseDiagnostic(modelResponse);
+    }
+
     if (summarized) {
       appendSpecForgeLog(summarized);
       appendSpecForgeDebugLog(`MCP stderr: ${message}`);

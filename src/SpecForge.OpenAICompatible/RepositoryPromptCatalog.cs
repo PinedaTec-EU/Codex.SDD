@@ -1,35 +1,75 @@
 using SpecForge.Domain.Persistence;
-using SpecForge.Domain.Application;
 using SpecForge.Domain.Workflow;
+using SpecForge.Domain.Application;
 
 namespace SpecForge.OpenAICompatible;
 
 internal sealed class RepositoryPromptCatalog
 {
-    public async Task<PromptTemplateContent> ReadPromptAsync(
+    private readonly RepositoryPromptInitializer promptInitializer;
+
+    public RepositoryPromptCatalog()
+        : this(new RepositoryPromptInitializer())
+    {
+    }
+
+    internal RepositoryPromptCatalog(RepositoryPromptInitializer promptInitializer)
+    {
+        this.promptInitializer = promptInitializer ?? throw new ArgumentNullException(nameof(promptInitializer));
+    }
+
+    public async Task EnsureRepositoryIsInitializedAsync(
         string workspaceRoot,
-        string promptPath,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         var paths = new PromptFilePaths(workspaceRoot);
-        var templates = RepositoryPromptInitializer.BuildTemplateMap(paths);
-        var normalizedPath = Path.GetFullPath(promptPath);
-
-        if (File.Exists(normalizedPath))
+        if (!Directory.Exists(paths.PromptsDirectoryPath) || !File.Exists(paths.PromptManifestPath))
         {
-            return new PromptTemplateContent(
-                normalizedPath,
-                await File.ReadAllTextAsync(normalizedPath, cancellationToken),
-                IsOverride: true,
-                EmbeddedContent: templates.TryGetValue(normalizedPath, out var embedded) ? embedded : null);
+            await promptInitializer.InitializeAsync(workspaceRoot, overwrite: false, cancellationToken);
+        }
+        else if (!File.Exists(paths.AgentInstructionsPath))
+        {
+            await promptInitializer.EnsureAgentInstructionsAsync(workspaceRoot, overwrite: false, cancellationToken);
         }
 
-        if (!templates.TryGetValue(normalizedPath, out var content))
+        var requiredFiles = new[]
         {
-            throw new InvalidOperationException($"Prompt template '{promptPath}' is not a known SpecForge prompt template.");
-        }
+            paths.AgentInstructionsPath,
+            paths.ConfigFilePath,
+            paths.PromptManifestPath,
+            paths.PromptSystemHashesPath,
+            paths.SharedSystemPromptPath,
+            paths.SharedStylePromptPath,
+            paths.SharedOutputRulesPromptPath,
+            paths.RefinementExecuteSystemPromptPath,
+            paths.RefinementExecutePromptPath,
+            paths.SpecExecuteSystemPromptPath,
+            paths.SpecExecutePromptPath,
+            paths.SpecApproveSystemPromptPath,
+            paths.SpecApprovePromptPath,
+            paths.TechnicalDesignExecuteSystemPromptPath,
+            paths.TechnicalDesignExecutePromptPath,
+            paths.ImplementationExecuteSystemPromptPath,
+            paths.ImplementationExecutePromptPath,
+            paths.ReviewExecuteSystemPromptPath,
+            paths.ReviewExecutePromptPath,
+            paths.ReleaseApprovalExecuteSystemPromptPath,
+            paths.ReleaseApprovalExecutePromptPath,
+            paths.ReleaseApprovalApproveSystemPromptPath,
+            paths.PrPreparationExecuteSystemPromptPath,
+            paths.PrPreparationExecutePromptPath,
+            paths.AutoRefinementAnswersSystemPromptPath,
+            paths.ReleaseApprovalApprovePromptPath
+        };
 
-        return new PromptTemplateContent(normalizedPath, content, IsOverride: false, EmbeddedContent: content);
+        foreach (var requiredFile in requiredFiles)
+        {
+            if (!File.Exists(requiredFile))
+            {
+                throw new InvalidOperationException(
+                    $"Missing required prompt template '{requiredFile}'. Run initialize_repo_prompts or restore the prompt file.");
+            }
+        }
     }
 
     public string GetExecutePromptPath(string workspaceRoot, PhaseId phaseId)
@@ -89,10 +129,4 @@ internal sealed class RepositoryPromptCatalog
             _ => throw new InvalidOperationException($"Phase '{phaseId}' does not have an approve system prompt.")
         };
     }
-
-    internal sealed record PromptTemplateContent(
-        string Path,
-        string Content,
-        bool IsOverride,
-        string? EmbeddedContent);
 }

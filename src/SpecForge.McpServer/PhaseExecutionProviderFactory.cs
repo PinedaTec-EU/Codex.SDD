@@ -20,10 +20,13 @@ internal static class PhaseExecutionProviderFactory
     private const string RefinementToleranceEnvVar = "SPECFORGE_REFINEMENT_TOLERANCE";
     private const string LegacyRefinementToleranceEnvVar = "SPECFORGE_CAPTURE_TOLERANCE";
     private const string ReviewToleranceEnvVar = "SPECFORGE_REVIEW_TOLERANCE";
+    private const string ReviewEvidencePolicyEnvVar = "SPECFORGE_REVIEW_EVIDENCE_POLICY";
     private const string AutoRefinementAnswersEnabledEnvVar = "SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED";
     private const string LegacyAutoRefinementAnswersEnabledEnvVar = "SPECFORGE_AUTO_CLARIFICATION_ANSWERS_ENABLED";
     private const string AutoRefinementAnswersProfileEnvVar = "SPECFORGE_AUTO_REFINEMENT_ANSWERS_PROFILE";
     private const string LegacyAutoRefinementAnswersProfileEnvVar = "SPECFORGE_AUTO_CLARIFICATION_ANSWERS_PROFILE";
+    private const string ReviewLearningEnabledEnvVar = "SPECFORGE_REVIEW_LEARNING_ENABLED";
+    private const string ReviewLearningSkillPathEnvVar = "SPECFORGE_REVIEW_LEARNING_SKILL_PATH";
     private const string SystemPromptEnvVar = "SPECFORGE_OPENAI_SYSTEM_PROMPT";
     private const string TimeoutSecondsEnvVar = "SPECFORGE_OPENAI_TIMEOUT_SECONDS";
     private static readonly TimeSpan DefaultOpenAiTimeout = TimeSpan.FromMinutes(10);
@@ -63,6 +66,7 @@ internal static class PhaseExecutionProviderFactory
             ?? Environment.GetEnvironmentVariable(LegacyRefinementToleranceEnvVar)
             ?? "balanced";
         var reviewTolerance = Environment.GetEnvironmentVariable(ReviewToleranceEnvVar) ?? "balanced";
+        var reviewEvidencePolicy = Environment.GetEnvironmentVariable(ReviewEvidencePolicyEnvVar) ?? "balanced";
         var autoRefinementAnswersEnabled = string.Equals(
             Environment.GetEnvironmentVariable(AutoRefinementAnswersEnabledEnvVar)
                 ?? Environment.GetEnvironmentVariable(LegacyAutoRefinementAnswersEnabledEnvVar),
@@ -70,8 +74,13 @@ internal static class PhaseExecutionProviderFactory
             StringComparison.OrdinalIgnoreCase);
         var autoRefinementAnswersProfile = Environment.GetEnvironmentVariable(AutoRefinementAnswersProfileEnvVar)
             ?? Environment.GetEnvironmentVariable(LegacyAutoRefinementAnswersProfileEnvVar);
+        var reviewLearningEnabled = !string.Equals(
+            Environment.GetEnvironmentVariable(ReviewLearningEnabledEnvVar),
+            "false",
+            StringComparison.OrdinalIgnoreCase);
+        var reviewLearningSkillPath = Environment.GetEnvironmentVariable(ReviewLearningSkillPathEnvVar);
         var systemPrompt = Environment.GetEnvironmentVariable(SystemPromptEnvVar) ??
-                           "You generate structured JSON for SpecForge workflow phases. Return only JSON that conforms to the supplied response schema.";
+                           "You generate SpecForge workflow artifacts. Follow the phase-specific Markdown output contract exactly and do not return JSON.";
         var httpClient = new HttpClient
         {
             Timeout = ReadOpenAiTimeout()
@@ -80,8 +89,13 @@ internal static class PhaseExecutionProviderFactory
             SystemPrompt: systemPrompt,
             RefinementTolerance: refinementTolerance,
             ReviewTolerance: reviewTolerance,
+            ReviewEvidencePolicy: reviewEvidencePolicy,
             AutoRefinementAnswersEnabled: autoRefinementAnswersEnabled,
             AutoRefinementAnswersProfile: string.IsNullOrWhiteSpace(autoRefinementAnswersProfile) ? null : autoRefinementAnswersProfile.Trim(),
+            ReviewLearningEnabled: reviewLearningEnabled,
+            ReviewLearningSkillPath: string.IsNullOrWhiteSpace(reviewLearningSkillPath)
+                ? ".codex/skills/sdd-phase-agents/SKILL.md"
+                : reviewLearningSkillPath.Trim(),
             ModelProfiles: modelProfiles,
             AgentProfiles: agentProfiles,
             PhaseAgentAssignments: assignments);

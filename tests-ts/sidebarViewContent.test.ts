@@ -101,6 +101,9 @@ test("buildSidebarHtml exposes a compact prompt customization action", () => {
   assert.match(html, /Customize Prompt Templates/);
   assert.match(html, /aria-label="Create new user story"/);
   assert.match(html, /aria-label="Configure execution providers"/);
+  assert.match(html, /data-story-search/);
+  assert.match(html, /Search by title, description, or category/);
+  assert.doesNotMatch(html, /data-command="toggleViewMode"/);
   assert.doesNotMatch(html, /Repo prompts ready/);
 });
 
@@ -130,8 +133,28 @@ test("buildSidebarHtml uses compact actions instead of a separate create card wh
   assert.match(html, /data-command="deleteUserStory"/);
   assert.match(html, /story-card--active story-card--phase-spec/);
   assert.match(html, /story-card__phase-label">SPEC</);
+  assert.match(html, /data-story-search-text="[^"]*Workflow graph[^"]*workflow/);
   assert.doesNotMatch(html, /Start another user story/);
   assert.doesNotMatch(html, /Keep the backlog focused on active work/);
+});
+
+test("buildSidebarHtml includes user story descriptions in the local search index", () => {
+  const html = buildSidebarHtml(model({
+    categories: ["workflow"],
+    userStories: [{
+      usId: "US-0005",
+      title: "Compact cards",
+      description: "Allow fast filtering from the sidebar command area.",
+      category: "workflow",
+      currentPhase: "spec",
+      status: "active",
+      mainArtifactPath: "/tmp/us.md",
+      directoryPath: "/tmp/us.US-0005",
+      workBranch: null
+    }],
+  }));
+
+  assert.match(html, /data-story-search-text="[^"]*fast filtering[^"]*workflow/);
 });
 
 test("buildSidebarHtml keeps the phase rail for user stories that are still in progress", () => {

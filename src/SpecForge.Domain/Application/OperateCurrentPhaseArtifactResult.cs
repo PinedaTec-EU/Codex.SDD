@@ -8,4 +8,5 @@ public sealed record OperateCurrentPhaseArtifactResult(
     string SourceArtifactPath,
     string GeneratedArtifactPath,
     TokenUsage? Usage,
-    PhaseExecutionMetadata? Execution);
+    PhaseExecutionMetadata? Execution,
+    PhaseCommitResult? Commit = null);

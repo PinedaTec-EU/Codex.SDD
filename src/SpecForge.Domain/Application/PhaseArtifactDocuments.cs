@@ -1,351 +1,26 @@
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using SpecForge.Domain.Workflow;
 
 namespace SpecForge.Domain.Application;
 
-public sealed record StructuredPhaseArtifactContract(
-    string SchemaName,
-    JsonElement JsonSchema,
-    PhaseArtifactResponseFormat ResponseFormat,
-    Func<string, string> NormalizeJsonContent,
-    Func<PhaseExecutionContext, string, string> NormalizeContent);
-
-public enum PhaseArtifactResponseFormat
+public static class PhaseMarkdownArtifactContracts
 {
-    Json = 0,
-    Markdown = 1
-}
-
-public static class StructuredPhaseArtifactContracts
-{
-    private static readonly IReadOnlyDictionary<PhaseId, StructuredPhaseArtifactContract> Contracts =
-        new Dictionary<PhaseId, StructuredPhaseArtifactContract>
-        {
-            [PhaseId.Refinement] = new(
-                SchemaName: "refinement_artifact",
-                JsonSchema: BuildRefinementSchema(),
-                ResponseFormat: PhaseArtifactResponseFormat.Markdown,
-                NormalizeJsonContent: static content => RefinementArtifactJson.Serialize(RefinementArtifactJson.ParseCanonicalJson(content)),
-                NormalizeContent: static (_, content) => NormalizeMarkdownContent(content)),
-            [PhaseId.Spec] = new(
-                SchemaName: "spec_artifact",
-                JsonSchema: BuildSpecSchema(),
-                ResponseFormat: PhaseArtifactResponseFormat.Markdown,
-                NormalizeJsonContent: static content => SpecJson.Serialize(SpecJson.ParseCanonicalJson(content)),
-                NormalizeContent: static (_, content) => NormalizeMarkdownContent(content)),
-            [PhaseId.TechnicalDesign] = new(
-                SchemaName: "technical_design_artifact",
-                JsonSchema: BuildTechnicalDesignSchema(),
-                ResponseFormat: PhaseArtifactResponseFormat.Markdown,
-                NormalizeJsonContent: static content => TechnicalDesignArtifactJson.Serialize(TechnicalDesignArtifactJson.ParseCanonicalJson(content)),
-                NormalizeContent: static (_, content) => NormalizeMarkdownContent(content)),
-            [PhaseId.Implementation] = new(
-                SchemaName: "implementation_artifact",
-                JsonSchema: BuildImplementationSchema(),
-                ResponseFormat: PhaseArtifactResponseFormat.Markdown,
-                NormalizeJsonContent: static content => ImplementationArtifactJson.Serialize(ImplementationArtifactJson.ParseCanonicalJson(content)),
-                NormalizeContent: static (_, content) => NormalizeMarkdownContent(content)),
-            [PhaseId.Review] = new(
-                SchemaName: "review_artifact",
-                JsonSchema: BuildReviewSchema(),
-                ResponseFormat: PhaseArtifactResponseFormat.Json,
-                NormalizeJsonContent: static content => ReviewArtifactJson.Serialize(ReviewArtifactJson.ParseCanonicalJson(content)),
-                NormalizeContent: static (context, content) => ReviewArtifactJson.RenderMarkdown(
-                    ReviewArtifactJson.ParseCanonicalJson(content),
-                    context.UsId,
-                    version: 1)),
-            [PhaseId.ReleaseApproval] = new(
-                SchemaName: "release_approval_artifact",
-                JsonSchema: BuildReleaseApprovalSchema(),
-                ResponseFormat: PhaseArtifactResponseFormat.Markdown,
-                NormalizeJsonContent: static content => ReleaseApprovalArtifactJson.Serialize(ReleaseApprovalArtifactJson.ParseCanonicalJson(content)),
-                NormalizeContent: static (_, content) => NormalizeMarkdownContent(content)),
-            [PhaseId.PrPreparation] = new(
-                SchemaName: "pr_preparation_artifact",
-                JsonSchema: BuildPrPreparationSchema(),
-                ResponseFormat: PhaseArtifactResponseFormat.Json,
-                NormalizeJsonContent: static content => PrPreparationArtifactJson.Serialize(PrPreparationArtifactJson.ParseCanonicalJson(content)),
-                NormalizeContent: static (context, content) => PrPreparationArtifactJson.RenderMarkdown(
-                    PrPreparationArtifactJson.ParseCanonicalJson(content),
-                    context.UsId,
-                    version: 1))
-        };
-
-    public static bool TryGet(PhaseId phaseId, out StructuredPhaseArtifactContract contract) =>
-        Contracts.TryGetValue(phaseId, out contract!);
-
-    private static string NormalizeMarkdownContent(string content) =>
-        content.TrimEnd() + Environment.NewLine;
-
-    private static JsonElement BuildRefinementSchema() =>
-        ToJsonElement(ObjectSchema(
-            properties: new Dictionary<string, JsonNode?>
-            {
-                ["state"] = EnumStringSchema("pending_user_input", "ready"),
-                ["decision"] = EnumStringSchema("needs_refinement", "ready_for_spec"),
-                ["reason"] = StringSchema(),
-                ["questions"] = ArraySchema(StringSchema())
-            },
-            required: ["state", "decision", "reason", "questions"]));
-
-    private static JsonElement BuildSpecSchema() =>
-        ToJsonElement(ObjectSchema(
-            properties: new Dictionary<string, JsonNode?>
-            {
-                ["title"] = StringSchema(),
-                ["historyLog"] = ArraySchema(StringSchema()),
-                ["state"] = StringSchema(),
-                ["basedOn"] = StringSchema(),
-                ["specSummary"] = StringSchema(),
-                ["inputs"] = ArraySchema(StringSchema()),
-                ["outputs"] = ArraySchema(StringSchema()),
-                ["businessRules"] = ArraySchema(StringSchema()),
-                ["edgeCases"] = ArraySchema(StringSchema()),
-                ["errorsAndFailureModes"] = ArraySchema(StringSchema()),
-                ["constraints"] = ArraySchema(StringSchema()),
-                ["detectedAmbiguities"] = ArraySchema(StringSchema()),
-                ["redTeam"] = ArraySchema(StringSchema()),
-                ["blueTeam"] = ArraySchema(StringSchema()),
-                ["acceptanceCriteria"] = ArraySchema(StringSchema()),
-                ["humanApprovalQuestions"] = ArraySchema(ObjectSchema(
-                    properties: new Dictionary<string, JsonNode?>
-                    {
-                        ["question"] = StringSchema(),
-                        ["status"] = EnumStringSchema("pending", "resolved"),
-                        ["answer"] = NullableStringSchema(),
-                        ["answeredBy"] = NullableStringSchema(),
-                        ["answeredAtUtc"] = NullableStringSchema()
-                    },
-                    required: ["question", "status", "answer", "answeredBy", "answeredAtUtc"]))
-            },
-            required:
-            [
-                "title",
-                "historyLog",
-                "state",
-                "basedOn",
-                "specSummary",
-                "inputs",
-                "outputs",
-                "businessRules",
-                "edgeCases",
-                "errorsAndFailureModes",
-                "constraints",
-                "detectedAmbiguities",
-                "redTeam",
-                "blueTeam",
-                "acceptanceCriteria",
-                "humanApprovalQuestions"
-            ]));
-
-    private static JsonElement BuildTechnicalDesignSchema() =>
-        ToJsonElement(ObjectSchema(
-            properties: new Dictionary<string, JsonNode?>
-            {
-                ["state"] = StringSchema(),
-                ["basedOn"] = StringSchema(),
-                ["technicalSummary"] = StringSchema(),
-                ["technicalObjective"] = StringSchema(),
-                ["affectedComponents"] = ArraySchema(StringSchema()),
-                ["architecture"] = ArraySchema(StringSchema()),
-                ["primaryFlow"] = ArraySchema(StringSchema()),
-                ["constraintsAndGuardrails"] = ArraySchema(StringSchema()),
-                ["alternativesConsidered"] = ArraySchema(StringSchema()),
-                ["technicalRisks"] = ArraySchema(StringSchema()),
-                ["expectedImpact"] = ArraySchema(StringSchema()),
-                ["implementationStrategy"] = ArraySchema(StringSchema()),
-                ["validationStrategy"] = ArraySchema(StringSchema()),
-                ["openDecisions"] = ArraySchema(StringSchema())
-            },
-            required:
-            [
-                "state",
-                "basedOn",
-                "technicalSummary",
-                "technicalObjective",
-                "affectedComponents",
-                "architecture",
-                "primaryFlow",
-                "constraintsAndGuardrails",
-                "alternativesConsidered",
-                "technicalRisks",
-                "expectedImpact",
-                "implementationStrategy",
-                "validationStrategy",
-                "openDecisions"
-            ]));
-
-    private static JsonElement BuildImplementationSchema() =>
-        ToJsonElement(ObjectSchema(
-            properties: new Dictionary<string, JsonNode?>
-            {
-                ["state"] = StringSchema(),
-                ["basedOn"] = StringSchema(),
-                ["implementedObjective"] = StringSchema(),
-                ["plannedOrExecutedChanges"] = ArraySchema(StringSchema()),
-                ["plannedVerification"] = ArraySchema(StringSchema())
-            },
-            required:
-            [
-                "state",
-                "basedOn",
-                "implementedObjective",
-                "plannedOrExecutedChanges",
-                "plannedVerification"
-            ]));
-
-    private static JsonElement BuildReviewSchema() =>
-        ToJsonElement(ObjectSchema(
-            properties: new Dictionary<string, JsonNode?>
-            {
-                ["result"] = EnumStringSchema("pass", "fail"),
-                ["validationChecklist"] = ArraySchema(
-                    ObjectSchema(
-                        properties: new Dictionary<string, JsonNode?>
-                        {
-                            ["status"] = EnumStringSchema("pass", "fail"),
-                            ["item"] = StringSchema(),
-                            ["evidence"] = StringSchema()
-                        },
-                        required: ["status", "item", "evidence"])),
-                ["findings"] = ArraySchema(StringSchema()),
-                ["primaryReason"] = StringSchema(),
-                ["recommendation"] = ArraySchema(StringSchema())
-            },
-            required: ["result", "validationChecklist", "findings", "primaryReason", "recommendation"]));
-
-    private static JsonElement BuildReleaseApprovalSchema() =>
-        ToJsonElement(ObjectSchema(
-            properties: new Dictionary<string, JsonNode?>
-            {
-                ["state"] = StringSchema(),
-                ["basedOn"] = ArraySchema(StringSchema()),
-                ["releaseSummary"] = StringSchema(),
-                ["implementedScope"] = ArraySchema(StringSchema()),
-                ["validationEvidence"] = ArraySchema(StringSchema()),
-                ["residualRisks"] = ArraySchema(StringSchema()),
-                ["approvalChecklist"] = ArraySchema(StringSchema()),
-                ["recommendation"] = StringSchema()
-            },
-            required:
-            [
-                "state",
-                "basedOn",
-                "releaseSummary",
-                "implementedScope",
-                "validationEvidence",
-                "residualRisks",
-                "approvalChecklist",
-                "recommendation"
-            ]));
-
-    private static JsonElement BuildPrPreparationSchema() =>
-        ToJsonElement(ObjectSchema(
-            properties: new Dictionary<string, JsonNode?>
-            {
-                ["state"] = StringSchema(minLength: 1),
-                ["basedOn"] = ArraySchema(StringSchema(minLength: 1), minItems: 1),
-                ["prTitle"] = StringSchema(minLength: 1),
-                ["prSummary"] = StringSchema(minLength: 1),
-                ["branchSummary"] = ArraySchema(StringSchema(minLength: 1), minItems: 1),
-                ["participants"] = ArraySchema(ObjectSchema(
-                    properties: new Dictionary<string, JsonNode?>
-                    {
-                        ["actor"] = StringSchema(minLength: 1),
-                        ["phases"] = ArraySchema(StringSchema(minLength: 1), minItems: 1)
-                    },
-                    required: ["actor", "phases"]), minItems: 1),
-                ["changeNarrative"] = ArraySchema(StringSchema(minLength: 1), minItems: 1),
-                ["validationSummary"] = ArraySchema(StringSchema(minLength: 1), minItems: 1),
-                ["reviewerChecklist"] = ArraySchema(StringSchema(minLength: 1), minItems: 1),
-                ["risksAndFollowUps"] = ArraySchema(StringSchema()),
-                ["prBody"] = ArraySchema(StringSchema(minLength: 1), minItems: 3)
-            },
-            required:
-            [
-                "state",
-                "basedOn",
-                "prTitle",
-                "prSummary",
-                "branchSummary",
-                "participants",
-                "changeNarrative",
-                "validationSummary",
-                "reviewerChecklist",
-                "risksAndFollowUps",
-                "prBody"
-            ]));
-
-    private static JsonElement ToJsonElement(JsonObject schema)
+    private static readonly ISet<PhaseId> SupportedPhases = new HashSet<PhaseId>
     {
-        using var document = JsonDocument.Parse(schema.ToJsonString());
-        return document.RootElement.Clone();
-    }
+        PhaseId.Refinement,
+        PhaseId.Spec,
+        PhaseId.TechnicalDesign,
+        PhaseId.Implementation,
+        PhaseId.Review,
+        PhaseId.ReleaseApproval,
+        PhaseId.PrPreparation
+    };
 
-    private static JsonObject ObjectSchema(
-        IReadOnlyDictionary<string, JsonNode?> properties,
-        IReadOnlyCollection<string> required)
-    {
-        var schema = new JsonObject
-        {
-            ["type"] = "object",
-            ["additionalProperties"] = false
-        };
-        var schemaProperties = new JsonObject();
-        foreach (var property in properties)
-        {
-            schemaProperties[property.Key] = property.Value?.DeepClone();
-        }
+    public static bool Supports(PhaseId phaseId) => SupportedPhases.Contains(phaseId);
 
-        schema["properties"] = schemaProperties;
-        schema["required"] = new JsonArray(required.Select(static item => (JsonNode?)item).ToArray());
-        return schema;
-    }
-
-    private static JsonObject StringSchema(int? minLength = null)
-    {
-        var schema = new JsonObject
-        {
-            ["type"] = "string"
-        };
-        if (minLength is not null)
-        {
-            schema["minLength"] = minLength.Value;
-        }
-
-        return schema;
-    }
-
-    private static JsonObject NullableStringSchema() =>
-        new()
-        {
-            ["type"] = new JsonArray("string", "null")
-        };
-
-    private static JsonObject EnumStringSchema(params string[] allowedValues) =>
-        new()
-        {
-            ["type"] = "string",
-            ["enum"] = new JsonArray(allowedValues.Select(static item => (JsonNode?)item).ToArray())
-        };
-
-    private static JsonObject ArraySchema(JsonNode itemSchema, int? minItems = null)
-    {
-        var schema = new JsonObject
-        {
-            ["type"] = "array",
-            ["items"] = itemSchema.DeepClone()
-        };
-        if (minItems is not null)
-        {
-            schema["minItems"] = minItems.Value;
-        }
-
-        return schema;
-    }
+    public static string NormalizeContent(string content) => content.TrimEnd() + Environment.NewLine;
 }
 
 public sealed record RefinementArtifactDocument(
@@ -627,11 +302,23 @@ public static class ReviewArtifactJson
         IReadOnlyList<ReviewValidationChecklistItem>? items) =>
         (items ?? Array.Empty<ReviewValidationChecklistItem>())
             .Select(static item => new ReviewValidationChecklistItem(
-                Status: StructuredPhaseArtifactJson.NormalizeScalar(item.Status).Equals("pass", StringComparison.OrdinalIgnoreCase) ? "pass" : "fail",
+                Status: NormalizeChecklistStatus(item.Status),
                 Item: StructuredPhaseArtifactJson.NormalizeScalar(item.Item),
                 Evidence: StructuredPhaseArtifactJson.NormalizeScalar(item.Evidence)))
             .Where(static item => !string.IsNullOrWhiteSpace(item.Item))
             .ToArray();
+
+    private static string NormalizeChecklistStatus(string status)
+    {
+        var normalized = StructuredPhaseArtifactJson.NormalizeScalar(status);
+
+        return normalized.ToLowerInvariant() switch
+        {
+            "pass" => "pass",
+            "deferred" => "deferred",
+            _ => "fail"
+        };
+    }
 }
 
 public static class ReleaseApprovalArtifactJson
@@ -746,6 +433,20 @@ public static class PrPreparationArtifactJson
         return string.Join(Environment.NewLine, lines) + Environment.NewLine;
     }
 
+    public static PrPreparationArtifactDocument ParseMarkdown(string markdown) =>
+        Normalize(new PrPreparationArtifactDocument(
+            State: ReadState(markdown),
+            BasedOn: WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(markdown, "## Based On"),
+            PrTitle: ReadScalarSection(markdown, "## PR Title"),
+            PrSummary: ReadScalarSection(markdown, "## PR Summary"),
+            BranchSummary: WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(markdown, "## Branch Summary"),
+            Participants: ParseParticipants(WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(markdown, "## Participants")),
+            ChangeNarrative: WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(markdown, "## Change Narrative"),
+            ValidationSummary: WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(markdown, "## Validation Summary"),
+            ReviewerChecklist: WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(markdown, "## Reviewer Checklist"),
+            RisksAndFollowUps: WorkflowArtifactMarkdownReader.ReadMarkdownBulletSection(markdown, "## Risks and Follow Ups"),
+            PrBody: ReadPrBody(markdown)));
+
     private static PrPreparationArtifactDocument Normalize(PrPreparationArtifactDocument document) =>
         new(
             State: StructuredPhaseArtifactJson.NormalizeScalar(document.State),
@@ -768,6 +469,68 @@ public static class PrPreparationArtifactJson
                 StructuredPhaseArtifactJson.NormalizeLines(participant.Phases)))
             .Where(static participant => !string.IsNullOrWhiteSpace(participant.Actor))
             .ToArray();
+
+    private static string ReadState(string markdown)
+    {
+        var stateSection = MarkdownHelper.TryReadSection(markdown, "## State") ?? string.Empty;
+        foreach (var line in stateSection.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            var trimmed = line.Trim();
+            const string prefix = "- State:";
+            if (!trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return trimmed[prefix.Length..].Trim().Trim('`');
+        }
+
+        return ReadScalarSection(markdown, "## State");
+    }
+
+    private static string ReadScalarSection(string markdown, string heading)
+    {
+        var section = MarkdownHelper.TryReadSection(markdown, heading) ?? string.Empty;
+        return section
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n')
+            .Select(static line => line.Trim())
+            .FirstOrDefault(static line => !string.IsNullOrWhiteSpace(line) && line != "...")
+            ?? string.Empty;
+    }
+
+    private static IReadOnlyList<PrPreparationParticipant> ParseParticipants(IReadOnlyList<string> lines) =>
+        lines
+            .Select(static line =>
+            {
+                var separatorIndex = line.IndexOf("phases:", StringComparison.OrdinalIgnoreCase);
+                if (separatorIndex < 0)
+                {
+                    return new PrPreparationParticipant(line.Trim(), []);
+                }
+
+                var actor = line[..separatorIndex].Trim(' ', '-', '\u2014', ':');
+                var phases = line[(separatorIndex + "phases:".Length)..]
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                return new PrPreparationParticipant(actor, phases);
+            })
+            .ToArray();
+
+    private static IReadOnlyList<string> ReadPrBody(string markdown)
+    {
+        var lines = markdown.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var headingIndex = Array.FindIndex(lines, static line => string.Equals(line, "## PR Body", StringComparison.Ordinal));
+        if (headingIndex < 0)
+        {
+            return [];
+        }
+
+        return lines
+            .Skip(headingIndex + 1)
+            .Select(static line => line.TrimEnd())
+            .Where(static line => !string.IsNullOrWhiteSpace(line) && line.Trim() != "...")
+            .ToArray();
+    }
 }
 
 internal static class StructuredPhaseArtifactJson
@@ -848,7 +611,12 @@ internal static class StructuredPhaseArtifactMarkdown
         return items
             .Select(static item =>
             {
-                var marker = item.Status.Equals("pass", StringComparison.OrdinalIgnoreCase) ? "\u2705" : "\u274C";
+                var marker = item.Status.ToLowerInvariant() switch
+                {
+                    "pass" => "\u2705",
+                    "deferred" => "\u26A0\uFE0F",
+                    _ => "\u274C"
+                };
                 var evidence = string.IsNullOrWhiteSpace(item.Evidence) ? "no evidence provided" : item.Evidence;
                 return $"- {marker} {item.Item} \u2014 Evidence: {evidence}";
             })

@@ -3,11 +3,13 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import {
   createMcpBackendClient,
+  type PhaseCommitResult,
   type SpecForgeBackendClient,
   type UserStorySummary
 } from "./backendClient";
 import { getSpecForgeSettings } from "./extensionSettings";
 import { appendSpecForgeLog } from "./outputChannel";
+import { buildPhaseCommitNotification } from "./phaseCommitNotification";
 import { asErrorMessage } from "./utils";
 import { getCurrentActor } from "./userActor";
 import { closeWorkflowView } from "./workflowPanel";
@@ -319,6 +321,7 @@ export async function continuePhase(summary?: UserStorySummary): Promise<void> {
     }
 
     logExecutionWarnings(summary.usId, result.execution);
+    notifyPhaseCommit(summary.usId, result.commit);
 
     void vscode.window.showInformationMessage(
       `${summary.usId} advanced to ${result.currentPhase} with status ${result.status}.`
@@ -326,6 +329,16 @@ export async function continuePhase(summary?: UserStorySummary): Promise<void> {
   } catch (error) {
     void vscode.window.showErrorMessage(asErrorMessage(error));
   }
+}
+
+function notifyPhaseCommit(usId: string, commit?: PhaseCommitResult | null): void {
+  const notification = buildPhaseCommitNotification(usId, commit);
+  if (!notification) {
+    return;
+  }
+
+  appendSpecForgeLog(notification.logMessage);
+  void vscode.window.showInformationMessage(notification.userMessage);
 }
 
 function logExecutionWarnings(usId: string, execution?: { readonly warnings?: readonly string[] | null } | null): void {

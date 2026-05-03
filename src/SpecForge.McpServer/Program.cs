@@ -13,13 +13,15 @@ var serverVersion = typeof(Program).Assembly
 var refinementTolerance = (Environment.GetEnvironmentVariable("SPECFORGE_REFINEMENT_TOLERANCE")
     ?? Environment.GetEnvironmentVariable("SPECFORGE_CAPTURE_TOLERANCE"))?.Trim().ToLowerInvariant();
 refinementTolerance = refinementTolerance is "strict" or "balanced" or "inferential" ? refinementTolerance : "balanced";
+var reviewEvidencePolicy = Environment.GetEnvironmentVariable("SPECFORGE_REVIEW_EVIDENCE_POLICY")?.Trim().ToLowerInvariant();
+reviewEvidencePolicy = reviewEvidencePolicy is "strict" or "balanced" or "release" or "advisory" ? reviewEvidencePolicy : "balanced";
 var completedUsLockOnCompleted = string.Equals(
     Environment.GetEnvironmentVariable("SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED")?.Trim(),
     "true",
     StringComparison.OrdinalIgnoreCase);
 
 var phaseExecutionProvider = PhaseExecutionProviderFactory.Create();
-var workflowRunner = new WorkflowRunner(phaseExecutionProvider, serverVersion, refinementTolerance, completedUsLockOnCompleted);
+var workflowRunner = new WorkflowRunner(phaseExecutionProvider, serverVersion, refinementTolerance, completedUsLockOnCompleted, reviewEvidencePolicy);
 var applicationService = new SpecForgeApplicationService(new UserStoryFileStore(), workflowRunner, runtimeVersion: serverVersion, completedUsLockOnCompleted: completedUsLockOnCompleted);
 var serializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 var stdin = Console.OpenStandardInput();
@@ -121,10 +123,6 @@ static async Task<JsonNode> HandleToolCallAsync(
                 actor: GetOptional(arguments, "actor") ?? "user"),
             "initialize_repo_prompts" => await applicationService.InitializeRepoPromptsAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-                overwrite: GetOptionalBoolean(arguments, "overwrite")),
-            "export_prompt_template" => await applicationService.ExportPromptTemplateAsync(
-                workspaceRoot: GetRequired(arguments, "workspaceRoot"),
-                promptPath: GetRequired(arguments, "promptPath"),
                 overwrite: GetOptionalBoolean(arguments, "overwrite")),
             "list_user_stories" => new
             {
@@ -262,7 +260,7 @@ static JsonObject BuildToolsList()
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root (folder containing .specs/).")),
                         ("usId",          Prop("string", "User story identifier, e.g. US-001.")),
                         ("title",         Prop("string", "Short descriptive title for the user story.")),
-                        ("kind",          Prop("string", "User story kind: feature, bug, task, spike, or chore.")),
+                        ("kind",          Prop("string", "User story kind: feature, bug, or hotfix.")),
                         ("category",      Prop("string", "Category that groups the user story, e.g. core, ux, api.")),
                         ("sourceText",    Prop("string", "Free-text description of the user story intent.")),
                         ("actor",         Prop("string", "Actor performing the action. Defaults to 'user'."))))),
@@ -275,24 +273,16 @@ static JsonObject BuildToolsList()
                         ("usId",          Prop("string", "User story identifier, e.g. US-001.")),
                         ("sourcePath",    Prop("string", "Absolute path to the source markdown file to import.")),
                         ("title",         Prop("string", "Short descriptive title for the user story.")),
-                        ("kind",          Prop("string", "User story kind: feature, bug, task, spike, or chore.")),
+                        ("kind",          Prop("string", "User story kind: feature, bug, or hotfix.")),
                         ("category",      Prop("string", "Category that groups the user story.")),
                         ("actor",         Prop("string", "Actor performing the action. Defaults to 'user'."))))),
 
-            Tool("initialize_repo_prompts", "Export the full embedded repo prompt template set into .specs/prompts/.",
+            Tool("initialize_repo_prompts", "Export the repo prompt templates into .specs/prompts/ and SpecForge agent instructions into .specs/.",
                 Schema(
                     required: ["workspaceRoot"],
                     Props(
                         ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
                         ("overwrite",     Prop("boolean", "If true, overwrite existing prompt files. Defaults to false."))))),
-
-            Tool("export_prompt_template", "Export one embedded prompt template override into .specs/prompts/ so it can be customized.",
-                Schema(
-                    required: ["workspaceRoot", "promptPath"],
-                    Props(
-                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
-                        ("promptPath",    Prop("string", "Absolute or workspace-relative prompt path to export.")),
-                        ("overwrite",     Prop("boolean", "If true, overwrite the existing prompt file. Defaults to false."))))),
 
             Tool("list_user_stories", "List all user stories persisted in the workspace.",
                 Schema(

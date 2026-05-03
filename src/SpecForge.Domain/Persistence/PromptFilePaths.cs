@@ -11,6 +11,7 @@ public sealed class PromptFilePaths
 
         WorkspaceRoot = workspaceRoot;
         SpecsDirectoryPath = Path.Combine(workspaceRoot, UserStoryFilePaths.SpecsDirectoryName);
+        AgentInstructionsPath = Path.Combine(SpecsDirectoryPath, "AGENTS.md");
         ConfigFilePath = Path.Combine(SpecsDirectoryPath, "config.yaml");
         PromptsDirectoryPath = Path.Combine(SpecsDirectoryPath, "prompts");
         PromptManifestPath = Path.Combine(PromptsDirectoryPath, "prompts.yaml");
@@ -44,6 +45,8 @@ public sealed class PromptFilePaths
     public string WorkspaceRoot { get; }
 
     public string SpecsDirectoryPath { get; }
+
+    public string AgentInstructionsPath { get; }
 
     public string ConfigFilePath { get; }
 

@@ -11,29 +11,25 @@ function getSpecForgeSettings() {
 }
 function readSpecForgeSettings(configuration) {
     const modelProfiles = normalizeModelProfiles(configuration.get("execution.modelProfiles", []));
-    const configuredAgentProfiles = normalizeAgentProfiles(configuration.get("execution.agentProfiles", []));
-    const effectiveAgentProfiles = configuredAgentProfiles.length > 0
-        ? configuredAgentProfiles
-        : modelProfiles.map((profile) => ({
-            name: profile.name,
-            role: profile.name,
-            modelProfile: profile.name,
-            instructions: "",
-            repositoryAccess: profile.repositoryAccess,
-            ...(profile.reasoningEffort ? { reasoningEffort: profile.reasoningEffort } : {})
-        }));
-    const phaseAgentAssignments = normalizePhaseAgentAssignments(configuration.get("execution.phaseAgents"));
+    const phaseModelAssignments = normalizePhaseModelAssignments(configuration.get("execution.phaseModels"));
     const autoRefinementAnswersProfile = normalizeUnknownOptional(configuration.get("execution.autoRefinementAnswersProfile"));
     return {
         modelProfiles,
-        ...(configuredAgentProfiles.length > 0 ? { agentProfiles: configuredAgentProfiles } : {}),
-        phaseAgentAssignments,
-        effectivePhaseAgentAssignments: resolveEffectivePhaseAgentAssignments(effectiveAgentProfiles, phaseAgentAssignments),
+        phaseModelAssignments,
+        effectivePhaseModelAssignments: resolveEffectivePhaseModelAssignments(modelProfiles, phaseModelAssignments),
         autoRefinementAnswersProfile,
         refinementTolerance: normalizeTolerance(configuration.get("execution.refinementTolerance", "balanced")),
         reviewTolerance: normalizeTolerance(configuration.get("execution.reviewTolerance", "balanced")),
-        workflowGraphLayoutMode: configuration.get("ui.workflowGraphLayoutMode", "vertical") === "horizontal" ? "horizontal" : "vertical",
-        workflowGraphInitialZoomMode: configuration.get("ui.workflowGraphInitialZoomMode", "actual-size") === "fit-width" ? "fit-width" : "actual-size",
+        reviewEvidencePolicy: normalizeReviewEvidencePolicy(configuration.get("execution.reviewEvidencePolicy", "balanced")),
+        workflowGraphLayoutMode: configuration.get("ui.workflowGraphLayoutMode", "vertical") === "horizontal"
+            ? "horizontal"
+            : "vertical",
+        workflowGraphInitialZoomMode: configuration.get("ui.workflowGraphInitialZoomMode", "actual-size") === "fit-width"
+            ? "fit-width"
+            : "actual-size",
+        userStoryListViewMode: configuration.get("ui.userStoryListViewMode", "category") === "phase"
+            ? "phase"
+            : "category",
         visualTimelineEnabled: configuration.get("ui.visualTimelineEnabled", false),
         watcherEnabled: configuration.get("ui.enableWatcher", true),
         attentionNotificationsEnabled: configuration.get("ui.notifyOnAttention", true),
@@ -45,6 +41,8 @@ function readSpecForgeSettings(configuration) {
         maxImplementationReviewCycles: normalizeOptionalPositiveInteger(configuration.get("features.maxImplementationReviewCycles", 5)),
         destructiveRewindEnabled: configuration.get("features.destructiveRewindEnabled", false),
         pauseOnFailedReview: configuration.get("features.pauseOnFailedReview", false),
+        reviewLearningEnabled: configuration.get("features.reviewLearningEnabled", true),
+        reviewLearningSkillPath: normalizeUnknownOptional(configuration.get("features.reviewLearningSkillPath", ".codex/skills/sdd-phase-agents/SKILL.md")),
         completedUsLockOnCompleted: configuration.get("features.completedUsLockOnCompleted", false)
     };
 }
@@ -52,12 +50,15 @@ function buildBackendEnvironment(settings) {
     const env = {};
     if (settings.modelProfiles.length > 0) {
         env.SPECFORGE_OPENAI_MODEL_PROFILES_JSON = JSON.stringify(settings.modelProfiles);
-        env.SPECFORGE_OPENAI_AGENT_PROFILES_JSON = JSON.stringify(resolveConfiguredOrDerivedAgentProfiles(settings));
-        env.SPECFORGE_OPENAI_PHASE_AGENT_ASSIGNMENTS_JSON = JSON.stringify(settings.phaseAgentAssignments);
+        env.SPECFORGE_OPENAI_PHASE_MODEL_ASSIGNMENTS_JSON = JSON.stringify(settings.phaseModelAssignments);
     }
     env.SPECFORGE_REFINEMENT_TOLERANCE = settings.refinementTolerance;
     env.SPECFORGE_REVIEW_TOLERANCE = settings.reviewTolerance;
+    env.SPECFORGE_REVIEW_EVIDENCE_POLICY = settings.reviewEvidencePolicy ?? "balanced";
     env.SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED = settings.autoRefinementAnswersEnabled ? "true" : "false";
+    env.SPECFORGE_REVIEW_LEARNING_ENABLED = settings.reviewLearningEnabled === false ? "false" : "true";
+    env.SPECFORGE_REVIEW_LEARNING_SKILL_PATH =
+        settings.reviewLearningSkillPath ?? ".codex/skills/sdd-phase-agents/SKILL.md";
     env.SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED = settings.completedUsLockOnCompleted ? "true" : "false";
     if (settings.autoRefinementAnswersProfile) {
         env.SPECFORGE_AUTO_REFINEMENT_ANSWERS_PROFILE = settings.autoRefinementAnswersProfile;
@@ -65,130 +66,133 @@ function buildBackendEnvironment(settings) {
     return env;
 }
 function getSpecForgeSettingsStatus(settings) {
-    const diagnostics = buildSettingsDiagnostics(settings);
-    const agentProfiles = resolveConfiguredOrDerivedAgentProfiles(settings);
     if (settings.modelProfiles.length === 0) {
         return {
             executionConfigured: false,
             message: "SpecForge.AI needs at least one configured model profile before workflow stages can run.",
-            diagnostics
+            diagnostics: buildSettingsDiagnostics(settings)
         };
     }
-    if (agentProfiles.length === 0) {
-        return {
-            executionConfigured: false,
-            message: "SpecForge.AI needs at least one configured agent profile before workflow stages can run.",
-            diagnostics
-        };
-    }
-    return getProfileSettingsStatus(settings, diagnostics);
+    return getModelProfileSettingsStatus(settings);
 }
 const defaultModelProvider = "openai-compatible";
 const supportedModelProviders = new Set(["openai-compatible", "codex", "copilot", "claude"]);
 const nativeCliModelProviders = new Set(["codex", "copilot", "claude"]);
-function getProfileSettingsStatus(settings, diagnostics) {
-    const agentProfiles = resolveConfiguredOrDerivedAgentProfiles(settings);
-    const modelsByName = new Map();
+function getModelProfileSettingsStatus(settings) {
+    const profilesByName = new Map();
+    const diagnostics = buildSettingsDiagnostics(settings);
     for (const profile of settings.modelProfiles) {
-        const duplicate = modelsByName.has(profile.name);
-        modelsByName.set(profile.name, profile);
+        const duplicate = profilesByName.has(profile.name);
+        profilesByName.set(profile.name, profile);
         if (!profile.name) {
-            return { executionConfigured: false, message: "SpecForge.AI found a model profile without a name.", diagnostics };
+            return {
+                executionConfigured: false,
+                message: "SpecForge.AI found a model profile without a name.",
+                diagnostics
+            };
         }
         if (!supportedModelProviders.has(profile.provider)) {
-            return { executionConfigured: false, message: `SpecForge.AI model profile '${profile.name}' uses unsupported provider '${profile.provider}'.`, diagnostics };
+            return {
+                executionConfigured: false,
+                message: `SpecForge.AI model profile '${profile.name}' uses unsupported provider '${profile.provider}'.`,
+                diagnostics
+            };
         }
         if (duplicate) {
-            return { executionConfigured: false, message: `SpecForge.AI found duplicate model profile name '${profile.name}'.`, diagnostics };
+            return {
+                executionConfigured: false,
+                message: `SpecForge.AI found duplicate model profile name '${profile.name}'.`,
+                diagnostics
+            };
         }
         if (!isNativeCliModelProvider(profile.provider) && !profile.baseUrl) {
-            return { executionConfigured: false, message: `SpecForge.AI model profile '${profile.name}' is missing base URL.`, diagnostics };
+            return {
+                executionConfigured: false,
+                message: `SpecForge.AI model profile '${profile.name}' is missing base URL.`,
+                diagnostics
+            };
         }
         if (!isNativeCliModelProvider(profile.provider) && !profile.model) {
-            return { executionConfigured: false, message: `SpecForge.AI model profile '${profile.name}' is missing model.`, diagnostics };
+            return {
+                executionConfigured: false,
+                message: `SpecForge.AI model profile '${profile.name}' is missing model.`,
+                diagnostics
+            };
         }
         if (!isNativeCliModelProvider(profile.provider) && !profile.apiKey && !isLocalOpenAiCompatibleEndpoint(profile.baseUrl)) {
-            return { executionConfigured: false, message: `SpecForge.AI model profile '${profile.name}' needs an API key for a remote base URL.`, diagnostics };
+            return {
+                executionConfigured: false,
+                message: `SpecForge.AI model profile '${profile.name}' needs an API key for a remote base URL.`,
+                diagnostics
+            };
         }
     }
-    const agentsByName = new Map();
-    for (const agent of agentProfiles) {
-        const duplicate = agentsByName.has(agent.name);
-        agentsByName.set(agent.name, agent);
-        if (!agent.name) {
-            return { executionConfigured: false, message: "SpecForge.AI found an agent profile without a name.", diagnostics };
-        }
-        if (duplicate) {
-            return { executionConfigured: false, message: `SpecForge.AI found duplicate agent profile name '${agent.name}'.`, diagnostics };
-        }
-        if (!agent.modelProfile || !modelsByName.has(agent.modelProfile)) {
-            return { executionConfigured: false, message: `SpecForge.AI agent profile '${agent.name}' references unknown model profile '${agent.modelProfile}'.`, diagnostics };
-        }
-    }
-    const defaultAgentName = settings.phaseAgentAssignments.defaultAgent
-        ?? (agentProfiles.length === 1 ? agentProfiles[0]?.name ?? null : null);
-    if (!defaultAgentName && !hasExplicitAgentsForAllModelDrivenPhases(settings.phaseAgentAssignments)) {
+    const defaultProfileName = settings.phaseModelAssignments.defaultProfile
+        ?? (settings.modelProfiles.length === 1 ? settings.modelProfiles[0]?.name ?? null : null);
+    if (!defaultProfileName && !hasExplicitProfilesForAllModelDrivenPhases(settings.phaseModelAssignments)) {
         return {
             executionConfigured: false,
-            message: "SpecForge.AI needs either a default phase agent assignment or explicit agents for refinement, spec, technical design, implementation, and review.",
+            message: "SpecForge.AI needs either a default phase model assignment or explicit profiles for refinement, spec, technical design, implementation, and review.",
             diagnostics
         };
     }
     const namedAssignments = [
-        ["default", defaultAgentName],
-        ["capture", settings.phaseAgentAssignments.captureAgent],
-        ["refinement", settings.phaseAgentAssignments.refinementAgent],
-        ["spec", settings.phaseAgentAssignments.specAgent],
-        ["technicalDesign", settings.phaseAgentAssignments.technicalDesignAgent],
-        ["implementation", settings.phaseAgentAssignments.implementationAgent],
-        ["review", settings.phaseAgentAssignments.reviewAgent],
-        ["releaseApproval", settings.phaseAgentAssignments.releaseApprovalAgent],
-        ["prPreparation", settings.phaseAgentAssignments.prPreparationAgent]
+        ["default", defaultProfileName],
+        ["refinement", settings.phaseModelAssignments.refinementProfile],
+        ["spec", settings.phaseModelAssignments.specProfile],
+        ["technicalDesign", settings.phaseModelAssignments.technicalDesignProfile],
+        ["implementation", settings.phaseModelAssignments.implementationProfile],
+        ["review", settings.phaseModelAssignments.reviewProfile],
+        ["releaseApproval", settings.phaseModelAssignments.releaseApprovalProfile],
+        ["prPreparation", settings.phaseModelAssignments.prPreparationProfile]
     ];
-    for (const [assignmentName, agentName] of namedAssignments) {
-        if (agentName && !agentsByName.has(agentName)) {
-            return { executionConfigured: false, message: `SpecForge.AI phase agent assignment '${assignmentName}' references unknown agent '${agentName}'.`, diagnostics };
+    for (const [assignmentName, profileName] of namedAssignments) {
+        if (profileName && !profilesByName.has(profileName)) {
+            return {
+                executionConfigured: false,
+                message: `SpecForge.AI phase model assignment '${assignmentName}' references unknown profile '${profileName}'.`,
+                diagnostics
+            };
         }
     }
     if (settings.autoRefinementAnswersEnabled && !settings.autoRefinementAnswersProfile) {
-        return { executionConfigured: false, message: "SpecForge.AI needs an auto-refinement answers agent when model-driven refinement answers are enabled.", diagnostics };
-    }
-    if (settings.autoRefinementAnswersProfile && !agentsByName.has(settings.autoRefinementAnswersProfile)) {
-        return { executionConfigured: false, message: `SpecForge.AI auto-refinement answers agent references unknown agent '${settings.autoRefinementAnswersProfile}'.`, diagnostics };
-    }
-    const permissionIssues = (0, executionSettingsModel_1.validatePhasePermissionAssignments)(agentProfiles, settings.phaseAgentAssignments);
-    if (permissionIssues.length > 0) {
         return {
             executionConfigured: false,
-            message: permissionIssues[0]?.message ?? "SpecForge.AI found a phase agent permission mismatch.",
+            message: "SpecForge.AI needs an auto-refinement answers profile when model-driven refinement answers are enabled.",
             diagnostics
         };
     }
-    return { executionConfigured: true, message: null, diagnostics };
+    if (settings.autoRefinementAnswersProfile && !profilesByName.has(settings.autoRefinementAnswersProfile)) {
+        return {
+            executionConfigured: false,
+            message: `SpecForge.AI auto-refinement answers profile references unknown profile '${settings.autoRefinementAnswersProfile}'.`,
+            diagnostics
+        };
+    }
+    const permissionIssues = (0, executionSettingsModel_1.validatePhasePermissionAssignments)(settings.modelProfiles, settings.phaseModelAssignments);
+    if (permissionIssues.length > 0) {
+        return {
+            executionConfigured: false,
+            message: permissionIssues[0]?.message ?? "SpecForge.AI found a phase model permission mismatch.",
+            diagnostics
+        };
+    }
+    return {
+        executionConfigured: true,
+        message: null,
+        diagnostics
+    };
 }
 function isNativeCliModelProvider(provider) {
     return nativeCliModelProviders.has(provider);
 }
-function resolveConfiguredOrDerivedAgentProfiles(settings) {
-    if (settings.agentProfiles && settings.agentProfiles.length > 0) {
-        return settings.agentProfiles;
-    }
-    return settings.modelProfiles.map((profile) => ({
-        name: profile.name,
-        role: profile.name,
-        modelProfile: profile.name,
-        instructions: "",
-        repositoryAccess: profile.repositoryAccess,
-        ...(profile.reasoningEffort ? { reasoningEffort: profile.reasoningEffort } : {})
-    }));
-}
-function hasExplicitAgentsForAllModelDrivenPhases(assignments) {
+function hasExplicitProfilesForAllModelDrivenPhases(assignments) {
     return [
-        assignments.refinementAgent,
-        assignments.specAgent,
-        assignments.technicalDesignAgent,
-        assignments.implementationAgent,
-        assignments.reviewAgent
+        assignments.refinementProfile,
+        assignments.specProfile,
+        assignments.technicalDesignProfile,
+        assignments.implementationProfile,
+        assignments.reviewProfile
     ].every((value) => Boolean(value));
 }
 function normalizeOptionalPositiveInteger(value) {
@@ -207,37 +211,33 @@ function normalizeOptionalPositiveInteger(value) {
     return null;
 }
 function buildSettingsDiagnostics(settings) {
-    const agentProfiles = resolveConfiguredOrDerivedAgentProfiles(settings);
-    const models = settings.modelProfiles.map((profile) => `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"}${profile.reasoningEffort ? `,reasoningEffort=${profile.reasoningEffort}` : ""},apiKey=${profile.apiKey ? "set" : "empty"}}`);
-    const agents = agentProfiles.map((agent) => `${agent.name || "<missing-name>"}{role=${agent.role || "<missing>"},modelProfile=${agent.modelProfile || "<missing>"},repositoryAccess=${agent.repositoryAccess || "<missing>"}}`);
+    const profiles = settings.modelProfiles.map((profile) => `${profile.name || "<missing-name>"}{provider=${profile.provider || "<missing>"},baseUrl=${profile.baseUrl || "<missing>"},model=${profile.model || "<missing>"}${profile.reasoningEffort ? `,reasoningEffort=${profile.reasoningEffort}` : ""},apiKey=${profile.apiKey ? "set" : "empty"},repositoryAccess=${profile.repositoryAccess || "<missing>"}}`);
     return [
-        `modelProfiles=${settings.modelProfiles.length}`,
-        `models=[${models.join(", ")}]`,
-        `agentProfiles=${agentProfiles.length}`,
-        `agents=[${agents.join(", ")}]`,
-        `phaseAgents.default=${settings.phaseAgentAssignments.defaultAgent ?? "<unset>"}`,
-        `phaseAgents.capture=${settings.phaseAgentAssignments.captureAgent ?? "<unset>"}`,
-        `phaseAgents.refinement=${settings.phaseAgentAssignments.refinementAgent ?? "<unset>"}`,
-        `phaseAgents.spec=${settings.phaseAgentAssignments.specAgent ?? "<unset>"}`,
-        `phaseAgents.technicalDesign=${settings.phaseAgentAssignments.technicalDesignAgent ?? "<unset>"}`,
-        `phaseAgents.implementation=${settings.phaseAgentAssignments.implementationAgent ?? "<unset>"}`,
-        `phaseAgents.review=${settings.phaseAgentAssignments.reviewAgent ?? "<unset>"}`,
-        `phaseAgents.releaseApproval=${settings.phaseAgentAssignments.releaseApprovalAgent ?? "<unset>"}`,
-        `phaseAgents.prPreparation=${settings.phaseAgentAssignments.prPreparationAgent ?? "<unset>"}`,
+        `profiles=${settings.modelProfiles.length}`,
+        `catalog=[${profiles.join(", ")}]`,
+        `phaseModels.default=${settings.phaseModelAssignments.defaultProfile ?? "<unset>"}`,
+        `phaseModels.refinement=${settings.phaseModelAssignments.refinementProfile ?? "<unset>"}`,
+        `phaseModels.spec=${settings.phaseModelAssignments.specProfile ?? "<unset>"}`,
+        `phaseModels.technicalDesign=${settings.phaseModelAssignments.technicalDesignProfile ?? "<unset>"}`,
+        `phaseModels.implementation=${settings.phaseModelAssignments.implementationProfile ?? "<unset>"}`,
+        `phaseModels.review=${settings.phaseModelAssignments.reviewProfile ?? "<unset>"}`,
+        `phaseModels.releaseApproval=${settings.phaseModelAssignments.releaseApprovalProfile ?? "<unset>"}`,
+        `phaseModels.prPreparation=${settings.phaseModelAssignments.prPreparationProfile ?? "<unset>"}`,
         `autoRefinementAnswers.enabled=${settings.autoRefinementAnswersEnabled}`,
-        `autoRefinementAnswers.agent=${settings.autoRefinementAnswersProfile ?? "<unset>"}`,
+        `autoRefinementAnswers.profile=${settings.autoRefinementAnswersProfile ?? "<unset>"}`,
         `autoReviewEnabled=${settings.autoReviewEnabled}`,
         `maxImplementationReviewCycles=${settings.maxImplementationReviewCycles ?? "<unset>"}`,
         `pauseOnFailedReview=${settings.pauseOnFailedReview}`,
-        `effective.default=${settings.effectivePhaseAgentAssignments.defaultAgentName ?? "<unset>"}`,
-        `effective.capture=${settings.effectivePhaseAgentAssignments.captureAgentName ?? "<unset>"}`,
-        `effective.refinement=${settings.effectivePhaseAgentAssignments.refinementAgentName ?? "<unset>"}`,
-        `effective.spec=${settings.effectivePhaseAgentAssignments.specAgentName ?? "<unset>"}`,
-        `effective.technicalDesign=${settings.effectivePhaseAgentAssignments.technicalDesignAgentName ?? "<unset>"}`,
-        `effective.implementation=${settings.effectivePhaseAgentAssignments.implementationAgentName ?? "<unset>"}`,
-        `effective.review=${settings.effectivePhaseAgentAssignments.reviewAgentName ?? "<unset>"}`,
-        `effective.releaseApproval=${settings.effectivePhaseAgentAssignments.releaseApprovalAgentName ?? "<unset>"}`,
-        `effective.prPreparation=${settings.effectivePhaseAgentAssignments.prPreparationAgentName ?? "<unset>"}`
+        `reviewLearningEnabled=${settings.reviewLearningEnabled === false ? false : true}`,
+        `reviewLearningSkillPath=${settings.reviewLearningSkillPath ?? "<unset>"}`,
+        `effective.default=${settings.effectivePhaseModelAssignments.defaultProfileName ?? "<unset>"}`,
+        `effective.refinement=${settings.effectivePhaseModelAssignments.refinementProfileName ?? "<unset>"}`,
+        `effective.spec=${settings.effectivePhaseModelAssignments.specProfileName ?? "<unset>"}`,
+        `effective.technicalDesign=${settings.effectivePhaseModelAssignments.technicalDesignProfileName ?? "<unset>"}`,
+        `effective.implementation=${settings.effectivePhaseModelAssignments.implementationProfileName ?? "<unset>"}`,
+        `effective.review=${settings.effectivePhaseModelAssignments.reviewProfileName ?? "<unset>"}`,
+        `effective.releaseApproval=${settings.effectivePhaseModelAssignments.releaseApprovalProfileName ?? "<unset>"}`,
+        `effective.prPreparation=${settings.effectivePhaseModelAssignments.prPreparationProfileName ?? "<unset>"}`
     ].join("; ");
 }
 function normalizeOptional(value) {
@@ -287,94 +287,64 @@ function normalizeModelProfile(value) {
         repositoryAccess: repositoryAccess ?? "none"
     };
 }
-function normalizeAgentProfiles(value) {
-    if (!Array.isArray(value)) {
-        return [];
-    }
-    return value
-        .map((entry) => normalizeAgentProfile(entry))
-        .filter((entry) => entry !== null);
-}
-function normalizeAgentProfile(value) {
+function normalizePhaseModelAssignments(value) {
     if (!value || typeof value !== "object") {
-        return null;
-    }
-    const candidate = value;
-    const name = normalizeUnknownOptional(candidate.name);
-    const role = normalizeUnknownOptional(candidate.role);
-    const modelProfile = normalizeUnknownOptional(candidate.modelProfile);
-    const instructions = normalizeUnknownOptional(candidate.instructions);
-    const reasoningEffort = normalizeReasoningEffort(candidate.reasoningEffort);
-    const repositoryAccess = normalizeRepositoryAccess(candidate.repositoryAccess);
-    if (!name && !role && !modelProfile && !instructions && !reasoningEffort && !repositoryAccess) {
-        return null;
-    }
-    return {
-        name: name ?? "",
-        role: role ?? "",
-        modelProfile: modelProfile ?? "",
-        instructions: instructions ?? "",
-        repositoryAccess: repositoryAccess ?? "none",
-        ...(reasoningEffort ? { reasoningEffort } : {})
-    };
-}
-function normalizePhaseAgentAssignments(value) {
-    if (!value || typeof value !== "object") {
-        return emptyPhaseAgentAssignments();
+        return {
+            defaultProfile: null,
+            refinementProfile: null,
+            specProfile: null,
+            technicalDesignProfile: null,
+            implementationProfile: null,
+            reviewProfile: null,
+            releaseApprovalProfile: null,
+            prPreparationProfile: null
+        };
     }
     const candidate = value;
     return {
-        defaultAgent: normalizeUnknownOptional(candidate.defaultAgent),
-        captureAgent: normalizeUnknownOptional(candidate.captureAgent),
-        refinementAgent: normalizeUnknownOptional(candidate.refinementAgent),
-        specAgent: normalizeUnknownOptional(candidate.specAgent),
-        technicalDesignAgent: normalizeUnknownOptional(candidate.technicalDesignAgent),
-        implementationAgent: normalizeUnknownOptional(candidate.implementationAgent),
-        reviewAgent: normalizeUnknownOptional(candidate.reviewAgent),
-        releaseApprovalAgent: normalizeUnknownOptional(candidate.releaseApprovalAgent),
-        prPreparationAgent: normalizeUnknownOptional(candidate.prPreparationAgent)
+        defaultProfile: normalizeUnknownOptional(candidate.defaultProfile),
+        refinementProfile: normalizeUnknownOptional(candidate.refinementProfile),
+        specProfile: normalizeUnknownOptional(candidate.specProfile),
+        technicalDesignProfile: normalizeUnknownOptional(candidate.technicalDesignProfile),
+        implementationProfile: normalizeUnknownOptional(candidate.implementationProfile),
+        reviewProfile: normalizeUnknownOptional(candidate.reviewProfile),
+        releaseApprovalProfile: normalizeUnknownOptional(candidate.releaseApprovalProfile),
+        prPreparationProfile: normalizeUnknownOptional(candidate.prPreparationProfile)
     };
 }
-function emptyPhaseAgentAssignments() {
+function resolveEffectivePhaseModelAssignments(modelProfiles, assignments) {
+    const defaultProfile = resolveDefaultModelProfile(modelProfiles, assignments);
+    const defaultProfileName = defaultProfile?.name ?? null;
+    const refinementProfileName = resolveAssignedModelProfile(modelProfiles, assignments.refinementProfile)?.name ?? defaultProfileName;
+    const specProfileName = resolveAssignedModelProfile(modelProfiles, assignments.specProfile)?.name ?? defaultProfileName;
+    const technicalDesignProfileName = resolveAssignedModelProfile(modelProfiles, assignments.technicalDesignProfile)?.name ?? defaultProfileName;
+    const implementationProfileName = resolveAssignedModelProfile(modelProfiles, assignments.implementationProfile)?.name ?? defaultProfileName;
+    const reviewProfileName = resolveAssignedModelProfile(modelProfiles, assignments.reviewProfile)?.name ?? defaultProfileName;
+    const releaseApprovalProfileName = resolveAssignedModelProfile(modelProfiles, assignments.releaseApprovalProfile)?.name ?? defaultProfileName;
+    const prPreparationProfileName = resolveAssignedModelProfile(modelProfiles, assignments.prPreparationProfile)?.name ?? defaultProfileName;
     return {
-        defaultAgent: null,
-        captureAgent: null,
-        refinementAgent: null,
-        specAgent: null,
-        technicalDesignAgent: null,
-        implementationAgent: null,
-        reviewAgent: null,
-        releaseApprovalAgent: null,
-        prPreparationAgent: null
+        defaultProfileName,
+        refinementProfileName,
+        specProfileName,
+        technicalDesignProfileName,
+        implementationProfileName,
+        reviewProfileName,
+        releaseApprovalProfileName,
+        prPreparationProfileName
     };
 }
-function resolveEffectivePhaseAgentAssignments(agentProfiles, assignments) {
-    const defaultAgent = resolveDefaultAgentProfile(agentProfiles, assignments);
-    const defaultAgentName = defaultAgent?.name ?? null;
-    return {
-        defaultAgentName,
-        captureAgentName: resolveAssignedAgentProfile(agentProfiles, assignments.captureAgent)?.name ?? defaultAgentName,
-        refinementAgentName: resolveAssignedAgentProfile(agentProfiles, assignments.refinementAgent)?.name ?? defaultAgentName,
-        specAgentName: resolveAssignedAgentProfile(agentProfiles, assignments.specAgent)?.name ?? defaultAgentName,
-        technicalDesignAgentName: resolveAssignedAgentProfile(agentProfiles, assignments.technicalDesignAgent)?.name ?? defaultAgentName,
-        implementationAgentName: resolveAssignedAgentProfile(agentProfiles, assignments.implementationAgent)?.name ?? defaultAgentName,
-        reviewAgentName: resolveAssignedAgentProfile(agentProfiles, assignments.reviewAgent)?.name ?? defaultAgentName,
-        releaseApprovalAgentName: resolveAssignedAgentProfile(agentProfiles, assignments.releaseApprovalAgent)?.name ?? defaultAgentName,
-        prPreparationAgentName: resolveAssignedAgentProfile(agentProfiles, assignments.prPreparationAgent)?.name ?? defaultAgentName
-    };
-}
-function resolveDefaultAgentProfile(agentProfiles, assignments) {
-    const explicitDefault = resolveAssignedAgentProfile(agentProfiles, assignments.defaultAgent);
+function resolveDefaultModelProfile(modelProfiles, assignments) {
+    const explicitDefault = resolveAssignedModelProfile(modelProfiles, assignments.defaultProfile);
     if (explicitDefault) {
         return explicitDefault;
     }
-    return agentProfiles.length === 1 ? agentProfiles[0] : null;
+    return modelProfiles.length === 1 ? modelProfiles[0] : null;
 }
-function resolveAssignedAgentProfile(agentProfiles, agentName) {
-    if (!agentName) {
+function resolveAssignedModelProfile(modelProfiles, profileName) {
+    if (!profileName) {
         return null;
     }
-    return agentProfiles.find((profile) => profile.name === agentName) ?? null;
+    return modelProfiles.find((profile) => profile.name === profileName) ?? null;
 }
 function normalizeUnknownOptional(value) {
     return typeof value === "string" ? normalizeOptional(value) : null;
@@ -382,6 +352,12 @@ function normalizeUnknownOptional(value) {
 function normalizeTolerance(value) {
     const normalized = value?.trim().toLowerCase();
     return normalized === "strict" || normalized === "inferential" ? normalized : "balanced";
+}
+function normalizeReviewEvidencePolicy(value) {
+    const normalized = value?.trim().toLowerCase();
+    return normalized === "strict" || normalized === "release" || normalized === "advisory"
+        ? normalized
+        : "balanced";
 }
 function normalizeReasoningEffort(value) {
     const normalized = normalizeUnknownOptional(value)?.toLowerCase();

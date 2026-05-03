@@ -3,7 +3,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using SpecForge.Domain.Application;
 using SpecForge.Domain.Persistence;
 using SpecForge.Domain.Workflow;
@@ -51,10 +51,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             throw new ArgumentException("At least one model profile is required.", nameof(options));
         }
 
-        ValidateModelProfiles(options.ModelProfiles);
-        ValidateAgentProfiles(options.AgentProfiles, options.PhaseAgentAssignments, options.ModelProfiles);
+        ValidateModelProfiles(options.ModelProfiles, options.PhaseModelAssignments);
         ValidateAutoRefinementAnswers(
-            options.AgentProfiles?.Select(static profile => profile.Name).ToArray() ?? [],
+            options.ModelProfiles.Select(static profile => profile.Name).ToArray(),
             options);
 
         if (!IsSupportedTolerance(options.RefinementTolerance))
@@ -68,6 +67,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         {
             throw new ArgumentException(
                 "ReviewTolerance must be one of: strict, balanced, inferential.",
+                nameof(options));
+        }
+
+        if (!IsSupportedReviewEvidencePolicy(options.ReviewEvidencePolicy))
+        {
+            throw new ArgumentException(
+                "ReviewEvidencePolicy must be one of: strict, balanced, release, advisory.",
                 nameof(options));
         }
     }
@@ -93,9 +99,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             modelSelection.ProfileName,
             effectiveRepositoryAccess,
             NativeCliRequired: RequiresNativeCli(modelSelection),
-            NativeCliAvailable: nativeCliRunner?.IsAvailable ?? false,
-            AgentName: modelSelection.AgentName,
-            AgentRole: modelSelection.AgentRole);
+            NativeCliAvailable: nativeCliRunner?.IsAvailable ?? false);
         if (RequiresNativeCli(modelSelection) &&
             (nativeCliRunner is null || !nativeCliRunner.IsAvailable))
         {
@@ -136,40 +140,38 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             return null;
         }
 
+        await promptCatalog.EnsureRepositoryIsInitializedAsync(context.WorkspaceRoot, cancellationToken);
+
         var modelSelection = ResolveAutoRefinementAnswersModelSelection();
         SpecForgeDiagnostics.Log(
             $"[provider.auto_refinement] usId={context.UsId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={modelSelection.Model} questions={session.Items.Count}");
         var prompt = await BuildAutoRefinementAnswersPromptAsync(context, session, cancellationToken);
         if (ShouldUseNativeCli(modelSelection))
         {
-            var autoRefinementAnswersSchema = BuildAutoRefinementAnswersSchema().GetRawText();
-            var nativePrompt = NativeCliPromptBuilder.BuildStandalonePrompt(
+            var nativePrompt = NativeCliPromptBuilder.BuildStandaloneMarkdownPrompt(
                 modelSelection.ProviderKind,
                 "SpecForge Native Refinement Auto Answers",
-                prompt,
-                autoRefinementAnswersSchema);
-            var responseJson = await ExecuteStructuredNativeAsync(
+                prompt);
+            var nativeResult = await ExecuteStructuredNativeAsync(
                 context.WorkspaceRoot,
                 nativePrompt,
                 modelSelection,
-                autoRefinementAnswersSchema,
                 sandboxMode: "read-only",
                 cancellationToken);
-            var document = ParseAutoRefinementAnswersDocument(responseJson);
+            var document = ParseAutoRefinementAnswersMarkdown(nativeResult.Content);
             return new AutoRefinementAnswersResult(
                 document.CanResolve,
                 document.Answers,
                 document.Reason,
+                nativeResult.Usage,
                 Execution: new PhaseExecutionMetadata(
                     ProviderKind: modelSelection.ProviderKind,
                     Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
                     ProfileName: modelSelection.ProfileName,
-                    AgentName: modelSelection.AgentName,
-                    AgentRole: modelSelection.AgentRole,
                     Warnings: prompt.Warnings,
                     InputSha256: ComputeSha256(nativePrompt),
-                    OutputSha256: ComputeSha256(responseJson),
-                    StructuredOutputSha256: ComputeSha256(responseJson)));
+                    OutputSha256: ComputeSha256(nativeResult.Content),
+                    StructuredOutputSha256: null));
         }
 
         var (content, usage, inputSha256, outputSha256) = await ExecuteStructuredHttpAsync(
@@ -177,14 +179,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             prompt.SystemPrompt,
             prompt.UserPrompt,
             temperature: ResolveToleranceTemperature(options.RefinementTolerance),
-            new StructuredOutputResponseFormat(
-                Type: "json_schema",
-                JsonSchema: new StructuredOutputJsonSchema(
-                    Name: "auto_refinement_answers",
-                    Schema: BuildAutoRefinementAnswersSchema(),
-                    Strict: true)),
             cancellationToken);
-        var parsed = ParseAutoRefinementAnswersDocument(content);
+        var parsed = ParseAutoRefinementAnswersMarkdown(content);
         return new AutoRefinementAnswersResult(
             parsed.CanResolve,
             parsed.Answers,
@@ -194,8 +190,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 ProviderKind: modelSelection.ProviderKind,
                 Model: modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
-                AgentName: modelSelection.AgentName,
-                AgentRole: modelSelection.AgentRole,
                 BaseUrl: modelSelection.BaseUrl,
                 Warnings: prompt.Warnings,
                 InputSha256: inputSha256,
@@ -207,9 +201,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         PhaseExecutionContext context,
         CancellationToken cancellationToken = default)
     {
+        await promptCatalog.EnsureRepositoryIsInitializedAsync(context.WorkspaceRoot, cancellationToken);
+
         var modelSelection = ResolveModelSelection(context.PhaseId);
         SpecForgeDiagnostics.Log(
-            $"[provider.execute] usId={context.UsId} phase={context.PhaseId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} agent={modelSelection.AgentName ?? "(none)"} model={modelSelection.Model} baseUrl={(string.IsNullOrWhiteSpace(modelSelection.BaseUrl) ? "(none)" : modelSelection.BaseUrl)}");
+            $"[provider.execute] usId={context.UsId} phase={context.PhaseId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={modelSelection.Model} baseUrl={(string.IsNullOrWhiteSpace(modelSelection.BaseUrl) ? "(none)" : modelSelection.BaseUrl)}");
         var prompt = await BuildEffectivePromptAsync(context, cancellationToken);
         SpecForgeDiagnostics.Log(
             $"[provider.execute] usId={context.UsId} phase={context.PhaseId} promptBuilt systemChars={prompt.SystemPrompt.Length} userChars={prompt.UserPrompt.Length} warnings={(prompt.Warnings?.Count ?? 0)}");
@@ -218,23 +214,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             return await ExecuteViaNativeCliAsync(context, prompt, modelSelection, cancellationToken);
         }
 
-        var contract = StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var phaseContract)
-            ? phaseContract
-            : throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract.");
-        var responseFormat = contract.ResponseFormat == PhaseArtifactResponseFormat.Json
-            ? new StructuredOutputResponseFormat(
-                Type: "json_schema",
-                JsonSchema: new StructuredOutputJsonSchema(
-                    Name: contract.SchemaName,
-                    Schema: contract.JsonSchema,
-                    Strict: true))
-            : null;
+        if (!PhaseMarkdownArtifactContracts.Supports(context.PhaseId))
+        {
+            throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a Markdown artifact contract.");
+        }
         var (content, usage, inputSha256, outputSha256) = await ExecuteStructuredHttpAsync(
             modelSelection,
             prompt.SystemPrompt,
             prompt.UserPrompt,
             ResolveTemperature(context.PhaseId),
-            responseFormat,
             cancellationToken);
 
         if (string.IsNullOrWhiteSpace(content))
@@ -242,18 +230,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             throw new InvalidOperationException("OpenAI-compatible provider returned an empty content payload.");
         }
 
-        var canonicalJsonContent = contract.ResponseFormat == PhaseArtifactResponseFormat.Json
-            ? NormalizePhaseJsonContent(context, content.Trim())
-            : null;
-        if (context.PhaseId == PhaseId.PrPreparation && !string.IsNullOrWhiteSpace(canonicalJsonContent))
-        {
-            var repaired = PrPreparationArtifactFactory.RepairIncomplete(
-                context,
-                PrPreparationArtifactJson.ParseCanonicalJson(canonicalJsonContent));
-            canonicalJsonContent = PrPreparationArtifactJson.Serialize(repaired).Trim();
-        }
-
-        var normalizedContent = NormalizePhaseContent(context, canonicalJsonContent ?? content.Trim());
+        var normalizedContent = NormalizePhaseContent(context, content.Trim());
         return new PhaseExecutionResult(
             normalizedContent,
             ExecutionKind: "openai-compatible",
@@ -262,14 +239,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 ProviderKind: modelSelection.ProviderKind,
                 Model: modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
-                AgentName: modelSelection.AgentName,
-                AgentRole: modelSelection.AgentRole,
                 BaseUrl: modelSelection.BaseUrl,
                 Warnings: prompt.Warnings,
                 InputSha256: inputSha256,
                 OutputSha256: outputSha256,
-                StructuredOutputSha256: ComputeSha256(canonicalJsonContent)),
-            canonicalJsonContent);
+                StructuredOutputSha256: null));
     }
 
     private static HttpRequestMessage BuildRequest(
@@ -294,8 +268,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         ResolvedModelSelection modelSelection,
         string systemPrompt,
         string userPrompt,
-        double temperature,
-        StructuredOutputResponseFormat? responseFormat)
+        double temperature)
     {
         var endpoint = $"{modelSelection.BaseUrl.TrimEnd('/')}/chat/completions";
         var messages = new List<object>();
@@ -320,13 +293,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             ["model"] = modelSelection.Model,
             ["messages"] = messages,
             ["temperature"] = temperature,
-            ["reasoning_effort"] = modelSelection.ReasoningEffort
+            ["reasoning_effort"] = modelSelection.ReasoningEffort,
+            ["stream"] = true,
+            ["stream_options"] = new
+            {
+                include_usage = true
+            }
         };
-
-        if (responseFormat is not null)
-        {
-            requestBody["response_format"] = responseFormat;
-        }
 
         return JsonSerializer.Serialize(requestBody);
     }
@@ -336,38 +309,155 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         string systemPrompt,
         string userPrompt,
         double temperature,
-        StructuredOutputResponseFormat? responseFormat,
         CancellationToken cancellationToken)
     {
         await using var diagnostics = SpecForgeDiagnostics.StartProgressScope(
             $"[provider.http] provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={modelSelection.Model}",
             interval: TimeSpan.FromSeconds(20));
         SpecForgeDiagnostics.Log(
-            $"[provider.http] sending model={modelSelection.Model} endpoint={modelSelection.BaseUrl.TrimEnd('/')}/chat/completions temperature={temperature:0.###} responseFormat={responseFormat?.Type ?? "(none)"}");
+            $"[provider.http] sending model={modelSelection.Model} endpoint={modelSelection.BaseUrl.TrimEnd('/')}/chat/completions temperature={temperature:0.###}");
         var endpoint = $"{modelSelection.BaseUrl.TrimEnd('/')}/chat/completions";
-        var requestBody = BuildRequestBody(modelSelection, systemPrompt, userPrompt, temperature, responseFormat);
+        var requestBody = BuildRequestBody(modelSelection, systemPrompt, userPrompt, temperature);
         var request = BuildRequest(modelSelection, requestBody, endpoint);
-        using var response = await httpClient.SendAsync(request, cancellationToken);
+        using var response = await httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
         SpecForgeDiagnostics.Log(
             $"[provider.http] response received status={(int)response.StatusCode} model={modelSelection.Model}");
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
+            var errorPayload = await response.Content.ReadAsStringAsync(cancellationToken);
             diagnostics.MarkFailed(new InvalidOperationException(
-                $"OpenAI-compatible provider call failed with status {(int)response.StatusCode}: {payload}"));
+                $"OpenAI-compatible provider call failed with status {(int)response.StatusCode}: {errorPayload}"));
             throw new InvalidOperationException(
-                $"OpenAI-compatible provider call failed with status {(int)response.StatusCode}: {payload}");
+                $"OpenAI-compatible provider call failed with status {(int)response.StatusCode}: {errorPayload}");
         }
 
+        var mediaType = response.Content.Headers.ContentType?.MediaType;
+        if (string.Equals(mediaType, "text/event-stream", StringComparison.OrdinalIgnoreCase))
+        {
+            var (streamedContent, streamedUsage) = await ReadStreamingChatCompletionAsync(
+                response,
+                modelSelection,
+                cancellationToken);
+            diagnostics.MarkCompleted($"contentChars={streamedContent.Length} streamed=true");
+            return (streamedContent, streamedUsage, ComputeSha256(requestBody), ComputeSha256(streamedContent));
+        }
+
+        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
         using var document = JsonDocument.Parse(payload);
         var content = document.RootElement
             .GetProperty("choices")[0]
             .GetProperty("message")
             .GetProperty("content")
             .GetString();
+        LogModelResponse(modelSelection.ProviderKind, modelSelection.ProfileName, modelSelection.Model, "http", "complete", content);
         diagnostics.MarkCompleted($"payloadChars={payload.Length} contentChars={(content ?? string.Empty).Length}");
         return (content ?? string.Empty, TryReadUsage(document.RootElement), ComputeSha256(requestBody), ComputeSha256(content));
+    }
+
+    private static async Task<(string Content, TokenUsage? Usage)> ReadStreamingChatCompletionAsync(
+        HttpResponseMessage response,
+        ResolvedModelSelection modelSelection,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+        var content = new StringBuilder();
+        TokenUsage? usage = null;
+        var lastPreviewAtUtc = DateTimeOffset.MinValue;
+        var previewCharsSinceLastLog = 0;
+        var previewBuffer = new StringBuilder();
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var line = await reader.ReadLineAsync(cancellationToken);
+            if (line is null)
+            {
+                break;
+            }
+
+            if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var data = line["data:".Length..].Trim();
+            if (string.Equals(data, "[DONE]", StringComparison.Ordinal))
+            {
+                break;
+            }
+
+            using var document = JsonDocument.Parse(data);
+            if (TryReadUsage(document.RootElement) is { } streamedUsage)
+            {
+                usage = streamedUsage;
+            }
+
+            var delta = TryReadStreamingContentDelta(document.RootElement);
+            if (string.IsNullOrEmpty(delta))
+            {
+                continue;
+            }
+
+            content.Append(delta);
+            previewBuffer.Append(delta);
+            previewCharsSinceLastLog += delta.Length;
+            var now = DateTimeOffset.UtcNow;
+            if (previewCharsSinceLastLog >= 80 || now - lastPreviewAtUtc >= TimeSpan.FromSeconds(1))
+            {
+                LogModelResponse(
+                    modelSelection.ProviderKind,
+                    modelSelection.ProfileName,
+                    modelSelection.Model,
+                    "http",
+                    "delta",
+                    previewBuffer.ToString());
+                previewBuffer.Clear();
+                previewCharsSinceLastLog = 0;
+                lastPreviewAtUtc = now;
+            }
+        }
+
+        var finalContent = content.ToString();
+        LogModelResponse(
+            modelSelection.ProviderKind,
+            modelSelection.ProfileName,
+            modelSelection.Model,
+            "http",
+            "complete",
+            finalContent);
+        return (finalContent, usage);
+    }
+
+    private static string? TryReadStreamingContentDelta(JsonElement root)
+    {
+        if (!root.TryGetProperty("choices", out var choices) ||
+            choices.ValueKind != JsonValueKind.Array ||
+            choices.GetArrayLength() == 0)
+        {
+            return null;
+        }
+
+        var choice = choices[0];
+        if (choice.TryGetProperty("delta", out var delta) &&
+            delta.TryGetProperty("content", out var deltaContent) &&
+            deltaContent.ValueKind == JsonValueKind.String)
+        {
+            return deltaContent.GetString();
+        }
+
+        if (choice.TryGetProperty("message", out var message) &&
+            message.TryGetProperty("content", out var messageContent) &&
+            messageContent.ValueKind == JsonValueKind.String)
+        {
+            return messageContent.GetString();
+        }
+
+        return null;
     }
 
     private async Task<EffectivePrompt> BuildEffectivePromptAsync(
@@ -375,37 +465,37 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         CancellationToken cancellationToken)
     {
         var paths = new PromptFilePaths(context.WorkspaceRoot);
-        var modelSelection = ResolveModelSelection(context.PhaseId);
         var phasePromptPath = promptCatalog.GetExecutePromptPath(context.WorkspaceRoot, context.PhaseId);
         var phaseSystemPromptPath = promptCatalog.GetExecuteSystemPromptPath(context.WorkspaceRoot, context.PhaseId);
-        var sharedSystemPrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.SharedSystemPromptPath, cancellationToken);
-        var phaseSystemPrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, phaseSystemPromptPath, cancellationToken);
-        var sharedStylePrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.SharedStylePromptPath, cancellationToken);
-        var sharedOutputRulesPrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.SharedOutputRulesPromptPath, cancellationToken);
-        var phasePrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, phasePromptPath, cancellationToken);
+        var sharedSystemPrompt = await File.ReadAllTextAsync(paths.SharedSystemPromptPath, cancellationToken);
+        var phaseSystemPrompt = await File.ReadAllTextAsync(phaseSystemPromptPath, cancellationToken);
+        var sharedStylePrompt = await File.ReadAllTextAsync(paths.SharedStylePromptPath, cancellationToken);
+        var phasePrompt = await File.ReadAllTextAsync(phasePromptPath, cancellationToken);
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
-        var warnings = BuildPromptWarnings(sharedSystemPrompt, phaseSystemPrompt);
+        var warnings = await BuildPromptWarningsAsync(
+            context.WorkspaceRoot,
+            cancellationToken,
+            paths.SharedSystemPromptPath,
+            phaseSystemPromptPath);
         var refinementLogPath = Path.Combine(Path.GetDirectoryName(context.UserStoryPath)!, "refinement.md");
-        var contract = StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var phaseContract)
-            ? phaseContract
-            : throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract.");
-        var effectiveOutputRulesPrompt = contract.ResponseFormat == PhaseArtifactResponseFormat.Json
-            ? sharedOutputRulesPrompt.Content.Trim()
-            : BuildMarkdownOutputRulesPrompt();
+        if (!PhaseMarkdownArtifactContracts.Supports(context.PhaseId))
+        {
+            throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a Markdown artifact contract.");
+        }
+        var effectiveOutputRulesPrompt = BuildMarkdownOutputRulesPrompt();
         var systemPrompt = string.Join(
             $"{Environment.NewLine}{Environment.NewLine}",
             new[]
             {
                 options.SystemPrompt,
-                sharedSystemPrompt.Content.Trim(),
-                phaseSystemPrompt.Content.Trim(),
-                BuildAgentSystemPrompt(modelSelection),
-                sharedStylePrompt.Content.Trim(),
+                sharedSystemPrompt.Trim(),
+                phaseSystemPrompt.Trim(),
+                sharedStylePrompt.Trim(),
                 effectiveOutputRulesPrompt
             }.Where(static part => !string.IsNullOrWhiteSpace(part)));
 
         var builder = new StringBuilder()
-            .AppendLine(phasePrompt.Content.Trim())
+            .AppendLine(phasePrompt.Trim())
             .AppendLine()
             .AppendLine("## Runtime Context")
             .AppendLine();
@@ -415,10 +505,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine($"- US ID: `{context.UsId}`")
             .AppendLine($"- Phase: `{context.PhaseId}`")
             .AppendLine($"- User story path: `{context.UserStoryPath}`")
-            .AppendLine($"- Agent: `{modelSelection.AgentName ?? "default"}`")
-            .AppendLine($"- Agent role: `{modelSelection.AgentRole ?? "default"}`")
-            .AppendLine($"- Model profile: `{modelSelection.ProfileName ?? "default"}`")
-            .AppendLine($"- Repository access: `{NormalizeRepositoryAccess(modelSelection.RepositoryAccess)}`")
+            .AppendLine($"- Repository access: `{NormalizeRepositoryAccess(options.ModelProfiles!.First(candidate => string.Equals(candidate.Name, ResolveProfileNameForPhase(context.PhaseId), StringComparison.Ordinal)).RepositoryAccess)}`")
             .AppendLine();
 
         builder
@@ -510,28 +597,17 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             .AppendLine("## Execution Rules")
             .AppendLine()
             .AppendLine("- Use the repository artifacts as the source of truth.")
-            .AppendLine("- Stay strictly inside the requested phase contract.");
-
-        if (contract.ResponseFormat == PhaseArtifactResponseFormat.Json)
-        {
-            builder.AppendLine("- Return only structured JSON that conforms to the response schema.");
-        }
-        else
-        {
-            builder
-                .AppendLine("- Return only the complete Markdown artifact for this phase.")
-                .AppendLine("- Do not wrap the Markdown artifact in code fences.")
-                .AppendLine("- Do not return JSON or prose outside the Markdown artifact.");
-        }
+            .AppendLine("- Stay strictly inside the requested phase contract.")
+            .AppendLine("- Return only the complete Markdown artifact for this phase.")
+            .AppendLine("- Do not wrap the Markdown artifact in code fences.")
+            .AppendLine("- Do not return JSON or prose outside the Markdown artifact.");
 
         if (!string.IsNullOrWhiteSpace(context.OperationPrompt))
         {
             builder
                 .AppendLine("- Treat the current phase artifact as the document under edit, not as a discarded draft.")
                 .AppendLine("- Preserve valid content unless the requested operation requires a change.")
-                .AppendLine(contract.ResponseFormat == PhaseArtifactResponseFormat.Json
-                    ? "- Update the structured fields so the requested correction becomes explicit in the rendered artifact."
-                    : "- Update the Markdown sections so the requested correction becomes explicit in the artifact.")
+                .AppendLine("- Update the Markdown sections so the requested correction becomes explicit in the artifact.")
                 .AppendLine("- Add a concise new history entry describing the operation when the phase artifact supports history.");
         }
 
@@ -564,6 +640,49 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine("Do not return JSON.");
         }
 
+        if (context.PhaseId == PhaseId.TechnicalDesign)
+        {
+            builder
+                .AppendLine()
+                .AppendLine("## Technical Design Planning Expectations")
+                .AppendLine()
+                .AppendLine("- Treat `Implementation Strategy` as the implementation planning output for this workflow.")
+                .AppendLine("- Name likely files, modules, contracts, tests, and integration surfaces when repository context supports it.")
+                .AppendLine("- Break implementation into ordered, reviewable steps rather than broad intent statements.")
+                .AppendLine("- Include edge cases, negative paths, and complexity risks that implementation must cover.")
+                .AppendLine("- Do not approve a god-class or central catch-all design; preserve local boundaries and existing responsibilities.")
+                .AppendLine("- Make `Validation Strategy` concrete enough that review can evaluate each item with code, artifact, or command evidence.")
+                .AppendLine("- Prefix every `Validation Strategy` bullet with one evidence tag: `[automated]`, `[static]`, `[operational]`, or `[deferred]`.")
+                .AppendLine("- Use `[automated]` for tests or commands that should run in review, `[static]` for code/payload/schema inspection, `[operational]` for live services/secrets/bootstrap/readback, and `[deferred]` for explicit manual or later release evidence.")
+                .AppendLine("- Do not mark live environment, credential, model, database, or external service checks as `[automated]` unless the repo provides a reliable local fake or test harness.");
+        }
+
+        if (context.PhaseId == PhaseId.Implementation && context.PreviousArtifactPaths.ContainsKey(PhaseId.Review))
+        {
+            builder
+                .AppendLine()
+                .AppendLine("## Failed Review Learning Policy")
+                .AppendLine()
+                .AppendLine($"- Review learning enabled: `{options.ReviewLearningEnabled.ToString().ToLowerInvariant()}`");
+
+            if (options.ReviewLearningEnabled)
+            {
+                builder
+                    .AppendLine("- When the previous review failed, first fix the implementation so the reviewed scope passes.")
+                    .AppendLine("- Then decide whether the failed finding reveals a generalized, repository-agnostic lesson that should prevent future user stories from repeating the same issue.")
+                    .AppendLine("- Persist only generalized lessons. Never add US IDs, story-specific facts, one-off filenames, or symptoms that only apply to the current change.")
+                    .AppendLine($"- For local SDD workflow behavior, update `{options.ReviewLearningSkillPath}` with a concise guardrail.")
+                    .AppendLine("- For phase behavior, prefer updating `.specs/prompts/phases/technical-design.execute.md`, `.specs/prompts/phases/implementation.execute.md`, or `.specs/prompts/phases/review.execute.md` with an agnostic instruction.")
+                    .AppendLine("- If the lesson belongs in `../ai-skills-shared`, do not edit it from this repository; record the promotion recommendation in the implementation artifact.")
+                    .AppendLine("- If no reusable lesson exists, do not change skills or prompts.");
+            }
+            else
+            {
+                builder
+                    .AppendLine("- Fix the implementation against the failed review, but do not modify skills, shared rules, or phase prompts as part of this retry.");
+            }
+        }
+
         if (context.PhaseId == PhaseId.Review)
         {
             var requiredValidationChecklist = await ReadReviewValidationChecklistAsync(context, cancellationToken);
@@ -572,7 +691,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 builder
                     .AppendLine("## Required Review Validation Checklist")
                     .AppendLine()
-                    .AppendLine("Every item below must be evaluated explicitly in `validationChecklist` with concrete evidence gathered during review.")
+                    .AppendLine("Every item below must be evaluated explicitly in the `## Validation Checklist` Markdown section with concrete evidence gathered during review.")
                     .AppendLine();
 
                 foreach (var item in requiredValidationChecklist)
@@ -589,17 +708,23 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine()
                 .AppendLine($"- Active tolerance: `{options.ReviewTolerance}`")
                 .AppendLine($"- Guidance: {ResolveReviewGuidance(options.ReviewTolerance)}")
+                .AppendLine($"- Evidence policy: `{options.ReviewEvidencePolicy}`")
+                .AppendLine($"- Evidence guidance: {ResolveReviewEvidencePolicyGuidance(options.ReviewEvidencePolicy)}")
                 .AppendLine()
                 .AppendLine("## Review Execution Expectations")
                 .AppendLine()
                 .AppendLine("- Inspect the repository files and implementation evidence directly, not only the artifact narrative.")
                 .AppendLine("- Run the most relevant validation commands required to verify the Technical Design validation strategy when direct inspection alone is insufficient.")
-                .AppendLine("- In each checklist evidence field, name the concrete files, commands, or artifacts you actually inspected.")
+                .AppendLine("- Derive workflow or bootstrap commands from repository evidence such as tasks, tool manifests, README files, or workflow configs; do not infer CLI names from folder names.")
+                .AppendLine("- Treat `[operational]` and `[deferred]` checklist items according to the active evidence policy instead of inventing successful execution.")
+                .AppendLine("- In each validation checklist evidence line, name the concrete files, commands, or artifacts you actually inspected.")
                 .AppendLine()
-                .AppendLine("Return only structured data that conforms to the response schema.");
+                .AppendLine("Return the full `04-review.md` artifact as Markdown with `## State`, `## Validation Checklist`, `## Findings`, `## Verdict`, and `## Recommendation`.")
+                .AppendLine("The `## State` section must contain exactly one `- Result:` line with value `pass` or `fail`.")
+                .AppendLine("Do not return JSON.");
         }
 
-        if (context.PhaseId is PhaseId.TechnicalDesign or PhaseId.Implementation)
+        if (context.PhaseId is PhaseId.TechnicalDesign or PhaseId.Implementation or PhaseId.Review)
         {
             builder
                 .AppendLine()
@@ -627,17 +752,16 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 .AppendLine()
                 .AppendLine("## PR Preparation Contract")
                 .AppendLine()
-                .AppendLine("Return only structured data that conforms to the response schema.")
-                .AppendLine("Every required field must be populated with repository-grounded content.")
+                .AppendLine("Return the full `06-pr-preparation.md` artifact as Markdown.")
+                .AppendLine("Use the required headings from the phase prompt exactly once.")
+                .AppendLine("Every required section must be populated with repository-grounded content.")
                 .AppendLine("Do not return placeholder-only values such as empty strings, empty arrays, `...`, `TODO`, or generic filler.")
-                .AppendLine("Every list-valued field in this phase must be a JSON array of strings.")
-                .AppendLine("Do not collapse array fields into one markdown string and do not return objects where the schema expects string arrays.")
-                .AppendLine("`prTitle` must be a publishable draft PR title.")
-                .AppendLine("`prSummary` must explain the delivered scope in 1-3 concrete sentences.")
-                .AppendLine("`changeNarrative`, `validationSummary`, and `reviewerChecklist` must each contain at least one concrete item.")
-                .AppendLine("`prBody` must be a JSON array of strings, one markdown line per array item.")
-                .AppendLine("`prBody` must contain a complete reviewer-ready markdown body, not a template stub.")
-                .AppendLine("If the available repository context is insufficient, say so explicitly inside the required fields while still filling the schema with concrete blocking detail.");
+                .AppendLine("`PR Title` must be a publishable draft PR title.")
+                .AppendLine("`PR Summary` must explain the delivered scope in 1-3 concrete sentences.")
+                .AppendLine("`Change Narrative`, `Validation Summary`, and `Reviewer Checklist` must each contain at least one concrete item.")
+                .AppendLine("`PR Body` must contain a complete reviewer-ready markdown body, not a template stub.")
+                .AppendLine("If the available repository context is insufficient, say so explicitly inside the required sections.")
+                .AppendLine("Do not return JSON.");
         }
 
         return new EffectivePrompt(systemPrompt, builder.ToString().Trim(), warnings);
@@ -649,15 +773,19 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         CancellationToken cancellationToken)
     {
         var paths = new PromptFilePaths(context.WorkspaceRoot);
-        var modelSelection = ResolveAutoRefinementAnswersModelSelection();
-        var sharedSystemPrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.SharedSystemPromptPath, cancellationToken);
-        var refinementSystemPrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.RefinementExecuteSystemPromptPath, cancellationToken);
-        var autoRefinementAnswersSystemPrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.AutoRefinementAnswersSystemPromptPath, cancellationToken);
-        var sharedStylePrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.SharedStylePromptPath, cancellationToken);
-        var sharedOutputRulesPrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.SharedOutputRulesPromptPath, cancellationToken);
-        var phasePrompt = await promptCatalog.ReadPromptAsync(context.WorkspaceRoot, paths.RefinementExecutePromptPath, cancellationToken);
+        var sharedSystemPrompt = await File.ReadAllTextAsync(paths.SharedSystemPromptPath, cancellationToken);
+        var refinementSystemPrompt = await File.ReadAllTextAsync(paths.RefinementExecuteSystemPromptPath, cancellationToken);
+        var autoRefinementAnswersSystemPrompt = await File.ReadAllTextAsync(paths.AutoRefinementAnswersSystemPromptPath, cancellationToken);
+        var sharedStylePrompt = await File.ReadAllTextAsync(paths.SharedStylePromptPath, cancellationToken);
+        var sharedOutputRulesPrompt = await File.ReadAllTextAsync(paths.SharedOutputRulesPromptPath, cancellationToken);
+        var phasePrompt = await File.ReadAllTextAsync(paths.RefinementExecutePromptPath, cancellationToken);
         var userStory = await File.ReadAllTextAsync(context.UserStoryPath, cancellationToken);
-        var warnings = BuildPromptWarnings(sharedSystemPrompt, refinementSystemPrompt, autoRefinementAnswersSystemPrompt);
+        var warnings = await BuildPromptWarningsAsync(
+            context.WorkspaceRoot,
+            cancellationToken,
+            paths.SharedSystemPromptPath,
+            paths.RefinementExecuteSystemPromptPath,
+            paths.AutoRefinementAnswersSystemPromptPath);
         var refinementLogPath = Path.Combine(Path.GetDirectoryName(context.UserStoryPath)!, "refinement.md");
         var refinementLog = File.Exists(refinementLogPath)
             ? await File.ReadAllTextAsync(refinementLogPath, cancellationToken)
@@ -667,31 +795,29 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             new[]
             {
                 options.SystemPrompt,
-                sharedSystemPrompt.Content.Trim(),
-                refinementSystemPrompt.Content.Trim(),
-                autoRefinementAnswersSystemPrompt.Content.Trim(),
-                BuildAgentSystemPrompt(modelSelection),
-                sharedStylePrompt.Content.Trim(),
-                sharedOutputRulesPrompt.Content.Trim()
+                sharedSystemPrompt.Trim(),
+                refinementSystemPrompt.Trim(),
+                autoRefinementAnswersSystemPrompt.Trim(),
+                sharedStylePrompt.Trim(),
+                sharedOutputRulesPrompt.Trim()
             }.Where(static part => !string.IsNullOrWhiteSpace(part)));
 
         var builder = new StringBuilder()
-            .AppendLine(phasePrompt.Content.Trim())
+            .AppendLine(phasePrompt.Trim())
             .AppendLine()
             .AppendLine("## Auto Refinement Answer Task")
             .AppendLine()
             .AppendLine("You are helping SpecForge answer pending refinement questions before spec continues.")
             .AppendLine("Use only evidence from the user story, recorded refinement log, repository context files, and current workflow artifacts.")
-            .AppendLine("Set `canResolve` to true only if every pending question can be answered credibly enough to retry refinement without user input.")
-            .AppendLine("If any question still needs human confirmation, set `canResolve` to false and return `null` for the uncertain answers.")
+            .AppendLine("Set `Can resolve` to `true` only if every pending question can be answered credibly enough to retry refinement without user input.")
+            .AppendLine("If any question still needs human confirmation, set `Can resolve` to `false` and return `null` for the uncertain answers.")
             .AppendLine()
             .AppendLine("## Runtime Context")
             .AppendLine()
             .AppendLine($"- Workspace root: `{context.WorkspaceRoot}`")
             .AppendLine($"- US ID: `{context.UsId}`")
             .AppendLine($"- Phase: `Refinement`")
-            .AppendLine($"- Auto-answer agent: `{modelSelection.AgentName ?? "default"}`")
-            .AppendLine($"- Auto-answer profile: `{modelSelection.ProfileName ?? "default"}`")
+            .AppendLine($"- Auto-answer profile: `{ResolveAutoRefinementAnswersModelSelection().ProfileName ?? "default"}`")
             .AppendLine()
             .AppendLine("## Pending Questions")
             .AppendLine();
@@ -758,9 +884,12 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         builder
             .AppendLine("## Output Rules")
             .AppendLine()
-            .AppendLine("- Return only structured data that conforms to the response schema.")
+            .AppendLine("- Return only Markdown with `## Decision`, `## Reason`, and `## Answers` sections.")
+            .AppendLine("- In `## Decision`, include `- Can resolve: `true`` or `- Can resolve: `false``.")
+            .AppendLine("- In `## Answers`, provide one numbered answer per pending question, using `null` when a question cannot be answered.")
             .AppendLine("- Keep the answers in the same order as the pending questions.")
-            .AppendLine("- Do not invent facts that are not grounded in the provided context.");
+            .AppendLine("- Do not invent facts that are not grounded in the provided context.")
+            .AppendLine("- Do not return JSON.");
 
         return new EffectivePrompt(systemPrompt, builder.ToString().Trim(), warnings);
     }
@@ -774,83 +903,67 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         If required context is missing or contradictory, state it explicitly inside the Markdown artifact instead of hiding the issue.
         """;
 
-    private static string BuildAgentSystemPrompt(ResolvedModelSelection modelSelection)
+    private static async Task<IReadOnlyCollection<string>?> BuildPromptWarningsAsync(
+        string workspaceRoot,
+        CancellationToken cancellationToken,
+        params string[] promptPaths)
     {
-        if (string.IsNullOrWhiteSpace(modelSelection.AgentName))
+        var paths = new PromptFilePaths(workspaceRoot);
+        IReadOnlyDictionary<string, string> expectedHashes;
+
+        try
         {
-            return string.Empty;
+            expectedHashes = await PromptSystemHashManifest.ReadAsync(paths, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            return
+            [
+                $"System prompt hash manifest '{PromptSystemHashManifest.ToRelativePromptPath(workspaceRoot, paths.PromptSystemHashesPath)}' could not be read. Reason: {exception.Message}"
+            ];
         }
 
-        return string.Join(
-            Environment.NewLine,
-            [
-                "## Agent Profile",
-                $"Name: {modelSelection.AgentName}",
-                $"Role: {modelSelection.AgentRole ?? "unspecified"}",
-                $"Repository access: {NormalizeRepositoryAccess(modelSelection.RepositoryAccess)}",
-                $"Model profile: {modelSelection.ProfileName ?? "default"}",
-                "Instructions:",
-                string.IsNullOrWhiteSpace(modelSelection.AgentInstructions)
-                    ? "Follow the phase contract exactly."
-                    : modelSelection.AgentInstructions.Trim()
-            ]);
-    }
-
-    private static IReadOnlyCollection<string>? BuildPromptWarnings(
-        params RepositoryPromptCatalog.PromptTemplateContent[] prompts)
-    {
         var warnings = new List<string>();
-        foreach (var prompt in prompts.DistinctBy(static item => item.Path))
+        foreach (var promptPath in promptPaths.Distinct(StringComparer.Ordinal))
         {
-            if (!prompt.IsOverride || prompt.EmbeddedContent is null)
+            var relativePath = PromptSystemHashManifest.ToRelativePromptPath(workspaceRoot, promptPath);
+            if (!expectedHashes.TryGetValue(relativePath, out var expectedHash))
             {
+                warnings.Add($"System prompt '{relativePath}' is missing from the engine hash manifest.");
                 continue;
             }
 
-            var expectedHash = PromptSystemHashManifest.ComputeSha256(prompt.EmbeddedContent);
-            var currentHash = PromptSystemHashManifest.ComputeSha256(prompt.Content);
+            var currentContent = await File.ReadAllTextAsync(promptPath, cancellationToken);
+            var currentHash = PromptSystemHashManifest.ComputeSha256(currentContent);
             if (!string.Equals(expectedHash, currentHash, StringComparison.Ordinal))
             {
                 warnings.Add(
-                    $"Prompt override '{prompt.Path}' differs from the embedded SpecForge template. Expected hash `{expectedHash}`, current hash `{currentHash}`.");
+                    $"System prompt '{relativePath}' was modified outside the engine. Expected hash `{expectedHash}`, current hash `{currentHash}`.");
             }
         }
 
         return warnings.Count == 0 ? null : warnings;
     }
 
-    private static JsonElement BuildAutoRefinementAnswersSchema()
+    private static AutoRefinementAnswersDocument ParseAutoRefinementAnswersMarkdown(string markdown)
     {
-        using var document = JsonDocument.Parse(
-            """
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "canResolve": { "type": "boolean" },
-                "reason": { "type": "string" },
-                "answers": {
-                  "type": "array",
-                  "items": { "type": ["string", "null"] }
-                }
-              },
-              "required": ["canResolve", "reason", "answers"]
-            }
-            """);
-        return document.RootElement.Clone();
-    }
-
-    private static AutoRefinementAnswersDocument ParseAutoRefinementAnswersDocument(string json)
-    {
-        using var document = JsonDocument.Parse(json);
-        var root = document.RootElement;
-        var answers = root.TryGetProperty("answers", out var answersElement) && answersElement.ValueKind == JsonValueKind.Array
-            ? answersElement.EnumerateArray().Select(static item =>
-                item.ValueKind == JsonValueKind.Null ? null : item.GetString()?.Trim()).ToArray()
-            : [];
+        var decision = TryReadMarkdownSection(markdown, "## Decision") ?? string.Empty;
+        var canResolve = decision.Contains("`true`", StringComparison.OrdinalIgnoreCase) ||
+            decision.Contains(": true", StringComparison.OrdinalIgnoreCase) ||
+            decision.Contains(" yes", StringComparison.OrdinalIgnoreCase);
+        var reason = TryReadMarkdownSection(markdown, "## Reason")?.Trim() ?? string.Empty;
+        var answersSection = TryReadMarkdownSection(markdown, "## Answers") ?? string.Empty;
+        var answers = answersSection
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n')
+            .Select(static line => line.Trim())
+            .Where(static line => !string.IsNullOrWhiteSpace(line))
+            .Select(static line => Regex.Replace(line, "^(?:\\d+[.)]|-)\\s*", string.Empty).Trim())
+            .Select(static answer => string.Equals(answer, "null", StringComparison.OrdinalIgnoreCase) ? null : answer)
+            .ToArray();
         return new AutoRefinementAnswersDocument(
-            root.GetProperty("canResolve").GetBoolean(),
-            root.GetProperty("reason").GetString()?.Trim() ?? string.Empty,
+            canResolve,
+            reason,
             answers);
     }
 
@@ -862,16 +975,15 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
     {
         SpecForgeDiagnostics.Log(
             $"[provider.native] usId={context.UsId} phase={context.PhaseId} provider={modelSelection.ProviderKind} profile={modelSelection.ProfileName ?? "default"} model={(string.IsNullOrWhiteSpace(modelSelection.Model) ? "(default)" : modelSelection.Model)}");
-        if (!StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var contract))
+        if (!PhaseMarkdownArtifactContracts.Supports(context.PhaseId))
         {
-            throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a structured output contract for native provider execution.");
+            throw new InvalidOperationException($"Phase '{context.PhaseId}' does not expose a Markdown artifact contract for native provider execution.");
         }
 
         var nativePrompt = NativeCliPromptBuilder.BuildPhasePrompt(
             context,
             prompt,
-            modelSelection.ProviderKind,
-            contract);
+            modelSelection.ProviderKind);
         var sandboxMode = context.PhaseId is PhaseId.Implementation or PhaseId.Review
             ? "workspace-write"
             : "read-only";
@@ -882,7 +994,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             context.WorkspaceRoot,
             nativePrompt,
             modelSelection,
-            contract.ResponseFormat == PhaseArtifactResponseFormat.Json ? contract.JsonSchema.GetRawText() : null,
             sandboxMode,
             cancellationToken);
 
@@ -895,26 +1006,20 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 cancellationToken);
         }
 
-        var canonicalJsonContent = contract.ResponseFormat == PhaseArtifactResponseFormat.Json
-            ? NormalizePhaseJsonContent(context, response.Trim())
-            : null;
-        var normalizedContent = NormalizePhaseContent(context, canonicalJsonContent ?? response.Trim());
+        var normalizedContent = NormalizePhaseContent(context, response.Content.Trim());
 
         return new PhaseExecutionResult(
             normalizedContent,
             ExecutionKind: modelSelection.ProviderKind,
-            Usage: null,
+            response.Usage,
             Execution: new PhaseExecutionMetadata(
                 ProviderKind: modelSelection.ProviderKind,
                 Model: string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
                 ProfileName: modelSelection.ProfileName,
-                AgentName: modelSelection.AgentName,
-                AgentRole: modelSelection.AgentRole,
                 Warnings: prompt.Warnings,
                 InputSha256: ComputeSha256(nativePrompt),
-                OutputSha256: ComputeSha256(response),
-                StructuredOutputSha256: ComputeSha256(canonicalJsonContent)),
-            canonicalJsonContent);
+                OutputSha256: ComputeSha256(response.Content),
+                StructuredOutputSha256: null));
     }
 
     private static string? ComputeSha256(string? content)
@@ -927,11 +1032,10 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
     }
 
-    private async Task<string> ExecuteStructuredNativeAsync(
+    private async Task<NativeCliExecutionResult> ExecuteStructuredNativeAsync(
         string workspaceRoot,
         string prompt,
         ResolvedModelSelection modelSelection,
-        string? outputSchemaJson,
         string sandboxMode,
         CancellationToken cancellationToken)
     {
@@ -961,10 +1065,16 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 prompt,
                 string.IsNullOrWhiteSpace(modelSelection.Model) ? null : modelSelection.Model,
                 modelSelection.ReasoningEffort,
-                outputSchemaJson,
                 sandboxMode),
             cancellationToken);
-        diagnostics.MarkCompleted($"responseChars={response.Length}");
+        LogModelResponse(
+            modelSelection.ProviderKind,
+            modelSelection.ProfileName,
+            string.IsNullOrWhiteSpace(modelSelection.Model) ? "default" : modelSelection.Model,
+            "cli",
+            "complete",
+            response.Content);
+        diagnostics.MarkCompleted($"responseChars={response.Content.Length}");
         return response;
     }
 
@@ -1194,30 +1304,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private ResolvedModelSelection ResolveModelSelection(PhaseId phaseId)
     {
-        var agent = ResolveAgentForPhase(phaseId);
-        return ResolveModelSelectionForAgent(agent, phaseId);
-    }
-
-    private ResolvedModelSelection ResolveAutoRefinementAnswersModelSelection()
-    {
-        var agent = string.IsNullOrWhiteSpace(options.AutoRefinementAnswersProfile)
-            ? ResolveAgentForPhase(PhaseId.Refinement)
-            : ResolveAgentByName(options.AutoRefinementAnswersProfile.Trim(), PhaseId.Refinement);
-
-        return ResolveModelSelectionForAgent(agent, PhaseId.Refinement);
-    }
-
-    private ResolvedModelSelection ResolveModelSelectionForAgent(
-        OpenAiCompatibleAgentProfile agent,
-        PhaseId phaseId)
-    {
-        var profileName = agent.ModelProfile;
+        var profileName = ResolveProfileNameForPhase(phaseId);
         var profile = options.ModelProfiles!.FirstOrDefault(candidate =>
             string.Equals(candidate.Name, profileName, StringComparison.Ordinal));
 
         if (profile is null)
         {
-            throw new InvalidOperationException($"Agent profile '{agent.Name}' references missing model profile '{profileName}' for phase '{phaseId}'.");
+            throw new InvalidOperationException($"Model profile '{profileName}' was not found for phase '{phaseId}'.");
         }
 
         return new ResolvedModelSelection(
@@ -1225,12 +1318,33 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             profile.BaseUrl,
             profile.ApiKey,
             profile.Model,
-            NormalizeReasoningEffort(agent.ReasoningEffort ?? profile.ReasoningEffort),
+            NormalizeReasoningEffort(profile.ReasoningEffort),
             profile.Name,
-            agent.RepositoryAccess,
-            agent.Name,
-            agent.Role,
-            agent.Instructions);
+            profile.RepositoryAccess);
+    }
+
+    private ResolvedModelSelection ResolveAutoRefinementAnswersModelSelection()
+    {
+        var profileName = string.IsNullOrWhiteSpace(options.AutoRefinementAnswersProfile)
+            ? ResolveProfileNameForPhase(PhaseId.Refinement)
+            : options.AutoRefinementAnswersProfile.Trim();
+        var profile = options.ModelProfiles!.FirstOrDefault(candidate =>
+            string.Equals(candidate.Name, profileName, StringComparison.Ordinal));
+
+        if (profile is null)
+        {
+            throw new InvalidOperationException(
+                $"Model profile '{profileName}' was not found for auto refinement answers.");
+        }
+
+        return new ResolvedModelSelection(
+            NormalizeProviderKind(profile.Provider),
+            profile.BaseUrl,
+            profile.ApiKey,
+            profile.Model,
+            NormalizeReasoningEffort(profile.ReasoningEffort),
+            profile.Name,
+            profile.RepositoryAccess);
     }
 
     private INativeCliRunner? ResolveNativeCliRunner(string providerKind) =>
@@ -1256,39 +1370,19 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             _ => PhaseExecutionBlockingReasons.CodexCliNotFound
         };
 
-    private OpenAiCompatibleAgentProfile ResolveAgentForPhase(PhaseId phaseId)
+    private string ResolveProfileNameForPhase(PhaseId phaseId)
     {
-        var agentName = ResolveAgentNameForPhase(phaseId);
-        return ResolveAgentByName(agentName, phaseId);
-    }
-
-    private OpenAiCompatibleAgentProfile ResolveAgentByName(string agentName, PhaseId phaseId)
-    {
-        var agent = options.AgentProfiles!.FirstOrDefault(candidate =>
-            string.Equals(candidate.Name, agentName, StringComparison.Ordinal));
-
-        if (agent is null)
-        {
-            throw new InvalidOperationException($"Agent profile '{agentName}' was not found for phase '{phaseId}'.");
-        }
-
-        return agent;
-    }
-
-    private string ResolveAgentNameForPhase(PhaseId phaseId)
-    {
-        var assignments = options.PhaseAgentAssignments;
+        var assignments = options.PhaseModelAssignments;
         var explicitName = phaseId switch
         {
-            PhaseId.Capture => assignments?.CaptureAgent,
-            PhaseId.Refinement => assignments?.RefinementAgent,
-            PhaseId.Spec => assignments?.SpecAgent,
-            PhaseId.TechnicalDesign => assignments?.TechnicalDesignAgent,
-            PhaseId.Implementation => assignments?.ImplementationAgent,
-            PhaseId.Review => assignments?.ReviewAgent,
-            PhaseId.ReleaseApproval => assignments?.ReleaseApprovalAgent,
-            PhaseId.PrPreparation => assignments?.PrPreparationAgent,
-            _ => assignments?.DefaultAgent
+            PhaseId.Refinement => assignments?.RefinementProfile,
+            PhaseId.Spec => assignments?.SpecProfile,
+            PhaseId.TechnicalDesign => assignments?.TechnicalDesignProfile,
+            PhaseId.Implementation => assignments?.ImplementationProfile,
+            PhaseId.Review => assignments?.ReviewProfile,
+            PhaseId.ReleaseApproval => assignments?.ReleaseApprovalProfile,
+            PhaseId.PrPreparation => assignments?.PrPreparationProfile,
+            _ => assignments?.DefaultProfile
         };
 
         if (!string.IsNullOrWhiteSpace(explicitName))
@@ -1296,18 +1390,18 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             return explicitName;
         }
 
-        var defaultAgentName = assignments?.DefaultAgent;
-        if (!string.IsNullOrWhiteSpace(defaultAgentName))
+        var defaultProfileName = assignments?.DefaultProfile;
+        if (!string.IsNullOrWhiteSpace(defaultProfileName))
         {
-            return defaultAgentName;
+            return defaultProfileName;
         }
 
-        if (options.AgentProfiles?.Count == 1)
+        if (options.ModelProfiles?.Count == 1)
         {
-            return options.AgentProfiles[0].Name;
+            return options.ModelProfiles[0].Name;
         }
 
-        throw new InvalidOperationException("A default agent assignment is required when multiple agent profiles are configured.");
+        throw new InvalidOperationException("A default model profile assignment is required when multiple model profiles are configured.");
     }
 
     private double ResolveTemperature(PhaseId phaseId) =>
@@ -1349,13 +1443,30 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 "Use balanced judgment. Prioritize meaningful risks and missing evidence without inflating cosmetic or low-impact issues."
         };
 
+    private static string ResolveReviewEvidencePolicyGuidance(string policy) =>
+        NormalizeReviewEvidencePolicy(policy) switch
+        {
+            "strict" => "every validation strategy item blocks review until concrete evidence passes.",
+            "release" => "automated and static items block implementation review; operational and deferred gaps are release-readiness risks.",
+            "advisory" => "validation gaps must be reported, but checklist failures do not force implementation review failure by themselves.",
+            _ => "automated and static items block review; operational and deferred items can be recorded as non-blocking evidence gaps when the environment is unavailable."
+        };
+
     private static bool IsSupportedTolerance(string tolerance) =>
         NormalizeTolerance(tolerance) is StrictTolerance or BalancedTolerance or InferentialTolerance;
+
+    private static bool IsSupportedReviewEvidencePolicy(string policy) =>
+        NormalizeReviewEvidencePolicy(policy) is "strict" or "balanced" or "release" or "advisory";
 
     private static string NormalizeTolerance(string tolerance) =>
         string.IsNullOrWhiteSpace(tolerance)
             ? BalancedTolerance
             : tolerance.Trim().ToLowerInvariant();
+
+    private static string NormalizeReviewEvidencePolicy(string policy) =>
+        string.IsNullOrWhiteSpace(policy)
+            ? BalancedTolerance
+            : policy.Trim().ToLowerInvariant();
 
     private static string NormalizeProviderKind(string? providerKind) =>
         string.IsNullOrWhiteSpace(providerKind)
@@ -1419,7 +1530,8 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         };
 
     private static void ValidateModelProfiles(
-        IReadOnlyList<OpenAiCompatibleModelProfile> modelProfiles)
+        IReadOnlyList<OpenAiCompatibleModelProfile> modelProfiles,
+        OpenAiCompatiblePhaseModelAssignments? assignments)
     {
         var names = new HashSet<string>(StringComparer.Ordinal);
 
@@ -1475,74 +1587,32 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                 throw new ArgumentException($"ApiKey is required for remote model profile '{profile.Name}'.", nameof(modelProfiles));
             }
         }
-    }
 
-    private static void ValidateAgentProfiles(
-        IReadOnlyList<OpenAiCompatibleAgentProfile>? agentProfiles,
-        OpenAiCompatiblePhaseAgentAssignments? assignments,
-        IReadOnlyList<OpenAiCompatibleModelProfile> modelProfiles)
-    {
-        if (agentProfiles is not { Count: > 0 })
-        {
-            throw new ArgumentException("At least one agent profile is required when model-backed execution is configured.", nameof(agentProfiles));
-        }
-
-        var modelProfileNames = modelProfiles.Select(static profile => profile.Name).ToHashSet(StringComparer.Ordinal);
-        var agentNames = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var agent in agentProfiles)
-        {
-            if (string.IsNullOrWhiteSpace(agent.Name))
-            {
-                throw new ArgumentException("Agent profile Name is required.", nameof(agentProfiles));
-            }
-
-            if (!agentNames.Add(agent.Name))
-            {
-                throw new ArgumentException($"Duplicate agent profile '{agent.Name}'.", nameof(agentProfiles));
-            }
-
-            if (string.IsNullOrWhiteSpace(agent.ModelProfile) || !modelProfileNames.Contains(agent.ModelProfile))
-            {
-                throw new ArgumentException($"Agent profile '{agent.Name}' references missing model profile '{agent.ModelProfile}'.", nameof(agentProfiles));
-            }
-
-            if (!IsSupportedRepositoryAccess(agent.RepositoryAccess))
-            {
-                throw new ArgumentException($"RepositoryAccess must be one of: {RepositoryAccessNone}, {RepositoryAccessRead}, {RepositoryAccessReadWrite} for agent profile '{agent.Name}'.", nameof(agentProfiles));
-            }
-
-            if (!IsSupportedReasoningEffort(agent.ReasoningEffort))
-            {
-                throw new ArgumentException($"ReasoningEffort must be one of: none, minimal, low, medium, high, xhigh for agent profile '{agent.Name}'.", nameof(agentProfiles));
-            }
-        }
-
-        var defaultAgentName = assignments?.DefaultAgent;
-        if (string.IsNullOrWhiteSpace(defaultAgentName) &&
-            agentProfiles.Count > 1 &&
-            !HasExplicitAgentsForAllModelDrivenPhases(assignments))
+        var defaultProfileName = assignments?.DefaultProfile;
+        if (string.IsNullOrWhiteSpace(defaultProfileName) &&
+            modelProfiles.Count > 1 &&
+            !HasExplicitProfilesForAllModelDrivenPhases(assignments))
         {
             throw new ArgumentException(
-                "DefaultAgent is required when multiple agent profiles are configured unless refinement, spec, technical design, implementation, and review each declare an explicit agent.",
+                "DefaultProfile is required when multiple model profiles are configured unless refinement, spec, technical design, implementation, and review each declare an explicit profile.",
                 nameof(assignments));
         }
 
-        foreach (var agentName in new[]
+        foreach (var profileName in new[]
                  {
-                     defaultAgentName,
-                     assignments?.CaptureAgent,
-                     assignments?.RefinementAgent,
-                     assignments?.SpecAgent,
-                     assignments?.TechnicalDesignAgent,
-                     assignments?.ImplementationAgent,
-                     assignments?.ReviewAgent,
-                     assignments?.ReleaseApprovalAgent,
-                     assignments?.PrPreparationAgent
+                     defaultProfileName,
+                     assignments?.RefinementProfile,
+                     assignments?.SpecProfile,
+                     assignments?.TechnicalDesignProfile,
+                     assignments?.ImplementationProfile,
+                     assignments?.ReviewProfile,
+                     assignments?.ReleaseApprovalProfile,
+                     assignments?.PrPreparationProfile
                  })
         {
-            if (!string.IsNullOrWhiteSpace(agentName) && !agentNames.Contains(agentName))
+            if (!string.IsNullOrWhiteSpace(profileName) && !names.Contains(profileName))
             {
-                throw new ArgumentException($"Assigned agent profile '{agentName}' was not configured.", nameof(assignments));
+                throw new ArgumentException($"Assigned model profile '{profileName}' was not configured.", nameof(assignments));
             }
         }
     }
@@ -1573,40 +1643,40 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private static string NormalizePhaseContent(PhaseExecutionContext context, string content)
     {
-        if (StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var contract))
-        {
-            return contract.NormalizeContent(context, content);
-        }
-
-        return content;
+        return PhaseMarkdownArtifactContracts.NormalizeContent(content);
     }
 
-    private static string? NormalizePhaseJsonContent(PhaseExecutionContext context, string content)
-    {
-        if (StructuredPhaseArtifactContracts.TryGet(context.PhaseId, out var contract))
-        {
-            return contract.NormalizeJsonContent(content);
-        }
-
-        return null;
-    }
-
-    private static bool HasExplicitAgentsForAllModelDrivenPhases(OpenAiCompatiblePhaseAgentAssignments? assignments) =>
-        !string.IsNullOrWhiteSpace(assignments?.RefinementAgent)
-        && !string.IsNullOrWhiteSpace(assignments?.SpecAgent)
-        && !string.IsNullOrWhiteSpace(assignments?.TechnicalDesignAgent)
-        && !string.IsNullOrWhiteSpace(assignments?.ImplementationAgent)
-        && !string.IsNullOrWhiteSpace(assignments?.ReviewAgent);
+    private static bool HasExplicitProfilesForAllModelDrivenPhases(OpenAiCompatiblePhaseModelAssignments? assignments) =>
+        !string.IsNullOrWhiteSpace(assignments?.RefinementProfile)
+        && !string.IsNullOrWhiteSpace(assignments?.SpecProfile)
+        && !string.IsNullOrWhiteSpace(assignments?.TechnicalDesignProfile)
+        && !string.IsNullOrWhiteSpace(assignments?.ImplementationProfile)
+        && !string.IsNullOrWhiteSpace(assignments?.ReviewProfile);
 
     private static bool RequiresApiKey(string baseUrl) => !LocalEndpointHelper.IsLocal(baseUrl);
 
     private static TokenUsage? TryReadUsage(JsonElement root)
     {
-        if (!root.TryGetProperty("usage", out var usageElement) || usageElement.ValueKind != JsonValueKind.Object)
+        if (root.TryGetProperty("usage", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
         {
-            return null;
+            return TryReadUsageElement(usageElement);
         }
 
+        if (root.TryGetProperty("response", out var responseElement) && responseElement.ValueKind == JsonValueKind.Object)
+        {
+            return TryReadUsage(responseElement);
+        }
+
+        if (root.TryGetProperty("event", out var eventElement) && eventElement.ValueKind == JsonValueKind.Object)
+        {
+            return TryReadUsage(eventElement);
+        }
+
+        return null;
+    }
+
+    private static TokenUsage? TryReadUsageElement(JsonElement usageElement)
+    {
         var inputTokens = TryGetInt32(usageElement, "prompt_tokens")
             ?? TryGetInt32(usageElement, "input_tokens");
         var outputTokens = TryGetInt32(usageElement, "completion_tokens")
@@ -1623,6 +1693,127 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         var normalizedTotalTokens = totalTokens ?? normalizedInputTokens + normalizedOutputTokens;
 
         return new TokenUsage(normalizedInputTokens, normalizedOutputTokens, normalizedTotalTokens);
+    }
+
+    private static TokenUsage? TryReadClaudeUsage(JsonElement root)
+    {
+        if (!root.TryGetProperty("usage", out var usageElement) || usageElement.ValueKind != JsonValueKind.Object)
+        {
+            return TryReadUsage(root);
+        }
+
+        var baseInputTokens = TryGetInt32(usageElement, "input_tokens")
+            ?? TryGetInt32(usageElement, "prompt_tokens");
+        var cacheCreationTokens = TryGetInt32(usageElement, "cache_creation_input_tokens") ?? 0;
+        var cacheReadTokens = TryGetInt32(usageElement, "cache_read_input_tokens") ?? 0;
+        var outputTokens = TryGetInt32(usageElement, "output_tokens")
+            ?? TryGetInt32(usageElement, "completion_tokens");
+        var totalTokens = TryGetInt32(usageElement, "total_tokens");
+
+        if (baseInputTokens is null && outputTokens is null && totalTokens is null && cacheCreationTokens == 0 && cacheReadTokens == 0)
+        {
+            return null;
+        }
+
+        var normalizedInputTokens = (baseInputTokens ?? 0) + cacheCreationTokens + cacheReadTokens;
+        var normalizedOutputTokens = outputTokens ?? 0;
+        var normalizedTotalTokens = totalTokens ?? normalizedInputTokens + normalizedOutputTokens;
+
+        return new TokenUsage(normalizedInputTokens, normalizedOutputTokens, normalizedTotalTokens);
+    }
+
+    internal static NativeCliExecutionResult ParseClaudeJsonExecutionResult(string standardOutput)
+    {
+        var trimmedOutput = standardOutput.Trim();
+        if (string.IsNullOrWhiteSpace(trimmedOutput))
+        {
+            return new NativeCliExecutionResult(string.Empty, null);
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(trimmedOutput);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return new NativeCliExecutionResult(trimmedOutput, null);
+            }
+
+            var content = TryGetString(document.RootElement, "result")
+                ?? TryGetString(document.RootElement, "content")
+                ?? TryGetMessageContent(document.RootElement)
+                ?? trimmedOutput;
+            return new NativeCliExecutionResult(content.Trim(), TryReadClaudeUsage(document.RootElement));
+        }
+        catch (JsonException)
+        {
+            return new NativeCliExecutionResult(trimmedOutput, null);
+        }
+    }
+
+    internal static TokenUsage? TryReadCodexJsonlUsage(string standardOutput)
+    {
+        TokenUsage? usage = null;
+        foreach (var rawLine in standardOutput.ReplaceLineEndings("\n").Split('\n'))
+        {
+            var line = rawLine.Trim();
+            if (line.Length == 0 || line[0] != '{')
+            {
+                continue;
+            }
+
+            try
+            {
+                using var document = JsonDocument.Parse(line);
+                if (document.RootElement.ValueKind == JsonValueKind.Object && TryReadUsage(document.RootElement) is { } lineUsage)
+                {
+                    usage = lineUsage;
+                }
+            }
+            catch (JsonException)
+            {
+            }
+        }
+
+        return usage;
+    }
+
+    private static string? TryGetString(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var property) || property.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        return property.GetString();
+    }
+
+    private static string? TryGetMessageContent(JsonElement root)
+    {
+        if (!root.TryGetProperty("message", out var messageElement) || messageElement.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        if (TryGetString(messageElement, "content") is { } stringContent)
+        {
+            return stringContent;
+        }
+
+        if (!messageElement.TryGetProperty("content", out var contentElement) || contentElement.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var content = new StringBuilder();
+        foreach (var item in contentElement.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.Object && TryGetString(item, "text") is { } text)
+            {
+                content.Append(text);
+            }
+        }
+
+        return content.Length == 0 ? null : content.ToString();
     }
 
     private static int? TryGetInt32(JsonElement element, string propertyName)
@@ -1649,18 +1840,52 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
     private static string FormatProcessOutputForLog(string? value)
     {
+        return FormatProcessOutputForLog(value, trimWhitespace: true);
+    }
+
+    private static string FormatModelResponseForLog(string? value)
+    {
+        return FormatProcessOutputForLog(value, trimWhitespace: false);
+    }
+
+    private static string FormatProcessOutputForLog(string? value, bool trimWhitespace)
+    {
         if (string.IsNullOrWhiteSpace(value))
         {
             return "\"\"";
         }
 
-        var normalized = value.ReplaceLineEndings("\\n").Trim();
+        var normalized = value.ReplaceLineEndings("\\n");
+        if (trimWhitespace)
+        {
+            normalized = normalized.Trim();
+        }
+
         if (normalized.Length > 320)
         {
             normalized = $"{normalized[..320]}...";
         }
 
         return $"\"{normalized.Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
+    }
+
+    private static void LogModelResponse(
+        string providerKind,
+        string? profileName,
+        string model,
+        string transport,
+        string mode,
+        string? response)
+    {
+        if (string.IsNullOrWhiteSpace(response))
+        {
+            SpecForgeDiagnostics.Log(
+                $"[provider.model.response] provider={providerKind} profile={profileName ?? "default"} model={model} transport={transport} mode={mode} chunk=\"\"");
+            return;
+        }
+
+        SpecForgeDiagnostics.Log(
+            $"[provider.model.response] provider={providerKind} profile={profileName ?? "default"} model={model} transport={transport} mode={mode} chunk={FormatModelResponseForLog(response)}");
     }
 
     private sealed record GitStatusSnapshotEntry(string StatusLine, string Fingerprint);
@@ -1677,10 +1902,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         string Model,
         string? ReasoningEffort,
         string? ProfileName,
-        string? RepositoryAccess,
-        string? AgentName,
-        string? AgentRole,
-        string? AgentInstructions);
+        string? RepositoryAccess);
 
     internal sealed record NativeCliInvocation(
         string ProviderKind,
@@ -1688,7 +1910,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         string Prompt,
         string? Model,
         string? ReasoningEffort,
-        string? OutputSchemaJson,
         string SandboxMode);
 
     internal sealed record NativeCliCheckResult(
@@ -1705,7 +1926,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         Task<NativeCliCheckResult> CheckAvailabilityAsync(CancellationToken cancellationToken);
 
-        Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken);
+        Task<NativeCliExecutionResult> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken);
     }
 
     internal abstract class NativeCliRunnerBase : INativeCliRunner
@@ -1743,7 +1964,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             return new NativeCliCheckResult(result.Command, result.ExitCode, result.StandardOutput, result.StandardError);
         }
 
-        public abstract Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken);
+        public abstract Task<NativeCliExecutionResult> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken);
 
         protected async Task<ProcessExecutionResult> RunProcessAsync(
             IReadOnlyList<string> arguments,
@@ -2003,12 +2224,6 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
             return true;
         }
 
-        var previous = index > 0 ? allArguments[index - 1] : null;
-        if (string.Equals(previous, "--json-schema", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
         // Native CLI prompts are currently passed as the last positional argument.
         if (index == allArguments.Count - 1 && argument.Length > 512)
         {
@@ -2030,16 +2245,9 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         protected override IReadOnlyList<string> GetVersionArguments() => ["--version"];
 
-        public override async Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
+        public override async Task<NativeCliExecutionResult> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
         {
-            var schemaPath = string.IsNullOrWhiteSpace(invocation.OutputSchemaJson)
-                ? null
-                : Path.Combine(Path.GetTempPath(), $"specforge-codex-schema-{Guid.NewGuid():N}.json");
             var outputPath = Path.Combine(Path.GetTempPath(), $"specforge-codex-output-{Guid.NewGuid():N}.txt");
-            if (schemaPath is not null)
-            {
-                await File.WriteAllTextAsync(schemaPath, invocation.OutputSchemaJson!, cancellationToken);
-            }
 
             try
             {
@@ -2074,11 +2282,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
                 arguments.Add("--color");
                 arguments.Add("never");
-                if (schemaPath is not null)
-                {
-                    arguments.Add("--output-schema");
-                    arguments.Add(schemaPath);
-                }
+                arguments.Add("--json");
 
                 arguments.Add("-o");
                 arguments.Add(outputPath);
@@ -2096,15 +2300,11 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                     throw new InvalidOperationException("Codex CLI execution completed without writing the expected final response file.");
                 }
 
-                return await File.ReadAllTextAsync(outputPath, cancellationToken);
+                var content = await File.ReadAllTextAsync(outputPath, cancellationToken);
+                return new NativeCliExecutionResult(content, TryReadCodexJsonlUsage(result.StandardOutput));
             }
             finally
             {
-                if (schemaPath is not null)
-                {
-                    TryDelete(schemaPath);
-                }
-
                 TryDelete(outputPath);
             }
         }
@@ -2135,20 +2335,14 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         protected override IReadOnlyList<string> GetVersionArguments() => ["--version"];
 
-        public override async Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
+        public override async Task<NativeCliExecutionResult> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
         {
             var arguments = new List<string>
             {
-                "-p"
+                "-p",
+                "--output-format",
+                "json"
             };
-
-            if (!string.IsNullOrWhiteSpace(invocation.OutputSchemaJson))
-            {
-                arguments.Add("--output-format");
-                arguments.Add("json");
-                arguments.Add("--json-schema");
-                arguments.Add(invocation.OutputSchemaJson);
-            }
 
             arguments.AddRange([
                 "--permission-mode",
@@ -2172,7 +2366,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                     $"Claude CLI execution failed with exit code {result.ExitCode}. stderr: {result.StandardError.Trim()} stdout: {result.StandardOutput.Trim()}");
             }
 
-            return result.StandardOutput.Trim();
+            return ParseClaudeJsonExecutionResult(result.StandardOutput);
         }
     }
 
@@ -2186,7 +2380,7 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
 
         protected override IReadOnlyList<string> GetVersionArguments() => ["copilot", "--", "--version"];
 
-        public override async Task<string> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
+        public override async Task<NativeCliExecutionResult> ExecuteAsync(NativeCliInvocation invocation, CancellationToken cancellationToken)
         {
             var arguments = new List<string>
             {
@@ -2202,9 +2396,13 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
                     $"Copilot CLI execution failed with exit code {result.ExitCode}. stderr: {result.StandardError.Trim()} stdout: {result.StandardOutput.Trim()}");
             }
 
-            return result.StandardOutput.Trim();
+            return new NativeCliExecutionResult(result.StandardOutput.Trim(), null);
         }
     }
+
+    internal sealed record NativeCliExecutionResult(
+        string Content,
+        TokenUsage? Usage);
 
     internal sealed record ProcessExecutionResult(
         string Command,
@@ -2212,12 +2410,4 @@ public sealed class OpenAiCompatiblePhaseExecutionProvider : IPhaseExecutionProv
         string StandardOutput,
         string StandardError);
 
-    private sealed record StructuredOutputResponseFormat(
-        [property: JsonPropertyName("type")] string Type,
-        [property: JsonPropertyName("json_schema")] StructuredOutputJsonSchema JsonSchema);
-
-    private sealed record StructuredOutputJsonSchema(
-        [property: JsonPropertyName("name")] string Name,
-        [property: JsonPropertyName("schema")] JsonElement Schema,
-        [property: JsonPropertyName("strict")] bool Strict);
 }

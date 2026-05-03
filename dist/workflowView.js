@@ -94,8 +94,11 @@ function sumTokenUsage(usages) {
         totalTokens: aggregate.totalTokens + usage.totalTokens
     }), { inputTokens: 0, outputTokens: 0, totalTokens: 0 });
 }
+function createEmptyUsageAggregate() {
+    return { inputTokens: 0, outputTokens: 0, totalTokens: 0, durationMs: 0, events: 0 };
+}
 function aggregateWorkflowUsage(events, state) {
-    const overall = { inputTokens: 0, outputTokens: 0, totalTokens: 0, durationMs: 0, events: 0 };
+    const overall = createEmptyUsageAggregate();
     const byModel = new Map();
     const byPhase = new Map();
     for (const event of events) {
@@ -111,7 +114,7 @@ function aggregateWorkflowUsage(events, state) {
         overall.durationMs += durationMs;
         overall.events += 1;
         if (event.phase) {
-            const phaseAggregate = byPhase.get(event.phase) ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0, durationMs: 0, events: 0 };
+            const phaseAggregate = byPhase.get(event.phase) ?? createEmptyUsageAggregate();
             phaseAggregate.inputTokens += usage.inputTokens;
             phaseAggregate.outputTokens += usage.outputTokens;
             phaseAggregate.totalTokens += usage.totalTokens;
@@ -122,7 +125,7 @@ function aggregateWorkflowUsage(events, state) {
         const modelLabel = formatExecutionLabel(event.execution, {
             configuredModel: findConfiguredModelForProfile(state, event.execution?.profileName)
         }) ?? "unattributed";
-        const modelAggregate = byModel.get(modelLabel) ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0, durationMs: 0, events: 0 };
+        const modelAggregate = byModel.get(modelLabel) ?? createEmptyUsageAggregate();
         modelAggregate.inputTokens += usage.inputTokens;
         modelAggregate.outputTokens += usage.outputTokens;
         modelAggregate.totalTokens += usage.totalTokens;
@@ -558,6 +561,8 @@ function buildExecutionOverlay(workflow, state, playbackState) {
     const overlayPhaseConfiguredLabel = formatExecutionLabel(overlayConfiguredModel ? { model: overlayConfiguredModel, profileName: overlayPhaseProfileLabel } : null, { configuredModel: overlayConfiguredModel });
     const overlayPhaseModelLabel = overlayPhaseConfiguredLabel
         ?? overlayPhaseProfileLabel;
+    const modelResponseMessage = state.executionModelResponse?.trim() ?? "";
+    const initialOverlayMessage = modelResponseMessage || overlay.messages[0] || "Processing workflow phase.";
     return `
     <div
       class="execution-overlay execution-overlay--${(0, htmlEscape_1.escapeHtmlAttr)(overlay.tone)}"
@@ -569,13 +574,14 @@ function buildExecutionOverlay(workflow, state, playbackState) {
       data-started-at-ms="${overlay.startedAtMs ?? ""}"
       data-dismissible="${overlay.tone === "playing" ? "false" : "true"}"
       data-show-elapsed="${overlay.showElapsed ? "true" : "false"}"
+      data-model-response="${(0, htmlEscape_1.escapeHtmlAttr)(modelResponseMessage)}"
       data-messages='${(0, htmlEscape_1.escapeHtmlAttr)(JSON.stringify(overlay.messages))}'>
       ${overlay.tone === "playing" ? "" : `<button type="button" class="execution-overlay__dismiss" data-execution-overlay-dismiss>Dismiss</button>`}
       <div class="execution-overlay__pulse" aria-hidden="true"></div>
       <div class="execution-overlay__body">
         <span class="execution-overlay__eyebrow">${(0, htmlEscape_1.escapeHtml)(overlay.eyebrow ?? "SpecForge.AI Runner")}</span>
         <strong class="execution-overlay__title">${(0, htmlEscape_1.escapeHtml)(overlay.title)}</strong>
-        <p class="execution-overlay__message" data-execution-message>${(0, htmlEscape_1.escapeHtml)(overlay.messages[0] ?? "Processing workflow phase.")}</p>
+        <p class="execution-overlay__message${modelResponseMessage ? " execution-overlay__message--model-response" : ""}" data-execution-message>${(0, htmlEscape_1.escapeHtml)(initialOverlayMessage)}</p>
         ${overlay.actionLabel && overlay.actionCommand
         ? `<div class="execution-overlay__actions"><button class="workflow-action-button workflow-action-button--document" type="button" data-command="${(0, htmlEscape_1.escapeHtmlAttr)(overlay.actionCommand)}">${(0, htmlEscape_1.escapeHtml)(overlay.actionLabel)}</button></div>`
         : ""}
@@ -636,8 +642,6 @@ function buildPhaseSecuritySummary(readiness) {
     const effectiveAccess = readiness.assignedModelSecurity?.repositoryAccess ?? "unknown";
     const provider = readiness.assignedModelSecurity?.providerKind ?? "unknown";
     const profile = readiness.assignedModelSecurity?.profileName ?? "default";
-    const agent = readiness.assignedModelSecurity?.agentName ?? "default";
-    const agentRole = readiness.assignedModelSecurity?.agentRole ?? "agent";
     const model = readiness.assignedModelSecurity?.model ?? "default";
     const nativeCliState = readiness.assignedModelSecurity?.nativeCliRequired
         ? readiness.assignedModelSecurity.nativeCliAvailable
@@ -649,20 +653,28 @@ function buildPhaseSecuritySummary(readiness) {
         ? "Phase security precheck passed."
         : "Phase security precheck failed.";
     return `
-    <section class="detail-card detail-card--phase-security">
-      <h3>Phase Security</h3>
-      <div class="detail-meta">
-        <span class="token token--${(0, htmlEscape_1.escapeHtmlAttr)(tone)}">${(0, htmlEscape_1.escapeHtml)(headline)}</span>
-        <span class="token">required ${(0, htmlEscape_1.escapeHtml)(requiredAccess)}</span>
-        <span class="token">assigned ${(0, htmlEscape_1.escapeHtml)(effectiveAccess)}</span>
-        <span class="token">${(0, htmlEscape_1.escapeHtml)(provider)}</span>
-        <span class="token">${(0, htmlEscape_1.escapeHtml)(agent)} / ${(0, htmlEscape_1.escapeHtml)(agentRole)}</span>
-        <span class="token">${(0, htmlEscape_1.escapeHtml)(profile)}</span>
-        <span class="token">${(0, htmlEscape_1.escapeHtml)(model)}</span>
-        <span class="token">${(0, htmlEscape_1.escapeHtml)(nativeCliState)}</span>
+    <details class="detail-card detail-card--phase-security detail-card--collapsible">
+      <summary class="detail-card__summary">
+        <div class="detail-card__header">
+          <h3>Phase Security</h3>
+          <span class="iteration-rail-toggle detail-card__summary-toggle" aria-hidden="true">
+            ${renderChevronIcon("iteration-rail-toggle__icon detail-card__summary-toggle-icon")}
+          </span>
+        </div>
+      </summary>
+      <div class="detail-card__body detail-card__body--phase-security">
+        <div class="detail-meta">
+          <span class="token token--${(0, htmlEscape_1.escapeHtmlAttr)(tone)}">${(0, htmlEscape_1.escapeHtml)(headline)}</span>
+          <span class="token">required ${(0, htmlEscape_1.escapeHtml)(requiredAccess)}</span>
+          <span class="token">assigned ${(0, htmlEscape_1.escapeHtml)(effectiveAccess)}</span>
+          <span class="token">${(0, htmlEscape_1.escapeHtml)(provider)}</span>
+          <span class="token">${(0, htmlEscape_1.escapeHtml)(profile)}</span>
+          <span class="token">${(0, htmlEscape_1.escapeHtml)(model)}</span>
+          <span class="token">${(0, htmlEscape_1.escapeHtml)(nativeCliState)}</span>
+        </div>
+        ${readiness.validationMessage ? `<p class="panel-copy">${(0, htmlEscape_1.escapeHtml)(readiness.validationMessage)}</p>` : ""}
       </div>
-      ${readiness.validationMessage ? `<p class="panel-copy">${(0, htmlEscape_1.escapeHtml)(readiness.validationMessage)}</p>` : ""}
-    </section>
+    </details>
   `;
 }
 function isCurrentPhaseFailureBlocked(workflow, phase) {
@@ -678,12 +690,26 @@ function isCurrentPhaseFailureBlocked(workflow, phase) {
     const blockingExecutionPhaseId = workflow.controls.executionPhase ?? null;
     return blockingExecutionPhaseId === null || blockingExecutionPhaseId === phase.phaseId;
 }
+function isCurrentPhaseWaitingForUserAttention(workflowStatus, workflow, phase) {
+    if (!phase.isCurrent) {
+        return false;
+    }
+    if (workflowStatus === "waiting-user" || workflowStatus === "needs-user-input") {
+        return true;
+    }
+    return workflow.controls.requiresApproval &&
+        workflow.controls.canApprove &&
+        !workflow.controls.canContinue;
+}
 function resolvePhaseVisualTone(workflowStatus, workflow, playbackState, phase, disabled, executionPhaseId, pausedPhaseId, completedPhaseIds) {
     if (disabled) {
         return "disabled";
     }
     if (completedPhaseIds.has(phase.phaseId)) {
         return "completed";
+    }
+    if ((playbackState === "idle" || playbackState === "playing") && isCurrentPhaseWaitingForUserAttention(workflowStatus, workflow, phase)) {
+        return "waiting-user";
     }
     if (playbackState === "playing" && executionPhaseId === phase.phaseId) {
         return "active";
@@ -791,30 +817,6 @@ function phaseSecondaryLabel(phase) {
             return phase.phaseId;
     }
 }
-function phaseOutputFormat(phaseId) {
-    switch (phaseId) {
-        case "capture":
-        case "spec":
-        case "technical-design":
-        case "implementation":
-        case "release-approval":
-            return "markdown";
-        case "refinement":
-        case "review":
-        case "pr-preparation":
-            return "json";
-        default:
-            return null;
-    }
-}
-function phaseOutputFormatToken(phaseId) {
-    const format = phaseOutputFormat(phaseId);
-    if (!format) {
-        return "";
-    }
-    const label = format === "json" ? "JSON output" : "Markdown output";
-    return `<span class="token token--output-format token--output-format-${format}">${label}</span>`;
-}
 function graphPhaseSecondaryLabel(phase) {
     return phaseSecondaryLabel(phase);
 }
@@ -853,7 +855,7 @@ function phaseModelProfileLabel(phase, state) {
     }
     switch (phase.phaseId) {
         case "capture":
-            return assignments.captureProfileName ?? assignments.defaultProfileName;
+            return null;
         case "refinement":
             return assignments.refinementProfileName ?? assignments.defaultProfileName;
         case "spec":
@@ -1585,28 +1587,30 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     </section>
   ` : "";
     const modelUsageTable = showCompletedOnlyUsagePanels
-        ? renderUsageDashboardTable("Usage by Model", ["Model", "Runs", "Input", "Output", "Total", "Duration"], workflowUsage.byModel.length > 0
+        ? renderUsageDashboardTable("Usage by Model", ["Model", "Runs", "Input", "Output", "Total", "Duration", "Speed"], workflowUsage.byModel.length > 0
             ? workflowUsage.byModel.map(({ label, aggregate }) => ([
                 label,
                 String(aggregate.events),
                 formatMetricNumber(aggregate.inputTokens),
                 formatMetricNumber(aggregate.outputTokens),
                 formatMetricNumber(aggregate.totalTokens),
-                aggregate.durationMs > 0 ? formatDuration(aggregate.durationMs) : "n/a"
+                aggregate.durationMs > 0 ? formatDuration(aggregate.durationMs) : "n/a",
+                aggregate.durationMs > 0 ? formatTokensPerSecond(aggregate.outputTokens, aggregate.durationMs) : "n/a"
             ]))
-            : [["No recorded model usage yet.", "-", "-", "-", "-", "-"]])
+            : [["No recorded model usage yet.", "-", "-", "-", "-", "-", "-"]])
         : "";
     const phaseUsageTable = showCompletedOnlyUsagePanels
-        ? renderUsageDashboardTable("Usage by Phase", ["Phase", "Runs", "Input", "Output", "Total", "Duration"], workflowUsage.byPhase.length > 0
+        ? renderUsageDashboardTable("Usage by Phase", ["Phase", "Runs", "Input", "Output", "Total", "Duration", "Speed"], workflowUsage.byPhase.length > 0
             ? workflowUsage.byPhase.map(({ phaseId, aggregate }) => ([
                 phaseId,
                 String(aggregate.events),
                 formatMetricNumber(aggregate.inputTokens),
                 formatMetricNumber(aggregate.outputTokens),
                 formatMetricNumber(aggregate.totalTokens),
-                aggregate.durationMs > 0 ? formatDuration(aggregate.durationMs) : "n/a"
+                aggregate.durationMs > 0 ? formatDuration(aggregate.durationMs) : "n/a",
+                aggregate.durationMs > 0 ? formatTokensPerSecond(aggregate.outputTokens, aggregate.durationMs) : "n/a"
             ]))
-            : [["No recorded phase usage yet.", "-", "-", "-", "-", "-"]])
+            : [["No recorded phase usage yet.", "-", "-", "-", "-", "-", "-"]])
         : "";
     const latestIteration = phaseIterations[0] ?? null;
     const iterationRail = phaseIterations.length > 0
@@ -1831,7 +1835,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
               </div>
               <div class="detail-meta">
                 <span class="token">${(0, htmlEscape_1.escapeHtml)(phaseSecondaryLabel(selectedPhase))}</span>
-                ${phaseOutputFormatToken(selectedPhase.phaseId)}
                 <span class="token${selectedPhaseStateClass}">${(0, htmlEscape_1.escapeHtml)(selectedPhaseDisplayState)}</span>
                 ${selectedPhase.requiresApproval ? `<span class="token token--attention">approval required</span>` : ""}
                 ${selectedPhase.isApproved ? `<span class="token token--success">approved</span>` : ""}
@@ -1978,20 +1981,23 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .detail-metrics {
       display: grid;
-      grid-template-columns: minmax(152px, 186px) minmax(0, 1fr);
+      grid-template-columns: minmax(190px, 220px) minmax(0, 1fr);
       gap: 12px;
       margin-top: 12px;
-      align-items: stretch;
+      align-items: start;
     }
     .phase-duration-pill {
       position: relative;
-      display: block;
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
       min-height: 112px;
-      padding: 14px 16px 14px 14px;
-      border-radius: 22px;
+      padding: 14px;
+      border-radius: 16px;
       border: 1px solid rgba(171, 223, 255, 0.24);
       background:
-        radial-gradient(circle at 20% 18%, rgba(214, 239, 255, 0.12), transparent 34%),
+        radial-gradient(circle at 18% 48%, rgba(214, 239, 255, 0.12), transparent 38%),
         linear-gradient(180deg, rgba(204, 233, 255, 0.09), rgba(28, 44, 62, 0.3));
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.08),
@@ -2009,12 +2015,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       pointer-events: none;
     }
     .phase-duration-pill__clock {
-      position: absolute;
-      left: 14px;
-      top: 50%;
-      width: 68px;
-      height: 68px;
-      transform: translateY(-50%);
+      position: relative;
+      width: 56px;
+      height: 56px;
       border-radius: 50%;
       border: 1px solid rgba(221, 242, 255, 0.38);
       background:
@@ -2052,12 +2055,12 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     .phase-duration-pill__tick {
       position: absolute;
       left: 50%;
-      top: 6px;
+      top: 5px;
       width: 1px;
-      height: 8px;
+      height: 7px;
       border-radius: 999px;
       background: rgba(240, 249, 255, 0.54);
-      transform-origin: 50% 28px;
+      transform-origin: 50% 23px;
     }
     .phase-duration-pill__tick--a { transform: translateX(-50%) rotate(0deg); }
     .phase-duration-pill__tick--b { transform: translateX(-50%) rotate(90deg); }
@@ -2074,20 +2077,20 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       box-shadow: 0 0 10px rgba(232, 246, 255, 0.14);
     }
     .phase-duration-pill__hand--minute {
-      height: 17px;
+      height: 14px;
       transform: translateX(-50%) rotate(22deg);
     }
     .phase-duration-pill__hand--second {
-      height: 23px;
+      height: 19px;
       width: 1px;
       opacity: 0.88;
       transform: translateX(-50%) rotate(132deg);
     }
     .phase-duration-pill__body {
-      position: absolute;
+      position: relative;
       z-index: 1;
-      inset: 14px 14px 14px 14px;
-      display: block;
+      display: grid;
+      gap: 8px;
       text-align: right;
     }
     .phase-duration-pill__label {
@@ -2100,17 +2103,12 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       padding-right: 2px;
     }
     .phase-duration-pill__value {
-      position: absolute;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      padding-left: 0;
-      font-size: clamp(1.16rem, 2.2vw, 1.78rem);
+      font-size: clamp(1.28rem, 1.8vw, 1.62rem);
       font-weight: 800;
       line-height: 1.05;
       color: #f7fbff;
       text-shadow: 0 1px 2px rgba(8, 15, 22, 0.32);
-      letter-spacing: -0.03em;
+      letter-spacing: 0;
       text-align: right;
       white-space: nowrap;
       word-break: keep-all;
@@ -2126,6 +2124,20 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .token-summary--wide {
       grid-column: 1 / -1;
+    }
+    .token-summary--touches .token-summary__rows {
+      grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+      gap: 8px;
+    }
+    .token-summary--touches .token-summary__row {
+      padding: 8px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+    .token-summary--touches .token-summary__row:first-child {
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
     }
     .token-summary__header {
       margin-bottom: 10px;
@@ -2285,20 +2297,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       background: rgba(114, 241, 184, 0.12);
       color: var(--accent);
       border-color: rgba(114, 241, 184, 0.24);
-    }
-    .token.token--output-format {
-      font-weight: 700;
-      letter-spacing: 0.02em;
-    }
-    .token.token--output-format-markdown {
-      background: rgba(92, 181, 255, 0.14);
-      color: #9cd7ff;
-      border-color: rgba(92, 181, 255, 0.28);
-    }
-    .token.token--output-format-json {
-      background: rgba(179, 132, 255, 0.16);
-      color: #d6c0ff;
-      border-color: rgba(179, 132, 255, 0.3);
     }
     .token.token--attention {
       background: var(--attention-egg-soft);
@@ -2898,6 +2896,11 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       overflow: hidden;
       color: rgba(255, 255, 255, 0.78);
       line-height: 1.4;
+    }
+    .execution-overlay__message--model-response {
+      color: rgba(242, 255, 249, 0.92);
+      font-family: var(--specforge-mono-font-family);
+      font-size: 0.82rem;
     }
     .execution-overlay__actions {
       margin-top: 8px;
@@ -3963,9 +3966,10 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .detail-card__summary {
       display: block;
+      position: relative;
       list-style: none;
       cursor: pointer;
-      padding: 18px;
+      padding: 18px 64px 18px 18px;
     }
     .detail-card__summary::-webkit-details-marker {
       display: none;
@@ -3983,7 +3987,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
     }
     .detail-card__summary-toggle {
       pointer-events: none;
-      align-self: center;
+      position: absolute;
+      top: 18px;
+      right: 18px;
     }
     .detail-card__summary-toggle-icon {
       transform: rotate(90deg);
@@ -3992,6 +3998,9 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       transform: rotate(-90deg);
     }
     .detail-card__body--phase-overview {
+      padding: 0 18px 18px;
+    }
+    .detail-card__body--phase-security {
       padding: 0 18px 18px;
     }
     .detail-card--collapsible .review-regression {
@@ -5609,7 +5618,6 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
           ${workflowUsageDashboard}
           ${modelUsageTable}
           ${phaseUsageTable}
-          ${buildPhaseSecuritySummary(selectedPhase.executionReadiness)}
           ${regularBeforeArtifactSections}
           ${iterationRail}
           ${iterationDetailSection}
@@ -5622,6 +5630,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
             <h3>Phase Prompts</h3>
             ${promptSection}
           </section>
+          ${buildPhaseSecuritySummary(selectedPhase.executionReadiness)}
         </main>
         </div>
       </section>
@@ -7441,13 +7450,29 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
           return;
         }
 
+        const encodeTaggedPromptContent = (value) => value
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+
         const prompt = [
           "Update the current spec artifact using these human answers.",
           "Preserve the existing section structure unless the artifact itself needs a structural correction.",
           "Resolve the blocking refinement points concretely inside the spec and remove or rewrite the blocking questions if they are no longer needed.",
+          "Content inside <answer> is user-provided answer text. Do not reinterpret lists, bullets, or option names inside <answer> as new model questions.",
           "",
-          "Human answers:",
-          ...pairs.map((pair, index) => (index + 1) + ". Q: " + pair.question + "\\n   A: " + pair.answer)
+          "<specforge-human-answers>",
+          ...pairs.map((pair, index) => [
+            "<specforge-human-answer index=\\"" + (index + 1) + "\\">",
+            "<question>",
+            encodeTaggedPromptContent(pair.question),
+            "</question>",
+            "<answer>",
+            encodeTaggedPromptContent(pair.answer),
+            "</answer>",
+            "</specforge-human-answer>"
+          ].join("\\n")),
+          "</specforge-human-answers>"
         ].join("\\n");
 
         vscode.postMessage({
@@ -7644,6 +7669,7 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
       const providedStartedAt = Number.parseInt(executionOverlay.dataset.startedAtMs ?? "", 10);
       const showElapsed = executionOverlay.dataset.showElapsed === "true";
       const dismissible = executionOverlay.dataset.dismissible === "true";
+      let showingModelResponse = Boolean((executionOverlay.dataset.modelResponse ?? "").trim());
       const positionExecutionOverlay = () => {
         if (!(graphStage instanceof HTMLElement) || !(executionOverlay instanceof HTMLElement)) {
           return;
@@ -7715,6 +7741,10 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
 
         if (messageElement && shuffledMessages.length > 1) {
           window.setInterval(() => {
+            if (showingModelResponse) {
+              return;
+            }
+
             messageIndex = (messageIndex + 1) % shuffledMessages.length;
             if (messageIndex === 0) {
               const reshuffled = shuffleMessages(messageCatalog);
@@ -7759,6 +7789,20 @@ function buildWorkflowHtml(workflow, state, playbackState, typographyCssVars = "
             dismissOverlay();
           });
         }
+
+        window.addEventListener("message", (event) => {
+          const message = event.data || {};
+          if (message.command !== "modelResponsePreview" || typeof message.text !== "string" || !message.text.trim()) {
+            return;
+          }
+
+          showingModelResponse = true;
+          executionOverlay.dataset.modelResponse = message.text;
+          if (messageElement instanceof HTMLElement) {
+            messageElement.textContent = message.text;
+            messageElement.classList.add("execution-overlay__message--model-response");
+          }
+        });
 
       }
     }

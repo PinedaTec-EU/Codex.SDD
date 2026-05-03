@@ -85,11 +85,11 @@
       },
       {
         "command": "specForge.initializeRepoPrompts",
-        "title": "Export All Prompt Templates"
+        "title": "Initialize Repo Prompts"
       },
       {
         "command": "specForge.openPromptTemplates",
-        "title": "Customize Prompt Templates"
+        "title": "Open Prompt Templates"
       },
       {
         "command": "specForge.openWorkflowView",
@@ -198,107 +198,50 @@
             }
           }
         },
-        "specForge.execution.agentProfiles": {
-          "type": "array",
-          "default": [],
-          "description": "Named agent profiles. Agents define behavior, instructions, repository access, and the model profile they use.",
-          "items": {
-            "type": "object",
-            "required": [
-              "name",
-              "modelProfile"
-            ],
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Stable agent name used by phase assignments."
-              },
-              "role": {
-                "type": "string",
-                "description": "Operational role, such as planner, implementer, reviewer, or release-preparer."
-              },
-              "modelProfile": {
-                "type": "string",
-                "description": "Name of the model profile this agent runs on."
-              },
-              "instructions": {
-                "type": "string",
-                "description": "Additional behavior instructions injected into the effective phase prompt."
-              },
-              "repositoryAccess": {
-                "type": "string",
-                "default": "none",
-                "enum": [
-                  "none",
-                  "read",
-                  "read-write"
-                ],
-                "description": "Repository access granted to this agent."
-              },
-              "reasoningEffort": {
-                "type": "string",
-                "enum": [
-                  "none",
-                  "minimal",
-                  "low",
-                  "medium",
-                  "high",
-                  "xhigh"
-                ],
-                "description": "Optional reasoning effort override for this agent."
-              }
-            }
-          }
-        },
-        "specForge.execution.phaseAgents": {
+        "specForge.execution.phaseModels": {
           "type": "object",
           "default": {},
-          "description": "Assign named agent profiles to workflow phases. Any unassigned phase falls back to the default agent.",
+          "description": "Assign named model profiles to workflow phases. Any unassigned phase falls back to the default profile.",
           "properties": {
-            "defaultAgent": {
+            "defaultProfile": {
               "type": "string",
               "default": "",
-              "description": "Fallback agent used when a specific phase does not declare its own agent."
+              "description": "Fallback profile used when a specific phase does not declare its own profile."
             },
-            "captureAgent": {
+            "refinementProfile": {
               "type": "string",
               "default": "",
-              "description": "Optional agent override for capture."
+              "description": "Optional profile override for refinement."
             },
-            "refinementAgent": {
+            "specProfile": {
               "type": "string",
               "default": "",
-              "description": "Optional agent override for refinement."
+              "description": "Optional profile override for spec."
             },
-            "specAgent": {
+            "technicalDesignProfile": {
               "type": "string",
               "default": "",
-              "description": "Optional agent override for spec."
+              "description": "Optional profile override for technical design."
             },
-            "technicalDesignAgent": {
+            "implementationProfile": {
               "type": "string",
               "default": "",
-              "description": "Optional agent override for technical design."
+              "description": "Optional profile override for implementation. This is the place for the strongest model."
             },
-            "implementationAgent": {
+            "reviewProfile": {
               "type": "string",
               "default": "",
-              "description": "Optional agent override for implementation."
+              "description": "Optional profile override for review. Falls back to the default profile when unset."
             },
-            "reviewAgent": {
+            "releaseApprovalProfile": {
               "type": "string",
               "default": "",
-              "description": "Optional agent override for review."
+              "description": "Optional profile override for release approval."
             },
-            "releaseApprovalAgent": {
+            "prPreparationProfile": {
               "type": "string",
               "default": "",
-              "description": "Optional agent override for release approval."
-            },
-            "prPreparationAgent": {
-              "type": "string",
-              "default": "",
-              "description": "Optional agent override for PR preparation."
+              "description": "Optional profile override for PR preparation."
             }
           }
         },
@@ -322,10 +265,21 @@
           ],
           "description": "How demanding the review phase should be when assessing findings and pass/fail readiness. This also adjusts the temperature sent for the review phase."
         },
+        "specForge.execution.reviewEvidencePolicy": {
+          "type": "string",
+          "default": "balanced",
+          "enum": [
+            "strict",
+            "balanced",
+            "release",
+            "advisory"
+          ],
+          "description": "Controls which validation evidence classes block review. Strict blocks on every validation item, balanced blocks automated/static items while deferring operational evidence, release records operational gaps for release readiness, and advisory reports gaps without forcing review failure."
+        },
         "specForge.execution.autoRefinementAnswersProfile": {
           "type": "string",
           "default": "",
-          "description": "Named agent used to auto-answer refinement questions before handing spec back to the user."
+          "description": "Named profile used to auto-answer refinement questions before handing spec back to the user."
         },
         "specForge.ui.workflowGraphLayoutMode": {
           "type": "string",
@@ -348,6 +302,19 @@
             "Open the workflow graph scaled to the viewport width."
           ],
           "description": "Preferred initial workflow graph zoom for this user."
+        },
+        "specForge.ui.userStoryListViewMode": {
+          "type": "string",
+          "default": "category",
+          "enum": [
+            "category",
+            "phase"
+          ],
+          "enumDescriptions": [
+            "Group user stories by category in the sidebar.",
+            "Order user stories by current workflow phase in the sidebar."
+          ],
+          "description": "Preferred user story sidebar grouping for this user."
         },
         "specForge.ui.enableWatcher": {
           "type": "boolean",
@@ -405,6 +372,16 @@
           "default": false,
           "description": "When enabled, automatically pause workflow playback on a failed review and show the review warning overlay for developer inspection."
         },
+        "specForge.features.reviewLearningEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When enabled, implementation retries after failed review may persist generalized lessons into local skills or prompt guardrails so future user stories avoid the same class of issue."
+        },
+        "specForge.features.reviewLearningSkillPath": {
+          "type": "string",
+          "default": ".codex/skills/sdd-phase-agents/SKILL.md",
+          "description": "Workspace-relative skill path used for local SDD review-learning guardrails when review learning is enabled."
+        },
         "specForge.features.completedUsLockOnCompleted": {
           "type": "boolean",
           "default": false,
@@ -415,7 +392,9 @@
     "menus": {}
   },
   "scripts": {
-    "compile": "node node_modules/typescript/lib/tsc.js -p ./",
+    "compile": "npm run compile:ts && npm run compile:mcp",
+    "compile:ts": "node node_modules/typescript/lib/tsc.js -p ./",
+    "compile:mcp": "dotnet publish src/SpecForge.McpServer/SpecForge.McpServer.csproj -c Release -o dist/mcp --no-self-contained /p:DebugType=None /p:DebugSymbols=false",
     "watch": "node node_modules/typescript/lib/tsc.js -watch -p ./",
     "compile:tests": "node node_modules/typescript/lib/tsc.js -p tsconfig.tests.json",
     "test:ts": "npm run compile:tests && node --test dist-tests/tests-ts/*.test.js",

@@ -18,7 +18,9 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.Equal(paths.ConfigFilePath, result.ConfigPath);
         Assert.Equal(paths.PromptManifestPath, result.PromptManifestPath);
         Assert.Equal(paths.PromptSystemHashesPath, result.PromptSystemHashesPath);
+        Assert.Contains(paths.AgentInstructionsPath, result.CreatedFiles);
         Assert.Contains(paths.SpecExecutePromptPath, result.CreatedFiles);
+        Assert.True(File.Exists(paths.AgentInstructionsPath));
         Assert.True(File.Exists(paths.ConfigFilePath));
         Assert.True(File.Exists(paths.PromptManifestPath));
         Assert.True(File.Exists(paths.PromptSystemHashesPath));
@@ -33,6 +35,7 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         Assert.True(File.Exists(paths.AutoRefinementAnswersSystemPromptPath));
         Assert.True(File.Exists(paths.ReviewExecutePromptPath));
         var configContent = await File.ReadAllTextAsync(paths.ConfigFilePath);
+        var agentInstructionsContent = await File.ReadAllTextAsync(paths.AgentInstructionsPath);
         var manifestContent = await File.ReadAllTextAsync(paths.PromptManifestPath);
         var sharedSystemPrompt = await File.ReadAllTextAsync(paths.SharedSystemPromptPath);
         var sharedOutputRulesPrompt = await File.ReadAllTextAsync(paths.SharedOutputRulesPromptPath);
@@ -42,14 +45,21 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
         var reviewPrompt = await File.ReadAllTextAsync(paths.ReviewExecutePromptPath);
         Assert.Contains("categories:", configContent);
         Assert.Contains("- workflow", configContent);
+        Assert.Contains("Use the SpecForge MCP as the operational source of truth", agentInstructionsContent);
+        Assert.Contains("Direct reads of `.specs/**` files are allowed", agentInstructionsContent);
+        Assert.Contains("The more explicit the actor, goal, trigger, business rules, inputs, outputs, constraints, edge cases, and acceptance intent are", agentInstructionsContent);
+        Assert.Contains("Questions can appear in multiple workflow phases", agentInstructionsContent);
+        Assert.Contains("model-on-behalf-of-user", agentInstructionsContent);
+        Assert.Contains("reopen_completed_workflow", agentInstructionsContent);
         Assert.Contains("refinement.execute.system.md", manifestContent);
         Assert.Contains("release-approval.approve.system.md", manifestContent);
         Assert.Contains("internalCalls:", manifestContent);
-        Assert.Contains("Return the response format declared by the caller", sharedSystemPrompt);
-        Assert.Contains("Return only the response format declared by the caller", sharedOutputRulesPrompt);
-        Assert.Contains("Markdown phases", sharedSystemPrompt);
+        Assert.Contains("complete Markdown artifact", sharedSystemPrompt);
+        Assert.Contains("Return only Markdown", sharedOutputRulesPrompt);
+        Assert.Contains("Model-driven workflow phases", sharedSystemPrompt);
         Assert.Contains("implementation evidence", implementationSystemPrompt);
         Assert.Contains("repository evidence, touched files, and validations", implementationPrompt);
+        Assert.Contains("Implementation Strategy` must be an operational implementation plan", await File.ReadAllTextAsync(paths.TechnicalDesignExecutePromptPath));
         Assert.Contains("implementation evidence is missing, empty", reviewSystemPrompt);
         Assert.Contains("if implementation evidence shows zero touched files, the review must fail", reviewPrompt);
         var hashContent = await File.ReadAllTextAsync(paths.PromptSystemHashesPath);
@@ -66,6 +76,19 @@ public sealed class RepositoryPromptInitializerTests : IDisposable
 
         Assert.NotEmpty(secondRun.SkippedFiles);
         Assert.Empty(secondRun.CreatedFiles);
+    }
+
+    [Fact]
+    public async Task EnsureAgentInstructionsAsync_CreatesOnlyAgentInstructionsWhenMissing()
+    {
+        var initializer = new RepositoryPromptInitializer();
+        var paths = new PromptFilePaths(workspaceRoot);
+
+        var created = await initializer.EnsureAgentInstructionsAsync(workspaceRoot);
+
+        Assert.True(created);
+        Assert.True(File.Exists(paths.AgentInstructionsPath));
+        Assert.False(File.Exists(paths.PromptManifestPath));
     }
 
     public void Dispose()

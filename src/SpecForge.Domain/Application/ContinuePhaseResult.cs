@@ -8,4 +8,5 @@ public sealed record ContinuePhaseResult(
     UserStoryStatus Status,
     string? GeneratedArtifactPath,
     TokenUsage? Usage = null,
-    PhaseExecutionMetadata? Execution = null);
+    PhaseExecutionMetadata? Execution = null,
+    PhaseCommitResult? Commit = null);

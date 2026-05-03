@@ -57,6 +57,7 @@ const vscode = __importStar(require("vscode"));
 const backendClient_1 = require("./backendClient");
 const extensionSettings_1 = require("./extensionSettings");
 const outputChannel_1 = require("./outputChannel");
+const phaseCommitNotification_1 = require("./phaseCommitNotification");
 const utils_1 = require("./utils");
 const userActor_1 = require("./userActor");
 const workflowPanel_1 = require("./workflowPanel");
@@ -319,11 +320,20 @@ async function continuePhase(summary) {
             await openTextDocument(result.generatedArtifactPath);
         }
         logExecutionWarnings(summary.usId, result.execution);
+        notifyPhaseCommit(summary.usId, result.commit);
         void vscode.window.showInformationMessage(`${summary.usId} advanced to ${result.currentPhase} with status ${result.status}.`);
     }
     catch (error) {
         void vscode.window.showErrorMessage((0, utils_1.asErrorMessage)(error));
     }
+}
+function notifyPhaseCommit(usId, commit) {
+    const notification = (0, phaseCommitNotification_1.buildPhaseCommitNotification)(usId, commit);
+    if (!notification) {
+        return;
+    }
+    (0, outputChannel_1.appendSpecForgeLog)(notification.logMessage);
+    void vscode.window.showInformationMessage(notification.userMessage);
 }
 function logExecutionWarnings(usId, execution) {
     if (!execution?.warnings || execution.warnings.length === 0) {

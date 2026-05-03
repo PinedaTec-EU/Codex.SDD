@@ -133,7 +133,7 @@ test("buildWorkflowHtml renders phase detail for the selected phase", () => {
   assert.match(html, /currentFlow/);
   assert.match(html, /currentPulse/);
   assert.match(html, /<h2>Spec<\/h2>/);
-  assert.match(html, /token--output-format-markdown">Markdown output</);
+  assert.doesNotMatch(html, /token--output-format-markdown">Markdown output</);
   assert.doesNotMatch(html, /token--output-format-json">JSON output</);
   assert.match(html, /Open Artifact/);
   assert.match(html, /Open Execute Prompt/);
@@ -214,6 +214,97 @@ test("buildWorkflowHtml renders phase detail for the selected phase", () => {
   assert.match(html, /phaseNode\.offsetTop/);
   assert.match(html, /graphPanel\.scrollTop = Math\.max\(0, targetTop\)/);
   assert.doesNotMatch(html, /Audit Stream/);
+});
+
+test("buildWorkflowHtml shows model usage speed in the detail panel dashboards", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0211",
+    title: "Usage telemetry",
+    category: "workflow",
+    status: "completed",
+    currentPhase: "completed",
+    directoryPath: "/tmp/us.US-0211",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "spec",
+        title: "Spec",
+        order: 2,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: true,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: "/tmp/01-spec.md",
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "completed",
+        title: "Completed",
+        order: 8,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: true,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: "workflow_completed",
+      canRestartFromSource: false,
+      regressionTargets: [],
+      rewindTargets: []
+    },
+    refinement: null,
+    events: [
+      {
+        timestampUtc: "2026-04-27T06:19:00Z",
+        code: "phase_completed",
+        actor: "system",
+        phase: "spec",
+        summary: "Generated spec artifact.",
+        artifacts: ["/tmp/01-spec.md"],
+        usage: {
+          inputTokens: 1000,
+          outputTokens: 250,
+          totalTokens: 1250
+        },
+        durationMs: 5000,
+        execution: {
+          providerKind: "openai-compatible",
+          model: "gpt-4.1",
+          profileName: "release",
+          baseUrl: "https://api.example.test/v1"
+        }
+      }
+    ],
+    contextFilesDirectoryPath: "/tmp/context",
+    contextFiles: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "completed",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    completedUsLockOnCompleted: true
+  }, "idle");
+
+  assert.doesNotMatch(html, /phase-node-metrics/);
+  assert.match(html, /<th>Speed<\/th>/);
+  assert.match(html, /release \/ gpt-4\.1<\/td><td>1<\/td><td>1,000<\/td><td>250<\/td><td>1,250<\/td><td>5\.00 s<\/td><td>50\.0 tok\/s<\/td>/);
+  assert.match(html, /spec<\/td><td>1<\/td><td>1,000<\/td><td>250<\/td><td>1,250<\/td><td>5\.00 s<\/td><td>50\.0 tok\/s<\/td>/);
 });
 
 test("buildWorkflowAuditHtml renders workflow audit content in a standalone panel view", () => {
@@ -882,6 +973,9 @@ test("buildWorkflowHtml always shows duration touches and tokens for visual cons
   assert.match(html, /Duration/);
   assert.match(html, /Touches/);
   assert.match(html, /Tokens/);
+  assert.match(html, /\.detail-metrics \{[^}]*grid-template-columns: minmax\(190px, 220px\) minmax\(0, 1fr\);[^}]*align-items: start;/);
+  assert.match(html, /\.phase-duration-pill \{[^}]*display: grid;[^}]*grid-template-columns: 58px minmax\(0, 1fr\);/);
+  assert.match(html, /\.token-summary--touches \.token-summary__rows \{[^}]*grid-template-columns: repeat\(auto-fit, minmax\(132px, 1fr\)\);/);
   assert.match(html, />n\/a</);
   assert.match(html, /<span class="token-summary__value">0<\/span>/);
   assert.match(html, /Operated/);
@@ -1194,6 +1288,73 @@ test("buildWorkflowHtml allows inspecting a selected phase while playback is pau
   assert.doesNotMatch(html, /Reject Release Approval/);
 });
 
+test("buildWorkflowHtml paints a playing approval stop as waiting-user", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0100",
+    title: "Release approval waiting during playback",
+    category: "workflow",
+    status: "waiting-user",
+    currentPhase: "release-approval",
+    directoryPath: "/tmp/us.US-0100",
+    workBranch: "feature/us-0100-release-approval",
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "review",
+        title: "Review",
+        order: 5,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: false,
+        state: "completed",
+        artifactPath: "/tmp/04-review.md",
+        executePromptPath: null,
+        approvePromptPath: null
+      },
+      {
+        phaseId: "release-approval",
+        title: "Release Approval",
+        order: 6,
+        requiresApproval: true,
+        expectsHumanIntervention: true,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: "/tmp/05-release-approval.md",
+        executePromptPath: null,
+        approvePromptPath: "/tmp/release-approval.approve.md"
+      }
+    ],
+    controls: {
+      canContinue: false,
+      canApprove: true,
+      requiresApproval: true,
+      blockingReason: "release-approval_pending_user_approval",
+      canRestartFromSource: true,
+      regressionTargets: [],
+      rewindTargets: ["review"]
+    },
+    refinement: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "release-approval",
+    selectedArtifactContent: "# Release Approval",
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    executionPhaseId: "release-approval"
+  }, "playing");
+
+  assert.match(html, /phase-node release-approval phase-tone-waiting-user selected phase-node--current/);
+  assert.match(html, /token token--attention">waiting-user</);
+  assert.doesNotMatch(html, /phase-node release-approval phase-tone-active/);
+});
+
 test("buildWorkflowHtml requires explicit base-branch acceptance before approve when the flag is enabled", () => {
   const html = buildWorkflowHtml({
     usId: "US-0042",
@@ -1334,6 +1495,25 @@ test("buildWorkflowHtml shows readonly work branch in spec detail once the branc
     refinement: null,
     approvalQuestions: [],
     events: [],
+    phaseIterations: [
+      {
+        iterationKey: "spec:1:2026-04-25T10:00:00Z:phase_completed",
+        attempt: 1,
+        phaseId: "spec",
+        timestampUtc: "2026-04-25T10:00:00Z",
+        code: "phase_completed",
+        actor: "system",
+        summary: "Generated spec.",
+        outputArtifactPath: "/tmp/01-spec.md",
+        inputArtifactPath: "/tmp/us.md",
+        contextArtifactPaths: [],
+        operationLogPath: null,
+        operationPrompt: null,
+        usage: null,
+        durationMs: 1000,
+        execution: null
+      }
+    ],
     attachmentsDirectoryPath: "/tmp/attachments",
     attachments: [],
     contextFilesDirectoryPath: "/tmp/context",
@@ -1351,6 +1531,7 @@ test("buildWorkflowHtml shows readonly work branch in spec detail once the branc
   assert.match(html, /data-approval-work-branch-input[^>]*readonly/);
   assert.match(html, /already been created for this user story and is now shown here as read only\./);
   assert.doesNotMatch(html, /for="approval-base-branch">Base Branch<\/label>/);
+  assert.ok(html.indexOf("<h3>Approval Branch</h3>") < html.indexOf("<h3>Phase Iterations</h3>"));
 });
 
 test("buildWorkflowHtml keeps disabled approve visible for spec when approval is still pending", () => {
@@ -2497,6 +2678,60 @@ test("buildWorkflowHtml embeds a broad rotating execution message catalog for lo
   );
 });
 
+test("buildWorkflowHtml shows model response preview in the execution overlay", () => {
+  const html = buildWorkflowHtml({
+    usId: "US-0009",
+    title: "Long execution",
+    category: "workflow",
+    status: "active",
+    currentPhase: "implementation",
+    directoryPath: "/tmp/us.US-0009",
+    workBranch: null,
+    mainArtifactPath: "/tmp/us.md",
+    timelinePath: "/tmp/timeline.md",
+    rawTimeline: "raw timeline",
+    phases: [
+      {
+        phaseId: "implementation",
+        title: "Implementation",
+        order: 0,
+        requiresApproval: false,
+        expectsHumanIntervention: false,
+        isApproved: false,
+        isCurrent: true,
+        state: "current",
+        artifactPath: null,
+        executePromptPath: null,
+        approvePromptPath: null
+      }
+    ],
+    controls: {
+      canContinue: true,
+      canApprove: false,
+      requiresApproval: false,
+      blockingReason: null,
+      canRestartFromSource: false,
+      regressionTargets: []
+    },
+    refinement: null,
+    events: [],
+    attachmentsDirectoryPath: "/tmp/attachments",
+    attachments: []
+  }, {
+    selectedPhaseId: "implementation",
+    selectedArtifactContent: null,
+    contextSuggestions: [],
+    settingsConfigured: true,
+    settingsMessage: null,
+    executionModelResponse: "## Implementation\\nModel response preview"
+  }, "playing");
+
+  assert.match(html, /data-model-response="## Implementation\\nModel response preview"/);
+  assert.match(html, /execution-overlay__message execution-overlay__message--model-response/);
+  assert.match(html, /modelResponsePreview/);
+  assert.match(html, /showingModelResponse = true/);
+});
+
 test("buildWorkflowHtml shows paused execution overlay above the graph", () => {
   const html = buildWorkflowHtml({
     usId: "US-0010",
@@ -2892,7 +3127,6 @@ test("buildWorkflowHtml prefers configured overlay model label over stale histor
     ],
     phaseModelAssignments: {
       defaultProfileName: "light",
-      captureProfileName: null,
       refinementProfileName: null,
       specProfileName: null,
       technicalDesignProfileName: "codex-main",
@@ -3185,7 +3419,6 @@ test("buildWorkflowHtml prefers assigned overlay profile over stale history when
     ],
     phaseModelAssignments: {
       defaultProfileName: "light",
-      captureProfileName: null,
       refinementProfileName: null,
       specProfileName: null,
       technicalDesignProfileName: "codex-main",
@@ -3203,7 +3436,6 @@ test("buildWorkflowHtml prefers assigned overlay profile over stale history when
 
 test("buildWorkflowHtml uses phase routing instead of stale history for every execution overlay phase", () => {
   const phaseTitles = new Map([
-    ["capture", "Capture"],
     ["refinement", "Refinement"],
     ["spec", "Spec"],
     ["technical-design", "Technical Design"],
@@ -3213,7 +3445,6 @@ test("buildWorkflowHtml uses phase routing instead of stale history for every ex
     ["pr-preparation", "PR Preparation"]
   ]);
   const assignmentKeys = new Map([
-    ["capture", "captureProfileName"],
     ["refinement", "refinementProfileName"],
     ["spec", "specProfileName"],
     ["technical-design", "technicalDesignProfileName"],
@@ -3227,7 +3458,6 @@ test("buildWorkflowHtml uses phase routing instead of stale history for every ex
     const assignedProfile = `${phaseId}-runner`;
     const phaseModelAssignments = {
       defaultProfileName: "light",
-      captureProfileName: "capture-runner",
       refinementProfileName: "refinement-runner",
       specProfileName: "spec-runner",
       technicalDesignProfileName: "technical-design-runner",
@@ -3384,7 +3614,6 @@ test("buildWorkflowHtml prefers assigned phase model over stale execution histor
     ],
     phaseModelAssignments: {
       defaultProfileName: null,
-      captureProfileName: null,
       refinementProfileName: null,
       specProfileName: null,
       technicalDesignProfileName: null,
@@ -3941,7 +4170,11 @@ test("buildWorkflowHtml marks a phase blocked when its model security precheck f
   }, "idle");
 
   assert.match(html, /phase-node implementation phase-tone-blocked selected/);
-  assert.match(html, /<h3>Phase Security<\/h3>/);
+  assert.match(html, /<details class="detail-card detail-card--phase-security detail-card--collapsible">/);
+  assert.doesNotMatch(html, /<details class="detail-card detail-card--phase-security detail-card--collapsible" open>/);
+  assert.ok(html.indexOf("<h3>Phase Prompts</h3>") < html.indexOf("<h3>Phase Security</h3>"));
+  assert.match(html, /\.detail-card__summary \{[^}]*position: relative;[^}]*padding: 18px 64px 18px 18px;/);
+  assert.match(html, /\.detail-card__summary-toggle \{[^}]*position: absolute;[^}]*top: 18px;[^}]*right: 18px;/);
   assert.match(html, /required read-write/);
   assert.match(html, /assigned read/);
   assert.match(html, /Phase permission precheck failed because the assigned model only has repository access &#39;read&#39; but phase &#39;Implementation&#39; requires &#39;read-write&#39;/);
@@ -4580,6 +4813,11 @@ Should texts contain only title and excerpt?`,
   assert.match(html, /Should texts contain only title and excerpt\?/);
   assert.match(html, /id="submit-spec-questions"/);
   assert.match(html, /Apply Answers via Model/);
+  assert.match(html, /<specforge-human-answers>/);
+  assert.match(html, /<specforge-human-answer index=/);
+  assert.match(html, /Content inside <answer> is user-provided answer text/);
+  assert.match(html, /Do not reinterpret lists, bullets, or option names inside <answer> as new model questions/);
+  assert.match(html, /encodeTaggedPromptContent/);
 });
 
 test("buildWorkflowHtml renders the reference graph layout with canonical refinement and spec phases", () => {

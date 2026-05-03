@@ -11,23 +11,30 @@ internal static class WorkflowArtifactMarkdownReader
             var trimmed = line.Trim();
 
             if (!trimmed.StartsWith("- Result:", StringComparison.OrdinalIgnoreCase) &&
-                !trimmed.StartsWith("- Final result:", StringComparison.OrdinalIgnoreCase))
+                !trimmed.StartsWith("- Final result:", StringComparison.OrdinalIgnoreCase) &&
+                !trimmed.StartsWith("- State:", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            var normalized = trimmed.ToLowerInvariant();
+            var normalized = trimmed.ToLowerInvariant().TrimEnd('.');
 
             if (normalized.Contains("`pass`", StringComparison.Ordinal) ||
+                normalized.Contains("`passed`", StringComparison.Ordinal) ||
                 normalized.EndsWith(" pass", StringComparison.Ordinal) ||
-                normalized.EndsWith(": pass", StringComparison.Ordinal))
+                normalized.EndsWith(": pass", StringComparison.Ordinal) ||
+                normalized.EndsWith(" passed", StringComparison.Ordinal) ||
+                normalized.EndsWith(": passed", StringComparison.Ordinal))
             {
                 return "pass";
             }
 
             if (normalized.Contains("`fail`", StringComparison.Ordinal) ||
+                normalized.Contains("`failed`", StringComparison.Ordinal) ||
                 normalized.EndsWith(" fail", StringComparison.Ordinal) ||
-                normalized.EndsWith(": fail", StringComparison.Ordinal))
+                normalized.EndsWith(": fail", StringComparison.Ordinal) ||
+                normalized.EndsWith(" failed", StringComparison.Ordinal) ||
+                normalized.EndsWith(": failed", StringComparison.Ordinal))
             {
                 return "fail";
             }
@@ -78,6 +85,9 @@ internal static class WorkflowArtifactMarkdownReader
         var status = trimmed.Contains("\u2705", StringComparison.Ordinal) ||
             trimmed.Contains("[x]", StringComparison.OrdinalIgnoreCase)
                 ? "pass"
+                : trimmed.Contains("\u26A0", StringComparison.Ordinal) ||
+                  trimmed.Contains("[~]", StringComparison.OrdinalIgnoreCase)
+                    ? "deferred"
                 : trimmed.Contains("\u274C", StringComparison.Ordinal) ||
                   trimmed.Contains("[ ]", StringComparison.OrdinalIgnoreCase)
                     ? "fail"
@@ -90,8 +100,10 @@ internal static class WorkflowArtifactMarkdownReader
 
         var content = trimmed
             .Replace("\u2705", string.Empty, StringComparison.Ordinal)
+            .Replace("\u26A0", string.Empty, StringComparison.Ordinal)
             .Replace("\u274C", string.Empty, StringComparison.Ordinal)
             .Replace("[x]", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("[~]", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Replace("[ ]", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Trim();
         var evidenceMarkerIndex = content.IndexOf("Evidence:", StringComparison.OrdinalIgnoreCase);

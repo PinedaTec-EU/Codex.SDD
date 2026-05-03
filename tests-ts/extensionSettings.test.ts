@@ -21,29 +21,27 @@ function effective(overrides: Partial<Record<keyof EffectiveAssignmentShape, str
 
 function emptyAssignments() {
   return {
-    defaultAgent: null,
-    captureAgent: null,
-    refinementAgent: null,
-    specAgent: null,
-    technicalDesignAgent: null,
-    implementationAgent: null,
-    reviewAgent: null,
-    releaseApprovalAgent: null,
-    prPreparationAgent: null
+    defaultProfile: null,
+    refinementProfile: null,
+    specProfile: null,
+    technicalDesignProfile: null,
+    implementationProfile: null,
+    reviewProfile: null,
+    releaseApprovalProfile: null,
+    prPreparationProfile: null
   };
 }
 
 function emptyEffectiveAssignments() {
   return {
-    defaultAgentName: null,
-    captureAgentName: null,
-    refinementAgentName: null,
-    specAgentName: null,
-    technicalDesignAgentName: null,
-    implementationAgentName: null,
-    reviewAgentName: null,
-    releaseApprovalAgentName: null,
-    prPreparationAgentName: null
+    defaultProfileName: null,
+    refinementProfileName: null,
+    specProfileName: null,
+    technicalDesignProfileName: null,
+    implementationProfileName: null,
+    reviewProfileName: null,
+    releaseApprovalProfileName: null,
+    prPreparationProfileName: null
   };
 }
 
@@ -67,13 +65,14 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
         repositoryAccess: " read-write "
       }
     ]],
-    ["execution.phaseAgents", {
-      defaultAgent: " light ",
-      implementationAgent: " top ",
-      reviewAgent: " light "
+    ["execution.phaseModels", {
+      defaultProfile: " light ",
+      implementationProfile: " top ",
+      reviewProfile: " light "
     }],
     ["execution.refinementTolerance", " inferential "],
     ["execution.reviewTolerance", " strict "],
+    ["execution.reviewEvidencePolicy", " release "],
     ["ui.enableWatcher", false],
     ["ui.notifyOnAttention", true],
     ["features.enableContextSuggestions", true],
@@ -109,27 +108,28 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
         repositoryAccess: "read-write"
       }
     ],
-    phaseAgentAssignments: assignments({
-      defaultAgent: "light",
-      implementationAgent: "top",
-      reviewAgent: "light"
+    phaseModelAssignments: assignments({
+      defaultProfile: "light",
+      implementationProfile: "top",
+      reviewProfile: "light"
     }),
-    effectivePhaseAgentAssignments: effective({
-      defaultAgentName: "light",
-      captureAgentName: "light",
-      refinementAgentName: "light",
-      specAgentName: "light",
-      technicalDesignAgentName: "light",
-      implementationAgentName: "top",
-      reviewAgentName: "light",
-      releaseApprovalAgentName: "light",
-      prPreparationAgentName: "light"
+    effectivePhaseModelAssignments: effective({
+      defaultProfileName: "light",
+      refinementProfileName: "light",
+      specProfileName: "light",
+      technicalDesignProfileName: "light",
+      implementationProfileName: "top",
+      reviewProfileName: "light",
+      releaseApprovalProfileName: "light",
+      prPreparationProfileName: "light"
     }),
     autoRefinementAnswersProfile: null,
     refinementTolerance: "inferential",
     reviewTolerance: "strict",
+    reviewEvidencePolicy: "release",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: false,
     attentionNotificationsEnabled: true,
@@ -141,6 +141,8 @@ test("readSpecForgeSettings normalizes model profiles and preserves toggles", ()
     maxImplementationReviewCycles: 3,
     destructiveRewindEnabled: false,
     pauseOnFailedReview: true,
+    reviewLearningEnabled: true,
+    reviewLearningSkillPath: ".codex/skills/sdd-phase-agents/SKILL.md",
     completedUsLockOnCompleted: false
   });
 });
@@ -182,7 +184,23 @@ test("readSpecForgeSettings normalizes workflow graph initial zoom preference", 
   assert.equal(unsupportedSettings.workflowGraphInitialZoomMode, "actual-size");
 });
 
-test("buildBackendEnvironment serializes model profiles, agent profiles, and assignments", () => {
+test("readSpecForgeSettings normalizes user story list view preference", () => {
+  const phaseSettings = readSpecForgeSettings({
+    get<T>(section: string, defaultValue?: T): T {
+      return (section === "ui.userStoryListViewMode" ? "phase" : defaultValue) as T;
+    }
+  });
+  const unsupportedSettings = readSpecForgeSettings({
+    get<T>(section: string, defaultValue?: T): T {
+      return (section === "ui.userStoryListViewMode" ? "unknown" : defaultValue) as T;
+    }
+  });
+
+  assert.equal(phaseSettings.userStoryListViewMode, "phase");
+  assert.equal(unsupportedSettings.userStoryListViewMode, "category");
+});
+
+test("buildBackendEnvironment only serializes model profiles and assignments", () => {
   assert.deepEqual(buildBackendEnvironment({
     modelProfiles: [
       {
@@ -202,21 +220,22 @@ test("buildBackendEnvironment serializes model profiles, agent profiles, and ass
         repositoryAccess: "read-write"
       }
     ],
-    phaseAgentAssignments: assignments({
-      defaultAgent: "light",
-      implementationAgent: "top",
-      reviewAgent: "light"
+    phaseModelAssignments: assignments({
+      defaultProfile: "light",
+      implementationProfile: "top",
+      reviewProfile: "light"
     }),
-    effectivePhaseAgentAssignments: effective({
-      defaultAgentName: "light",
-      implementationAgentName: "top",
-      reviewAgentName: "light"
+    effectivePhaseModelAssignments: effective({
+      defaultProfileName: "light",
+      implementationProfileName: "top",
+      reviewProfileName: "light"
     }),
     autoRefinementAnswersProfile: null,
     refinementTolerance: "strict",
     reviewTolerance: "inferential",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -248,30 +267,17 @@ test("buildBackendEnvironment serializes model profiles, agent profiles, and ass
         repositoryAccess: "read-write"
       }
     ]),
-    SPECFORGE_OPENAI_AGENT_PROFILES_JSON: JSON.stringify([
-      {
-        name: "light",
-        role: "light",
-        modelProfile: "light",
-        instructions: "",
-        repositoryAccess: "none"
-      },
-      {
-        name: "top",
-        role: "top",
-        modelProfile: "top",
-        instructions: "",
-        repositoryAccess: "read-write"
-      }
-    ]),
-    SPECFORGE_OPENAI_PHASE_AGENT_ASSIGNMENTS_JSON: JSON.stringify(assignments({
-      defaultAgent: "light",
-      implementationAgent: "top",
-      reviewAgent: "light"
+    SPECFORGE_OPENAI_PHASE_MODEL_ASSIGNMENTS_JSON: JSON.stringify(assignments({
+      defaultProfile: "light",
+      implementationProfile: "top",
+      reviewProfile: "light"
     })),
     SPECFORGE_REFINEMENT_TOLERANCE: "strict",
     SPECFORGE_REVIEW_TOLERANCE: "inferential",
+    SPECFORGE_REVIEW_EVIDENCE_POLICY: "balanced",
     SPECFORGE_AUTO_REFINEMENT_ANSWERS_ENABLED: "false",
+    SPECFORGE_REVIEW_LEARNING_ENABLED: "true",
+    SPECFORGE_REVIEW_LEARNING_SKILL_PATH: ".codex/skills/sdd-phase-agents/SKILL.md",
     SPECFORGE_COMPLETED_US_LOCK_ON_COMPLETED: "true"
   });
 });
@@ -279,13 +285,14 @@ test("buildBackendEnvironment serializes model profiles, agent profiles, and ass
 test("getSpecForgeSettingsStatus requires at least one model profile", () => {
   const status = getSpecForgeSettingsStatus({
     modelProfiles: [],
-    phaseAgentAssignments: assignments(),
-    effectivePhaseAgentAssignments: effective(),
+    phaseModelAssignments: assignments(),
+    effectivePhaseModelAssignments: effective(),
     autoRefinementAnswersProfile: null,
     refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -302,7 +309,7 @@ test("getSpecForgeSettingsStatus requires at least one model profile", () => {
 
   assert.equal(status.executionConfigured, false);
   assert.equal(status.message, "SpecForge.AI needs at least one configured model profile before workflow stages can run.");
-  assert.match(status.diagnostics, /modelProfiles=0/);
+  assert.match(status.diagnostics, /profiles=0/);
 });
 
 test("getSpecForgeSettingsStatus rejects a single fallback profile when phase permissions are insufficient", () => {
@@ -317,17 +324,18 @@ test("getSpecForgeSettingsStatus rejects a single fallback profile when phase pe
         repositoryAccess: "none"
       }
     ],
-    phaseAgentAssignments: assignments(),
-    effectivePhaseAgentAssignments: effective({
-      defaultAgentName: "light",
-      implementationAgentName: "light",
-      reviewAgentName: "light"
+    phaseModelAssignments: assignments(),
+    effectivePhaseModelAssignments: effective({
+      defaultProfileName: "light",
+      implementationProfileName: "light",
+      reviewProfileName: "light"
     }),
     autoRefinementAnswersProfile: null,
     refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -343,9 +351,8 @@ test("getSpecForgeSettingsStatus rejects a single fallback profile when phase pe
   });
 
   assert.equal(status.executionConfigured, false);
-  assert.equal(status.message, "Refinement requires repository access 'read', but agent 'light' only grants 'none'.");
-  assert.match(status.diagnostics, /models=\[light\{provider=openai-compatible,baseUrl=http:\/\/localhost:11434\/v1,model=llama3\.1,apiKey=empty\}\]/);
-  assert.match(status.diagnostics, /agents=\[light\{role=light,modelProfile=light,repositoryAccess=none\}\]/);
+  assert.equal(status.message, "Refinement requires repository access 'read', but profile 'light' only grants 'none'.");
+  assert.match(status.diagnostics, /catalog=\[light\{provider=openai-compatible,baseUrl=http:\/\/localhost:11434\/v1,model=llama3\.1,apiKey=empty,repositoryAccess=none\}\]/);
 });
 
 test("getSpecForgeSettingsStatus still requires an api key for remote profiles", () => {
@@ -360,17 +367,18 @@ test("getSpecForgeSettingsStatus still requires an api key for remote profiles",
         repositoryAccess: "none"
       }
     ],
-    phaseAgentAssignments: assignments(),
-    effectivePhaseAgentAssignments: effective({
-      defaultAgentName: "light",
-      implementationAgentName: "light",
-      reviewAgentName: "light"
+    phaseModelAssignments: assignments(),
+    effectivePhaseModelAssignments: effective({
+      defaultProfileName: "light",
+      implementationProfileName: "light",
+      reviewProfileName: "light"
     }),
     autoRefinementAnswersProfile: null,
     refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -402,13 +410,14 @@ test("getSpecForgeSettingsStatus accepts profiles using the default provider", (
         repositoryAccess: "read-write"
       }
     ],
-    phaseAgentAssignments: assignments(),
-    effectivePhaseAgentAssignments: effective(),
+    phaseModelAssignments: assignments(),
+    effectivePhaseModelAssignments: effective(),
     autoRefinementAnswersProfile: null,
     refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -456,21 +465,22 @@ test("getSpecForgeSettingsStatus accepts codex, copilot, and claude providers", 
         repositoryAccess: "read"
       }
     ],
-    phaseAgentAssignments: assignments({
-      defaultAgent: "fallback",
-      implementationAgent: "implementer",
-      reviewAgent: "reviewer"
+    phaseModelAssignments: assignments({
+      defaultProfile: "fallback",
+      implementationProfile: "implementer",
+      reviewProfile: "reviewer"
     }),
-    effectivePhaseAgentAssignments: effective({
-      defaultAgentName: "fallback",
-      implementationAgentName: "implementer",
-      reviewAgentName: "reviewer"
+    effectivePhaseModelAssignments: effective({
+      defaultProfileName: "fallback",
+      implementationProfileName: "implementer",
+      reviewProfileName: "reviewer"
     }),
     autoRefinementAnswersProfile: null,
     refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -505,17 +515,18 @@ test("getSpecForgeSettingsStatus allows native CLI providers without baseUrl api
           repositoryAccess: "read-write"
         }
       ],
-      phaseAgentAssignments: assignments(),
-      effectivePhaseAgentAssignments: effective({
-        defaultAgentName: `${provider}-main`,
-        implementationAgentName: `${provider}-main`,
-        reviewAgentName: `${provider}-main`
+      phaseModelAssignments: assignments(),
+      effectivePhaseModelAssignments: effective({
+        defaultProfileName: `${provider}-main`,
+        implementationProfileName: `${provider}-main`,
+        reviewProfileName: `${provider}-main`
       }),
       autoRefinementAnswersProfile: null,
       refinementTolerance: "balanced",
       reviewTolerance: "balanced",
       workflowGraphLayoutMode: "vertical",
       workflowGraphInitialZoomMode: "actual-size",
+      userStoryListViewMode: "category",
       visualTimelineEnabled: false,
       watcherEnabled: true,
       attentionNotificationsEnabled: true,
@@ -548,13 +559,14 @@ test("getSpecForgeSettingsStatus rejects unsupported providers", () => {
         repositoryAccess: "none"
       }
     ],
-    phaseAgentAssignments: assignments(),
-    effectivePhaseAgentAssignments: effective(),
+    phaseModelAssignments: assignments(),
+    effectivePhaseModelAssignments: effective(),
     autoRefinementAnswersProfile: null,
     refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -586,15 +598,16 @@ test("getSpecForgeSettingsStatus validates named profile assignments", () => {
         repositoryAccess: "none"
       }
     ],
-    phaseAgentAssignments: assignments({
-      defaultAgent: "missing"
+    phaseModelAssignments: assignments({
+      defaultProfile: "missing"
     }),
-    effectivePhaseAgentAssignments: effective(),
+    effectivePhaseModelAssignments: effective(),
     autoRefinementAnswersProfile: null,
     refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -610,8 +623,8 @@ test("getSpecForgeSettingsStatus validates named profile assignments", () => {
   });
 
   assert.equal(status.executionConfigured, false);
-  assert.equal(status.message, "SpecForge.AI phase agent assignment 'default' references unknown agent 'missing'.");
-  assert.match(status.diagnostics, /phaseAgents\.default=missing/);
+  assert.equal(status.message, "SpecForge.AI phase model assignment 'default' references unknown profile 'missing'.");
+  assert.match(status.diagnostics, /phaseModels\.default=missing/);
 });
 
 test("getSpecForgeSettingsStatus allows multiple profiles without default when all model-driven phases are assigned", () => {
@@ -642,25 +655,26 @@ test("getSpecForgeSettingsStatus allows multiple profiles without default when a
         repositoryAccess: "read-write"
       }
     ],
-    phaseAgentAssignments: assignments({
-      refinementAgent: "planner",
-      specAgent: "planner",
-      technicalDesignAgent: "planner",
-      implementationAgent: "implementer",
-      reviewAgent: "reviewer"
+    phaseModelAssignments: assignments({
+      refinementProfile: "planner",
+      specProfile: "planner",
+      technicalDesignProfile: "planner",
+      implementationProfile: "implementer",
+      reviewProfile: "reviewer"
     }),
-    effectivePhaseAgentAssignments: effective({
-      refinementAgentName: "planner",
-      specAgentName: "planner",
-      technicalDesignAgentName: "planner",
-      implementationAgentName: "implementer",
-      reviewAgentName: "reviewer"
+    effectivePhaseModelAssignments: effective({
+      refinementProfileName: "planner",
+      specProfileName: "planner",
+      technicalDesignProfileName: "planner",
+      implementationProfileName: "implementer",
+      reviewProfileName: "reviewer"
     }),
     autoRefinementAnswersProfile: null,
     refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -699,24 +713,25 @@ test("getSpecForgeSettingsStatus rejects review when its assigned profile lacks 
         repositoryAccess: "read-write"
       }
     ],
-    phaseAgentAssignments: assignments({
-      defaultAgent: "planner",
-      implementationAgent: "implementer",
-      reviewAgent: "planner"
+    phaseModelAssignments: assignments({
+      defaultProfile: "planner",
+      implementationProfile: "implementer",
+      reviewProfile: "planner"
     }),
-    effectivePhaseAgentAssignments: effective({
-      defaultAgentName: "planner",
-      refinementAgentName: "planner",
-      specAgentName: "planner",
-      technicalDesignAgentName: "planner",
-      implementationAgentName: "implementer",
-      reviewAgentName: "planner"
+    effectivePhaseModelAssignments: effective({
+      defaultProfileName: "planner",
+      refinementProfileName: "planner",
+      specProfileName: "planner",
+      technicalDesignProfileName: "planner",
+      implementationProfileName: "implementer",
+      reviewProfileName: "planner"
     }),
     autoRefinementAnswersProfile: null,
     refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -732,7 +747,7 @@ test("getSpecForgeSettingsStatus rejects review when its assigned profile lacks 
   });
 
   assert.equal(status.executionConfigured, false);
-  assert.equal(status.message, "Review requires repository access 'read-write', but agent 'planner' only grants 'read'.");
+  assert.equal(status.message, "Review requires repository access 'read-write', but profile 'planner' only grants 'read'.");
 });
 
 test("getSpecForgeSettingsStatus requires an explicit auto-refinement profile when enabled", () => {
@@ -747,15 +762,16 @@ test("getSpecForgeSettingsStatus requires an explicit auto-refinement profile wh
         repositoryAccess: "read"
       }
     ],
-    phaseAgentAssignments: assignments(),
-    effectivePhaseAgentAssignments: effective({
-      defaultAgentName: "planner"
+    phaseModelAssignments: assignments(),
+    effectivePhaseModelAssignments: effective({
+      defaultProfileName: "planner"
     }),
     autoRefinementAnswersProfile: null,
     refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -771,7 +787,7 @@ test("getSpecForgeSettingsStatus requires an explicit auto-refinement profile wh
   });
 
   assert.equal(status.executionConfigured, false);
-  assert.equal(status.message, "SpecForge.AI needs an auto-refinement answers agent when model-driven refinement answers are enabled.");
+  assert.equal(status.message, "SpecForge.AI needs an auto-refinement answers profile when model-driven refinement answers are enabled.");
 });
 
 test("buildBackendEnvironment serializes auto-refinement settings", () => {
@@ -786,17 +802,18 @@ test("buildBackendEnvironment serializes auto-refinement settings", () => {
         repositoryAccess: "read"
       }
     ],
-    phaseAgentAssignments: assignments({
-      defaultAgent: "planner"
+    phaseModelAssignments: assignments({
+      defaultProfile: "planner"
     }),
-    effectivePhaseAgentAssignments: effective({
-      defaultAgentName: "planner"
+    effectivePhaseModelAssignments: effective({
+      defaultProfileName: "planner"
     }),
     autoRefinementAnswersProfile: "planner",
     refinementTolerance: "balanced",
     reviewTolerance: "balanced",
     workflowGraphLayoutMode: "vertical",
     workflowGraphInitialZoomMode: "actual-size",
+    userStoryListViewMode: "category",
     visualTimelineEnabled: false,
     watcherEnabled: true,
     attentionNotificationsEnabled: true,
@@ -818,7 +835,7 @@ test("buildBackendEnvironment serializes auto-refinement settings", () => {
 test("readSpecForgeSettings falls back to balanced refinement tolerance for unsupported values", () => {
   const settings = readSpecForgeSettings({
     get<T>(section: string, defaultValue?: T): T {
-      if (section === "execution.refinementTolerance" || section === "execution.reviewTolerance") {
+      if (section === "execution.refinementTolerance" || section === "execution.reviewTolerance" || section === "execution.reviewEvidencePolicy") {
         return "chaotic" as T;
       }
 
@@ -828,8 +845,9 @@ test("readSpecForgeSettings falls back to balanced refinement tolerance for unsu
 
   assert.equal(settings.refinementTolerance, "balanced");
   assert.equal(settings.reviewTolerance, "balanced");
+  assert.equal(settings.reviewEvidencePolicy, "balanced");
   assert.equal(settings.requireExplicitApprovalBranchAcceptance, false);
   assert.equal(settings.autoRefinementAnswersEnabled, false);
   assert.equal(settings.autoRefinementAnswersProfile, null);
-  assert.deepEqual(settings.phaseAgentAssignments, assignments());
+  assert.deepEqual(settings.phaseModelAssignments, assignments());
 });

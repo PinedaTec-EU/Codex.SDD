@@ -7,6 +7,7 @@ public sealed class RepositoryPromptInitializer
     public static IReadOnlyDictionary<string, string> BuildTemplateMap(PromptFilePaths paths) =>
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            [paths.AgentInstructionsPath] = BuildAgentInstructions(),
             [paths.ConfigFilePath] = BuildConfigYaml(),
             [paths.PromptManifestPath] = BuildPromptManifestYaml(),
             [paths.SharedSystemPromptPath] = BuildSharedSystemPrompt(),
@@ -135,6 +136,28 @@ public sealed class RepositoryPromptInitializer
             skippedFiles);
     }
 
+    public async Task<bool> EnsureAgentInstructionsAsync(
+        string workspaceRoot,
+        bool overwrite = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceRoot))
+        {
+            throw new ArgumentException("Workspace root is required.", nameof(workspaceRoot));
+        }
+
+        var paths = new PromptFilePaths(workspaceRoot);
+        Directory.CreateDirectory(paths.SpecsDirectoryPath);
+
+        if (File.Exists(paths.AgentInstructionsPath) && !overwrite)
+        {
+            return false;
+        }
+
+        await File.WriteAllTextAsync(paths.AgentInstructionsPath, BuildAgentInstructions(), cancellationToken);
+        return true;
+    }
+
     private static string BuildConfigYaml() =>
         """
         initialized: true
@@ -150,6 +173,46 @@ public sealed class RepositoryPromptInitializer
           - review
           - integrations
           - infra
+        """;
+
+    private static string BuildAgentInstructions() =>
+        """
+        # SpecForge Agent Instructions
+
+        These instructions apply to SpecForge workflow artifacts stored under `.specs/`.
+
+        ## Workflow Access
+
+        - Use the SpecForge MCP as the operational source of truth for user story workflow state, current phase, pending questions, approvals, and workflow actions.
+        - Before answering or resolving blocked refinement, spec, approval, or workflow questions, inspect the user story through MCP tools such as `get_user_story_workflow`, `get_current_phase`, `get_user_story_summary`, and `list_user_story_files`.
+        - Submit workflow answers and decisions through MCP tools such as `submit_refinement_answers`, `submit_approval_answer`, or the closest available workflow operation.
+        - Do not modify `.specs/**` workflow artifacts directly when an MCP tool exposes the corresponding workflow action.
+        - Direct reads of `.specs/**` files are allowed for evidence, debugging, and technical inspection, but they must not replace MCP workflow state when both are available.
+        - If the MCP is unavailable or does not expose the required information or action, state that limitation explicitly before relying on direct file inspection or manual edits.
+
+        ## User Story Quality
+
+        - Prefer complete, precise, implementation-ready user stories. The more explicit the actor, goal, trigger, business rules, inputs, outputs, constraints, edge cases, and acceptance intent are, the better optimized the story is for the SpecForge workflow.
+        - Do not compress important business or technical context just to make the story shorter. Preserve facts that can reduce refinement loops, approval questions, design ambiguity, review failures, or later rewinds.
+        - If the user gives an incomplete story, use the MCP workflow to surface or answer questions instead of silently inventing business-critical facts.
+
+        ## Questions And Decisions
+
+        - Questions can appear in multiple workflow phases, including refinement, spec approval, review, release approval, and reopened workflows.
+        - Always inspect the current workflow details before assuming where the blocking questions live: refinement questions are exposed through `refinement.items`; approval and later decision questions are exposed through `approvalQuestions` or phase artifacts surfaced by the MCP.
+        - When answering on behalf of the user, keep answers grounded in user-provided intent or repository evidence. If the evidence is insufficient, report that the question still needs direct user input.
+
+        ## Audit Attribution
+
+        - When the model performs a workflow action requested by the user, pass an `actor` value that makes the indirect action explicit, for example `model-on-behalf-of-user`, unless the user provides a more specific actor.
+        - Do not present model-mediated approvals, rejections, overrides, rewinds, regressions, resets, reopens, or submitted answers as direct user actions.
+        - Include concise reasons when tools accept them, especially for `request_regression`, `rewind_workflow`, `restart_user_story_from_source`, `approve_review_anyway`, and `reopen_completed_workflow`.
+
+        ## Reopening Completed Workflows
+
+        - A completed user story can be reopened through `reopen_completed_workflow` when a real defect, merge conflict, functional issue, or technical issue is discovered after completion.
+        - Use the supported `reasonKind` values exposed by the MCP tool contract, and include a concrete `description` of what failed or what must be incorporated.
+        - After reopening, re-query `get_user_story_workflow` and continue from the reopened phase through MCP instead of editing artifacts directly.
         """;
 
     private static string BuildPromptManifestYaml() =>
@@ -204,9 +267,9 @@ public sealed class RepositoryPromptInitializer
         You are SpecForge's phase execution engine for this repository.
 
         Act strictly within the requested phase contract.
-        Return the response format declared by the caller for the current phase.
-        JSON phases must conform to the supplied response schema.
-        Markdown phases must return the complete artifact markdown directly.
+        Model-driven workflow phases must return the complete Markdown artifact for the requested phase.
+        Internal model tasks must also return their requested Markdown sections directly.
+        Do not return JSON.
         Do not invent missing repository facts.
         """;
 
@@ -259,7 +322,8 @@ public sealed class RepositoryPromptInitializer
         Surface material findings, missing validation, and release risks without inventing work that was not inspected.
         Never pass review when implementation evidence is missing, empty, or disconnected from the repository delta under review.
         Review must validate every item listed in the Technical Design `Validation Strategy`.
-        The review artifact must contain a `validationChecklist` entry for each Technical Design validation strategy item, marked `pass` only when there is concrete code, artifact, or validation evidence.
+        Technical Design validation strategy bullets should classify evidence with `[automated]`, `[static]`, `[operational]`, or `[deferred]`.
+        The review artifact must contain one `## Validation Checklist` Markdown bullet for each Technical Design validation strategy item, marked passing only when there is concrete code, artifact, or validation evidence, or marked deferred when the active evidence policy allows an operational/deferred gap.
         If the Technical Design validation strategy is missing, empty, or cannot be inspected, the review result must be `fail`.
         """;
 
@@ -308,11 +372,11 @@ public sealed class RepositoryPromptInitializer
 
     private static string BuildSharedOutputRulesPrompt() =>
         """
-        Return only the response format declared by the caller for the current phase.
+        Return only Markdown for the current phase or internal task.
         Do not wrap the response in code fences.
-        Do not return prose outside the declared response payload.
-        Preserve the expected semantic fields of the target artifact.
-        If required context is missing or contradictory, state it explicitly inside the declared response payload instead of hiding the issue.
+        Do not return JSON or prose outside the declared Markdown payload.
+        Preserve the expected semantic sections of the target artifact.
+        If required context is missing or contradictory, state it explicitly inside the declared Markdown payload instead of hiding the issue.
         """;
 
     private static string BuildRefinementExecutePrompt() =>
@@ -404,6 +468,16 @@ public sealed class RepositoryPromptInitializer
         - Implementation Strategy
         - Validation Strategy
         - Open Decisions
+
+        Planning rules:
+        - `Implementation Strategy` must be an operational implementation plan, not generic design prose
+        - include likely files, modules, or contracts to touch when they can be inferred from repository context
+        - order the work into concrete implementation steps
+        - call out edge cases, negative paths, and complexity risks that implementation must cover
+        - reject designs that hide god-class growth, duplicated responsibilities, or missing validation behind vague wording
+        - `Validation Strategy` must map to concrete checks the review phase can verify later
+        - prefix each `Validation Strategy` bullet with exactly one evidence tag: `[automated]`, `[static]`, `[operational]`, or `[deferred]`
+        - use `[operational]` for live services, secrets, databases, bootstrap execution, external models, or environment-dependent readback unless the repository provides a reliable local fake or test harness
         """;
 
     private static string BuildImplementationExecutePrompt() =>
@@ -438,7 +512,9 @@ public sealed class RepositoryPromptInitializer
         - inspect the implementation evidence produced by the previous phase, not only the narrative artifact
         - if implementation evidence shows zero touched files, the review must fail and explain why the user story cannot be considered implemented
         - derive the Validation Checklist from the Technical Design `Validation Strategy`; use one checklist item per validation strategy bullet
-        - never return `pass` if the Validation Checklist is missing, empty, incomplete, or contains any failed item
+        - derive workflow or bootstrap commands from repository evidence such as tasks, tool manifests, README files, or workflow configs; do not infer CLI names from folder names
+        - never return `pass` if the Validation Checklist is missing, empty, incomplete, or contains any failed blocking item
+        - the `## State` section must contain exactly one `- Result:` line with value `pass` or `fail`
         Behave as reviewer, not as author.
         """;
 
@@ -494,14 +570,12 @@ public sealed class RepositoryPromptInitializer
         - PR Body
 
         Output rules:
-        - return only structured JSON that conforms to the response schema supplied by the caller
-        - do not return markdown outside the structured payload
+        - return only the complete `06-pr-preparation.md` artifact as Markdown
+        - do not return JSON
         - do not leave required fields empty
         - do not use placeholder-only values such as `...`, `TODO`, or empty bullet lists
-        - every list-valued field in this phase must be a JSON array of strings
         - `PR Title` must be directly usable for a draft PR
         - `PR Summary` must describe the delivered scope concretely
-        - `PR Body` must be a JSON array of strings, with one markdown line per array item
         - `PR Body` must be complete reviewer-ready markdown, not a template stub
         """;
 }

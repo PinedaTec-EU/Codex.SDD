@@ -21,6 +21,7 @@ public sealed record PhaseExecutionInputManifest(
     string WorkspaceRoot,
     string UserStoryPath,
     string? UserStorySha256,
+    string? WorkspaceGitHeadSha,
     IReadOnlyCollection<PhaseExecutionArtifactInput> PreviousArtifacts,
     IReadOnlyCollection<PhaseExecutionArtifactInput> ContextFiles,
     PhaseExecutionArtifactInput? CurrentArtifact,
@@ -69,6 +70,7 @@ public static class PhaseExecutionReceiptStore
             WorkspaceRoot: NormalizePath(workspaceRoot),
             UserStoryPath: NormalizePath(context.UserStoryPath),
             UserStorySha256: TryComputeFileSha256(context.UserStoryPath),
+            WorkspaceGitHeadSha: TryReadGitHeadSha(workspaceRoot),
             PreviousArtifacts: previousArtifacts,
             ContextFiles: contextFiles,
             CurrentArtifact: currentArtifact,
@@ -113,4 +115,32 @@ public static class PhaseExecutionReceiptStore
     }
 
     public static string NormalizePath(string path) => path.Replace('\\', '/');
+
+    private static string? TryReadGitHeadSha(string workspaceRoot)
+    {
+        try
+        {
+            using var process = new System.Diagnostics.Process
+            {
+                StartInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "git",
+                    WorkingDirectory = workspaceRoot,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false
+                }
+            };
+            process.StartInfo.ArgumentList.Add("rev-parse");
+            process.StartInfo.ArgumentList.Add("HEAD");
+            process.Start();
+            var stdout = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+            return process.ExitCode == 0 ? stdout.Trim() : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

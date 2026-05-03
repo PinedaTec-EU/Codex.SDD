@@ -1,3 +1,10 @@
+export interface ModelResponseDiagnostic {
+  readonly providerKind: string;
+  readonly transport: string;
+  readonly mode: "delta" | "complete";
+  readonly text: string;
+}
+
 export function summarizeMcpDiagnosticLine(line: string): string | null {
   const withoutTimestamp = line.replace(/^\[[^\]]+\]\s*/, "");
   const tagMatch = withoutTimestamp.match(/^\[(?<tag>[^\]]+)\]\s*(?<message>.*)$/);
@@ -7,6 +14,14 @@ export function summarizeMcpDiagnosticLine(line: string): string | null {
 
   const tag = tagMatch.groups.tag;
   const message = tagMatch.groups.message ?? "";
+  if (tag === "provider.model.response") {
+    const provider = extractDiagnosticValue(message, "provider") ?? "model";
+    const transport = extractDiagnosticValue(message, "transport") ?? "unknown";
+    const mode = extractDiagnosticValue(message, "mode") ?? "complete";
+    const chunk = decodeLoggedChunk(extractDiagnosticValue(message, "chunk"));
+    return `${provider} ${transport} ${mode} response: ${truncateDiagnosticMessage(chunk ?? "")}`;
+  }
+
   if (!tag.startsWith("provider.native")) {
     return null;
   }
@@ -53,6 +68,50 @@ export function summarizeMcpDiagnosticLine(line: string): string | null {
     default:
       return null;
   }
+}
+
+export function parseModelResponseDiagnosticLine(line: string): ModelResponseDiagnostic | null {
+  const withoutTimestamp = line.replace(/^\[[^\]]+\]\s*/, "");
+  const tagMatch = withoutTimestamp.match(/^\[(?<tag>[^\]]+)\]\s*(?<message>.*)$/);
+  if (!tagMatch?.groups) {
+    return null;
+  }
+
+  const tag = tagMatch.groups.tag;
+  const message = tagMatch.groups.message ?? "";
+  if (tag === "provider.native.exec.stdout") {
+    const text = decodeLoggedChunk(extractDiagnosticValue(message, "chunk"));
+    if (!text) {
+      return null;
+    }
+
+    return {
+      providerKind: extractDiagnosticValue(message, "provider") ?? "native",
+      transport: "cli",
+      mode: "delta",
+      text
+    };
+  }
+
+  if (tag !== "provider.model.response") {
+    return null;
+  }
+
+  const text = decodeLoggedChunk(extractDiagnosticValue(message, "chunk"));
+  if (!text) {
+    return null;
+  }
+
+  return {
+    providerKind: extractDiagnosticValue(message, "provider") ?? "model",
+    transport: extractDiagnosticValue(message, "transport") ?? "unknown",
+    mode: extractModelResponseMode(extractDiagnosticValue(message, "mode")),
+    text
+  };
+}
+
+function extractModelResponseMode(value: string | null): "delta" | "complete" {
+  return value === "delta" ? "delta" : "complete";
 }
 
 function extractDiagnosticValue(message: string, key: string): string | null {

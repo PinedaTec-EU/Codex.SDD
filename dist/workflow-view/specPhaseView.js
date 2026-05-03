@@ -203,9 +203,9 @@ function buildSpecPhaseSections(args) {
         : "";
     return {
         beforeArtifact: [
-            ...(approvalBranchSection ? [approvalBranchSection] : []),
             ...(specRefinementSection ? [specRefinementSection] : []),
-            ...(specApprovalQuestionsSection ? [specApprovalQuestionsSection] : [])
+            ...(specApprovalQuestionsSection ? [specApprovalQuestionsSection] : []),
+            ...(approvalBranchSection ? [approvalBranchSection] : [])
         ],
         afterArtifact: phaseOperationSection ? [phaseOperationSection] : []
     };

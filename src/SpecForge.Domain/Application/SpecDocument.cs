@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -399,7 +400,14 @@ public static class SpecJson
             lines.Add($"- [{(resolved ? "x" : " ")}] {item.Question}");
             if (!string.IsNullOrWhiteSpace(item.Answer))
             {
-                lines.Add($"  - Answer: {item.Answer}");
+                lines.Add("  - Answer:");
+                lines.Add("    <specforge-human-answer>");
+                foreach (var line in item.Answer.Replace("\r\n", "\n").Split('\n'))
+                {
+                    lines.Add($"    {WebUtility.HtmlEncode(line)}");
+                }
+
+                lines.Add("    </specforge-human-answer>");
             }
 
             if (!string.IsNullOrWhiteSpace(item.AnsweredBy))
