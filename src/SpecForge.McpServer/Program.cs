@@ -105,6 +105,9 @@ static async Task<JsonNode> HandleToolCallAsync(
     {
         object result = toolName switch
         {
+            "specforge_query" => await HandleSpecForgeQueryAsync(arguments, applicationService),
+            "specforge_action" => await HandleSpecForgeActionAsync(arguments, applicationService),
+            "specforge_prompts" => await HandleSpecForgePromptsAsync(arguments, applicationService),
             "create_us_from_chat" => await applicationService.CreateUserStoryAsync(
                 workspaceRoot: GetRequired(arguments, "workspaceRoot"),
                 usId: GetRequired(arguments, "usId"),
@@ -257,6 +260,32 @@ static JsonObject BuildToolsList()
     {
         ["tools"] = new JsonArray
         {
+            Tool("specforge_query", "Compact SpecForge read facade for Codex clients. Use this instead of granular read tools when possible.",
+                Schema(
+                    required: ["workspaceRoot", "query"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("query",         Prop("string", "Read operation: list_user_stories, summary, workflow, current_phase, runtime_status, lineage, or files.")),
+                        ("usId",          Prop("string", "User story identifier. Required for all queries except list_user_stories."))))),
+
+            Tool("specforge_action", "Compact SpecForge mutation facade for Codex clients. Use this instead of editing .specs files directly.",
+                Schema(
+                    required: ["workspaceRoot", "action"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("action",        Prop("string", "Mutation operation, e.g. create_user_story, advance_phase, approve_phase, request_regression, submit_refinement_answers, submit_approval_answer, operate_artifact, add_files, or set_file_kind.")),
+                        ("usId",          Prop("string", "User story identifier when the action targets an existing user story.")),
+                        ("params",        Prop("object", "Action-specific parameters. Keep this small and use the SpecForge skill for the exact shape."))))),
+
+            Tool("specforge_prompts", "Compact SpecForge prompt-template facade.",
+                Schema(
+                    required: ["workspaceRoot", "operation"],
+                    Props(
+                        ("workspaceRoot", Prop("string", "Absolute path to the workspace root.")),
+                        ("operation",     Prop("string", "Prompt operation: initialize_repo_prompts or export_prompt_template.")),
+                        ("promptPath",    Prop("string", "Template path for export_prompt_template.")),
+                        ("overwrite",     Prop("boolean", "If true, overwrite existing prompt files. Defaults to false."))))),
+
             Tool("create_us_from_chat", "Create a user story from free text.",
                 Schema(
                     required: ["workspaceRoot", "usId", "title", "kind", "category", "sourceText"],
@@ -473,6 +502,164 @@ static JsonObject BuildToolsList()
                         ("filePath",      Prop("string", "Absolute path of the file to reclassify.")),
                         ("kind",          Prop("string", "Target file kind: 'context' or 'attachment'.")))))
         }
+    };
+}
+
+static async Task<object> HandleSpecForgeQueryAsync(
+    JsonObject arguments,
+    SpecForgeApplicationService applicationService)
+{
+    var workspaceRoot = GetRequired(arguments, "workspaceRoot");
+    var query = GetRequired(arguments, "query");
+
+    return query switch
+    {
+        "list_user_stories" => new
+        {
+            items = await applicationService.ListUserStoriesAsync(workspaceRoot)
+        },
+        "summary" => await applicationService.GetUserStorySummaryAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId")),
+        "workflow" => await applicationService.GetUserStoryWorkflowAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId")),
+        "current_phase" => await applicationService.GetCurrentPhaseAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId")),
+        "runtime_status" => await applicationService.GetUserStoryRuntimeStatusAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId")),
+        "lineage" => await applicationService.AnalyzeUserStoryLineageAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId")),
+        "files" => await applicationService.ListUserStoryFilesAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId")),
+        _ => throw new InvalidOperationException($"SpecForge query '{query}' is not supported.")
+    };
+}
+
+static async Task<object> HandleSpecForgeActionAsync(
+    JsonObject arguments,
+    SpecForgeApplicationService applicationService)
+{
+    var workspaceRoot = GetRequired(arguments, "workspaceRoot");
+    var action = GetRequired(arguments, "action");
+    var parameters = arguments["params"]?.AsObject() ?? new JsonObject();
+
+    return action switch
+    {
+        "create_user_story" => await applicationService.CreateUserStoryAsync(
+            workspaceRoot,
+            GetRequired(parameters, "usId"),
+            GetRequired(parameters, "title"),
+            GetRequired(parameters, "kind"),
+            GetRequired(parameters, "category"),
+            GetRequired(parameters, "sourceText"),
+            GetOptional(parameters, "actor") ?? "user"),
+        "import_user_story" => await applicationService.ImportUserStoryAsync(
+            workspaceRoot,
+            GetRequired(parameters, "usId"),
+            GetRequired(parameters, "sourcePath"),
+            GetRequired(parameters, "title"),
+            GetRequired(parameters, "kind"),
+            GetRequired(parameters, "category"),
+            GetOptional(parameters, "actor") ?? "user"),
+        "advance_phase" => await applicationService.GenerateNextPhaseAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId"),
+            GetOptional(parameters, "actor") ?? "user"),
+        "approve_phase" => await applicationService.ApprovePhaseAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId"),
+            GetOptional(parameters, "baseBranch"),
+            GetOptional(parameters, "workBranch"),
+            GetOptional(parameters, "actor") ?? "user"),
+        "approve_review_anyway" => await applicationService.ApproveReviewAnywayAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId"),
+            GetRequired(parameters, "reason"),
+            GetOptional(parameters, "actor") ?? "user"),
+        "request_regression" => await applicationService.RequestRegressionAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId"),
+            GetRequired(parameters, "targetPhase"),
+            GetOptional(parameters, "reason"),
+            GetOptionalBoolean(parameters, "destructive"),
+            GetOptional(parameters, "actor") ?? "user"),
+        "restart_from_source" => await applicationService.RestartUserStoryFromSourceAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId"),
+            GetOptional(parameters, "reason"),
+            GetOptional(parameters, "actor") ?? "user"),
+        "rewind_workflow" => await applicationService.RewindWorkflowAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId"),
+            GetRequired(parameters, "targetPhase"),
+            GetOptionalBoolean(parameters, "destructive"),
+            GetOptional(parameters, "actor") ?? "user"),
+        "reopen_completed" => await applicationService.ReopenCompletedWorkflowAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId"),
+            GetRequired(parameters, "reasonKind"),
+            GetRequired(parameters, "description"),
+            GetOptional(parameters, "actor") ?? "user"),
+        "reset_to_capture" => await applicationService.ResetUserStoryToCaptureAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId")),
+        "submit_refinement_answers" => await applicationService.SubmitRefinementAnswersAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId"),
+            GetStringArray(parameters, "answers"),
+            GetOptional(parameters, "actor") ?? "user"),
+        "submit_approval_answer" => await applicationService.SubmitApprovalAnswerAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId"),
+            GetRequired(parameters, "question"),
+            GetRequired(parameters, "answer"),
+            GetOptional(parameters, "actor") ?? "user"),
+        "operate_artifact" => await applicationService.OperateCurrentPhaseArtifactAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId"),
+            GetRequired(parameters, "prompt"),
+            GetOptionalBoolean(parameters, "includeReviewArtifactInContext", defaultValue: true),
+            GetOptional(parameters, "actor") ?? "user"),
+        "add_files" => await applicationService.AddUserStoryFilesAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId"),
+            GetStringArray(parameters, "sourcePaths"),
+            GetRequired(parameters, "kind")),
+        "set_file_kind" => await applicationService.SetUserStoryFileKindAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId"),
+            GetRequired(parameters, "filePath"),
+            GetRequired(parameters, "kind")),
+        "repair_lineage" => await applicationService.RepairUserStoryLineageAsync(
+            workspaceRoot,
+            GetRequired(arguments, "usId"),
+            GetOptional(parameters, "actor") ?? "user"),
+        _ => throw new InvalidOperationException($"SpecForge action '{action}' is not supported.")
+    };
+}
+
+static async Task<object> HandleSpecForgePromptsAsync(
+    JsonObject arguments,
+    SpecForgeApplicationService applicationService)
+{
+    var workspaceRoot = GetRequired(arguments, "workspaceRoot");
+    var operation = GetRequired(arguments, "operation");
+
+    return operation switch
+    {
+        "initialize_repo_prompts" => await applicationService.InitializeRepoPromptsAsync(
+            workspaceRoot,
+            GetOptionalBoolean(arguments, "overwrite")),
+        "export_prompt_template" => await applicationService.ExportPromptTemplateAsync(
+            workspaceRoot,
+            GetRequired(arguments, "promptPath"),
+            GetOptionalBoolean(arguments, "overwrite")),
+        _ => throw new InvalidOperationException($"SpecForge prompt operation '{operation}' is not supported.")
     };
 }
 

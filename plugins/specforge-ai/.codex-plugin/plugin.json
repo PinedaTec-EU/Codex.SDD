@@ -1,0 +1,44 @@
+{
+  "name": "specforge-ai",
+  "version": "0.1.0",
+  "description": "Operate SpecForge.AI SDD user stories through a compact MCP facade and task-focused Codex skills.",
+  "author": {
+    "name": "PinedaTec"
+  },
+  "homepage": "https://github.com/PinedaTec-EU/SpecForge.AI",
+  "repository": "https://github.com/PinedaTec-EU/SpecForge.AI",
+  "license": "MIT",
+  "keywords": [
+    "sdd",
+    "specforge",
+    "workflow",
+    "mcp",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "SpecForge.AI",
+    "shortDescription": "Run SpecForge user-story workflows through MCP",
+    "longDescription": "SpecForge.AI helps Codex create, inspect, advance, approve, and regress SDD user stories through the authoritative SpecForge MCP backend instead of manually editing workflow files.",
+    "developerName": "PinedaTec",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/PinedaTec-EU/SpecForge.AI",
+    "privacyPolicyURL": "https://github.com/PinedaTec-EU/SpecForge.AI",
+    "termsOfServiceURL": "https://github.com/PinedaTec-EU/SpecForge.AI",
+    "defaultPrompt": [
+      "List my SpecForge user stories",
+      "Advance the current SpecForge phase",
+      "Open the SpecForge workflow view"
+    ],
+    "brandColor": "#1F6F5B",
+    "composerIcon": "./assets/specforge.svg",
+    "logo": "./assets/specforge.svg",
+    "screenshots": []
+  }
+}
