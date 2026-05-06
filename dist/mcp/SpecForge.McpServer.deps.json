@@ -6,26 +6,26 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v10.0": {
-      "SpecForge.McpServer/0.1.4.388": {
+      "SpecForge.McpServer/0.1.4.389": {
         "dependencies": {
-          "SpecForge.Domain": "0.1.4.388",
+          "SpecForge.Domain": "0.1.4.389",
           "SpecForge.OpenAICompatible": "1.0.0"
         },
         "runtime": {
           "SpecForge.McpServer.dll": {}
         }
       },
-      "SpecForge.Domain/0.1.4.388": {
+      "SpecForge.Domain/0.1.4.389": {
         "runtime": {
           "SpecForge.Domain.dll": {
-            "assemblyVersion": "0.1.4.388",
-            "fileVersion": "0.1.4.388"
+            "assemblyVersion": "0.1.4.389",
+            "fileVersion": "0.1.4.389"
           }
         }
       },
       "SpecForge.OpenAICompatible/1.0.0": {
         "dependencies": {
-          "SpecForge.Domain": "0.1.4.388"
+          "SpecForge.Domain": "0.1.4.389"
         },
         "runtime": {
           "SpecForge.OpenAICompatible.dll": {
@@ -37,12 +37,12 @@
     }
   },
   "libraries": {
-    "SpecForge.McpServer/0.1.4.388": {
+    "SpecForge.McpServer/0.1.4.389": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "SpecForge.Domain/0.1.4.388": {
+    "SpecForge.Domain/0.1.4.389": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
